@@ -1,28 +1,32 @@
 # GroundX Agent Harness
 
-GroundX Agent Harness gives Claude, Codex, and other coding agents GroundX-specific
-working knowledge. Install it when you want an agent to understand how to use GroundX
-well enough to help with:
+GroundX Agent Harness gives Claude and Codex the GroundX context they need to help
+with:
 
-- ingesting documents, checking processing status, and searching GroundX content
-- using GroundX buckets, groups, workflows, APIs, and SDKs correctly
-- designing schema-first extraction workflows and comparing results
-- planning GroundX on-prem deployments and configuration values
-- answering GroundX architecture, product, and company questions with approved context
+- document ingest, status checks, and search
+- buckets, groups, workflows, APIs, and SDKs
+- schema-first extraction workflows
+- GroundX on-prem planning
+- GroundX product, company, and architecture questions
 
-The harness gives the agent instructions and reference material. To let the agent make
-authenticated GroundX API calls, also connect the hosted GroundX API MCP app at
-`https://api.groundx.ai/mcp`.
+For authenticated GroundX API calls, connect the hosted MCP server:
 
-## Easy Mode Install
+```text
+https://api.groundx.ai/mcp
+```
 
-Choose the client you use. Use a regular GroundX user API key during OAuth unless
-you specifically need partner/admin operations.
+## Requirements
+
+- A GroundX API key.
+- One of: VS Code + Claude, Claude Desktop, or Codex Desktop.
+- Enter API keys only in the GroundX OAuth screen. Do not paste keys into prompts.
+
+Use a regular GroundX user API key unless you specifically need partner/admin
+operations.
+
+## Installation
 
 ### VS Code + Claude
-
-Use this path when you want Claude to edit code in VS Code and use GroundX
-references while it works.
 
 1. In the Claude Code panel inside VS Code, install the plugin:
 
@@ -38,15 +42,12 @@ references while it works.
    claude mcp add --transport http groundx https://api.groundx.ai/mcp
    ```
 
-3. In Claude, run `/mcp`, connect `groundx`, and complete the browser OAuth flow
-   with your GroundX API key.
-
-4. Start a new Claude Code session in VS Code.
+3. Run `/mcp`, connect `groundx`, complete OAuth, and start a new Claude Code
+   session.
 
 ### Claude Desktop
 
-Use this path when you want Claude Desktop to call GroundX API tools. Claude Desktop
-uses the hosted MCP connector; it does not install the repository skill package.
+Claude Desktop connects GroundX API tools through MCP.
 
 1. Open **Claude Desktop -> Settings -> Connectors**.
 2. Click **Add custom connector**.
@@ -59,14 +60,9 @@ uses the hosted MCP connector; it does not install the repository skill package.
 
 4. Leave advanced OAuth fields empty unless Claude asks you to review discovered
    settings.
-5. Add the connector, click **Connect**, and complete OAuth with your GroundX API
-   key.
-6. Enable the GroundX connector in a conversation from the connector picker.
+5. Click **Connect**, complete OAuth, and enable the connector in a conversation.
 
 ### Codex Desktop
-
-Use this path when you want Codex to use the GroundX reference package and call
-GroundX API tools.
 
 1. Open **Plugins**.
 2. Open **Manage** or **Manage marketplaces**.
@@ -80,8 +76,7 @@ GroundX API tools.
 5. Leave sparse paths empty.
 6. Install **GroundX Agent Harness**.
 7. Start a new Codex session.
-8. Open **Settings -> Apps -> Advanced -> New App**.
-9. Enter:
+8. Open **Settings -> Apps -> Advanced -> New App** and enter:
 
    ```text
    Name: GroundX Studio
@@ -89,19 +84,13 @@ GroundX API tools.
    Authentication: OAuth
    ```
 
-10. Leave advanced OAuth fields empty unless Codex asks you to review discovered
-    settings.
-11. Create the app and complete OAuth with your GroundX API key.
-12. Return to **Settings -> Apps**, open **GroundX Studio**, and click **Refresh** if
-    the action list is empty.
-
-Expected result: the app information shows URL `https://api.groundx.ai/mcp`,
-authorization supported/used as `OAuth`, and actions such as `bucket_list`,
-`document_ingestlocal`, `search_content`, or `groundx_account_context`.
+9. Leave advanced OAuth fields empty unless Codex asks you to review discovered
+   settings.
+10. Create the app, complete OAuth, and click **Refresh** if the action list is empty.
 
 ### Claude Code CLI
 
-If you use Claude Code outside VS Code, install the same plugin and MCP server:
+Outside VS Code, use the same Claude plugin and MCP commands:
 
 ```text
 /plugin marketplace add GroundX-Studio/groundx-agent-harness
@@ -115,13 +104,9 @@ claude mcp add --transport http groundx https://api.groundx.ai/mcp
 
 Then run `/mcp`, connect `groundx`, complete OAuth, and start a new session.
 
-## Verify Installation
+## Verification
 
-Use non-secret checks first.
-
-### Skill Package Check
-
-For VS Code + Claude, Claude Code CLI, or Codex Desktop:
+Run these checks without pasting secrets into chat.
 
 ```text
 List the GroundX Agent Harness skills you have available.
@@ -131,20 +116,12 @@ List the GroundX Agent Harness skills you have available.
 Use the GroundX Agent Harness references to explain the safest document ingest -> status polling -> search flow. Do not ask me for an API key.
 ```
 
-### MCP Connector Check
-
-For all three easy-mode clients:
-
 ```text
 Show my GroundX account context using the connector. Do not include raw credentials.
 ```
 
-With a regular user key, normal GroundX API tools should be available and partner/admin
+With a regular user key, normal GroundX API tools should be visible and partner/admin
 tools should not be visible.
-
-### Data Extraction Smoke Test
-
-Use a sanitized sample document and expected fields. Ask:
 
 ```text
 Use the GroundX Agent Harness extraction workflow guidance to design a schema for this document. If GroundX API tools are connected, ingest the file, check processing status, search or retrieve the processed content, compare the result to these expected fields, and suggest schema or prompt fixes. Do not ask me to paste an API key.
@@ -156,7 +133,7 @@ You can also run the local helper from a checkout of this repository:
 node scripts/doctor.mjs
 ```
 
-## Keep Customer Data Private
+## Data Handling
 
 Do not commit customer documents, answer keys, private pilot notes, comparison outputs,
 credentials, or local run artifacts to this repository.
