@@ -1,34 +1,26 @@
 # GroundX Agent Harness
 
-GroundX Agent Harness is the customer-facing plugin bundle for agents working with
-GroundX. It includes public-safe guidance for:
+GroundX Agent Harness gives Claude, Codex, and other coding agents GroundX-specific
+working knowledge. Install it when you want an agent to understand how to use GroundX
+well enough to help with:
 
-- GroundX API authentication, ingest, search, buckets, groups, workflows, and SDK use
-- schema-first extraction workflow authoring and comparison
-- GroundX on-prem deployment planning and values authoring
-- GroundX architecture facts for technical due diligence
-- approved GroundX and Valantor product/company messaging references
+- ingesting documents, checking processing status, and searching GroundX content
+- using GroundX buckets, groups, workflows, APIs, and SDKs correctly
+- designing schema-first extraction workflows and comparing results
+- planning GroundX on-prem deployments and configuration values
+- answering GroundX architecture, product, and company questions with approved context
 
-This public bundle intentionally excludes internal managed-project lifecycle tools,
-Partner-only APIs, web UI scaffold production, slide production, and the local
-Studio lifecycle MCP server. Use the hosted GroundX API connector for API operations.
+The harness gives the agent instructions and reference material. To let the agent make
+authenticated GroundX API calls, also connect the hosted GroundX API MCP app at
+`https://api.groundx.ai/mcp`.
 
-## Quick Start
+## Install
 
-Use this public repository target:
+Choose the client you use.
 
-```text
-GroundX-Studio/groundx-agent-harness
-```
+### Claude Code
 
-After installation, start a new agent session so the plugin and skills are loaded.
-If GroundX API tools are not visible, connect the hosted GroundX API connector and
-retry tool discovery. Do not paste API keys into prompts.
-
-## Claude Code
-
-In Claude Code, add the public repository as a plugin marketplace and install the
-plugin:
+From inside Claude Code, add the GroundX marketplace and install the plugin:
 
 ```text
 /plugin marketplace add GroundX-Studio/groundx-agent-harness
@@ -37,42 +29,43 @@ plugin:
 
 Then start a new Claude Code session.
 
-## VS Code + Claude
+CLI equivalent:
 
-If you are using the Claude Code extension for VS Code, use the same Claude Code
-plugin commands inside that VS Code Claude session:
+```sh
+claude plugin marketplace add GroundX-Studio/groundx-agent-harness
+claude plugin install groundx-agent-harness@groundx-agent-harness
+```
+
+### VS Code + Claude
+
+If you use Claude Code inside VS Code, run the same Claude plugin commands in the
+Claude Code session:
 
 ```text
 /plugin marketplace add GroundX-Studio/groundx-agent-harness
 /plugin install groundx-agent-harness@groundx-agent-harness
 ```
 
-This path assumes the Claude Code plugin flow is available inside VS Code. If the
-extension cannot see the plugin after install, restart the Claude Code session inside
-VS Code.
+Restart the Claude Code session inside VS Code after installing.
 
-## Codex
+### Codex App
 
 In Codex:
 
-1. Open **Plugins -> Manage -> Marketplace -> Add marketplace**.
-2. Enter:
+1. Open **Plugins**.
+2. Open **Manage** or **Manage marketplaces**.
+3. Add a marketplace from this repository:
 
-   ```text
-   https://github.com/GroundX-Studio/groundx-agent-harness
-   ```
+```text
+https://github.com/GroundX-Studio/groundx-agent-harness
+```
 
-3. Use ref:
+4. Use ref `main`.
+5. Leave sparse paths empty.
+6. Install **GroundX Agent Harness**.
+7. Start a new Codex session.
 
-   ```text
-   main
-   ```
-
-4. Leave sparse paths empty.
-5. Install **GroundX Agent Harness** from the added marketplace.
-6. Start a new Codex session.
-
-### Add the hosted GroundX MCP app in Codex
+## Connect GroundX API Tools In Codex
 
 The plugin gives Codex the GroundX agent instructions. The hosted MCP app gives Codex
 authenticated GroundX API tools.
@@ -136,26 +129,7 @@ You can also run the local helper from a checkout of this repository:
 node scripts/doctor.mjs
 ```
 
-## Public Bundle Validation
-
-This repository is generated from the internal `groundx-studio-harness` source repo.
-Public CI runs:
-
-```sh
-node scripts/validate-public-bundle.mjs
-```
-
-That check verifies public manifests, skill paths, absence of local lifecycle MCP,
-absence of excluded internal skill surfaces, provenance, and secret hygiene.
-
-## Private Work
+## Keep Customer Data Private
 
 Do not commit customer documents, answer keys, private pilot notes, comparison outputs,
-credentials, or local run artifacts to this repository. Keep private work outside the
-repo or in ignored local work directories when using OpenSpec in an implementation repo.
-
-## Generated Source
-
-Skill content in this repository is generated from `groundx-studio-harness`. Do not
-hand-edit generated skill content here. Make source changes in the internal harness and
-sync them into this repository through the public release process.
+credentials, or local run artifacts to this repository.

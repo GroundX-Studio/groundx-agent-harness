@@ -35,9 +35,3 @@ Start with `product-brand-gtm` for GroundX product positioning, value propositio
 proof points, buyer framing, objections, and product-level copy. Start with
 `master-brand-gtm` for Valantor company/category framing, Visual Intelligence,
 AI-plus-humans accountability, and master-brand value props.
-
-## Not Included
-
-This public bundle does not include internal managed-project publishing, web UI scaffold
-implementation, slide production, Partner-only API lifecycle operations, or local Studio
-MCP lifecycle tools.

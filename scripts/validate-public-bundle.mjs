@@ -32,6 +32,14 @@ const FORBIDDEN_TEXT = [
   "PARTNER_API_KEY",
   "git_session",
   "project_create",
+  "customer-facing plugin bundle",
+  "public-safe guidance",
+  "intentionally excludes",
+  "managed-project lifecycle",
+  "Partner-only APIs",
+  "web UI scaffold production",
+  "slide production",
+  "Use this public repository target",
 ];
 const TEXT_SCAN_SKIP = new Set([
   "scripts/validate-public-bundle.mjs",

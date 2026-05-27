@@ -62,29 +62,34 @@ function validateLocalBundle() {
 
 function claude() {
   section("Claude Code");
-  console.log("In Claude Code, add this GitHub repo as a plugin marketplace, then install the plugin:");
+  console.log("From inside Claude Code, add the GroundX marketplace and install the plugin:");
   code(`
 /plugin marketplace add GroundX-Studio/groundx-agent-harness
 /plugin install groundx-agent-harness@groundx-agent-harness
 `);
-  console.log("Start a new Claude Code session after installing. If tools are missing, connect the hosted GroundX API connector and retry tool discovery.");
+  console.log("CLI equivalent:");
+  code(`
+claude plugin marketplace add GroundX-Studio/groundx-agent-harness
+claude plugin install groundx-agent-harness@groundx-agent-harness
+`);
+  console.log("Start a new Claude Code session after installing.");
 }
 
 function vscodeClaude() {
   section("VS Code + Claude");
-  console.log("If you are using the Claude Code extension for VS Code, run the same plugin commands from Claude Code inside VS Code:");
+  console.log("If you use Claude Code inside VS Code, run the same plugin commands in the Claude Code session:");
   code(`
 /plugin marketplace add GroundX-Studio/groundx-agent-harness
 /plugin install groundx-agent-harness@groundx-agent-harness
 `);
-  console.log("Restart the Claude Code session after install. This path assumes the Claude Code plugin flow is available inside VS Code.");
+  console.log("Restart the Claude Code session inside VS Code after installing.");
 }
 
 function codex() {
-  section("Codex");
-  console.log("In Codex, add a marketplace from the public GitHub repository:");
+  section("Codex App");
+  console.log("In Codex, open Plugins, then Manage or Manage marketplaces. Add a marketplace from this repository:");
   code(`
-Repository: https://github.com/GroundX-Studio/groundx-agent-harness
+Repository URL: https://github.com/GroundX-Studio/groundx-agent-harness
 Ref: main
 Sparse paths: leave empty
 `);
