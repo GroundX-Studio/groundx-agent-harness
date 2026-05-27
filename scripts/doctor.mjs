@@ -7,9 +7,10 @@
  *
  * Usage:
  *   node scripts/doctor.mjs
- *   node scripts/doctor.mjs claude
- *   node scripts/doctor.mjs codex
  *   node scripts/doctor.mjs vscode-claude
+ *   node scripts/doctor.mjs claude-desktop
+ *   node scripts/doctor.mjs codex-desktop
+ *   node scripts/doctor.mjs claude-code
  *   node scripts/doctor.mjs mcp
  */
 
@@ -20,11 +21,23 @@ import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
-const client = process.argv[2] ?? "all";
-const validClients = new Set(["all", "claude", "codex", "vscode-claude", "mcp"]);
+const requestedClient = process.argv[2] ?? "all";
+const clientAliases = new Map([
+  ["claude", "claude-code"],
+  ["codex", "codex-desktop"],
+]);
+const client = clientAliases.get(requestedClient) ?? requestedClient;
+const validClients = new Set([
+  "all",
+  "claude-code",
+  "claude-desktop",
+  "codex-desktop",
+  "vscode-claude",
+  "mcp",
+]);
 
 if (!validClients.has(client)) {
-  console.error(`Unknown client "${client}". Use one of: ${[...validClients].join(", ")}`);
+  console.error(`Unknown client "${requestedClient}". Use one of: ${[...validClients].join(", ")}`);
   process.exit(2);
 }
 
@@ -60,33 +73,34 @@ function validateLocalBundle() {
   }
 }
 
-function claude() {
-  section("Claude Code");
-  console.log("From inside Claude Code, add the GroundX marketplace and install the plugin:");
-  code(`
-/plugin marketplace add GroundX-Studio/groundx-agent-harness
-/plugin install groundx-agent-harness@groundx-agent-harness
-`);
-  console.log("CLI equivalent:");
-  code(`
-claude plugin marketplace add GroundX-Studio/groundx-agent-harness
-claude plugin install groundx-agent-harness@groundx-agent-harness
-`);
-  console.log("Start a new Claude Code session after installing.");
-}
-
 function vscodeClaude() {
   section("VS Code + Claude");
-  console.log("If you use Claude Code inside VS Code, run the same plugin commands in the Claude Code session:");
+  console.log("In the Claude Code panel inside VS Code, install the plugin:");
   code(`
 /plugin marketplace add GroundX-Studio/groundx-agent-harness
 /plugin install groundx-agent-harness@groundx-agent-harness
+/reload-plugins
 `);
-  console.log("Restart the Claude Code session inside VS Code after installing.");
+  console.log("In the VS Code integrated terminal, add the hosted GroundX MCP server:");
+  code(`
+claude mcp add --transport http groundx https://api.groundx.ai/mcp
+`);
+  console.log("Run /mcp, connect groundx, complete OAuth with a GroundX API key, then start a new Claude Code session in VS Code.");
 }
 
-function codex() {
-  section("Codex App");
+function claudeDesktop() {
+  section("Claude Desktop");
+  console.log("Claude Desktop uses the hosted MCP connector. It does not install the repository skill package.");
+  code(`
+Settings -> Connectors -> Add custom connector
+Name: GroundX Studio
+Remote MCP Server URL: https://api.groundx.ai/mcp
+`);
+  console.log("Leave advanced OAuth fields empty unless Claude asks you to review discovered settings. Add the connector, click Connect, authorize with a GroundX API key, then enable the connector in a conversation.");
+}
+
+function codexDesktop() {
+  section("Codex Desktop");
   console.log("In Codex, open Plugins, then Manage or Manage marketplaces. Add a marketplace from this repository:");
   code(`
 Repository URL: https://github.com/GroundX-Studio/groundx-agent-harness
@@ -104,9 +118,23 @@ Authentication: OAuth
   console.log("Leave advanced OAuth fields empty unless Codex asks you to review discovered settings. Create the app, authorize with a GroundX API key, then refresh the app if the action list is empty.");
 }
 
+function claudeCode() {
+  section("Claude Code CLI");
+  console.log("Install the plugin from inside Claude Code, then add the hosted GroundX MCP server:");
+  code(`
+/plugin marketplace add GroundX-Studio/groundx-agent-harness
+/plugin install groundx-agent-harness@groundx-agent-harness
+/reload-plugins
+`);
+  code(`
+claude mcp add --transport http groundx https://api.groundx.ai/mcp
+`);
+  console.log("Run /mcp, connect groundx, complete OAuth, then start a new session.");
+}
+
 function mcp() {
-  section("Remote MCP / Connector Fallback");
-  console.log("For clients that support remote MCP/connectors but not plugins, connect the hosted GroundX API MCP endpoint:");
+  section("Hosted GroundX API MCP");
+  console.log("For clients that support remote MCP/connectors, connect the hosted GroundX API MCP endpoint:");
   code("https://api.groundx.ai/mcp");
   console.log("Do not paste API keys into prompts. Use the deployment-managed OAuth flow or connector install flow.");
 }
@@ -119,12 +147,17 @@ List the GroundX Agent Harness skills you have available.
 Use the GroundX Agent Harness references to explain the safest document ingest -> status polling -> search flow. Do not ask me for an API key.
 
 If GroundX API tools are visible, show my GroundX account context using the connector. Do not include raw credentials.
+
+With a regular user key, confirm normal GroundX tools are available and partner/admin tools are not visible.
+
+Use the GroundX Agent Harness extraction workflow guidance to design a schema for a sanitized sample financial document. If GroundX API tools are connected, ingest the file, check processing status, search or retrieve processed content, compare the result to expected fields, and suggest schema or prompt fixes. Do not ask me to paste an API key.
 `);
 }
 
 validateLocalBundle();
-if (client === "all" || client === "claude") claude();
-if (client === "all" || client === "codex") codex();
 if (client === "all" || client === "vscode-claude") vscodeClaude();
+if (client === "all" || client === "claude-desktop") claudeDesktop();
+if (client === "all" || client === "codex-desktop") codexDesktop();
+if (client === "all" || client === "claude-code") claudeCode();
 if (client === "all" || client === "mcp") mcp();
 verify();

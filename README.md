@@ -14,66 +14,74 @@ The harness gives the agent instructions and reference material. To let the agen
 authenticated GroundX API calls, also connect the hosted GroundX API MCP app at
 `https://api.groundx.ai/mcp`.
 
-## Install
+## Easy Mode Install
 
-Choose the client you use.
-
-### Claude Code
-
-From inside Claude Code, add the GroundX marketplace and install the plugin:
-
-```text
-/plugin marketplace add GroundX-Studio/groundx-agent-harness
-/plugin install groundx-agent-harness@groundx-agent-harness
-```
-
-Then start a new Claude Code session.
-
-CLI equivalent:
-
-```sh
-claude plugin marketplace add GroundX-Studio/groundx-agent-harness
-claude plugin install groundx-agent-harness@groundx-agent-harness
-```
+Choose the client you use. Use a regular GroundX user API key during OAuth unless
+you specifically need partner/admin operations.
 
 ### VS Code + Claude
 
-If you use Claude Code inside VS Code, run the same Claude plugin commands in the
-Claude Code session:
+Use this path when you want Claude to edit code in VS Code and use GroundX
+references while it works.
 
-```text
-/plugin marketplace add GroundX-Studio/groundx-agent-harness
-/plugin install groundx-agent-harness@groundx-agent-harness
-```
+1. In the Claude Code panel inside VS Code, install the plugin:
 
-Restart the Claude Code session inside VS Code after installing.
+   ```text
+   /plugin marketplace add GroundX-Studio/groundx-agent-harness
+   /plugin install groundx-agent-harness@groundx-agent-harness
+   /reload-plugins
+   ```
 
-### Codex App
+2. In the VS Code integrated terminal, add the hosted GroundX MCP server:
 
-In Codex:
+   ```sh
+   claude mcp add --transport http groundx https://api.groundx.ai/mcp
+   ```
+
+3. In Claude, run `/mcp`, connect `groundx`, and complete the browser OAuth flow
+   with your GroundX API key.
+
+4. Start a new Claude Code session in VS Code.
+
+### Claude Desktop
+
+Use this path when you want Claude Desktop to call GroundX API tools. Claude Desktop
+uses the hosted MCP connector; it does not install the repository skill package.
+
+1. Open **Claude Desktop -> Settings -> Connectors**.
+2. Click **Add custom connector**.
+3. Enter:
+
+   ```text
+   Name: GroundX Studio
+   Remote MCP Server URL: https://api.groundx.ai/mcp
+   ```
+
+4. Leave advanced OAuth fields empty unless Claude asks you to review discovered
+   settings.
+5. Add the connector, click **Connect**, and complete OAuth with your GroundX API
+   key.
+6. Enable the GroundX connector in a conversation from the connector picker.
+
+### Codex Desktop
+
+Use this path when you want Codex to use the GroundX reference package and call
+GroundX API tools.
 
 1. Open **Plugins**.
 2. Open **Manage** or **Manage marketplaces**.
 3. Add a marketplace from this repository:
 
-```text
-https://github.com/GroundX-Studio/groundx-agent-harness
-```
+   ```text
+   https://github.com/GroundX-Studio/groundx-agent-harness
+   ```
 
 4. Use ref `main`.
 5. Leave sparse paths empty.
 6. Install **GroundX Agent Harness**.
 7. Start a new Codex session.
-
-## Connect GroundX API Tools In Codex
-
-The plugin gives Codex the GroundX agent instructions. The hosted MCP app gives Codex
-authenticated GroundX API tools.
-
-1. Open **Settings -> Apps** in Codex.
-2. Click **Advanced**.
-3. Click **New App**.
-4. Enter:
+8. Open **Settings -> Apps -> Advanced -> New App**.
+9. Enter:
 
    ```text
    Name: GroundX Studio
@@ -81,33 +89,39 @@ authenticated GroundX API tools.
    Authentication: OAuth
    ```
 
-5. Leave advanced OAuth fields empty unless Codex asks you to review discovered
-   settings. Codex should discover the OAuth metadata from the MCP server.
-6. Accept the custom MCP server warning.
-7. Click **Create**.
-8. Complete the GroundX authorization screen with a GroundX API key.
-9. Return to **Settings -> Apps**, open **GroundX Studio**, and click **Refresh** if
-   the action list is empty.
+10. Leave advanced OAuth fields empty unless Codex asks you to review discovered
+    settings.
+11. Create the app and complete OAuth with your GroundX API key.
+12. Return to **Settings -> Apps**, open **GroundX Studio**, and click **Refresh** if
+    the action list is empty.
 
 Expected result: the app information shows URL `https://api.groundx.ai/mcp`,
 authorization supported/used as `OAuth`, and actions such as `bucket_list`,
 `document_ingestlocal`, `search_content`, or `groundx_account_context`.
 
-## Remote MCP / Connector Fallback
+### Claude Code CLI
 
-For clients that support remote MCP or hosted connectors but not plugins, connect the
-hosted GroundX API MCP endpoint:
+If you use Claude Code outside VS Code, install the same plugin and MCP server:
 
 ```text
-https://api.groundx.ai/mcp
+/plugin marketplace add GroundX-Studio/groundx-agent-harness
+/plugin install groundx-agent-harness@groundx-agent-harness
+/reload-plugins
 ```
 
-Use the deployment-managed OAuth/connector flow. Do not put API keys, refresh tokens,
-client secrets, or user auth state in prompts or checked-in files.
+```sh
+claude mcp add --transport http groundx https://api.groundx.ai/mcp
+```
+
+Then run `/mcp`, connect `groundx`, complete OAuth, and start a new session.
 
 ## Verify Installation
 
-Use non-secret checks first:
+Use non-secret checks first.
+
+### Skill Package Check
+
+For VS Code + Claude, Claude Code CLI, or Codex Desktop:
 
 ```text
 List the GroundX Agent Harness skills you have available.
@@ -117,10 +131,23 @@ List the GroundX Agent Harness skills you have available.
 Use the GroundX Agent Harness references to explain the safest document ingest -> status polling -> search flow. Do not ask me for an API key.
 ```
 
-If the GroundX API connector is connected:
+### MCP Connector Check
+
+For all three easy-mode clients:
 
 ```text
 Show my GroundX account context using the connector. Do not include raw credentials.
+```
+
+With a regular user key, normal GroundX API tools should be available and partner/admin
+tools should not be visible.
+
+### Data Extraction Smoke Test
+
+Use a sanitized sample document and expected fields. Ask:
+
+```text
+Use the GroundX Agent Harness extraction workflow guidance to design a schema for this document. If GroundX API tools are connected, ingest the file, check processing status, search or retrieve the processed content, compare the result to these expected fields, and suggest schema or prompt fixes. Do not ask me to paste an API key.
 ```
 
 You can also run the local helper from a checkout of this repository:

@@ -41,6 +41,12 @@ const FORBIDDEN_TEXT = [
   "slide production",
   "Use this public repository target",
 ];
+const SECRET_PATTERNS = [
+  { label: "GitHub access token URL", pattern: /x-access-token:[^@\s]{8,}@/ },
+  { label: "GitHub app token", pattern: /ghs_[A-Za-z0-9_]{20,}/ },
+  { label: "GitHub personal access token", pattern: /ghp_[A-Za-z0-9_]{20,}/ },
+  { label: "GitHub fine-grained personal access token", pattern: /github_pat_[A-Za-z0-9_]{20,}/ },
+];
 const TEXT_SCAN_SKIP = new Set([
   "scripts/validate-public-bundle.mjs",
 ]);
@@ -179,6 +185,16 @@ if (provenance) {
       flag(join(ROOT, ".groundx-generated.json"), `${field} must be present`);
     }
   }
+  if (typeof provenance.sourceRepository === "string") {
+    try {
+      const sourceUrl = new URL(provenance.sourceRepository);
+      if (sourceUrl.username || sourceUrl.password) {
+        flag(join(ROOT, ".groundx-generated.json"), "sourceRepository must not include credentials");
+      }
+    } catch {
+      // Non-URL repository identifiers are allowed, but token-shaped strings are scanned below.
+    }
+  }
 }
 
 for (const file of walkFiles()) {
@@ -191,6 +207,11 @@ for (const file of walkFiles()) {
   for (const forbidden of FORBIDDEN_TEXT) {
     if (content.includes(forbidden)) {
       flag(join(ROOT, file), `public bundle references excluded internal surface "${forbidden}"`);
+    }
+  }
+  for (const { label, pattern } of SECRET_PATTERNS) {
+    if (pattern.test(content)) {
+      flag(join(ROOT, file), `public bundle contains credential-shaped value: ${label}`);
     }
   }
 }
