@@ -1,0 +1,96 @@
+# Minikube / kind single-node developer environment.
+#
+# Everything bundled (Mode 2 across the board).
+# External LLM summary engine (most dev clusters don't have a 24 GB GPU).
+# Inline credentials in this file — acceptable for dev only, never production.
+# No HPA, no metrics, no ServiceMonitor.
+
+# ---------- Top-level ----------
+
+licenseKey: 00000000-0000-0000-0000-000000000000
+
+admin:
+  apiKey: 00000000-0000-0000-0000-000000000000
+  email: support@example.com
+  password: <dev-admin-password>
+  username: 00000000-0000-0000-0000-000000000000
+
+mode: all
+logLevel: debug
+
+# ---------- Cluster shape ----------
+
+cluster:
+  pvClass: standard            # minikube default StorageClass
+  pvAccessMode: ReadWriteOnce
+  type: minikube
+  hpa: false
+
+# ---------- Engine defaults ----------
+
+engines:
+  default:
+    engineId: gpt-5-mini
+    reasoningEffort: low
+    vision: true
+
+# ---------- Backing services (all bundled) ----------
+
+cache:
+  enabled: true
+  metrics:
+    enabled: false             # skip metrics-cache in dev
+
+db:
+  enabled: true
+  dbName: eyelevel
+  username: eyelevel
+  password: <dev-db-password>
+  privilegedUsername: root
+  privilegedPassword: <dev-db-priv-password>
+
+file:
+  enabled: true
+  bucketName: eyelevel
+  username: minio
+  password: minio123           # dev-only default
+
+search:
+  enabled: true
+  indexName: dev-1
+  username: eyelevel
+  password: <dev-search-password>
+  privilegedUsername: admin
+  privilegedPassword: <dev-search-priv-password>
+
+stream:
+  enabled: true
+
+# ---------- External LLM summary engine (OpenAI) ----------
+
+summary:
+  api:
+    enabled: false
+  inference:
+    enabled: false
+  existing:
+    serviceType: openai
+    apiKey: <openai-api-key>   # treat as a credential — do not commit
+
+# ---------- Capability toggles (all off in baseline dev) ----------
+
+extract:
+  enabled: false
+
+workspace:
+  enabled: false
+
+metrics:
+  enabled: false
+
+# ---------- groundx API exposure ----------
+
+groundx:
+  serviceType: NodePort        # access via `minikube service groundx` or `kubectl port-forward`
+  replicas:
+    desired: 1

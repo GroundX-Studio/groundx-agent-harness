@@ -1,0 +1,248 @@
+#!/usr/bin/env python3
+"""Canonical end-to-end extraction runner.
+
+Compiles a YAML, validates the compiled workflow JSON, creates a workflow
+on GroundX, sets up a bucket, attaches the workflow, ingests the PDF,
+polls to completion, captures X-Ray and extract, and writes everything
+to the configured run directory. Emits structured JSONL events to
+`<out>/run.log` so the run can be inspected after the script exits.
+
+Replaces ~80 lines of repeated per-customer SDK orchestration code.
+Customer run scripts can usually be a single invocation:
+
+    python run_extraction.py \\
+        --yaml prompt.yaml \\
+        --pdf invoice.pdf \\
+        --out v1/ \\
+        --bucket-name extract-customer-v1
+
+Reads `.env` (current directory) for `GROUNDX_API_KEY` and optional
+`GROUNDX_BASE_URL`.
+
+Optional flags:
+    --reuse-workflow <id>  Skip workflow creation; attach existing workflow.
+    --reuse-bucket <id>    Skip bucket creation; use existing bucket.
+    --skip-validate        Skip validate_workflow_json check. Not recommended.
+    --add-to-account       Also set the workflow as the account default
+                           (some platform aggregations are gated on this).
+    --poll-interval <sec>  Seconds between status polls (default: 15).
+    --max-polls <n>        Maximum number of polls before timeout (default: 120).
+"""
+
+import argparse
+import json
+import os
+import sys
+import time
+import typing
+
+import dotenv
+
+# Resolve .env from the user's cwd, not the script's __file__ tree.
+dotenv.load_dotenv(dotenv.find_dotenv(usecwd=True))
+
+from groundx import Document, GroundX
+
+# Sibling template imports (in-process — no subprocess overhead).
+from compile_workflow import build_workflow
+from run_log import RunLog
+from validate_workflow_json import validate as validate_workflow
+
+
+def _abs(out: str, name: str) -> str:
+    return os.path.join(out, name)
+
+
+def _to_plain_dict(obj: typing.Any) -> dict:
+    if isinstance(obj, dict):
+        return obj
+    if hasattr(obj, "model_dump"):
+        return obj.model_dump(by_alias=True)
+    if hasattr(obj, "dict"):
+        return obj.dict(by_alias=True)
+    return dict(obj)
+
+
+def _compile(yaml_path: str, workflow_json_path: str, name: str, rl: RunLog) -> dict:
+    rl.event("compile.start", yaml_path=yaml_path)
+    workflow = build_workflow(yaml_path, name=name)
+    with open(workflow_json_path, "w") as f:
+        json.dump(workflow, f, indent=2, default=str)
+    rl.event("compile.done", workflow_json=workflow_json_path)
+    return workflow
+
+
+def _validate(workflow: dict, workflow_json_path: str, rl: RunLog) -> None:
+    rl.event("validate.start", workflow_json=workflow_json_path)
+    errors = validate_workflow(workflow)
+    if errors:
+        rl.event("validate.error", error_count=len(errors), errors=errors)
+        raise SystemExit(
+            "workflow validation failed:\n  - " + "\n  - ".join(errors)
+        )
+    rl.event("validate.done")
+
+
+def _safe_delete(rl: RunLog, kind: str, fn: typing.Callable[[], typing.Any], **ids: typing.Any) -> None:
+    try:
+        fn()
+        rl.event(f"cleanup.{kind}.deleted", **ids)
+    except Exception as e:
+        rl.event(f"cleanup.{kind}.error", error=str(e), **ids)
+
+
+def _poll(gx: GroundX, process_id: str, interval: int, max_polls: int, rl: RunLog) -> typing.Optional[str]:
+    document_id: typing.Optional[str] = None
+    for i in range(max_polls):
+        st = gx.documents.get_processing_status_by_id(process_id=process_id)
+        status = st.ingest.status
+        rl.event("ingest.poll", poll=i + 1, status=status)
+        if st.ingest.progress:
+            if st.ingest.progress.complete and st.ingest.progress.complete.documents:
+                document_id = st.ingest.progress.complete.documents[0].document_id
+            elif st.ingest.progress.processing and st.ingest.progress.processing.documents:
+                document_id = st.ingest.progress.processing.documents[0].document_id
+        if status == "complete":
+            return document_id
+        if status in ("error", "cancelled"):
+            rl.event("ingest.failed", status=status, detail=str(st.ingest))
+            raise SystemExit(f"ingest failed: {status}")
+        time.sleep(interval)
+    rl.event("ingest.timeout", polls=max_polls, interval=interval)
+    raise SystemExit("ingest timed out")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--yaml", required=True, help="Path to extraction YAML")
+    parser.add_argument("--pdf", required=True, help="Path to PDF to ingest")
+    parser.add_argument("--out", required=True, help="Run output directory")
+    parser.add_argument("--bucket-name", required=True, help="Bucket name to create")
+    parser.add_argument("--workflow-name", default=None, help="Workflow name (default: derived from YAML)")
+    parser.add_argument("--reuse-workflow", default=None, help="Existing workflow_id to reuse")
+    parser.add_argument("--reuse-bucket", type=int, default=None, help="Existing bucket_id to reuse")
+    parser.add_argument("--skip-validate", action="store_true", help="Skip workflow JSON validation")
+    parser.add_argument("--add-to-account", action="store_true", help="Set workflow as account default")
+    parser.add_argument("--poll-interval", type=int, default=15, help="Seconds between status polls")
+    parser.add_argument("--max-polls", type=int, default=120, help="Max status polls before timeout")
+    args = parser.parse_args()
+
+    os.makedirs(args.out, exist_ok=True)
+    workflow_name = args.workflow_name or os.path.splitext(os.path.basename(args.yaml))[0]
+    workflow_json_path = _abs(args.out, "workflow.json")
+    xray_path = _abs(args.out, "xray.json")
+    extract_path = _abs(args.out, "output.json")
+
+    api_key = os.environ.get("GROUNDX_API_KEY")
+    if not api_key:
+        print("ERROR: GROUNDX_API_KEY is not set", file=sys.stderr)
+        return 2
+
+    gx = GroundX(
+        api_key=api_key,
+        base_url=os.environ.get("GROUNDX_BASE_URL", "https://api.groundx.ai/api"),
+    )
+
+    with RunLog(_abs(args.out, "run.log")) as rl:
+        rl.event("run.start", yaml=args.yaml, pdf=args.pdf, out=args.out, bucket_name=args.bucket_name)
+        rl.quota_snapshot(gx, label="run.start")
+
+        # Setup phase — workflow create + bucket create + attach.
+        # Anything we create here is rolled back on failure to prevent
+        # orphan resources on the platform. Once attach succeeds, the
+        # resources are "useful" (a workflow attached to a bucket) and
+        # we stop the rollback boundary; ingest/poll failures keep
+        # them around for inspection.
+        workflow_id: typing.Optional[str] = None
+        bucket_id: typing.Optional[int] = None
+        created_workflow_id: typing.Optional[str] = None
+        created_bucket_id: typing.Optional[int] = None
+
+        try:
+            if args.reuse_workflow:
+                workflow_id = args.reuse_workflow
+                rl.event("workflow.reuse", workflow_id=workflow_id)
+            else:
+                wf_body = _compile(args.yaml, workflow_json_path, workflow_name, rl)
+                if not args.skip_validate:
+                    _validate(wf_body, workflow_json_path, rl)
+                create_resp = gx.workflows.create(
+                    name=wf_body["name"],
+                    chunk_strategy=wf_body.get("chunk_strategy"),
+                    extract=wf_body.get("extract"),
+                    steps=wf_body.get("steps"),
+                )
+                workflow_id = create_resp.workflow.workflow_id
+                created_workflow_id = workflow_id
+                rl.event("workflow.create", workflow_id=workflow_id, workflow_name=wf_body["name"])
+                with open(_abs(args.out, "workflow_id.txt"), "w") as f:
+                    f.write(workflow_id)
+
+            if args.add_to_account:
+                resp = gx.workflows.add_to_account(workflow_id=workflow_id)
+                rl.event("workflow.add_to_account", result=str(resp))
+
+            if args.reuse_bucket:
+                bucket_id = args.reuse_bucket
+                rl.event("bucket.reuse", bucket_id=bucket_id)
+            else:
+                bk = gx.buckets.create(name=args.bucket_name)
+                bucket_id = bk.bucket.bucket_id
+                created_bucket_id = bucket_id
+                rl.event("bucket.create", bucket_id=bucket_id, bucket_name=args.bucket_name)
+                with open(_abs(args.out, "bucket_id.txt"), "w") as f:
+                    f.write(str(bucket_id))
+
+            # Past this point, resources are attached and no longer orphans.
+            gx.workflows.add_to_id(id=bucket_id, workflow_id=workflow_id)
+            rl.event("workflow.add_to_bucket", bucket_id=bucket_id, workflow_id=workflow_id)
+
+        except BaseException as setup_exc:
+            rl.event("setup.failed", error=str(setup_exc), error_type=type(setup_exc).__name__)
+            if created_workflow_id:
+                _safe_delete(rl, "workflow", lambda: gx.workflows.delete(id=created_workflow_id), workflow_id=created_workflow_id)
+            if created_bucket_id:
+                _safe_delete(rl, "bucket", lambda: gx.buckets.delete(bucket_id=created_bucket_id), bucket_id=created_bucket_id)
+            raise
+
+        ingest_resp = gx.ingest(
+            documents=[
+                Document(
+                    bucket_id=bucket_id,
+                    file_path=args.pdf,
+                    file_name=os.path.basename(args.pdf),
+                    file_type="pdf",
+                )
+            ]
+        )
+        process_id = ingest_resp.ingest.process_id
+        rl.event("ingest.start", process_id=process_id, pdf=args.pdf)
+        with open(_abs(args.out, "process_id.txt"), "w") as f:
+            f.write(process_id)
+
+        document_id = _poll(gx, process_id, args.poll_interval, args.max_polls, rl)
+        rl.event("ingest.complete", document_id=document_id)
+        if document_id:
+            with open(_abs(args.out, "document_id.txt"), "w") as f:
+                f.write(document_id)
+
+        xray_dict = _to_plain_dict(gx.documents.get_xray(document_id=document_id))
+        with open(xray_path, "w") as f:
+            json.dump(xray_dict, f, indent=2, default=str)
+        rl.event("xray.captured", path=xray_path, chunks=len(xray_dict.get("chunks") or []))
+
+        extract_dict = _to_plain_dict(gx.documents.get_extract(document_id=document_id))
+        with open(extract_path, "w") as f:
+            json.dump(extract_dict, f, indent=2, default=str)
+        ac_count = len(extract_dict.get("account_charges") or [])
+        rl.event("extract.captured", path=extract_path, account_charges_count=ac_count)
+
+        rl.quota_snapshot(gx, label="run.end")
+        rl.event("run.done", account_charges_count=ac_count)
+
+    print(f"run complete. out={args.out} document_id={document_id} account_charges={ac_count}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

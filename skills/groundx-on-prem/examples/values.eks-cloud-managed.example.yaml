@@ -1,0 +1,151 @@
+# AWS EKS production deployment with cloud-managed backing services.
+#
+# Object store: AWS S3
+# Process metadata DB: AWS RDS for MySQL
+# Cache: AWS ElastiCache for Redis
+# Retrieval DB: AWS OpenSearch Service
+# Queue: AWS SQS
+# Workload identity: IRSA bound to serviceAccount.name
+# Summary engine: self-hosted Gemma 3 on g5 / p4d GPU nodes
+# Ingress: AWS Load Balancer Controller (ALB)
+# Observability: kube-prometheus-stack via ServiceMonitor + HPA on
+
+# ---------- Top-level ----------
+
+mode: all
+imageType: ""
+
+# Bootstrap admin and license live in values.secret.example.yaml (companion file).
+# This file references the resulting Kubernetes Secret via cluster.secrets below.
+
+# ---------- Cluster shape ----------
+
+cluster:
+  pvClass: eyelevel-pv             # storageclass prereq chart provisions this against EFS or EBS
+  pvAccessMode: ReadWriteMany      # EFS recommended for production
+  type: eks
+  hpa: true                        # paired with metrics.enabled below
+  imagePullPolicy: Always
+
+  imagePullSecrets: []
+
+  secrets:
+    - eyelevel-secret-credentials  # name of the Secret created by the groundx-secret prereq chart
+
+  # Optional: register an extract pre-processor when extract.enabled is true.
+  preProcessors:
+    - processorId: 13
+      type: extract
+
+# Workload identity — IRSA. The ServiceAccount must already exist and be
+# annotated with `eks.amazonaws.com/role-arn=arn:aws:iam::<account>:role/<role>`.
+serviceAccount:
+  name: <eyelevel-irsa-service-account>
+
+# ---------- Engine defaults ----------
+
+engines:
+  default:
+    engineId: <default-model-id>
+    reasoningEffort: low
+    vision: true
+
+# ---------- Throughput tuning ----------
+
+throughput:
+  tpm:
+    document: 6000
+    page: 3000
+
+# ---------- Observability ----------
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true                  # kube-prometheus-stack must be pre-installed
+
+# ---------- Backing services (Mode 3 — cloud-managed AWS) ----------
+
+cache:
+  metrics:
+    enabled: false
+  existing:
+    addr: <elasticache-endpoint>.<region>.cache.amazonaws.com
+    isCluster: false
+    port: 6379
+    ssl: true
+
+db:
+  dbName: <db-name>
+  existing:
+    ro: <rds-read-replica-endpoint>.<region>.rds.amazonaws.com
+    rw: <rds-primary-endpoint>.<region>.rds.amazonaws.com
+    port: 3306
+    # Required when the RDS parameter group has require_secure_transport=ON.
+    # Provide the RDS root CA PEM bundle, or leave commented if TLS isn't enforced.
+    # rootCerts: |
+    #   -----BEGIN CERTIFICATE-----
+    #   ...
+    #   -----END CERTIFICATE-----
+
+file:
+  bucketName: <s3-bucket-name>
+  existing:
+    url: https://<s3-bucket-name>.s3.<region>.amazonaws.com
+    region: <region>
+    serviceType: s3
+    # When serviceAccount.name above is IRSA-bound, AWS creds are unnecessary here.
+    # If not, provide GROUNDX_ACCESS_KEY_ID / GROUNDX_SECRET_ACCESS_KEY via the secret companion.
+
+search:
+  indexName: prod-1
+  existing:
+    url: https://<opensearch-domain>.<region>.es.amazonaws.com
+
+stream:
+  enabled: false
+  # SQS-mode. Each queue must have a 10+ minute visibility timeout.
+  topics:
+    preProcess:
+      type: sqs
+      url: https://sqs.<region>.amazonaws.com/<account>/file-pre-process
+    process:
+      type: sqs
+      url: https://sqs.<region>.amazonaws.com/<account>/file-process
+    summary:
+      type: sqs
+      url: https://sqs.<region>.amazonaws.com/<account>/file-summary
+    update:
+      type: sqs
+      url: https://sqs.<region>.amazonaws.com/<account>/file-update
+    upload:
+      type: sqs
+      url: https://sqs.<region>.amazonaws.com/<account>/file-upload
+
+# ---------- groundx API exposure ----------
+
+groundx:
+  serviceType: ClusterIP           # ALB ingress fronts this Service
+  ingress:
+    enabled: true
+    ingressClassName: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/success-codes: "200"
+
+# ---------- Self-hosted summary stack ----------
+
+summary:
+  api:
+    enabled: true
+  inference:
+    enabled: true                  # 24 GB GPU required (e.g. g5.xlarge with A10G, or p4d for A100)
+
+# ---------- Capability toggles ----------
+
+extract:
+  enabled: false                   # set true and configure agent / file / save below
+
+workspace:
+  enabled: false                   # set true and configure github / pvc below
