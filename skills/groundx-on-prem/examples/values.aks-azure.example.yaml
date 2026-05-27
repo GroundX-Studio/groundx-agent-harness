@@ -1,0 +1,158 @@
+# Azure AKS deployment with Azure-managed backing services and Chainguard images.
+#
+# Object store: chart-bundled MinIO (no native S3-equivalent; Azure Blob via S3-compat optional)
+# Process metadata DB: Azure Database for MySQL (TLS required → rootCerts)
+# Cache: Azure Cache for Redis
+# Retrieval DB: chart-bundled OpenSearch (no managed equivalent on Azure)
+# Queue: chart-bundled Strimzi
+# Workload identity: Azure Workload Identity bound to serviceAccount.name
+# Summary engine: external Azure OpenAI (or self-hosted Gemma 3 if NC/ND nodes available)
+# Image variant: Chainguard
+# NVIDIA GPU Operator: requires runtimeClass: nvidia-container-runtime on AKS
+
+# ---------- Top-level ----------
+
+mode: all
+imageType: chainguard            # Chainguard-hardened distroless images for compliance
+
+# ---------- Cluster shape ----------
+
+cluster:
+  pvClass: eyelevel-pv
+  pvAccessMode: ReadWriteMany    # Azure Files (RWX) recommended for production
+  type: aks
+  hpa: true
+
+  imagePullSecrets:
+    - chainguard-pull-secret     # Chainguard registry pull secret
+
+  secrets:
+    - eyelevel-secret-credentials
+
+# Workload identity — Azure Workload Identity. The ServiceAccount must already exist
+# and be annotated with `azure.workload.identity/client-id: <client-id>`.
+serviceAccount:
+  name: <eyelevel-wi-service-account>
+
+# Override busybox to a Chainguard variant.
+busybox:
+  image: cgr.dev/eyelevel.ai/busybox-fips:latest
+
+# ---------- Engine defaults ----------
+
+engines:
+  default:
+    engineId: <default-model-id>
+    reasoningEffort: low
+    vision: true
+
+# ---------- Backing services (mixed Mode 2 / Mode 3) ----------
+
+# Mode 2 — chart-deployed dedicated.
+cache:
+  metrics:
+    enabled: false
+  image: cgr.dev/eyelevel.ai/redis-fips:v8.2.3   # Chainguard variant
+
+# Mode 3 — Azure Database for MySQL with TLS.
+db:
+  username: <db-username>
+  password: <db-password>        # move to secret companion in production
+  privilegedUsername: <db-priv-username>
+  privilegedPassword: <db-priv-password>
+
+  existing:
+    ro: <mysql-server>.mysql.database.azure.com
+    rw: <mysql-server>.mysql.database.azure.com
+    port: 3306
+    # Azure Database for MySQL requires TLS. Use the DigiCert Global Root G2 PEM.
+    rootCerts: |
+      -----BEGIN CERTIFICATE-----
+      <DigiCert Global Root G2 PEM here>
+      -----END CERTIFICATE-----
+
+# Mode 2 — chart-deployed MinIO.
+file:
+  username: <minio-username>
+  password: <minio-password>
+
+# Mode 2 — chart-deployed OpenSearch.
+search:
+  username: <search-username>
+  password: <search-password>
+  privilegedUsername: admin
+  privilegedPassword: <search-priv-password>
+
+# Mode 2 — chart-deployed Strimzi.
+stream:
+  enabled: true
+
+# ---------- External Azure OpenAI summary engine ----------
+#
+# If self-hosted Gemma 3 is preferred (requires 24 GB GPU on an NC/ND-series node):
+#   summary:
+#     api: { enabled: true }
+#     inference: { enabled: true }
+#   and remove the existing block below.
+
+summary:
+  api:
+    enabled: false
+  inference:
+    enabled: false
+  existing:
+    serviceType: openai-base64
+    url: https://<resource-name>.openai.azure.com/openai/deployments/<deployment-name>
+    apiKey: <azure-openai-api-key>   # move to secret companion
+
+# ---------- groundx API exposure + Chainguard image override ----------
+
+groundx:
+  serviceType: LoadBalancer
+  isInternal: false                  # set true for internal-only LB
+  image: <chainguard-registry>/eyelevel/groundx:chainguard
+
+# ---------- Per-microservice Chainguard image overrides ----------
+#
+# Required because Chainguard images live in a separate registry.
+
+layout:
+  api:
+    image: <chainguard-registry>/eyelevel/python-api:chainguard
+  correct:
+    image: <chainguard-registry>/eyelevel/layout-process:chainguard
+  inference:
+    image: <chainguard-registry>/eyelevel/layout-inference:chainguard
+  map:
+    image: <chainguard-registry>/eyelevel/layout-process:chainguard
+  ocr:
+    image: <chainguard-registry>/eyelevel/layout-process:chainguard
+  process:
+    image: <chainguard-registry>/eyelevel/layout-process:chainguard
+  save:
+    image: <chainguard-registry>/eyelevel/layout-process:chainguard
+
+layoutWebhook:
+  image: <chainguard-registry>/eyelevel/layout-webhook:chainguard
+
+preProcess:
+  image: <chainguard-registry>/eyelevel/pre-process:chainguard
+
+process:
+  image: <chainguard-registry>/eyelevel/process:chainguard
+
+queue:
+  image: <chainguard-registry>/eyelevel/queue:chainguard
+
+summaryClient:
+  image: <chainguard-registry>/eyelevel/summary-client:chainguard
+
+upload:
+  image: <chainguard-registry>/eyelevel/upload:chainguard
+
+# ---------- Observability ----------
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true

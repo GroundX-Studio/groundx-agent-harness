@@ -1,0 +1,20 @@
+{
+  "name": "groundx-agent-harness",
+  "interface": {
+    "displayName": "GroundX Agent Harness"
+  },
+  "plugins": [
+    {
+      "name": "groundx-agent-harness",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

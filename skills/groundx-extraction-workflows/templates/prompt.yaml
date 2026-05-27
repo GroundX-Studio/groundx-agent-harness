@@ -1,0 +1,89 @@
+# GroundX extraction schema — starter
+#
+# This file is the durable artifact of a groundx-extraction-workflows run. The agent
+# drafts it for a specific document type; the user edits and versions it.
+#
+# Two top-level groups are recognized by templates/extract.py:
+#
+#   statement: per-document fields. Wired to chunk_instruct: each chunk
+#              contributes partial fields, the platform reconciles into one
+#              flat object.
+#
+#   charges:   repeating records (line items, transactions, etc.). Wired
+#              to chunk_keys: each chunk contributes complete records,
+#              the platform aggregates into an array.
+#
+# A third group (`meters:`) is recognized as a no-extract stub for document
+# types that do not contain metered services. Most extractions will not
+# need it.
+#
+# See references/2_schema_design.md for the field anatomy and group
+# decomposition rules.
+
+statement:
+  fields:
+    # Replace these illustrative entries with the fields you need to
+    # extract. Each field's YAML key becomes the JSON key in the
+    # extraction output.
+    document_id_example:
+      prompt:
+        description: a short human description of what this field represents
+        format: string
+        identifiers:
+          - The label or labels that appear next to this value on the document
+        instructions: |
+          - One concrete instruction per line
+          - Note edge cases ("if value is missing, infer from X")
+          - Note formatting expectations ("strip spaces", "two-letter state")
+        type: str
+
+charges:
+  fields:
+    # Replace these illustrative entries with the fields that describe one
+    # repeating record. The platform will produce an array of objects with
+    # this shape.
+    #
+    # IMPORTANT: the GroundX platform requires three hardcoded field names
+    # for charge-style extractions:
+    #
+    #   - charge_amount                   (numeric value)
+    #   - charge_description_as_printed   (verbatim description)
+    #   - meter_number                    (used for utility-style docs;
+    #                                      include as an empty stub for
+    #                                      non-metered document types)
+    #
+    # See references/6_known_limitations.md for the workaround pattern
+    # (alias mapping in compare.py).
+    charge_description_as_printed:
+      prompt:
+        description: the description of this individual record exactly as printed
+        identifiers:
+          - Description
+          - Item
+        instructions: |
+          - Copy verbatim from the document
+          - Do not include monetary amounts in the description
+        type: str
+    charge_amount:
+      prompt:
+        description: the numeric value associated with this record
+        identifiers:
+          - Amount
+        instructions: |
+          - Extract only the numeric value; remove currency symbols
+          - May be negative
+        type:
+          - int
+          - float
+  prompt:
+    instructions: |
+      Extract every individual record. Do not extract section headers,
+      subtotal lines, or rolled-up summaries.
+
+      A record IS:
+        - One distinct line item with its own description and value
+
+      A record is NOT:
+        - A subtotal or section header
+        - A summary line aggregating multiple items
+        - A previous balance, payment, or carry-forward
