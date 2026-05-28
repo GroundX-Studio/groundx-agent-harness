@@ -176,6 +176,21 @@ if (marketplace) {
   }
 }
 
+const readmePath = join(ROOT, "README.md");
+if (existsSync(readmePath)) {
+  const readme = readFileSync(readmePath, "utf8");
+  for (const expected of [
+    "/reload-plugins",
+    "Claude Code Desktop (local or SSH sessions)",
+    "Personal plugins",
+    "GroundX-Studio/groundx-agent-harness",
+  ]) {
+    if (!readme.includes(expected)) {
+      flag(readmePath, `README install guide must include ${expected}`);
+    }
+  }
+}
+
 const provenance = existsSync(join(ROOT, ".groundx-generated.json"))
   ? readJson(join(ROOT, ".groundx-generated.json"))
   : null;

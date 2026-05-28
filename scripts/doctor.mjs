@@ -77,22 +77,24 @@ function validateLocalBundle() {
 
 function vscodeClaude() {
   section("VS Code + Claude");
-  console.log("Open the VS Code integrated terminal and confirm the Claude Code CLI supports plugins:");
+  console.log("Method 1 — run these slash commands inside Claude Code:");
   code(`
-claude plugin --help
+/plugin marketplace add GroundX-Studio/groundx-agent-harness
+/plugin install groundx-agent-harness@groundx-agent-harness
+/reload-plugins
 `);
-  console.log("If that command is missing, update Claude Code first. The /plugin slash command is not available in every VS Code chat surface.");
-  console.log("Add the marketplace and install the plugin from the terminal:");
+  console.log("If /plugin is not available in your VS Code chat surface, run the terminal commands instead:");
   code(`
 claude plugin marketplace add GroundX-Studio/groundx-agent-harness
 claude plugin install groundx-agent-harness@groundx-agent-harness
 `);
-  console.log("If you use the Manage Plugins UI instead, enter GroundX-Studio/groundx-agent-harness as the marketplace source.");
+  console.log("Then run /reload-plugins inside Claude Code, or start a new Claude Code session.");
+  console.log("Method 2 — Claude Code Desktop local or SSH sessions: Customize -> Personal plugins + -> Create plugin -> Add marketplace -> GroundX-Studio/groundx-agent-harness -> Sync. Then Personal -> GroundX Agent Harness -> + install. Remote sessions do not support plugins.");
   console.log("Add the hosted GroundX MCP server:");
   code(`
 claude mcp add --transport http groundx https://api.groundx.ai/mcp
 `);
-  console.log("Restart or reload Claude Code, run /mcp, connect groundx, complete OAuth with a GroundX API key, then start a new Claude Code session in VS Code.");
+  console.log("Run /mcp, connect groundx, complete OAuth with a GroundX API key, then start a new Claude Code session in VS Code.");
 }
 
 function claudeDesktop() {
@@ -158,6 +160,7 @@ function claudeCode() {
 claude plugin marketplace add GroundX-Studio/groundx-agent-harness
 claude plugin install groundx-agent-harness@groundx-agent-harness
 `);
+  console.log("Then run /reload-plugins inside Claude Code, or start a new session.");
   code(`
 claude mcp add --transport http groundx https://api.groundx.ai/mcp
 `);

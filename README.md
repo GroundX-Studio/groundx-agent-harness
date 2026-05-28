@@ -43,38 +43,52 @@ Client support:
 
 ### VS Code + Claude
 
-Install the plugin:
+Install the plugin with either method.
 
-1. Open the VS Code integrated terminal and confirm the Claude Code CLI supports
-   plugins:
+**Method 1 — Claude Code slash commands**
 
-   ```sh
-   claude plugin --help
-   ```
+Run these commands inside Claude Code:
 
-   If this command is missing, update Claude Code first. The `/plugin` slash
-   command is not available in every VS Code chat surface.
+```text
+/plugin marketplace add GroundX-Studio/groundx-agent-harness
+/plugin install groundx-agent-harness@groundx-agent-harness
+/reload-plugins
+```
 
-2. Add the GroundX marketplace and install the plugin from the terminal:
+If `/plugin` is not available in your VS Code chat surface, run the terminal
+commands instead:
 
-   ```sh
-   claude plugin marketplace add GroundX-Studio/groundx-agent-harness
-   claude plugin install groundx-agent-harness@groundx-agent-harness
-   ```
+```sh
+claude plugin marketplace add GroundX-Studio/groundx-agent-harness
+claude plugin install groundx-agent-harness@groundx-agent-harness
+```
 
-   If you use the **Manage Plugins** UI instead, enter
-   `GroundX-Studio/groundx-agent-harness` as the marketplace source. Do not use
-   the full GitHub URL in that field.
+Then run `/reload-plugins` inside Claude Code, or start a new Claude Code session.
+
+**Method 2 — Claude Code Desktop (local or SSH sessions)**
+
+Claude Code Desktop supports plugins for local and SSH sessions, but not remote
+sessions.
+
+1. Click **Customize** in the left sidebar.
+2. Next to **Personal plugins**, click **+**, then select
+   **Create plugin -> Add marketplace**.
+3. In **Add marketplace**, enter `GroundX-Studio/groundx-agent-harness` and click
+   **Sync**.
+4. Click **+** next to **Personal plugins** again, then select **Browse plugins**.
+5. Open the **Personal** tab, find **GroundX Agent Harness**, and click **+** to
+   install it.
+6. Run `/reload-plugins`, or start a new Claude Code session.
 
 Connect MCP:
 
-3. Add the hosted GroundX MCP server:
+1. Add the hosted GroundX MCP server:
 
    ```sh
    claude mcp add --transport http groundx https://api.groundx.ai/mcp
    ```
 
-4. Restart or reload Claude Code, run `/mcp`, connect `groundx`, complete OAuth,
+2. Run `/mcp`, connect `groundx`, complete OAuth,
    and start a new Claude Code session.
 
 ### Claude Desktop
@@ -184,6 +198,8 @@ Install the plugin:
 claude plugin marketplace add GroundX-Studio/groundx-agent-harness
 claude plugin install groundx-agent-harness@groundx-agent-harness
 ```
+
+Then run `/reload-plugins` inside Claude Code, or start a new session.
 
 Connect MCP:
 
