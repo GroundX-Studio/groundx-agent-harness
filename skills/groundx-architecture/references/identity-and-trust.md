@@ -119,6 +119,16 @@ Delegated to the backing services per `values.yaml`:
 
 GroundX does not maintain a separate KMS layer. Compliance-sensitive deployments inherit whatever the chosen backings provide.
 
+### 6.5 Procurement Q&A — API Security
+
+Use this wording when answering vendor-risk questionnaires. Keep cloud and on-prem distinct, and do not turn deployment-layer options into native GroundX API-auth claims.
+
+| Question | Cloud answer | On-prem answer |
+| --- | --- | --- |
+| API communication is secured with Mutual TLS | GroundX Cloud APIs are served over HTTPS/TLS 1.2 through AWS API Gateway. Mutual TLS is not currently native to the public `api.groundx.ai` REST API. | GroundX supports ingress TLS, backing-service TLS, and optional in-cluster TLS through Kubernetes secrets. Mutual TLS can be enforced by the customer's ingress, service mesh, or API gateway if required. |
+| API authentication is secured with OAuth 2.0 and JWT | GroundX REST API authentication uses `X-API-Key`, not OAuth 2.0/JWT. OAuth is used for the hosted MCP connector flow, where supported clients authorize access without placing API keys in prompts. | The GroundX application API uses the same API-key model. OAuth/JWT can be added in front of GroundX by a customer-controlled gateway or identity proxy, but it is not the native GroundX API auth model. |
+| Additional API security protections | GroundX enforces API-key authentication, authenticated ownership checks, bucket access checks, request/body validation, ingest file/page/batch limits, subscription/search usage limits, and API action logging. The public API is also fronted by AWS API Gateway; do not claim native step-up auth, content filtering, behavior analysis, or per-customer search-rate limiting unless separately configured. | The same application-level controls apply: API-key auth, ownership/bucket checks, request validation, ingest limits, usage controls where configured, and audit logging. WAF, mTLS, behavior analysis, API attack blocking, and additional rate limiting are normally enforced by the customer's ingress, service mesh, API gateway, or security platform. |
+
 ## 7. Operations / SRE altitude
 
 Auth lookups hit the Redis cache for most requests; cache misses fall through to MySQL/RDS. A surge in cache misses (e.g., after a Redis restart) increases MySQL/RDS load. For the broader observability framing see `observability.md`. For the auth-lookup pattern see `store.md` § 5.2.
