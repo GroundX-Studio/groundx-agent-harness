@@ -18,7 +18,7 @@ https://api.groundx.ai/mcp
 ## Requirements
 
 - A GroundX API key.
-- One of: VS Code + Claude, Claude Desktop, or Codex Desktop.
+- One of: VS Code + Claude, Claude Desktop, Codex Desktop, or Codex CLI.
 - Enter API keys only in the GroundX OAuth screen. Do not paste keys into prompts.
 
 Use a regular GroundX user API key unless GroundX has issued you Partner-tier access.
@@ -36,6 +36,7 @@ Client support:
 | VS Code + Claude | Yes | Yes |
 | Claude Desktop | Yes, through Claude organization plugin sync | Yes |
 | Codex Desktop | Yes | Yes |
+| Codex CLI | Yes | Yes |
 | Claude Code CLI | Yes | Yes |
 
 ## Installation
@@ -147,6 +148,31 @@ Connect MCP:
 12. The MCP server should appear in the **From plugins** list with an
     **Authenticate** button.
 13. Click **Authenticate** and complete OAuth.
+
+### Codex CLI
+
+Install the plugin:
+
+```sh
+codex plugin marketplace add GroundX-Studio/groundx-agent-harness --ref main
+codex plugin add groundx-agent-harness@groundx-agent-harness
+```
+
+Connect MCP:
+
+```sh
+codex mcp add groundx --url https://api.groundx.ai/mcp
+codex mcp login groundx
+```
+
+Verify:
+
+```sh
+codex plugin list
+codex mcp list
+```
+
+Start a new Codex session after installing.
 
 ### Claude Code CLI
 

@@ -10,6 +10,7 @@
  *   node scripts/doctor.mjs vscode-claude
  *   node scripts/doctor.mjs claude-desktop
  *   node scripts/doctor.mjs codex-desktop
+ *   node scripts/doctor.mjs codex-cli
  *   node scripts/doctor.mjs claude-code
  *   node scripts/doctor.mjs mcp
  */
@@ -31,6 +32,7 @@ const validClients = new Set([
   "all",
   "claude-code",
   "claude-desktop",
+  "codex-cli",
   "codex-desktop",
   "vscode-claude",
   "mcp",
@@ -129,6 +131,26 @@ Save
   console.log("The server should appear in the From plugins list with an Authenticate button. Click Authenticate and complete OAuth.");
 }
 
+function codexCli() {
+  section("Codex CLI");
+  console.log("Install the plugin from the terminal:");
+  code(`
+codex plugin marketplace add GroundX-Studio/groundx-agent-harness --ref main
+codex plugin add groundx-agent-harness@groundx-agent-harness
+`);
+  console.log("Connect and authenticate the hosted GroundX MCP server:");
+  code(`
+codex mcp add groundx --url https://api.groundx.ai/mcp
+codex mcp login groundx
+`);
+  console.log("Verify plugin and MCP registration:");
+  code(`
+codex plugin list
+codex mcp list
+`);
+  console.log("Start a new Codex session after installing.");
+}
+
 function claudeCode() {
   section("Claude Code CLI");
   console.log("Install the plugin from the terminal, then add the hosted GroundX MCP server:");
@@ -168,6 +190,7 @@ validateLocalBundle();
 if (client === "all" || client === "vscode-claude") vscodeClaude();
 if (client === "all" || client === "claude-desktop") claudeDesktop();
 if (client === "all" || client === "codex-desktop") codexDesktop();
+if (client === "all" || client === "codex-cli") codexCli();
 if (client === "all" || client === "claude-code") claudeCode();
 if (client === "all" || client === "mcp") mcp();
 verify();
