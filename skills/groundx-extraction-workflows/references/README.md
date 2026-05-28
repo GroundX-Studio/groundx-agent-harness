@@ -25,6 +25,7 @@ or planning a serious extraction pilot.
 | Optional OpenSpec structure for serious pilots | `openspec-pilots.md` |
 | Authoring or revising YAML schema | `2_schema_design.md` |
 | Choosing workflow slots and preserving RAG while extracting | `3_prompt_pipeline.md` |
+| Wrapping YAML with custom extract/reconcile/QA prompt modules and managing prompt iterations today | `prompt-manager.md` |
 | Modifying compiler or runner behavior | `4_sdk_integration.md` |
 | Building or reading a comparison report | `5_validation.md` |
 | Platform-locked field names and escalation | `6_known_limitations.md` |
@@ -41,3 +42,10 @@ accepted formats, comparison thresholds, and output handoff before iteration sta
 
 Keep customer documents, answer keys, private notes, and run outputs out of committed
 artifacts unless the customer explicitly approves sharing.
+
+When a customer or sample repo already has a `manager.py`, `simple.yaml`, and separate
+extract/reconcile/QA prompt modules, use `prompt-manager.md` instead of forcing those
+wrappers into inline compiler functions. The today path is a small manager adapter
+(`templates/prompt_manager.py`) plus optional `EXTRACT_WRAPPER_MODULE` support in
+`compile_workflow.py`; the future path is a single YAML-driven
+`groundx-python/extract` abstraction.

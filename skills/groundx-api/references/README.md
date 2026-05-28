@@ -36,6 +36,8 @@ that extraction delegates here.
 | Auth, MCP headers, REST base URL, URL versioning | `01-auth.md` |
 | Remote/local/crawl ingest, document lookup, status polling, update, copy, delete, extract, X-Ray | `02-documents.md` |
 | Search by bucket/group/document set, filters, verbosity, pagination, source result shape | `03-search.md` |
+| Search response-shape or field-availability question | `../guides/00-api-surface-changelog.md`, then `03-search.md` |
+| Dashboard "where do I see/download X-Ray?" question | `../guides/dashboard-affordances.md`, then `02-documents.md` |
 | Bucket create/list/update/delete | `04-buckets.md` |
 | Group create/list/update/delete, add/remove buckets | `05-groups.md` |
 | Workflow CRUD and assignment | `06-workflows.md` |

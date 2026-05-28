@@ -13,20 +13,21 @@ a coherent iteration milestone informed by real customer use cases. The
 
 Tier coverage today: **basic**. Single-stage extraction (extract →
 compare → iterate). Advanced tier (reconcile + QA, multi-stage agents)
-is the subject of in-progress work informed by `internal-arcadia-agents`.
+is the subject of in-progress work informed by internal multi-stage
+extraction implementations.
 
-Schema scope today: **single customer** (Warner). Group names
+Schema scope today: **single billing example**. Group names
 `statement`, `charges`, and `meters` are wired into
 `templates/compile_workflow.py`. The planned progression for future
 minor versions:
 
-1. **Single customer** (current) — Warner only.
-2. **Schema-family generalization in the same domain** — Warner +
-   Arcadia. Validates that the YAML-schema-first design center holds
+1. **Single worked example** (current).
+2. **Schema-family generalization in the same domain**. Validates that
+   the YAML-schema-first design center holds
    across multiple customers sharing the billing-invoice schema family
    (statement + charges + meters).
 3. **Multi-domain generalization** — adds a different schema family
-   (e.g. fraud/insurance). Breaks the Warner group-name hardcoding in
+   (e.g. fraud/insurance). Breaks the initial group-name hardcoding in
    `compile_workflow.py` and introduces mode-key dispatch.
 
 Each step adds one variability dimension against the prior baseline.
@@ -65,8 +66,7 @@ natural dev sequence.
   canonical group `meters` (utility-style usage records). Previously
   reference 2 only documented `statement` and `charges`, contradicting
   SKILL.md and the warner-telecom example which both name three
-  groups. Uses Warner's no-extract stub as the worked example for
-  documents that don't have physical meters.
+  groups.
 - `references/8_iteration_and_feedback.md` — adds §2.4 "Stop on
   non-convergence within the budget" — the *soft* stop signal that
   complements the existing hard stop on budget exhaustion. Names three
@@ -246,8 +246,8 @@ with the expected 3/3 charge records.
 - `templates/prompt.yaml` — starter schema (warner-shaped, statement + charges)
 - `templates/.env.sample` — placeholder credentials only
 - `templates/requirements.txt` — minimal dependency set
-- `examples/warner-telecom/` — full worked example (production schema,
-  PDF, answer key) lifted from warner-agents
+- `examples/warner-telecom/` — full worked example (schema, PDF,
+  answer key) adapted from the billing example
 - `evals/evals.json` with 4 tests + `evals/fixtures/warner-telecom/`
   fixtures (PDF, CSV, expected JSON)
 - New validate gate: `scripts/tests/test-groundx-extraction-workflows.mjs` (dry-run only,

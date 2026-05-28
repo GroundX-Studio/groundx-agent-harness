@@ -50,6 +50,8 @@ workflows, extraction retrieval, SDK integration, and REST fallback.
 | --- | --- |
 | Upload files and make them searchable | `references/02-documents.md`, `references/08-errors-and-limits.md`, `guides/02-ingest-patterns.md` |
 | Grounded chat or RAG with citations | `references/03-search.md`, `guides/03-search.md`, `guides/04-rag-integration-patterns.md` |
+| Search response-shape or field-availability question | `guides/00-api-surface-changelog.md`, then `references/03-search.md` |
+| Dashboard "where do I see/download X-Ray?" question | `guides/dashboard-affordances.md`, then `references/02-documents.md` |
 | Source viewer or page-level citation UI | `guides/08-source-view-ui.md`, then `references/03-search.md` |
 | Content organized by tenant, project, folder, or access policy | `guides/06-content-organization.md`, `guides/07-filter-field.md`, then bucket/group references |
 | Workflow CRUD or workflow-backed document processing | `references/06-workflows.md`, `guides/09-workflows.md`, then `references/02-documents.md` |
@@ -59,7 +61,9 @@ workflows, extraction retrieval, SDK integration, and REST fallback.
 
 Use `references/README.md` as the fast task-to-reference index. Before producing
 anything API-related, read `references/01-auth.md`, then only the operation-specific
-reference and guide the task needs.
+reference and guide the task needs. For response-shape questions, check
+`guides/00-api-surface-changelog.md`; for dashboard affordances, check
+`guides/dashboard-affordances.md`.
 
 ## Pre-return Checklist
 

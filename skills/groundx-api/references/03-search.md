@@ -4,6 +4,11 @@ This reference covers the two search operations: `search_content` for searching 
 group, or single document by ID, and `search_documents` for searching an explicit set of
 documents by UUID.
 
+Before answering whether a search field exists, check
+`../guides/00-api-surface-changelog.md`. Current search-result enrichment includes
+inline `search.results[*].fileSummary` and `search.results[*].sectionSummary`.
+Use `document_getxray` or `xrayUrl` when the user needs the richer full X-Ray.
+
 ## 1. Search overview
 
 ### 1.1 Two search paths
@@ -47,6 +52,8 @@ Each entry in `search.results` includes:
 | `documentId` | UUID of the document the chunk came from |
 | `processId` | UUID of the document's lineage through the ingest pipeline — use with `documentId` to construct the OCR map URL. **Not the same** as the ingest-job process ID returned by `client.ingest()`; see `02-documents.md` §10.1 for the disambiguation. |
 | `fileName` | Display name of the source document |
+| `fileSummary` | Inline document-level summary on `search.results[*]`; see `../guides/00-api-surface-changelog.md` |
+| `sectionSummary` | Inline section-level context on `search.results[*]`; see `../guides/00-api-surface-changelog.md` |
 | `sourceUrl` | Original URL of the source document |
 | `chunkId` | Unique ID for this chunk |
 | `bucketId` | ID of the content bucket the result belongs to |

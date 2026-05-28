@@ -21,12 +21,28 @@ https://api.groundx.ai/mcp
 - One of: VS Code + Claude, Claude Desktop, or Codex Desktop.
 - Enter API keys only in the GroundX OAuth screen. Do not paste keys into prompts.
 
-Use a regular GroundX user API key unless you specifically need partner/admin
-operations.
+Use a regular GroundX user API key unless GroundX has issued you Partner-tier access.
+
+The harness plugin and the MCP server are separate pieces:
+
+- The plugin gives the agent GroundX instructions and workflows.
+- MCP gives the agent authenticated GroundX API tools.
+- Install both where the client supports both.
+
+Client support:
+
+| Client | Plugin / skills | MCP API tools |
+| --- | --- | --- |
+| VS Code + Claude | Yes | Yes |
+| Claude Desktop | Not currently supported for this GitHub plugin bundle | Yes |
+| Codex Desktop | Yes | Yes |
+| Claude Code CLI | Yes | Yes |
 
 ## Installation
 
 ### VS Code + Claude
+
+Install the plugin:
 
 1. Open the VS Code integrated terminal and confirm the Claude Code CLI supports
    plugins:
@@ -49,6 +65,8 @@ operations.
    `GroundX-Studio/groundx-agent-harness` as the marketplace source. Do not use
    the full GitHub URL in that field.
 
+Connect MCP:
+
 3. Add the hosted GroundX MCP server:
 
    ```sh
@@ -60,7 +78,11 @@ operations.
 
 ### Claude Desktop
 
-Claude Desktop connects GroundX API tools through MCP.
+Claude Desktop supports GroundX API tools through MCP. It does not currently install
+this GitHub plugin bundle. For the full harness skill bundle, use VS Code + Claude,
+Claude Code CLI, or Codex Desktop.
+
+Connect MCP:
 
 1. Open **Claude Desktop -> Settings -> Connectors**.
 2. Click **Add custom connector**.
@@ -77,6 +99,11 @@ Claude Desktop connects GroundX API tools through MCP.
 
 ### Codex Desktop
 
+Codex Desktop supports both the plugin and the MCP connector. Install the plugin first,
+then add the MCP app.
+
+Install the plugin:
+
 1. Open **Plugins**.
 2. Open **Manage** or **Manage marketplaces**.
 3. Add a marketplace from this repository:
@@ -89,6 +116,9 @@ Claude Desktop connects GroundX API tools through MCP.
 5. Leave sparse paths empty.
 6. Install **GroundX Agent Harness**.
 7. Start a new Codex session.
+
+Connect MCP:
+
 8. Open **Settings -> Apps -> Advanced -> New App** and enter:
 
    ```text
@@ -105,10 +135,14 @@ Claude Desktop connects GroundX API tools through MCP.
 
 Outside VS Code, use the same Claude plugin and MCP commands:
 
+Install the plugin:
+
 ```sh
 claude plugin marketplace add GroundX-Studio/groundx-agent-harness
 claude plugin install groundx-agent-harness@groundx-agent-harness
 ```
+
+Connect MCP:
 
 ```sh
 claude mcp add --transport http groundx https://api.groundx.ai/mcp
@@ -134,6 +168,10 @@ Show my GroundX account context using the connector. Do not include raw credenti
 
 With a regular user key, normal GroundX API tools should be visible and partner/admin
 tools should not be visible.
+
+With a Partner-tier key, connect the same MCP URL once. Partner resource tools should ask
+for `customerUsername` when they need to operate on a specific customer account. Do not
+paste API keys into prompts.
 
 ```text
 Use the GroundX Agent Harness extraction workflow guidance to design a schema for this document. If GroundX API tools are connected, ingest the file, check processing status, search or retrieve the processed content, compare the result to these expected fields, and suggest schema or prompt fixes. Do not ask me to paste an API key.

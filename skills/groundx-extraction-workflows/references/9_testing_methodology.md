@@ -32,7 +32,7 @@ Spawn a fresh general-purpose sub-agent with explicit constraints:
 - DO NOT read prior debug artifacts (`notes/extractx-runs/`,
   `/tmp/clean-room-*/`, prior session run dirs)
 - DO NOT read reference implementations outside the skill
-  (`warner-agents/manager.py`, customer-specific notebooks)
+  (customer-owned reference managers, customer-specific notebooks)
 - DO NOT modify any file inside `skills/groundx-extraction-workflows/`
 - DO write run artifacts to a fresh temp dir (e.g. `/tmp/clean-room-vX/`)
 - DO use `templates/run_extraction.py` (not a custom runner)

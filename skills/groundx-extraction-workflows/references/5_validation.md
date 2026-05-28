@@ -129,7 +129,27 @@ worth flagging:
 A WARN row should be either accepted with documentation or fixed in the
 YAML. Do not let WARN rows accumulate silently across iterations.
 
-## 5. Accuracy thresholds
+## 5. Meters array matching
+
+Meter comparison is supported for JSON answer keys. Add expected meter records
+under a top-level `meters` array:
+
+```json
+{
+  "meters": [
+    {
+      "meter_number": "A12345",
+      "meter_usage": 1842
+    }
+  ]
+}
+```
+
+The comparator matches meter records by `meter_number`, then compares every
+field in the expected meter object. CSV answer keys do not have a general meter
+convention yet; use JSON answer keys for metered-usage validation.
+
+## 6. Accuracy thresholds
 
 Per-field accuracy is the primary metric: the fraction of fields whose
 verdict is PASS or WARN (acceptable). For production-grade extractions

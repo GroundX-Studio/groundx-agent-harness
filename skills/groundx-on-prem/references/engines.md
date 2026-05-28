@@ -6,6 +6,11 @@ The summary engine is the single largest cost lever in a GroundX deployment. The
 
 For the discovery-question framing that surfaces this decision at install time, route to `values-authoring.md` § 3.4. For the architectural picture of the summary stack, route to `groundx-architecture/references/summary-service.md`. For the credential pattern that protects the outbound API key, route to `credentials.md` § 9 (workload identity does **not** cover LLM API keys).
 
+**Mode guard:** this file is on-prem only. Do not use Gemma 3, vLLM, or
+`eyelevel-gpu-summary` as the answer to a hosted cloud sandbox model question.
+For cloud sandbox defaults, verify the current cloud default from a cloud-mode
+source before naming a model.
+
 ## 1. The engine options
 
 The chart's `groundx.summary.create` helper (in `src/groundx/templates/_helpers/app/summary.tpl`) decides whether to deploy the in-cluster summary stack. The decision boils down to:

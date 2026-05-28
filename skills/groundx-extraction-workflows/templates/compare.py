@@ -17,7 +17,8 @@ Supports two answer-key shapes:
        {
          "<statement field>": "...",
          ...,
-         "account_charges": [ { ... }, ... ]
+         "account_charges": [ { ... }, ... ],
+         "meters": [ { ... }, ... ]
        }
 
 Output is a structured pass/warn/fail report. Exit code is 0 if every
@@ -108,7 +109,7 @@ _CSV_CHARGE_FIELDS: typing.Dict[str, str] = {
 
 
 def load_answer_key_csv(csv_path: str) -> typing.Dict[str, typing.Any]:
-    expected: typing.Dict[str, typing.Any] = {"statement": {}, "charges": []}
+    expected: typing.Dict[str, typing.Any] = {"statement": {}, "charges": [], "meters": []}
     with open(csv_path, "r") as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -132,10 +133,13 @@ def load_answer_key_csv(csv_path: str) -> typing.Dict[str, typing.Any]:
 def load_answer_key_json(json_path: str) -> typing.Dict[str, typing.Any]:
     with open(json_path, "r") as f:
         data = json.load(f)
-    expected: typing.Dict[str, typing.Any] = {"statement": {}, "charges": []}
+    expected: typing.Dict[str, typing.Any] = {"statement": {}, "charges": [], "meters": []}
     for key, value in data.items():
         if key == "account_charges" and isinstance(value, list):
             expected["charges"] = [c for c in value if isinstance(c, dict)]
+            continue
+        if key == "meters" and isinstance(value, list):
+            expected["meters"] = [m for m in value if isinstance(m, dict)]
             continue
         if value not in (None, "", []):
             expected["statement"][key] = value
@@ -245,6 +249,76 @@ def compare_charges(
     return results
 
 
+def compare_meters(
+    extracted_meters: typing.List[dict],
+    expected_meters: typing.List[dict],
+) -> typing.List[dict]:
+    results = []
+    used_indexes: set[int] = set()
+
+    for exp_meter in expected_meters:
+        exp_number = str(_get_aliased(exp_meter, "meter_number") or "")
+
+        match = None
+        match_index = -1
+        for index, ext_meter in enumerate(extracted_meters):
+            if index in used_indexes:
+                continue
+            ext_number = str(_get_aliased(ext_meter, "meter_number") or "")
+            if exp_number and ext_number and ext_number.lower() == exp_number.lower():
+                match = ext_meter
+                match_index = index
+                break
+            if not exp_number and all(
+                normalize_value(_get_aliased(ext_meter, field)).lower() == normalize_value(exp_val).lower()
+                for field, exp_val in exp_meter.items()
+            ):
+                match = ext_meter
+                match_index = index
+                break
+
+        if not match:
+            results.append({
+                "meter": exp_number or "(no meter_number)",
+                "status": "FAIL (not found)",
+                "details": f"Expected: {json.dumps(exp_meter, sort_keys=True, default=str)}",
+            })
+            continue
+
+        used_indexes.add(match_index)
+        meter_pass = True
+        details = []
+        for field, exp_val in exp_meter.items():
+            ext_val = _get_aliased(match, field)
+            exp_norm = normalize_value(exp_val)
+            ext_norm = normalize_value(ext_val)
+            numeric = _numeric_match(exp_norm, ext_norm)
+            if numeric is True:
+                continue
+            if numeric is False or exp_norm.lower() != ext_norm.lower():
+                meter_pass = False
+                details.append(f"{field}: expected '{exp_val}' got '{ext_val}'")
+
+        if meter_pass:
+            results.append({"meter": exp_number or "(matched meter)", "status": "PASS", "details": ""})
+        else:
+            results.append({"meter": exp_number or "(matched meter)", "status": "FAIL", "details": "; ".join(details)})
+
+    expected_numbers = {
+        str(_get_aliased(m, "meter_number") or "").lower() for m in expected_meters
+    }
+    for ext_meter in extracted_meters:
+        ext_number = str(_get_aliased(ext_meter, "meter_number") or "")
+        if ext_number and ext_number.lower() not in expected_numbers:
+            results.append({
+                "meter": ext_number,
+                "status": "WARN (extra)",
+                "details": "Not in answer key",
+            })
+
+    return results
+
+
 # ── reporting ──────────────────────────────────────────────────────────────
 
 
@@ -274,13 +348,15 @@ def main(argv: typing.List[str]) -> int:
 
     expected = load_answer_key(key_path)
     extracted_charges = extracted.get("account_charges") or extracted.get("charges") or []
+    extracted_meters = extracted.get("meters") or []
 
     print("=" * 60)
     print("EXTRACTX COMPARISON")
     print("=" * 60)
     print(
         f"answer key: {len(expected['statement'])} statement fields, "
-        f"{len(expected['charges'])} charges"
+        f"{len(expected['charges'])} charges, "
+        f"{len(expected['meters'])} meters"
     )
 
     print("\n" + "-" * 60)
@@ -306,13 +382,25 @@ def main(argv: typing.List[str]) -> int:
             print(f"       {r['details']}")
     print(f"\ncharges: {chg_pass}/{len(expected['charges'])} passed")
 
+    print("\n" + "-" * 60)
+    print("METERS")
+    print("-" * 60)
+    meter_results = compare_meters(extracted_meters, expected["meters"])
+    meter_pass = sum(1 for r in meter_results if r["status"] == "PASS")
+    for r in meter_results:
+        print(f"  [{_icon(r['status'])}] {r['meter']}: {r['status']}")
+        if r.get("details") and r["status"] != "PASS":
+            print(f"       {r['details']}")
+    print(f"\nmeters: {meter_pass}/{len(expected['meters'])} passed")
+
     print("\n" + "=" * 60)
     print("SUMMARY")
     print("=" * 60)
     print(f"  statement fields: {stmt_pass}/{len(stmt_results)}")
     print(f"  charges:          {chg_pass}/{len(expected['charges'])}")
+    print(f"  meters:           {meter_pass}/{len(expected['meters'])}")
 
-    has_failure = any(r["status"].startswith("FAIL") for r in stmt_results + chg_results)
+    has_failure = any(r["status"].startswith("FAIL") for r in stmt_results + chg_results + meter_results)
     return 1 if has_failure else 0
 
 

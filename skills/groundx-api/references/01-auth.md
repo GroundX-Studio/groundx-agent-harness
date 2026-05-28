@@ -66,6 +66,11 @@ tool groups. If connector attachment/auth fails, or a needed tool remains missin
 discovery, use the REST references below as the fallback path and keep the API key
 server-side.
 
+For Partner MCP sessions, do not pass raw API keys as tool arguments. Partner resource
+tools use `customerUsername` as a per-call target-customer selector; the server maps it to
+the Partner API `X-Customer-Key` header. If the session is authorized with a regular user
+key, Partner tools should not be visible.
+
 `https://api.groundx.ai/mcp` and `https://api.groundx.ai/api/v1/mcp` are
 equivalent — either may be used.
 

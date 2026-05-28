@@ -24,18 +24,16 @@ are wasteful.
 
 ### 1.2 More complex use cases require broader survey
 
-`internal-arcadia-agents` (the production extraction service for the
-Arcadia client) does more than this skill currently teaches: it has
-**reconciliation** and **QA** microservices on top of extraction. Those
-patterns are not yet captured in this skill, and they may change what
-"deployable" means — for example, a deployable shape that does
-extraction *and* reconciliation has different boundaries than one that
-does extraction only.
+Production-grade extraction services can include **reconciliation** and
+**QA** stages on top of extraction. Those patterns are not yet fully
+captured in this skill, and they may change what "deployable" means —
+for example, a deployable shape that does extraction *and*
+reconciliation has different boundaries than one that does extraction
+only.
 
-This skill will be extended to cover those patterns once
-`internal-arcadia-agents` is surveyed. At that point, "promote to
-project" is informed by the full pattern — not just the warner-style
-shape.
+This skill will be extended to cover those patterns once the reusable
+multi-stage shape is documented. At that point, "promote to project" is
+informed by the full pattern — not just a single-example shape.
 
 ### 1.3 Earn it first
 
@@ -48,9 +46,9 @@ to add complexity when measured demand exists, not in anticipation.
 
 When this skill needs to support a deployable shape:
 
-1. Survey `internal-arcadia-agents` for the reconciliation + QA patterns
-2. Decide whether the deployable shape is extraction-only (warner-style)
-   or extraction+reconcile+QA (arcadia-style) or parameterized
+1. Survey reusable reconciliation + QA patterns
+2. Decide whether the deployable shape is extraction-only,
+   extraction+reconcile+QA, or parameterized
 3. Author the templates in `templates/deployable/` with a documented
    purpose
 4. Restore the test in `evals/evals.json` that exercises the

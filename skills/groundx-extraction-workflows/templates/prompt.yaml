@@ -3,7 +3,7 @@
 # This file is the durable artifact of a groundx-extraction-workflows run. The agent
 # drafts it for a specific document type; the user edits and versions it.
 #
-# Two top-level groups are recognized by templates/extract.py:
+# Three top-level groups are supported by templates/compile_workflow.py:
 #
 #   statement: per-document fields. Wired to chunk_instruct: each chunk
 #              contributes partial fields, the platform reconciles into one
@@ -13,9 +13,11 @@
 #              to chunk_keys: each chunk contributes complete records,
 #              the platform aggregates into an array.
 #
-# A third group (`meters:`) is recognized as a no-extract stub for document
-# types that do not contain metered services. Most extractions will not
-# need it.
+#   meters:    physical-meter or metered-usage records. Wired to
+#              chunk_summary/chunk-sum: each chunk contributes complete
+#              meter records, the platform aggregates into an array.
+#
+# Omit groups that do not apply to the document type.
 #
 # See references/2_schema_design.md for the field anatomy and group
 # decomposition rules.
@@ -43,14 +45,11 @@ charges:
     # repeating record. The platform will produce an array of objects with
     # this shape.
     #
-    # IMPORTANT: the GroundX platform requires three hardcoded field names
+    # IMPORTANT: the GroundX platform requires two hardcoded field names
     # for charge-style extractions:
     #
     #   - charge_amount                   (numeric value)
     #   - charge_description_as_printed   (verbatim description)
-    #   - meter_number                    (used for utility-style docs;
-    #                                      include as an empty stub for
-    #                                      non-metered document types)
     #
     # See references/6_known_limitations.md for the workaround pattern
     # (alias mapping in compare.py).
@@ -87,3 +86,35 @@ charges:
         - A subtotal or section header
         - A summary line aggregating multiple items
         - A previous balance, payment, or carry-forward
+
+# Add this group only when the document has physical meters or metered-service
+# usage records.
+#
+# meters:
+#   fields:
+#     meter_number:
+#       prompt:
+#         description: the meter identifier exactly as printed
+#         identifiers:
+#           - Meter
+#           - Meter Number
+#         instructions: |
+#           - Copy the printed meter identifier exactly
+#           - Do not invent a meter identifier when none is visible
+#         type: str
+#     meter_usage:
+#       prompt:
+#         description: the usage quantity for this meter in the billing period
+#         identifiers:
+#           - Usage
+#           - Consumption
+#         instructions: |
+#           - Extract only the numeric usage value
+#           - Remove unit labels unless the downstream schema asks for them
+#         type:
+#           - int
+#           - float
+#   prompt:
+#     instructions: |
+#       Extract one record per physical meter or metered service shown in the
+#       document. Do not extract account-level totals as meter records.

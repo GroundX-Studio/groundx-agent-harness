@@ -19,14 +19,14 @@ Charges aggregation: each chunk's `chunkKeywords` is parsed as JSON; the
 top-level `charges` array (if present) is accumulated. Duplicate records
 across chunks are removed by full-record hash (canonical JSON form).
 
+Meters aggregation: each chunk's `chunkSummary` is parsed as JSON; the
+top-level `meters` array (if present) is accumulated. Duplicate records
+across chunks are removed by full-record hash.
+
 Statement aggregation: each chunk's `sectionSummary` is parsed as JSON;
 top-level scalar keys are merged into a single statement dict. First
 non-empty value per key wins (matches the platform's apparent behavior
 of taking the earliest confident extraction).
-
-Meters: always returned as `[]`. The skill's current scope handles
-meters as a no-extract stub group; richer meter aggregation is out of
-scope for this helper.
 """
 
 import argparse
@@ -37,6 +37,8 @@ import typing
 
 def _parse_json_field(raw: typing.Any) -> typing.Optional[dict]:
     """Parse a chunk-level JSON-string field. Returns None on empty/invalid."""
+    if isinstance(raw, dict):
+        return raw
     if not raw or not isinstance(raw, str):
         return None
     raw = raw.strip()
@@ -59,7 +61,9 @@ def xray_to_extract(xray: dict) -> dict:
     chunks = xray.get("chunks") or []
     statement: dict = {}
     charges: list = []
+    meters: list = []
     seen_charges: set = set()
+    seen_meters: set = set()
 
     for chunk in chunks:
         # Charges from chunkKeywords
@@ -73,6 +77,18 @@ def xray_to_extract(xray: dict) -> dict:
                     continue
                 seen_charges.add(key)
                 charges.append(record)
+
+        # Meters from chunkSummary
+        chunk_summary = _parse_json_field(chunk.get("chunkSummary"))
+        if chunk_summary and isinstance(chunk_summary.get("meters"), list):
+            for record in chunk_summary["meters"]:
+                if not isinstance(record, dict):
+                    continue
+                key = _record_key(record)
+                if key in seen_meters:
+                    continue
+                seen_meters.add(key)
+                meters.append(record)
 
         # Statement from sectionSummary
         ss = _parse_json_field(chunk.get("sectionSummary"))
@@ -89,7 +105,7 @@ def xray_to_extract(xray: dict) -> dict:
 
     result = dict(statement)
     result["account_charges"] = charges
-    result["meters"] = []
+    result["meters"] = meters
     return result
 
 

@@ -4,6 +4,11 @@ How to search GroundX content, consume results in an LLM pipeline, and paginate
 through large result sets. For pre-filtering search candidates using document
 metadata, see `guides/07-filter-field.md`.
 
+Before answering whether a search field exists, check
+`00-api-surface-changelog.md`. As of SDK 3.5.4, search-result enrichment includes
+inline `search.results[*].fileSummary` and `search.results[*].sectionSummary`.
+Use `document_getxray` only when the user needs the richer full X-Ray payload.
+
 ## 1. Search operations
 
 Two search tools are available:
@@ -119,6 +124,8 @@ whether this array is returned and whether `searchData` is included — see §4.
 | `processId` | uuid | ID of the ingest process that produced this document — use with `documentId` to construct the OCR map URL (see §10 in 08-source-view-ui.md) |
 | `bucketId` | integer | Bucket the chunk belongs to |
 | `fileName` | string | Name of the ingested source file |
+| `fileSummary` | string | Document-level summary exposed inline on `search.results[*]` in current SDK/API surfaces; see `00-api-surface-changelog.md` |
+| `sectionSummary` | string | Section-level context exposed inline on `search.results[*]` in current SDK/API surfaces; see `00-api-surface-changelog.md` |
 | `sourceUrl` | uri | URL of the source document |
 | `suggestedText` | string | LLM-agent rewrite of the chunk, optimized for LLM context. Semantically equivalent to `text` but not word-for-word — use this for context assembly. Not directly mappable back to individual words in the source document. |
 | `text` | string | Raw chunk text as extracted from the source document by X-Ray OCR. Directly corresponds to the word-level atoms in the OCR map (§10 in 08-source-view-ui.md). |
@@ -197,6 +204,10 @@ Use `verbosity: 2` when building a UI that displays source attributions, documen
 summaries, bounding boxes, or any per-chunk metadata alongside the LLM response.
 
 ## 5. searchData
+
+`search.results[*].fileSummary` and `search.results[*].sectionSummary` are the
+primary inline enrichment fields for current search-result handling. Use the
+`searchData` field for custom metadata and older/full-verbosity metadata flows.
 
 `searchData` is metadata attached to each chunk that enriches search results. It
 has two sources:

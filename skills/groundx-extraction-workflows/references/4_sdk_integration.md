@@ -56,7 +56,9 @@ executes the following sequence when invoked as
    blocks (description, format, identifiers, instructions) are
    concatenated and wrapped in the per-step user/developer message
    templates (the inline functions `_statement_request`,
-   `_statement_task`, `_charges_request`, `_charges_task`).
+   `_statement_task`, `_charges_request`, `_charges_task`,
+   `_meters_request`, `_meters_task`) unless `EXTRACT_WRAPPER_MODULE`
+   points at an external wrapper module.
 4. **Build the typed workflow steps.** Each step config wires the
    rendered prompts into `WorkflowStepConfig` with the engine and
    `pageImages: True`, then wraps it in `WorkflowStep` for the three
@@ -71,31 +73,59 @@ The output is the exact body shape that POSTs to `/v1/workflow`.
 
 ### 2.2 Inline wrapper templates
 
-The four wrapper templates that turn rendered field specs into LLM
+The six wrapper templates that turn rendered field specs into LLM
 messages live as module-level functions in `compile_workflow.py`, not
 as separate Python files. This keeps the user's working directory
-small — the only Python files copied in are `compile_workflow.py` and
-`compare.py`.
+small; `templates/prompt_manager.py` is available when a pilot needs a
+thin manager around workflow lifecycle and custom wrappers.
 
-The two shapes the templates handle:
+The three shapes the templates handle:
 
 - **statement-style** — one flat object, `chunk_instruct` slot, the
   step config has `field="sect-sum"`
 - **charges-style** — array of records, `chunk_keys` slot, the step
   config additionally injects the rendered group definition as an
   "Extraction Guidelines" section
+- **meters-style** — array of physical-meter or metered-usage records,
+  `chunk_summary` slot, the step config has `field="chunk-sum"`
 
-Both shapes use the same identity ("structured-data assistant"), the
+All three shapes use the same identity ("structured-data assistant"), the
 same process steps, and the same output contract (return only JSON).
 
-If the document type does not fit either shape, edit the wrapper
-templates inline rather than working around them. See §3.2 below.
+If the document type does not fit one of these shapes, prefer an external
+wrapper module or the prompt-manager adapter before editing compiler templates.
+See §3.2 below.
+
+### 2.3 External wrapper modules
+
+For quickstart-style pilots that already have separate prompt modules, keep
+those modules and let the compiler load them:
+
+```bash
+EXTRACT_WRAPPER_MODULE=prompts.extract_statement \
+python skills/groundx-extraction-workflows/templates/compile_workflow.py prompt.yaml
+```
+
+The environment variable may be a module path (`prompts.extract_statement`) or a
+Python-file path relative to the YAML directory (`prompts/extract_statement.py`).
+Supported extract wrapper names are:
+
+- `prompt_statement_extract_request(field_specs)`
+- `prompt_statement_extract_task(field_descriptions)`
+- `prompt_charges_extract_request(field_specs, group_definition)`
+- `prompt_charges_extract_task(field_descriptions)`
+- `prompt_meters_extract_request(field_specs, group_definition)`
+- `prompt_meters_extract_task(field_descriptions)`
+
+Older aliases such as `statement_extract_request` and `extract_statement_task`
+are accepted as compatibility names. Reconcile and QA wrappers stay in the
+manager layer; see `prompt-manager.md`.
 
 ## 3. Customizing the compile script
 
 ### 3.1 Different group names
 
-If the YAML uses group names other than `statement` and `charges`,
+If the YAML uses group names other than `statement`, `charges`, and `meters`,
 the compile script will not auto-wire them. The fix is local: edit
 `_CompileManager.workflow_steps_for_yaml` and add new branches that
 build steps for the new group names.
@@ -105,11 +135,19 @@ build steps for the new group names.
 For non-invoice documents (forms, receipts, contracts, reports), the
 schema-first runner shape is still applicable: per-document fields go
 in a chunk_instruct group, repeating records go in a chunk_keys
+group, and physical-meter or metered-usage records go in a chunk_summary
 group. What typically needs to change is the wrapper template wording
-(the `Identity` and few-shot examples). Edit the inline template
-functions to match the document genre.
+(the `Identity` and few-shot examples). Use an external wrapper module or
+edit the inline template functions to match the document genre.
 
-For documents that do not fit either shape (e.g. hierarchical
+If a customer repo already has `manager.py`, `simple.yaml`, and separate
+`extract_statement.py`, `reconcile_statement.py`, and `qa_statement.py` prompt
+modules, prefer `EXTRACT_WRAPPER_MODULE` plus `templates/prompt_manager.py` over
+rewriting the project into inline compiler functions. That shape works today and
+keeps the migration path clear for a future `groundx-python/extract`
+abstraction.
+
+For documents that do not fit these shapes (e.g. hierarchical
 reports, free-form correspondence), the schema-first runner is not
 the right tool. Surface this and discuss the alternatives with the
 user before authoring a workaround.
@@ -146,6 +184,12 @@ For an iteration that involves only prompt changes, after the
 workflow is created once, subsequent iterations use `workflow_update`
 rather than `workflow_create`. The compile output is the same shape
 either way; only the API operation changes.
+
+`templates/prompt_manager.py` centralizes the extraction-specific order for
+these operations: create/update/list/check workflow, add/remove account default,
+add/remove bucket attachment, ingest, poll status, retrieve `get_extract`, and
+retrieve `get_xray`. Endpoint semantics still live in `groundx-api`; the manager
+is the pilot-friendly adapter that keeps prompt iteration executable today.
 
 ## 5. Why the boundary lives where it does
 

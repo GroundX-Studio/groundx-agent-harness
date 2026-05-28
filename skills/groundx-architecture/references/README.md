@@ -25,6 +25,7 @@ system behavior.
 | Storage and artifacts | `store.md` |
 | Summary service | `summary-service.md` |
 | Extraction architecture | `extraction-architecture.md` |
+| Cloud vs on-prem model, GPU, Helm, networking, or residency disambiguation | `deployment-mode-disambiguation.md` |
 | Trust and credentials | `identity-and-trust.md` |
 | Multi-tenancy | `multi-tenancy.md` |
 | Data residency | `data-residency.md` |

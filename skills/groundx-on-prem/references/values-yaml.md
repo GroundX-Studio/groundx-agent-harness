@@ -420,7 +420,7 @@ Two flavors of summary execution:
 - **`summary.api.threads` / `workers` / `timeout`** — Worker / thread / request-timeout tuning.
 
 `summary.inference.*` (common pattern) plus the vision-model-style fields:
-- **`summary.inference.deviceUtilize`** (float 0–1.0, default `0.48`) — Fraction of GPU memory the inference pod is allowed to use. Phoenix-style high-throughput deployments raise this to `0.95`.
+- **`summary.inference.deviceUtilize`** (float 0–1.0, default `0.48`) — Fraction of GPU memory the inference pod is allowed to use. High-throughput deployments may raise this after GPU-capacity testing.
 - **`summary.inference.deviceType`** (string) — `"gpu"` (default) or `"cpu"` (not architecturally supported for production).
 - **`summary.inference.model.{name, dataType, maxInputTokens, maxOutputTokens, maxRequests, swapSpace}`** — vLLM-style tuning. `name` is the Hugging Face model id.
 - **`summary.inference.model.kwargs`** (dict) — Engine-specific extra arguments passed through to the underlying inference server.
@@ -637,16 +637,13 @@ data:
   GROUNDX_ADMIN_USERNAME: <uuid>
   GROUNDX_AGENT_API_KEY: <llm-api-key>
   GROUNDX_LICENSE_KEY: <uuid>
-  MYSQL_INIT_PASSWORD: <root-password>
+  MYSQL_INIT_PASSWORD: <pwd>
   MYSQL_INIT_USER: <root-user>
   MYSQL_USER: <app-user>
   MYSQL_USERNAME: <app-user>            # alias to MYSQL_USER on some deployments
-  MYSQL_PASSWORD: <app-password>
+  MYSQL_PASSWORD: <pwd>
   WORKSPACE_RUNNER_TOKEN: <github-or-gitlab-token>
-  GITHUB_APP_PRIVATE_KEY_PEM: |
-    -----BEGIN PRIVATE KEY-----
-    ...
-    -----END PRIVATE KEY-----
+  GITHUB_APP_PRIVATE_KEY_PEM: <private-key-pem>
 ```
 
 After the Secret is installed (`helm upgrade --install groundx-secret groundx/groundx-secret -n eyelevel -f values.<env>.secret.yaml`), reference it from the main values.yaml so chart-managed pods mount it:

@@ -25,8 +25,8 @@ register → WorkflowStepConfig wired into a workflow slot
 upload → server-side per-chunk LLM calls produce JSON
 ```
 
-The runner (`skills/groundx-extraction-workflows/templates/extract.py`) does steps
-2–4 inline. Steps 5–6 happen on the GroundX platform.
+The compiler (`skills/groundx-extraction-workflows/templates/compile_workflow.py`)
+does steps 2-4 inline. Steps 5-6 happen on the GroundX platform.
 
 ## 2. Step 1: YAML parsing
 
@@ -94,10 +94,10 @@ The runner wraps the rendered blocks in two messages — one user
   field-description bullets + few-shot examples. This is the system-level
   context.
 
-The wrapper templates are inlined in `extract.py` rather than living in
-separate files. To customize wrapper text — e.g. change the few-shot
-examples, swap in a domain-specific identity — edit `extract.py`. See §3
-in `4_sdk_integration.md`.
+The default wrapper templates are inlined in `compile_workflow.py`. To
+customize wrapper text, provide a prompt-manager or wrapper module through
+`EXTRACT_WRAPPER_MODULE`; use `templates/prompt_manager.py` for the minimal
+adapter contract. See section 3 in `4_sdk_integration.md`.
 
 ## 6. Choosing chunk_instruct vs chunk_keys
 

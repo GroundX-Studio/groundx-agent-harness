@@ -18,7 +18,7 @@ For the field reference the questionnaire pins fields *into*, route to `values-y
 
 - "Generate a values.yaml for an AWS EKS deployment" with no further context → refuse; ask the questionnaire.
 - "Fill in the defaults and let the deployer override later" → refuse; chart defaults assume context the agent cannot guess (mode, GPU availability, summary engine, backing-service modes).
-- "Copy values.arcadia.yaml and change the names" → refuse unless the requesting agent has explicitly confirmed an archetype match (§ 4); customer-specific values files are not canonical templates.
+- "Copy values.customer.yaml and change the names" → refuse unless the requesting agent has explicitly confirmed an archetype match (§ 4); customer-specific values files are not canonical templates.
 
 Customer-specific upstream values files are internal verification aids only. Do not surface those file names in user-facing output unless the user explicitly asks about upstream source files; use the sanitized templates in `examples/` for external examples.
 

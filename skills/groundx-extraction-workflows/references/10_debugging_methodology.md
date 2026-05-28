@@ -43,16 +43,16 @@ step.
 
 Debugging path actually taken (≈3 hours, 6 ingests across v3–v7):
 
-- v3: rewrote prompt wrappers to match warner-agents (wrong direction)
-- v4: removed `meter_number` from YAML (wrong direction)
+- v3: rewrote prompt wrappers to match a reference manager (wrong direction)
+- v4: removed schema fields without checking the compiled workflow diff (wrong direction)
 - v5: changed `section_strategy="page"` two-step flow (wrong direction)
 - v6: added `workflows.add_to_account()` (wrong direction)
-- v7: ran warner-agents code directly — worked. Bug isolated to our path.
+- v7: ran the reference manager directly — worked. Bug isolated to our path.
 - v8: diffed workflow JSON — caught it.
 
 Debugging path the discipline would have taken (≈5 minutes, 0 ingests):
 
-- Capture warner-agents' workflow JSON via SDK introspection
+- Capture the known-working workflow JSON via SDK introspection
 - Compile our YAML through our compiler
 - `diff` the two
 - 11 structural differences visible immediately
@@ -73,7 +73,23 @@ Debugging path the discipline would have taken (≈5 minutes, 0 ingests):
 - **`compare-report.txt`** — per-field PASS/FAIL diff against the
   answer key. Identifies which fields regressed.
 
-## 10.4 Cross-references
+## 10.4 Prompt-manager debug loop
+
+For quickstart-style projects that use `manager.py`, `simple.yaml`, and
+extract/reconcile/QA prompt modules, debug the run before rewriting prompts:
+
+1. Check processing status and confirm the document completed.
+2. Retrieve `get_extract` and inspect the structured result.
+3. Retrieve `get_xray` and inspect the source chunk evidence.
+4. Compare the initial extraction result shape against the expected output shape.
+5. Use section summary, suggested text, and chunk evidence to decide whether the
+   YAML field prompt, extract wrapper, reconcile prompt, or QA prompt needs the
+   change.
+
+This keeps the today-path manager executable while preserving the future goal:
+one YAML-driven `groundx-python/extract` abstraction.
+
+## 10.5 Cross-references
 
 - `references/9_testing_methodology.md` — verifying changes work
   proactively; this reference is for investigating why they don't
@@ -81,4 +97,6 @@ Debugging path the discipline would have taken (≈5 minutes, 0 ingests):
   (AGE-6) and convention ambiguities (AGE-7); escalation playbook
 - `templates/validate_workflow_json.py` — structural validator
   codified from the v0.1.2 bug
+- `references/prompt-manager.md` — minimal today-path manager for
+  quickstart-style prompt modules
 - `CHANGELOG.md` `[0.1.2]` entry — full bug narrative

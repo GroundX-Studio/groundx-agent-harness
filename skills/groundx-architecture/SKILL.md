@@ -29,5 +29,7 @@ search, and technical due diligence facts.
 
 Start with `references/README.md`. For end-to-end pipeline questions, read
 `references/data-flow.md`. For trust and compliance, read
-`references/identity-and-trust.md` and `references/data-residency.md`. For extraction,
-read `references/extraction-architecture.md`.
+`references/identity-and-trust.md` and `references/data-residency.md`. For
+mode-dependent model, GPU, Helm, networking, or residency questions, read
+`references/deployment-mode-disambiguation.md` before naming cloud or on-prem
+details. For extraction, read `references/extraction-architecture.md`.

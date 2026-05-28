@@ -5,8 +5,10 @@ escalation playbook for when extraction is wrong despite a clear prompt.
 
 ## 1. Platform-locked field names (AGE-6)
 
-The GroundX extraction platform requires three hardcoded field names for
-charges-style groups. Renaming them in the YAML breaks the extraction.
+The GroundX extraction platform requires two hardcoded field names for
+charges-style groups. Renaming them in the YAML breaks charge extraction.
+Meter identifiers belong in the `meters` group unless the downstream charge
+schema explicitly needs a meter identifier on each charge row.
 
 ### 1.1 The locked names
 
@@ -14,7 +16,6 @@ charges-style groups. Renaming them in the YAML breaks the extraction.
 |---|---|---|
 | `charge_amount` | Numeric value of one record | Type `[int, float]` |
 | `charge_description_as_printed` | Verbatim description from the document | Type `str` |
-| `meter_number` | Utility meter identifier | Type `str`; include as a stub for non-utility documents |
 
 These names are not configurable. The runner and YAML must use them
 exactly. The YAML key for each becomes the JSON key in the extraction

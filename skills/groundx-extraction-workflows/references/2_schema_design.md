@@ -3,26 +3,25 @@
 The YAML schema is the durable artifact. Every other output of this skill
 derives from it. This reference describes how to author one well.
 
-## 1. The three groups you'll always have
+## 1. The three supported groups
 
-A GroundX extraction schema has top-level groups. The runner
-(`skills/groundx-extraction-workflows/templates/extract.py`) recognizes three by
-convention:
+A GroundX extraction schema has top-level groups. The compiler
+(`skills/groundx-extraction-workflows/templates/compile_workflow.py`) recognizes
+three by convention:
 
 | Group name | Output shape | Workflow slot | When to use |
 |---|---|---|---|
 | `statement` | One flat object | `chunk_instruct` | Per-document fields that appear once per file |
 | `charges` | Array of objects | `chunk_keys` | Repeating records (line items, transactions) |
-| `meters` | Array of objects | No-extract stub (returned as `[]`) | Utility-style per-meter usage records; stub it for documents without physical meters |
+| `meters` | Array of objects | `chunk_summary` | Physical-meter or metered-usage records |
 
 The names matter: the runner wires `statement` to `chunk_instruct` and
-`charges` to `chunk_keys` based on these exact strings. `meters` is
-recognized as a no-extract stub group in the current scope — the
-post-processor (`xray_to_extract.py`) always returns `meters: []` and
-richer per-meter aggregation is deferred. If the document type does not
-have repeating records, omit the `charges` group. If it has no
-per-document fields and is purely a list of records, omit the
-`statement` group.
+`charges` to `chunk_keys` based on these exact strings. It wires `meters`
+to `chunk_summary`, where `xray_to_extract.py` reads the `chunkSummary`
+field and aggregates top-level `meters` arrays. If the document type does
+not have repeating records, omit the `charges` group. If it has no
+metered services, omit the `meters` group. If it has no per-document
+fields and is purely a list of records, omit the `statement` group.
 
 ### 1.1 statement: per-document fields
 
@@ -88,43 +87,56 @@ each meter on a property reports its own consumption over a billing
 period (kWh used, gallons consumed, demand readings). The intended
 output shape is an array of meter objects, one per physical meter.
 
-In the current scope, `meters` is a **recognized but no-extract stub
-group**. `compile_workflow.py` does not yet wire meters to a dedicated
-workflow slot, and the post-processor always returns `"meters": []`.
-Including the group in the YAML keeps the schema honest about what the
-document does or does not contain, and reserves the key for richer
-per-meter aggregation in a later version.
+`compile_workflow.py` wires `meters` to `chunk_summary` and writes to the
+`chunk-sum` field. The prompt wrapper must return a top-level
+`{"meters": [...]}` object. The local X-Ray helper reads each chunk's
+`chunkSummary` JSON and accumulates records into the final `meters` array.
 
-For documents that do not contain metered services (most invoice types),
-include `meters` as a no-extract stub: a group-level `prompt.instructions`
-block that tells the model not to extract anything, and no `fields:`
-block. Warner is the worked example — telecom invoices have no physical
-meters, so the YAML is:
+For documents that contain metered services, define the concrete meter
+fields in the group:
 
 ```yaml
 meters:
   prompt:
     instructions: |
-      This invoice does not contain metered utility services.
-      No meters should be extracted.
+      Extract one record per physical meter or metered service shown in
+      the document. Do not invent meters that are not visible.
+  fields:
+    meter_number:
+      prompt:
+        description: "Meter identifier exactly as printed."
+        identifiers: ["Meter #", "Meter Number"]
+        instructions: "Return the printed meter identifier."
+        type: str
+    meter_usage:
+      prompt:
+        description: "Usage quantity for this billing period."
+        identifiers: ["Usage", "Consumption"]
+        instructions: "Return the numeric usage value without units."
+        type: float
 ```
 
-The output for Warner-shaped documents is therefore always:
+The output appears under the `meters` array key:
 
 ```json
 {
-  "meters": []
+  "meters": [
+    {
+      "meter_number": "A12345",
+      "meter_usage": 1842
+    }
+  ]
 }
 ```
 
-### 1.4 When you have neither
+### 1.4 When the shape does not fit
 
-If the document type is neither a per-document object nor a repeating list
-(e.g. a free-form report with hierarchical structure), the schema-first
-runner does not yet support it. The right path is to surface this to the
-user and either model the document as one of the two shapes (typically
-`statement` with nested fields rendered as JSON strings) or escalate per
-§3.3 in `6_known_limitations.md`.
+If the document type is not a per-document object, a repeating record list,
+or a metered-usage list (e.g. a free-form report with hierarchical structure),
+the schema-first runner does not yet support it cleanly. The right path is to
+surface this to the user and either model the document as one of the supported
+shapes (typically `statement` with nested fields rendered as JSON strings) or
+escalate per §3.3 in `6_known_limitations.md`.
 
 ### 1.5 Categories and agent load
 
@@ -276,15 +288,15 @@ A group-level prompt is the single highest-leverage YAML edit when a
 
 ## 4. Hardcoded field names
 
-The GroundX platform requires three hardcoded field names for charge-style
+The GroundX platform requires two hardcoded field names for charge-style
 extractions. Use these names exactly in the YAML even if the application
 or ground truth uses different names:
 
 - `charge_amount` — numeric value
 - `charge_description_as_printed` — verbatim description
-- `meter_number` — used for utility-style documents; include as a stub for
-  non-metered documents (the model returns empty values, which is the
-  intended behavior)
+
+Meter identifiers belong in the `meters` group unless the downstream charge
+schema explicitly needs a meter identifier on each charge row.
 
 The comparison harness reads aliases (e.g. CSV column `CHG_AMT` ↔ output
 key `charge_amount`) so the ground truth does not have to match. See §1 in

@@ -37,18 +37,22 @@ delegates to `groundx-api`.
    optionally `references/openspec-pilots.md`.
 3. Draft or revise `prompt.yaml` using `references/2_schema_design.md` and
    `references/3_prompt_pipeline.md`.
-4. Compile the YAML into `workflow.json` with `templates/compile_workflow.py`.
-5. Delegate workflow registration, bucket attachment, ingest, polling, and extract
+4. If the domain needs custom extract/reconcile/QA prompt wrappers, read
+   `references/prompt-manager.md` and use `templates/prompt_manager.py` as the
+   minimal today-path manager.
+5. Compile the YAML into `workflow.json` with `templates/compile_workflow.py`.
+6. Delegate workflow registration, bucket attachment, ingest, polling, and extract
    retrieval to `groundx-api`.
-6. Compare output with `templates/compare.py` when ground truth exists.
-7. Iterate one field at a time; inspect X-Ray before tightening prompts when accuracy
+7. Compare output with `templates/compare.py` when ground truth exists.
+8. Iterate one field at a time; inspect X-Ray before tightening prompts when accuracy
    stalls or a field is wrong.
 
 ## What This Skill Produces
 
 This skill produces `prompt.yaml`, compiled `workflow.json`, extracted JSON after
-`groundx-api` execution, and an accuracy report when ground truth exists. A deployable
-project scaffold is not part of the default deliverable.
+`groundx-api` execution, an accuracy report when ground truth exists, and the minimal
+`templates/prompt_manager.py` manager shape when custom prompt wrappers are needed. A
+full deployable project scaffold is not part of the default deliverable.
 
 ## Pre-return Checklist
 
