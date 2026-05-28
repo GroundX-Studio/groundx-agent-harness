@@ -18,7 +18,8 @@ https://api.groundx.ai/mcp
 ## Requirements
 
 - A GroundX API key.
-- One of: VS Code + Claude, Claude Desktop, Codex Desktop, or Codex CLI.
+- One of: VS Code + Claude, Claude Code Desktop, Claude Desktop, Codex Desktop,
+  Codex CLI, or Claude Code CLI.
 - Enter API keys only in the GroundX OAuth screen. Do not paste keys into prompts.
 
 Use a regular GroundX user API key unless GroundX has issued you Partner-tier access.
@@ -34,7 +35,8 @@ Client support:
 | Client | Plugin / skills | MCP API tools |
 | --- | --- | --- |
 | VS Code + Claude | Yes | Yes |
-| Claude Desktop | Yes, through Claude organization plugin sync | Yes |
+| Claude Code Desktop | Yes | Yes |
+| Claude Desktop | Connector only | Yes |
 | Codex Desktop | Yes | Yes |
 | Codex CLI | Yes | Yes |
 | Claude Code CLI | Yes | Yes |
@@ -43,42 +45,16 @@ Client support:
 
 ### VS Code + Claude
 
-Install the plugin with either method.
-
-**Method 1 — Claude Code slash commands**
-
-Run these commands inside Claude Code:
-
-```text
-/plugin marketplace add GroundX-Studio/groundx-agent-harness
-/plugin install groundx-agent-harness@groundx-agent-harness
-/reload-plugins
-```
-
-If `/plugin` is not available in your VS Code chat surface, run the terminal
-commands instead:
+Install the plugin from the VS Code integrated terminal:
 
 ```sh
+claude plugin --help
 claude plugin marketplace add GroundX-Studio/groundx-agent-harness
 claude plugin install groundx-agent-harness@groundx-agent-harness
 ```
 
-Then run `/reload-plugins` inside Claude Code, or start a new Claude Code session.
-
-**Method 2 — Claude Code Desktop (local or SSH sessions)**
-
-Claude Code Desktop supports plugins for local and SSH sessions, but not remote
-sessions.
-
-1. Click **Customize** in the left sidebar.
-2. Next to **Personal plugins**, click **+**, then select
-   **Create plugin -> Add marketplace**.
-3. In **Add marketplace**, enter `GroundX-Studio/groundx-agent-harness` and click
-   **Sync**.
-4. Click **+** next to **Personal plugins** again, then select **Browse plugins**.
-5. Open the **Personal** tab, find **GroundX Agent Harness**, and click **+** to
-   install it.
-6. Run `/reload-plugins`, or start a new Claude Code session.
+If `claude plugin --help` does not work, update Claude Code first. The `/plugin`
+slash command is not available in every VS Code chat surface.
 
 Connect MCP:
 
@@ -91,9 +67,14 @@ Connect MCP:
 2. Run `/mcp`, connect `groundx`, complete OAuth,
    and start a new Claude Code session.
 
-### Claude Desktop
+### Claude Code Desktop
 
-Install the plugin:
+Claude Code Desktop supports plugins for local and SSH sessions, but not remote
+sessions.
+
+Install the plugin with either method.
+
+**Method 1 — Organization plugin sync**
 
 1. An organization admin opens **Claude**.
 2. Go to **Organization settings -> Plugins**.
@@ -111,22 +92,45 @@ Install the plugin:
    - Click the **+** symbol.
    - Choose **Add plugin**.
    - Select **GroundX Agent Harness** from the organization plugins.
-8. Start a new Claude Cowork or Code session after installing.
+8. Run `/reload-plugins`, or start a new Claude Code session.
+
+**Method 2 — Personal marketplace**
+
+1. Click **Customize** in the left sidebar.
+2. Next to **Personal plugins**, click **+**, then select
+   **Create plugin -> Add marketplace**.
+3. In **Add marketplace**, enter `GroundX-Studio/groundx-agent-harness` and click
+   **Sync**.
+4. Click **+** next to **Personal plugins** again, then select **Browse plugins**.
+5. Open the **Personal** tab, find **GroundX Agent Harness**, and click **+** to
+   install it.
+6. Run `/reload-plugins`, or start a new Claude Code session.
 
 Connect MCP:
 
-9. Open **Claude Desktop -> Settings -> Connectors**.
-10. Click **Add custom connector**.
-11. Enter:
+```sh
+claude mcp add --transport http groundx https://api.groundx.ai/mcp
+```
+
+Run `/mcp`, connect `groundx`, complete OAuth, and start a new Claude Code
+session.
+
+### Claude Desktop
+
+Connect MCP:
+
+1. Open **Claude Desktop -> Settings -> Connectors**.
+2. Click **Add custom connector**.
+3. Enter:
 
    ```text
    Name: GroundX Studio
    Remote MCP Server URL: https://api.groundx.ai/mcp
    ```
 
-12. Leave advanced OAuth fields empty unless Claude asks you to review discovered
+4. Leave advanced OAuth fields empty unless Claude asks you to review discovered
    settings.
-13. Click **Connect**, complete OAuth, and enable the connector in a conversation.
+5. Click **Connect**, complete OAuth, and enable the connector in a conversation.
 
 ### Codex Desktop
 

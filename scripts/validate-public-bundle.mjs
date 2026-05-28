@@ -181,7 +181,8 @@ if (existsSync(readmePath)) {
   const readme = readFileSync(readmePath, "utf8");
   for (const expected of [
     "/reload-plugins",
-    "Claude Code Desktop (local or SSH sessions)",
+    "### Claude Code Desktop",
+    "Organization plugin sync",
     "Personal plugins",
     "GroundX-Studio/groundx-agent-harness",
   ]) {

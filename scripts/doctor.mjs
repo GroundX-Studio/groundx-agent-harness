@@ -8,6 +8,7 @@
  * Usage:
  *   node scripts/doctor.mjs
  *   node scripts/doctor.mjs vscode-claude
+ *   node scripts/doctor.mjs claude-code-desktop
  *   node scripts/doctor.mjs claude-desktop
  *   node scripts/doctor.mjs codex-desktop
  *   node scripts/doctor.mjs codex-cli
@@ -31,6 +32,7 @@ const client = clientAliases.get(requestedClient) ?? requestedClient;
 const validClients = new Set([
   "all",
   "claude-code",
+  "claude-code-desktop",
   "claude-desktop",
   "codex-cli",
   "codex-desktop",
@@ -77,19 +79,13 @@ function validateLocalBundle() {
 
 function vscodeClaude() {
   section("VS Code + Claude");
-  console.log("Method 1 — run these slash commands inside Claude Code:");
+  console.log("Install the plugin from the VS Code integrated terminal:");
   code(`
-/plugin marketplace add GroundX-Studio/groundx-agent-harness
-/plugin install groundx-agent-harness@groundx-agent-harness
-/reload-plugins
-`);
-  console.log("If /plugin is not available in your VS Code chat surface, run the terminal commands instead:");
-  code(`
+claude plugin --help
 claude plugin marketplace add GroundX-Studio/groundx-agent-harness
 claude plugin install groundx-agent-harness@groundx-agent-harness
 `);
-  console.log("Then run /reload-plugins inside Claude Code, or start a new Claude Code session.");
-  console.log("Method 2 — Claude Code Desktop local or SSH sessions: Customize -> Personal plugins + -> Create plugin -> Add marketplace -> GroundX-Studio/groundx-agent-harness -> Sync. Then Personal -> GroundX Agent Harness -> + install. Remote sessions do not support plugins.");
+  console.log("If claude plugin --help does not work, update Claude Code first. The /plugin slash command is not available in every VS Code chat surface.");
   console.log("Add the hosted GroundX MCP server:");
   code(`
 claude mcp add --transport http groundx https://api.groundx.ai/mcp
@@ -97,15 +93,32 @@ claude mcp add --transport http groundx https://api.groundx.ai/mcp
   console.log("Run /mcp, connect groundx, complete OAuth with a GroundX API key, then start a new Claude Code session in VS Code.");
 }
 
-function claudeDesktop() {
-  section("Claude Desktop");
-  console.log("Install the plugin through Claude organization plugin sync:");
+function claudeCodeDesktop() {
+  section("Claude Code Desktop");
+  console.log("Claude Code Desktop supports plugins for local and SSH sessions, but not remote sessions.");
+  console.log("Method 1 — organization plugin sync:");
   code(`
 Organization settings -> Plugins -> Add plugins -> Sync from GitHub
 Repository: GroundX-Studio/groundx-agent-harness
 `);
-  console.log("After the organization sync completes, users can install GroundX Agent Harness from Claude Cowork or Code with + -> Add plugin.");
-  console.log("Then connect the hosted MCP connector:");
+  console.log("After the organization sync completes, users can install GroundX Agent Harness from Claude Cowork or Code with + -> Add plugin. Then run /reload-plugins or start a new session.");
+  console.log("Method 2 — personal marketplace:");
+  code(`
+Customize -> Personal plugins + -> Create plugin -> Add marketplace
+Repository: GroundX-Studio/groundx-agent-harness
+Sync -> Personal -> GroundX Agent Harness -> + install
+`);
+  console.log("Then run /reload-plugins or start a new session.");
+  console.log("Add the hosted GroundX MCP server:");
+  code(`
+claude mcp add --transport http groundx https://api.groundx.ai/mcp
+`);
+  console.log("Run /mcp, connect groundx, complete OAuth with a GroundX API key, then start a new Claude Code session.");
+}
+
+function claudeDesktop() {
+  section("Claude Desktop");
+  console.log("Connect the hosted MCP connector:");
   code(`
 Settings -> Connectors -> Add custom connector
 Name: GroundX Studio
@@ -191,6 +204,7 @@ Use the GroundX Agent Harness extraction workflow guidance to design a schema fo
 
 validateLocalBundle();
 if (client === "all" || client === "vscode-claude") vscodeClaude();
+if (client === "all" || client === "claude-code-desktop") claudeCodeDesktop();
 if (client === "all" || client === "claude-desktop") claudeDesktop();
 if (client === "all" || client === "codex-desktop") codexDesktop();
 if (client === "all" || client === "codex-cli") codexCli();
