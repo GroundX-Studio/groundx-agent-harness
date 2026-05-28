@@ -19,7 +19,7 @@ A GroundX deployment touches TLS in four distinct ways. The same `tls` word mean
 
 These are independent. A deployment can run cert-manager-issued ingress TLS, mTLS-disabled in-cluster, RDS-managed DB TLS, and have no Routes (non-OpenShift cluster). Or it can run pure OpenShift Routes everywhere. Pick the pattern per surface.
 
-Procurement shorthand: the chart supports the TLS surfaces above, but does not make
+Security posture note: the chart supports the TLS surfaces above, but does not make
 mutual TLS a native API requirement. If a customer requires mTLS, enforce it at the
 ingress, service mesh, API gateway, Kafka/backing-service client configuration, or other
 customer-controlled network layer.

@@ -3,6 +3,11 @@
 Use this file as the public installed-agent routing tree. Pick the first-entry skill
 here, then open that skill's `SKILL.md` and follow its reference map.
 
+For any answer, ticket, install guide, RFP response, or technical handoff written to a
+human engineer, apply [`RESPONSE_STYLE.md`](./RESPONSE_STYLE.md): lead with the answer,
+keep it brief by default, use plain English, and omit internal harness logistics unless
+they are the work.
+
 ## GroundX API Work
 
 Start with `groundx-api` for customer-scoped GroundX API behavior: authentication,

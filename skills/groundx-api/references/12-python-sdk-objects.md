@@ -1,5 +1,11 @@
 # Python SDK Typed Objects
 
+> **Scope:** this reference is for **using** the GroundX Python SDK from your own code
+> (consumer-side). For **contributing to the SDK repo itself** (fixing a bug in
+> extract, adding a `groundx[extract]` dep, working with the Fern boundary), use the
+> `groundx-python` skill instead — it routes to the SDK repo's own `AGENTS.md` as the
+> canonical contribution guide.
+
 Companion to the operation-family references (`02-documents.md`, `03-search.md`,
 `06-workflows.md`, etc.) which document the wire form (camelCase JSON dicts as sent over
 REST or MCP). This reference documents the **typed object form** the Python SDK exposes —

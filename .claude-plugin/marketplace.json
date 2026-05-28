@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Customer-facing GroundX agent harness for API use, schema-first extraction, on-prem deployment, architecture, and approved GTM guidance.",
-    "version": "2.0.7"
+    "version": "2.1.0"
   },
   "plugins": [
     {
@@ -20,7 +20,8 @@
         "./skills/groundx-on-prem",
         "./skills/groundx-architecture",
         "./skills/product-brand-gtm",
-        "./skills/master-brand-gtm"
+        "./skills/master-brand-gtm",
+        "./skills/groundx-python"
       ]
     }
   ]

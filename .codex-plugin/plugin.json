@@ -1,6 +1,6 @@
 {
   "name": "groundx-agent-harness",
-  "version": "2.0.7",
+  "version": "2.1.0",
   "description": "Customer-facing GroundX agent harness for API use, schema-first extraction, on-prem deployment, architecture, and approved GTM guidance.",
   "author": {
     "name": "Ben Fletcher",

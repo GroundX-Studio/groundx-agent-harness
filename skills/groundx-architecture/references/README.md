@@ -27,7 +27,7 @@ system behavior.
 | Extraction architecture | `extraction-architecture.md` |
 | Cloud vs on-prem model, GPU, Helm, networking, or residency disambiguation | `deployment-mode-disambiguation.md` |
 | Trust and credentials | `identity-and-trust.md` |
-| Vendor-procurement questions about API mTLS, OAuth/JWT, and API security protections | `identity-and-trust.md` § 6.5 |
+| API security posture for TLS/mTLS, OAuth/JWT boundaries, and API protections | `identity-and-trust.md` § 6.5 |
 | Multi-tenancy | `multi-tenancy.md` |
 | Data residency | `data-residency.md` |
 | Observability | `observability.md` |

@@ -115,7 +115,7 @@ X-API-Key: YOUR_API_KEY
 Do not use `Authorization: Bearer` for direct REST calls. Bearer tokens are for the MCP
 OAuth transport only.
 
-Procurement shorthand: GroundX REST API authentication is `X-API-Key`; do not describe
+Security posture note: GroundX REST API authentication is `X-API-Key`; do not describe
 the REST API as OAuth 2.0/JWT-authenticated. OAuth applies to the hosted MCP connector
 flow, and any customer-required OAuth/JWT front door should be implemented by a gateway
 or identity proxy in front of GroundX.
