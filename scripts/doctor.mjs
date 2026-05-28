@@ -95,7 +95,13 @@ claude mcp add --transport http groundx https://api.groundx.ai/mcp
 
 function claudeDesktop() {
   section("Claude Desktop");
-  console.log("Claude Desktop uses the hosted MCP connector. It does not install the repository skill package.");
+  console.log("Install the plugin through Claude organization plugin sync:");
+  code(`
+Organization settings -> Plugins -> Add plugins -> Sync from GitHub
+Repository: GroundX-Studio/groundx-agent-harness
+`);
+  console.log("After the organization sync completes, users can install GroundX Agent Harness from Claude Cowork or Code with + -> Add plugin.");
+  console.log("Then connect the hosted MCP connector:");
   code(`
 Settings -> Connectors -> Add custom connector
 Name: GroundX Studio
@@ -113,14 +119,14 @@ Ref: main
 Sparse paths: leave empty
 `);
   console.log("Then install GroundX Agent Harness from that marketplace and start a new Codex session.");
-  console.log("To add authenticated GroundX API tools, add the hosted MCP app in Codex:");
+  console.log("To add authenticated GroundX API tools, add the hosted MCP server in Codex:");
   code(`
-Settings -> Apps -> Advanced -> New App
-Name: GroundX Studio
-MCP Server URL: https://api.groundx.ai/mcp
-Authentication: OAuth
+Settings -> MCP servers
+Toggle to Streamable HTTP
+URL: https://api.groundx.ai/mcp
+Save
 `);
-  console.log("Leave advanced OAuth fields empty unless Codex asks you to review discovered settings. Create the app, authorize with a GroundX API key, then refresh the app if the action list is empty.");
+  console.log("The server should appear in the From plugins list with an Authenticate button. Click Authenticate and complete OAuth.");
 }
 
 function claudeCode() {

@@ -34,7 +34,7 @@ Client support:
 | Client | Plugin / skills | MCP API tools |
 | --- | --- | --- |
 | VS Code + Claude | Yes | Yes |
-| Claude Desktop | Not currently supported for this GitHub plugin bundle | Yes |
+| Claude Desktop | Yes, through Claude organization plugin sync | Yes |
 | Codex Desktop | Yes | Yes |
 | Claude Code CLI | Yes | Yes |
 
@@ -78,24 +78,40 @@ Connect MCP:
 
 ### Claude Desktop
 
-Claude Desktop supports GroundX API tools through MCP. It does not currently install
-this GitHub plugin bundle. For the full harness skill bundle, use VS Code + Claude,
-Claude Code CLI, or Codex Desktop.
+Install the plugin:
+
+1. An organization admin opens **Claude**.
+2. Go to **Organization settings -> Plugins**.
+3. Click **Add plugins**.
+4. Choose **Sync from GitHub**.
+5. Select:
+
+   ```text
+   GroundX-Studio/groundx-agent-harness
+   ```
+
+6. Complete the sync flow so **GroundX Agent Harness** appears in the organization's
+   plugin list.
+7. Individual users can then install it from Claude **Cowork** or **Code**:
+   - Click the **+** symbol.
+   - Choose **Add plugin**.
+   - Select **GroundX Agent Harness** from the organization plugins.
+8. Start a new Claude Cowork or Code session after installing.
 
 Connect MCP:
 
-1. Open **Claude Desktop -> Settings -> Connectors**.
-2. Click **Add custom connector**.
-3. Enter:
+9. Open **Claude Desktop -> Settings -> Connectors**.
+10. Click **Add custom connector**.
+11. Enter:
 
    ```text
    Name: GroundX Studio
    Remote MCP Server URL: https://api.groundx.ai/mcp
    ```
 
-4. Leave advanced OAuth fields empty unless Claude asks you to review discovered
+12. Leave advanced OAuth fields empty unless Claude asks you to review discovered
    settings.
-5. Click **Connect**, complete OAuth, and enable the connector in a conversation.
+13. Click **Connect**, complete OAuth, and enable the connector in a conversation.
 
 ### Codex Desktop
 
@@ -119,17 +135,18 @@ Install the plugin:
 
 Connect MCP:
 
-8. Open **Settings -> Apps -> Advanced -> New App** and enter:
+8. Open **Settings -> MCP servers**.
+9. Toggle the server type to **Streamable HTTP**.
+10. Enter:
 
-   ```text
-   Name: GroundX Studio
-   MCP Server URL: https://api.groundx.ai/mcp
-   Authentication: OAuth
-   ```
+    ```text
+    https://api.groundx.ai/mcp
+    ```
 
-9. Leave advanced OAuth fields empty unless Codex asks you to review discovered
-   settings.
-10. Create the app, complete OAuth, and click **Refresh** if the action list is empty.
+11. Click **Save**.
+12. The MCP server should appear in the **From plugins** list with an
+    **Authenticate** button.
+13. Click **Authenticate** and complete OAuth.
 
 ### Claude Code CLI
 
