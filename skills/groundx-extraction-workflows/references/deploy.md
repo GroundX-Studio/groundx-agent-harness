@@ -78,6 +78,15 @@ Use this path when GroundX MCP tools are visible in the agent session:
 4. Attach it with `workflow_add_to_id` for a bucket/group or
    `workflow_add_to_account` for the account default.
 
+Minimal field mapping:
+
+| Artifact or target | MCP tool | What to pass |
+| --- | --- | --- |
+| New compiled workflow | `workflow_create` | Top-level fields from `workflow.json`: `name`, `chunkStrategy`, `sectionStrategy`, `steps`, and `extract` when present. |
+| Existing workflow | `workflow_update` | `id` set to the existing workflow ID, plus only the compiled fields that should change. |
+| Bucket or group attachment | `workflow_add_to_id` | `id` set to the bucket/group ID, and `workflowId` set to the created or updated workflow ID. |
+| Account default | `workflow_add_to_account` | `workflowId` set to the created or updated workflow ID. |
+
 Never pass a GroundX API key in MCP tool arguments. The MCP connector/session
 owns authentication.
 
@@ -127,6 +136,15 @@ After a live deploy:
 5. For interactive sessions, use the `groundx-api` workflow tools or SDK docs to
    fetch the workflow or list bucket/account attachments before ingesting a test
    document.
+
+If the workflow was attached to the wrong target, fix the assignment before ingesting a
+new test document:
+
+- use `workflow_remove_from_id` for a wrong bucket or group assignment
+- use `workflow_remove_from_account` for a wrong account-default assignment
+- rerun the correct `workflow_add_to_id` or `workflow_add_to_account` call afterward
+
+For exact remove/detach arguments, use `groundx-api/references/06-workflows.md`.
 
 ## Credentials
 
