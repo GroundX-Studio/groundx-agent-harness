@@ -15,7 +15,7 @@ applied to the same document — produces the same extraction.
       │                             │
       │                             │ POST workflow + attach to bucket
       │                             │ (groundx-api: workflow_create,
-      │                             │  workflow_addtoid)
+      │                             │  workflow_add_to_id)
       │                             ▼
       │                      ┌─────────────┐
       │                      │  GroundX    │
@@ -49,12 +49,20 @@ Before the loop runs, the working directory must have:
    and populated with `GROUNDX_API_KEY`
 3. `compile_workflow.py` — copied from
    `skills/groundx-extraction-workflows/templates/compile_workflow.py`
-4. `compare.py` — copied from
+4. `validate_workflow_json.py` — copied from
+   `skills/groundx-extraction-workflows/templates/validate_workflow_json.py`
+5. `deploy_workflow.py` — copied from
+   `skills/groundx-extraction-workflows/templates/deploy_workflow.py` when the
+   finished YAML needs workflow create/update and attachment
+6. `run_extraction.py` — copied from
+   `skills/groundx-extraction-workflows/templates/run_extraction.py` when the
+   same command should also ingest, poll, capture X-Ray, and retrieve extract
+7. `compare.py` — copied from
    `skills/groundx-extraction-workflows/templates/compare.py`
-5. `requirements.txt` — copied from
+8. `requirements.txt` — copied from
    `skills/groundx-extraction-workflows/templates/requirements.txt`
-6. The input PDF (named anything; pass the path as needed)
-7. A ground truth file: CSV (preferred for v1) or JSON
+9. The input PDF (named anything; pass the path as needed)
+10. A ground truth file: CSV (preferred for v1) or JSON
 
 A throwaway working directory under `/tmp` is fine for one-shot
 extractions. A persistent directory (e.g.
@@ -95,30 +103,53 @@ The resulting `workflow.json` is the durable artifact for this run.
 Diff it across iterations to see exactly what the prompts look like
 that the LLM will receive.
 
-### 3.3 Register and run the workflow
+### 3.3 Deploy or run the workflow
 
-This step uses the `groundx-api` skill — that is the source of truth
-for workflow registration, bucket attachment, document ingest, polling,
-and extraction retrieval. Read
-`skills/groundx-api/references/06-workflows.md` and
-`skills/groundx-api/references/02-documents.md` for the full
-operations.
+Use the smallest path that matches the task.
 
-Follow the `groundx-api` MCP-first flow before execution: check for
-GroundX MCP tools, tell the user to connect the GroundX MCP connector to
-GroundX if they are missing, call `groundx_account_context` when tools
-are visible, and use REST only when connector/auth attachment fails or a
-needed tool is still missing. The extraction skill remains the schema
-authoring reference; it does not duplicate the API execution contract.
+**Deploy-only:** when the YAML is finished and you only need to register
+or attach the workflow, use the local SDK deploy command:
 
-The loop is:
+```bash
+python deploy_workflow.py \
+  --yaml prompt.yaml \
+  --out deploy/ \
+  --workflow-name customer-workflow-v1 \
+  --create-bucket-name customer-bucket-v1
+```
+
+`deploy_workflow.py` compiles the YAML, validates the workflow JSON,
+creates or updates the workflow through the GroundX Python SDK, and can
+attach it to a bucket or the account default. It writes `workflow.json`,
+`deploy.json`, `workflow_id.txt`, and `bucket_id.txt` when applicable.
+It is deploy-only; it does not ingest files, poll status, capture X-Ray,
+or retrieve extract output.
+
+Read `deploy.md` before running it. The short version: use `--bucket-id`
+for an existing bucket ID, `--bucket-name` for an exact existing bucket-name
+lookup, and `--create-bucket-name` when the command should create a new bucket.
+Use `--dry-run` first when you want compile/validation and planned actions
+without a live API call.
+
+**Full local run:** when you need deploy + ingest + poll + X-Ray +
+extract output, use `run_extraction.py`.
+
+**Interactive agent path:** when an agent is operating inside Claude or
+Codex and GroundX MCP tools are visible, follow the `groundx-api`
+MCP-first flow: check for GroundX MCP tools, tell the user to connect
+the GroundX MCP connector to GroundX if they are missing, call
+`groundx_account_context` when connected, and use the GroundX Python SDK
+for local script execution. The extraction skill remains the schema
+authoring reference; `groundx-api` remains the operation-semantics
+reference.
+
+The manual operation loop is:
 
 1. **Create or update the workflow.** POST `workflow.json` via the
-   `workflow_create` MCP tool, the `workflows.create()` SDK call, or
-   REST fallback `POST /v1/workflow`. The response includes the
-   `workflowId`.
+   `workflow_create` MCP tool or the `workflows.create()` SDK call. The
+   response includes the `workflowId`.
 2. **Attach the workflow to a bucket.** Either an existing bucket or a
-   new one. Use `workflow_addtoid` MCP tool or the equivalent SDK
+   new one. Use `workflow_add_to_id` MCP tool or the equivalent SDK
    call.
 3. **Ingest the PDF.** For local PDFs, prefer the Python SDK ingest
    helper or the pre-signed upload flow from `groundx-api`, then submit

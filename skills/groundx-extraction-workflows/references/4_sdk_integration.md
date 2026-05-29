@@ -29,13 +29,14 @@ This skill uses the `[extract]` extra at *compile* time only — to
 parse the YAML and render the prompts into the typed workflow objects
 the core SDK serializes. **No API calls happen during compile.**
 
-For the API calls (workflow create/update/attach, ingest, poll,
-get_extract), this skill delegates to the `groundx-api` skill. That
-skill is the canonical reference for those operations. Follow its
-MCP-first execution rule: try GroundX MCP tools, ask the user to connect
-the GroundX MCP connector to GroundX when tools are missing, call
-`groundx_account_context` when connected, and use SDK/REST only when the
-connector cannot attach/authenticate or the required tool is missing.
+For local deploy and run commands, this skill uses the GroundX Python
+SDK. For interactive agent API calls (workflow create/update/attach,
+ingest, poll, get_extract), this skill delegates operation semantics to
+the `groundx-api` skill. Follow its MCP-first execution rule: try
+GroundX MCP tools, ask the user to connect the GroundX MCP connector to
+GroundX when tools are missing, call `groundx_account_context` when
+connected, and use the Python SDK when local script execution is the
+right path.
 
 ## 2. The compile script
 
@@ -165,26 +166,50 @@ accuracy at a latency cost. For accuracy-sensitive extractions
 (billing, financial, compliance), keep reasoning at `high`. For very
 simple extractions or high-volume runs, `medium` may be acceptable.
 
-## 4. The workflow lifecycle (delegated to groundx-api)
+## 4. The workflow lifecycle
+
+There are three execution paths:
+
+- **Deploy-only local script:** `templates/deploy_workflow.py` compiles,
+  validates, creates or updates the workflow, and optionally attaches it
+  to a bucket or account default through the GroundX Python SDK.
+- **Full local runner:** `templates/run_extraction.py` performs deploy,
+  ingest, status polling, X-Ray capture, and extract retrieval through
+  the GroundX Python SDK.
+- **Interactive agent operation:** use `groundx-api` and prefer MCP
+  tools when available.
+
+For first-run deploy guidance, use `deploy.md`. It has the short decision table
+for MCP vs `deploy_workflow.py` vs `run_extraction.py`.
 
 Once `workflow.json` is produced, the rest of the lifecycle uses
-`groundx-api`. The full set of operations:
+GroundX workflow and document operations. The full set of operations:
 
 | Step | Operation | Where documented |
 |---|---|---|
-| Create workflow | `workflow_create` (MCP first) / `workflows.create()` (SDK) / `POST /v1/workflow` (REST fallback) | `skills/groundx-api/references/06-workflows.md` |
-| Update workflow | `workflows.update()` / `PUT /v1/workflow/{id}` | same |
-| Attach workflow to bucket | `workflow_addtoid` / `workflows.add_to_id()` / `POST /v1/workflow/{bucketId}` | same |
+| Create workflow | `workflow_create` (MCP first) / `workflows.create()` (SDK) | `skills/groundx-api/references/06-workflows.md` |
+| Update workflow | `workflows.update()` | same |
+| Attach workflow to bucket | `workflow_add_to_id` / `workflows.add_to_id()` | same |
 | Ingest a local PDF | `gx.ingest()` SDK helper or pre-signed upload, then `document_ingestremote` for the hosted URL | `skills/groundx-api/references/02-documents.md` |
 | Poll status | `document_getprocessingstatusbyid` / `GET /v1/ingest/{processId}` | same |
-| Retrieve extraction | `document_getextract` / `documents.get_extract()` / `GET /v1/document/{id}/extract` | same |
-| Inspect raw chunks (debug) | `document_getxray` / `documents.get_xray()` / `GET /v1/document/{id}/xray` | same |
+| Retrieve extraction | `document_getextract` / `documents.get_extract()` / `GET /v1/ingest/document/extract/{documentId}` | same |
+| Inspect raw chunks (debug) | `document_getxray` / `documents.get_xray()` / `GET /v1/ingest/document/xray/{documentId}` | same |
 
 For an iteration that involves only prompt changes, after the
 workflow is created once, subsequent iterations use `workflow_update`
 rather than `workflow_create`. The compile output is the same shape
 either way; only the API operation changes.
 
+`document_getextract` returns the workflow-defined JSON object exactly as
+GroundX stored it. Do not assume a fixed vocabulary such as `amount_due` or
+`recipient_name`; compare the returned top-level keys to the schema attached to
+that document's extraction workflow.
+
+`templates/deploy_workflow.py` is the deploy-only local script for finished YAMLs.
+It reads `GROUNDX_API_KEY` from `.env` or environment and never accepts API keys as
+command-line arguments. Use `--bucket-id` for an existing bucket ID, `--bucket-name`
+for exact existing bucket-name lookup, and `--create-bucket-name` to create a bucket.
+Use `--dry-run` to compile, validate, and write planned deploy metadata without API calls.
 `templates/prompt_manager.py` centralizes the extraction-specific order for
 these operations: create/update/list/check workflow, add/remove account default,
 add/remove bucket attachment, ingest, poll status, retrieve `get_extract`, and
