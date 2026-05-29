@@ -134,6 +134,11 @@ whether this array is returned and whether `searchData` is included — see §4.
 | `boundingBoxes` | array | Coordinates of where the chunk appears on the source page(s) — see §3.4 |
 | `pages` | array | Rendered page images with pixel dimensions — see §3.5 |
 
+MCP `search_content` and REST search use the same result-field contract for the
+same request, indexed result, and verbosity. If a live MCP response only returns
+base fields, check whether the indexed data is missing those enrichments or the
+deployment is stale; do not treat MCP as a reduced search surface.
+
 When building context manually, use `suggestedText` rather than `text` — it is the
 cleaned, contextualized rewrite GroundX produces.
 
@@ -222,9 +227,10 @@ each document and generates:
 | `fullTitle` | Full title of the document or section |
 | `publisher` | Publisher or source attribution extracted from the document |
 
-These fields are always present on ingested documents and are what make `search.text`
-so much richer than a plain vector retrieval — the rewritten chunk arrives in the LLM
-context already annotated with its document title, publisher, and section summary.
+These fields are normally generated for processed documents when the indexed data
+has them, and they are what make `search.text` richer than a plain vector retrieval:
+the rewritten chunk can arrive in the LLM context already annotated with its
+document title, publisher, and section summary.
 
 **User-supplied at ingest** — any key-value pairs you attach in the `searchData` field
 when ingesting a document. These travel alongside the auto-generated fields and are

@@ -25,9 +25,11 @@ to the LLM; `search.results` powers the UI.
 
 ## 2. Required search configuration
 
-Source-view UIs need `verbosity: 2`. At lower verbosity levels, `searchData` is
-absent from chunks, which means no document titles, publishers, or summaries for
-the attribution card.
+Source-view UIs usually start with `verbosity: 2`. At lower verbosity levels,
+`searchData` is absent from chunks, which means no custom metadata for the
+attribution card. Core source fields such as `pages`, `boundingBoxes`,
+`fileSummary`, and `sectionSummary` are part of the search result contract when
+that data exists on the indexed result.
 
 ```json
 {
@@ -112,8 +114,10 @@ which words in the answer came from which chunk.
 
 The most reliable approach is **ambient sourcing** (§3.1) — display bounding boxes
 for the whole chunk region for all returned chunks. The chunk-level `boundingBoxes`
-in search results are always accurate to the source page, even if word-level
-attribution is not possible.
+in search results are the primary source-view geometry when present. If an older
+indexed result or deployment returns only base fields, use `document_getxray` or
+`xrayUrl` to repair or enrich the source-view data instead of assuming MCP search
+only supports the base shape.
 
 When you need finer attribution, use a secondary LLM call to identify which
 `suggestedText` passages most closely correspond to specific claims in the answer,

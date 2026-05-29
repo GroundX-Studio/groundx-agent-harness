@@ -63,6 +63,11 @@ Each entry in `search.results` includes:
 | `multimodalUrl` | Image clipping if the chunk is a table or figure |
 | `searchData` | Custom and system metadata (present only when `verbosity` is `2`) |
 
+MCP `search_content` and REST search use the same result-field contract for the
+same request, indexed result, and verbosity. If a deployed MCP response only has
+the base fields after requesting rich results, treat that as missing indexed data
+or a runtime compatibility issue to investigate, not as a different MCP schema.
+
 ### 1.3 Verbosity
 
 The `verbosity` parameter (0–2) controls how much per-result data is returned:
@@ -158,7 +163,7 @@ and `filter` are in the JSON body.
         "text": "Section 12.3: Either party may terminate...",
         "suggestedText": "Termination conditions (section 12.3): ...",
         "score": 87.4,
-        "documentId": "9f7c11a6-24b8-4d52-a9f3-90a7e70a9e49",
+        "documentId": "DOCUMENT_UUID_1",
         "fileName": "contract.pdf"
       }
     ]
@@ -177,8 +182,8 @@ exactly which documents to search and want to exclude all others.
 ```json
 {
   "documentIds": [
-    "9f7c11a6-24b8-4d52-a9f3-90a7e70a9e49",
-    "123e4567-e89b-12d3-a456-426614174000"
+    "DOCUMENT_UUID_1",
+    "DOCUMENT_UUID_2"
   ],
   "query": "payment schedule",
   "n": 10
@@ -194,8 +199,8 @@ Content-Type: application/json
 
 {
   "documentIds": [
-    "9f7c11a6-24b8-4d52-a9f3-90a7e70a9e49",
-    "123e4567-e89b-12d3-a456-426614174000"
+    "DOCUMENT_UUID_1",
+    "DOCUMENT_UUID_2"
   ],
   "query": "payment schedule",
   "relevance": 10
