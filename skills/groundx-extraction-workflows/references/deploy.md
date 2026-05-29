@@ -20,6 +20,7 @@ directory:
 - `deploy_workflow.py`
 - `compile_workflow.py`
 - `validate_workflow_json.py`
+- `requirements.txt`
 - `.env.sample` as `.env`
 
 Concrete setup:
@@ -29,15 +30,17 @@ SKILL_DIR=/absolute/path/to/groundx-extraction-workflows
 cp "$SKILL_DIR/templates/deploy_workflow.py" .
 cp "$SKILL_DIR/templates/compile_workflow.py" .
 cp "$SKILL_DIR/templates/validate_workflow_json.py" .
+cp "$SKILL_DIR/templates/requirements.txt" .
 cp "$SKILL_DIR/templates/.env.sample" .env
+python -m pip install -r requirements.txt
 ```
 
 Set `GROUNDX_API_KEY` in `.env` or in the shell environment. Leave API keys out
 of prompts and command-line arguments.
 
-## Local Deploy Command
+## Local Deploy Commands
 
-From the extraction work directory:
+Create a new workflow from the extraction work directory:
 
 ```bash
 python deploy_workflow.py \
@@ -47,27 +50,39 @@ python deploy_workflow.py \
   --create-bucket-name customer-bucket-v1
 ```
 
+Update an existing workflow:
+
+```bash
+python deploy_workflow.py \
+  --yaml prompt.yaml \
+  --out deploy/ \
+  --workflow-id workflow-123 \
+  --bucket-id 12345
+```
+
 `--yaml` is the path to the YAML file. It can be a filename in the current
 directory or a full path. `--workflow-name` is optional; without it, the script
-uses the YAML filename without `.yaml`.
+uses the YAML filename without `.yaml`. `--workflow-id` switches the command
+from create to update.
 
 ## Interactive MCP Recipe
 
 Use this path when GroundX MCP tools are visible in the agent session:
 
 1. Compile the YAML to `workflow.json`.
-2. Read `workflow.json`; pass `name`, `extract`, and `steps` to `workflow_create`
-   or `workflow_update`. Use `workflow_update` only when you already have the
-   existing workflow ID.
-3. Map `chunk_strategy` from `workflow.json` to the API field `chunkStrategy`.
-4. Save the returned `workflow.workflowId`.
-5. Attach it with `workflow_add_to_id` for a bucket/group or
+2. Use `groundx-api/references/06-workflows.md` for the exact
+   `workflow_create` or `workflow_update` arguments. Pass the compiled workflow
+   fields from `workflow.json`; do not hand-build a different schema. Use
+   `workflow_update` only when you already have the existing workflow ID.
+3. Save the returned workflow ID.
+4. Attach it with `workflow_add_to_id` for a bucket/group or
    `workflow_add_to_account` for the account default.
 
 Never pass a GroundX API key in MCP tool arguments. The MCP connector/session
 owns authentication.
 
-For exact arguments and response shapes, use `groundx-api/references/06-workflows.md`.
+For exact arguments, field casing, and response shapes, use
+`groundx-api/references/06-workflows.md`.
 
 ## Bucket Options
 
@@ -99,6 +114,19 @@ python deploy_workflow.py \
 Dry run compiles the YAML, validates `workflow.json`, writes `deploy.json`, and
 prints the planned workflow action. It does not call GroundX and does not require
 `GROUNDX_API_KEY`.
+
+## Verify Deployment
+
+After a live deploy:
+
+1. Confirm the command printed `workflow created` or `workflow updated`.
+2. Open `deploy/deploy.json` and confirm `"status": "deployed"`.
+3. Confirm `deploy/workflow_id.txt` exists and contains the workflow ID.
+4. If bucket attachment was requested, confirm `deploy/bucket_id.txt` exists or
+   `deploy.json` has the expected `bucketId`.
+5. For interactive sessions, use the `groundx-api` workflow tools or SDK docs to
+   fetch the workflow or list bucket/account attachments before ingesting a test
+   document.
 
 ## Credentials
 
