@@ -135,6 +135,29 @@ For configuring **custom prompts** using GroundX's built-in LLM, use the
 
 All `steps` and `extract` fields are optional — omit them to use GroundX defaults.
 
+#### Updates are custom overlays
+
+Workflow updates use the same model as workflow creation: the body describes the
+custom overlay relative to GroundX defaults, not a delta against the previously
+stored custom workflow. Send only the fields you want to customize. Omitted step
+settings fall back to defaults.
+
+A name-only update is not a metadata-only patch. If custom processing settings
+should remain in effect, include those custom settings again in the update body.
+
+| Update shape | Meaning |
+|---|---|
+| Step omitted | Use the default step and remove any previous custom override for that step. |
+| Step value `null` | Disable/clear that default step. |
+| Step config with only `engine` | Use the default step config and prompt with the custom engine. |
+| `prompt` omitted or `prompt: {}` | Use the default prompt group. |
+| `prompt: null` | Use no prompt group for that step config. |
+| `prompt.request: null` or `prompt.task: null` | Clear only that prompt member and default omitted members. |
+| `prompt.request` or `prompt.task` object | Use the supplied custom prompt member and default omitted members. |
+
+If you are working against a backend that predates default-overlay workflow
+updates, send explicit prompt objects for any step that must not become empty.
+
 ## 2. workflow_create / POST /v1/workflow
 
 Create a new workflow definition. All fields are optional — creating a workflow with no
@@ -204,7 +227,10 @@ X-API-Key: YOUR_API_KEY
 
 ## 5. workflow_update / PUT /v1/workflow/{id}
 
-Update an existing workflow definition. Supply only the fields to change.
+Update an existing workflow definition. Supply the desired custom overlay relative
+to GroundX defaults. Omitted step settings return to defaults; they do not
+preserve previous custom values. This also applies when the update changes only
+the workflow name.
 
 **MCP:**
 ```json
@@ -240,6 +266,34 @@ Content-Type: application/json
 | `extract` | no | Extract agent definitions object (body) |
 
 **Response:** Updated workflow object.
+
+To customize only a step engine, keep the overlay narrow:
+
+```json
+{
+  "id": "workflow-uuid",
+  "steps": {
+    "chunk-summary": {
+      "all": {
+        "engine": {
+          "apiKey": "CUSTOM_PROVIDER_KEY",
+          "baseURL": "https://api.deepinfra.com/v1/openai",
+          "engineID": "EyeLevel/gemma-4-31B-it-turbo",
+          "service": "deep-infra"
+        }
+      }
+    }
+  }
+}
+```
+
+Do not add `prompt: {}` to clear prompts; omit `prompt` or send `{}` to use the
+default prompt group. To reset a previously customized or disabled step to
+defaults, omit that step from the next update. If a stored workflow already shows
+`prompt: {}` where custom prompts were expected, restore custom prompt text from
+prior workflow JSON, logs, backups, or source YAML. For default prompts, resubmit
+the desired overlay after the backend fix or recreate the workflow from a clean
+source definition.
 
 ## 6. workflow_delete / DELETE /v1/workflow/{id}
 

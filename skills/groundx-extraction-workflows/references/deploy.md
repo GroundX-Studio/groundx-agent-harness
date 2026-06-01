@@ -65,6 +65,46 @@ directory or a full path. `--workflow-name` is optional; without it, the script
 uses the YAML filename without `.yaml`. `--workflow-id` switches the command
 from create to update.
 
+## Engine-Only Updates
+
+When the only intended change is the model endpoint for existing workflow steps,
+send an engine-only custom overlay and omit `prompt`.
+
+```json
+{
+  "steps": {
+    "chunk-summary": {
+      "all": {
+        "engine": {
+          "apiKey": "CUSTOM_PROVIDER_KEY",
+          "baseURL": "https://api.deepinfra.com/v1/openai",
+          "engineID": "EyeLevel/gemma-4-31B-it-turbo",
+          "service": "deep-infra"
+        }
+      }
+    }
+  }
+}
+```
+
+Workflow updates are treated like workflow creates: the payload is the desired
+custom overlay relative to GroundX defaults, not a delta against the currently
+stored custom workflow. Omit a step to return it to defaults. Send a step as
+`null` only when you intentionally want to disable/clear that default step.
+A name-only update is not metadata-only; include custom processing settings again
+if they should remain in effect.
+
+Do not send `prompt: {}` as a clearing signal. Omitted `prompt` and `prompt: {}`
+both mean "use the default prompt group"; `prompt: null` means "use no prompt
+group."
+
+If the target backend predates default-overlay workflow updates, send explicit
+prompt objects for any step that must not become empty. For workflows already
+stored with `prompt: {}`, restore custom prompt text from prior workflow JSON,
+audit logs, backups, or source YAML. If the workflow should use GroundX default
+prompts, resubmit the desired overlay after the backend fix or recreate the
+workflow from a clean source definition.
+
 ## Interactive MCP Recipe
 
 Use this path when GroundX MCP tools are visible in the agent session:
@@ -83,7 +123,7 @@ Minimal field mapping:
 | Artifact or target | MCP tool | What to pass |
 | --- | --- | --- |
 | New compiled workflow | `workflow_create` | Top-level fields from `workflow.json`: `name`, `chunkStrategy`, `sectionStrategy`, `steps`, and `extract` when present. |
-| Existing workflow | `workflow_update` | `id` set to the existing workflow ID, plus only the compiled fields that should change. |
+| Existing workflow | `workflow_update` | `id` set to the existing workflow ID, plus the desired custom overlay relative to defaults. |
 | Bucket or group attachment | `workflow_add_to_id` | `id` set to the bucket/group ID, and `workflowId` set to the created or updated workflow ID. |
 | Account default | `workflow_add_to_account` | `workflowId` set to the created or updated workflow ID. |
 
