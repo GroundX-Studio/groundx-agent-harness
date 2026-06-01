@@ -3,25 +3,29 @@
 The YAML schema is the durable artifact. Every other output of this skill
 derives from it. This reference describes how to author one well.
 
-## 1. The three supported groups
+## 1. Groups and the proven slot menu
 
-A GroundX extraction schema has top-level groups. The compiler
-(`skills/groundx-extraction-workflows/templates/compile_workflow.py`) recognizes
-three by convention:
+A GroundX extraction schema has top-level groups. Each group maps to a
+**workflow slot**; the compiler
+(`skills/groundx-extraction-workflows/templates/compile_workflow.py`) is
+domain-agnostic and resolves a group's slot by precedence — an explicit
+per-group `slot:`, then a top-level `domain:` profile, then a hard error.
+Group names are arbitrary; only the **slot** is constrained, to the three
+proven for structured extraction:
 
-| Group name | Output shape | Workflow slot | When to use |
+| Slot (`slot:`) | Output shape | X-Ray field read back | When to use |
 |---|---|---|---|
-| `statement` | One flat object | `chunk_instruct` | Per-document fields that appear once per file |
-| `charges` | Array of objects | `chunk_keys` | Repeating records (line items, transactions) |
-| `meters` | Array of objects | `chunk_summary` | Physical-meter or metered-usage records |
+| `chunk-instruct` | One flat object | `sectionSummary` | Per-document fields that appear once per file |
+| `chunk-keys` | Array of objects | `chunkKeywords` | Repeating records (line items, transactions) |
+| `chunk-summary` | Array of objects | `chunkSummary` | A second repeating record type (e.g. meters) |
 
-The names matter: the runner wires `statement` to `chunk_instruct` and
-`charges` to `chunk_keys` based on these exact strings. It wires `meters`
-to `chunk_summary`, where `xray_to_extract.py` reads the `chunkSummary`
-field and aggregates top-level `meters` arrays. If the document type does
-not have repeating records, omit the `charges` group. If it has no
-metered services, omit the `meters` group. If it has no per-document
-fields and is purely a list of records, omit the `statement` group.
+The `invoice` domain profile (`templates/domains/invoice.yaml`) supplies the
+canonical billing decomposition — `statement` → `chunk-instruct`,
+`charges` → `chunk-keys`, `meters` → `chunk-summary` — so an invoice YAML need
+only declare `domain: invoice` and omit per-group `slot:`. A new domain either
+declares an explicit `slot:` per group or adds its own profile. `xray_to_extract.py`
+reads each slot's X-Ray field back into the aggregated output. Omit any group a
+document does not have; one group per slot.
 
 ### 1.1 statement: per-document fields
 
@@ -298,14 +302,16 @@ or ground truth uses different names:
 Meter identifiers belong in the `meters` group unless the downstream charge
 schema explicitly needs a meter identifier on each charge row.
 
-The comparison harness reads aliases (e.g. CSV column `CHG_AMT` ↔ output
-key `charge_amount`) so the ground truth does not have to match. See §1 in
-`6_known_limitations.md` for the full alias map and rationale.
+The comparison harness matches by field name and scores null-vs-miss; answer
+keys are JSON in the runner's output shape with field names that match the YAML.
+See §1 in `6_known_limitations.md` for the platform-locked charge field names.
 
 ## 5. A worked example
 
-`skills/groundx-extraction-workflows/examples/warner-telecom/prompt.yaml` is a
-production-grade schema with 23 statement fields and 10 charge fields,
-including a multi-paragraph group-level prompt for `charges` that
-distinguishes line items from subtotals. Read it before authoring a new
-schema for any invoice-shaped document.
+`skills/groundx-extraction-workflows/examples/utility-invoice/prompt.yaml` is a
+synthetic invoice-domain schema: `domain: invoice` groups (`statement` +
+`charges` + `meters`) with per-field prompts, a group-level prompt that
+distinguishes line items from subtotals, and inline business-logic metadata.
+Read it before authoring a new schema for any invoice-shaped document.
+`examples/insurance-claim/prompt.yaml` is the non-invoice counterpart (explicit
+`slot:` per group). Real customer schemas live out-of-repo, never in the skill.

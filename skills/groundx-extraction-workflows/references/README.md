@@ -15,7 +15,7 @@ or planning a serious extraction pilot.
 5. Use `deploy.md` and `templates/deploy_workflow.py` for deploy-only local SDK
    execution, or `templates/run_extraction.py` for a full local run.
 6. Route interactive platform execution to `groundx-api`.
-7. Compare output with `templates/compare.py`.
+7. Compare output with `templates/score_extraction.py`.
 8. Iterate one field at a time.
 
 ## What To Use
@@ -30,7 +30,8 @@ or planning a serious extraction pilot.
 | Wrapping YAML with custom extract/reconcile/QA prompt modules and managing prompt iterations today | `prompt-manager.md` |
 | Finished-YAML deployment decision: MCP vs deploy-only local script vs full local run | `deploy.md` |
 | Modifying compiler, deploy, or runner behavior | `4_sdk_integration.md` |
-| Building or reading a comparison report | `5_validation.md` |
+| Building or reading a comparison report; field-level scoring and miss types | `5_validation.md` |
+| A repeating group (charges, meters, line items) scores low: prompt patterns + field-level iteration loop | `15_repeating_groups.md` |
 | Platform-locked field names and escalation | `6_known_limitations.md` |
 | Deployable project path | `7_promote_to_project.md` |
 | Iteration budget and non-convergence signals | `8_iteration_and_feedback.md` |

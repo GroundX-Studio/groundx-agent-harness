@@ -11,6 +11,59 @@ change between minor versions in this phase. Each `0.N.0` bump captures
 a coherent iteration milestone informed by real customer use cases. The
 `1.0.0` release will mark the first stable public contract.
 
+## Unreleased
+
+- **Field-level scoring within repeating records.** `score_extraction.py`
+  scores each field inside a matched record (not all-or-nothing) with miss-type
+  classification (not-found / field-mismatch / expected-null); the batch rollup
+  reports per-field-within-group accuracy. A meter correct on 13/14 fields now
+  reads ~93%, not 0%.
+- **Intuitive, symmetric runner scripts** (renamed from `compare.py` /
+  `verify_batch.py`). The pipeline is now: `run_extraction.py` (extract one,
+  live) / `batch_extraction.py` (extract + score + aggregate over a folder,
+  live); `score_extraction.py` (score one extraction; + the input loaders) /
+  `batch_score.py` (score a captured run **offline, no re-ingest**; + the
+  `aggregate_reports` rollup). The shared extract step lives once in
+  `run_extraction.extract_from_document`.
+- **Offline batch re-score shipped (`batch_score.py`).** Re-score a captured run
+  (`batch_extraction` `--out`) against answer keys without re-ingesting — the
+  economical iteration loop. SDK-free (gate-enforced).
+- **Repeating-group methodology.** `references/15_repeating_groups.md` —
+  domain-generic prompt patterns + the field-level-report iteration loop.
+- **Fixes.** Repaired `prompt_manager.py` (imported builders the compiler
+  refactor had removed) and added `test_imports.py` so import-time breakage in
+  any template fails loudly.
+
+## 0.2.0 — domain-agnostic e2e runner
+
+End-to-end, domain-agnostic extraction validated against real customer data
+(extraction-runner-e2e). Highlights:
+
+- **Domain-agnostic compiler.** No hardcoded group names; each group resolves
+  its slot via an explicit `slot:` or a top-level `domain:` profile
+  (`templates/domains/<domain>.yaml`), then errors. Invoice profile reproduces
+  the prior mapping byte-for-byte.
+- **Generalized, null-aware comparison.** `score_extraction.py` scores arbitrary nested
+  groups, pairs records by field overlap (no per-domain match key), and
+  distinguishes a legitimately-null answer-key field from an extraction miss.
+  JSON answer keys only (generic, runner-output shape).
+- **Executable business logic.** Declarative per-group metadata
+  (`unique_attrs`/`match_attrs`/`conflict_attrs`/`passthrough`) runs client-side
+  via `business_logic.py` (with group-alias resolution).
+- **Batch verification.** `batch_extraction.py` runs a workflow over a folder of
+  documents and emits one consolidated field-level accuracy report.
+- **Extraction-retrieval correctness.** Aggregate from the X-Ray (reading
+  meters from `chunkSummary` *and* `suggestedText`) whenever `get_extract`
+  returns nothing or a truthy-but-incomplete artifact (hosted tiers without the
+  server-side extract microservice).
+- **De-customer-ized.** No client-specific data or names ship in the skill; the
+  canonical example is synthetic (`examples/utility-invoice/`,
+  `examples/insurance-claim/`). Real customer data stays out-of-repo.
+- **Clean-room validated.** Fresh agents, given only the skill + a customer's
+  resources, authored working schemas for three real customers (Warner 100% on
+  statement fields; a second customer 94% on singletons). Remaining ceilings are
+  answer-key data quality + record-level scoring granularity (tracked).
+
 Tier coverage today: **basic**. Single-stage extraction (extract →
 compare → iterate). Advanced tier (reconcile + QA, multi-stage agents)
 is the subject of in-progress work informed by internal multi-stage
@@ -65,7 +118,7 @@ natural dev sequence.
 - `references/2_schema_design.md` — adds §1.3 documenting the third
   canonical group `meters` (utility-style usage records). Previously
   reference 2 only documented `statement` and `charges`, contradicting
-  SKILL.md and the warner-telecom example which both name three
+  SKILL.md and the utility-invoice example which both name three
   groups.
 - `references/8_iteration_and_feedback.md` — adds §2.4 "Stop on
   non-convergence within the budget" — the *soft* stop signal that
@@ -180,7 +233,7 @@ consistent `{"charges": [...]}` shape on every chunk, which makes the
 aggregator's job easier and prevents one class of per-chunk output
 drift across runs.
 
-This was caught and validated during the warner-001 live test. The fix
+This was caught and validated during the invoice-001 live test. The fix
 was verified end-to-end against the account that previously failed: the
 same YAML and the same per-chunk prompts now produce `account_charges`
 with the expected 3/3 charge records.
@@ -241,14 +294,14 @@ with the expected 3/3 charge records.
   - `references/6_known_limitations.md` — AGE-6, AGE-7, escalation playbook
   - `references/7_promote_to_project.md` — deferred-with-rationale doc
 - `templates/compile_workflow.py` — offline YAML → workflow JSON translator
-- `templates/compare.py` — comparison harness with date/float/casing
+- `templates/score_extraction.py` — comparison harness with date/float/casing
   normalization and charge alias mapping
-- `templates/prompt.yaml` — starter schema (warner-shaped, statement + charges)
+- `templates/prompt.yaml` — starter schema (invoice-shaped, statement + charges)
 - `templates/.env.sample` — placeholder credentials only
 - `templates/requirements.txt` — minimal dependency set
-- `examples/warner-telecom/` — full worked example (schema, PDF,
+- `examples/utility-invoice/` — full worked example (schema, PDF,
   answer key) adapted from the billing example
-- `evals/evals.json` with 4 tests + `evals/fixtures/warner-telecom/`
+- `evals/evals.json` with 4 tests + `evals/fixtures/utility-invoice/`
   fixtures (PDF, CSV, expected JSON)
 - New validate gate: `scripts/tests/test-groundx-extraction-workflows.mjs` (dry-run only,
   no GroundX API calls in CI)
@@ -257,7 +310,7 @@ with the expected 3/3 charge records.
 
 ### Notes
 
-- **Warner-pattern only.** Group names `statement` and `charges` are
+- **invoice-pattern only.** Group names `statement` and `charges` are
   hardcoded in `compile_workflow.py`. Documents that don't fit this
   shape will not auto-wire correctly.
 - **Workflow + ingest delegated to `groundx-api`.** No API operations
@@ -268,4 +321,4 @@ with the expected 3/3 charge records.
 ### Linked
 
 - Linear: AGE-15 (umbrella issue for the skill)
-- Related: AGE-1 (Warner PoC, source pattern), AGE-6, AGE-7 (platform-side)
+- Related: AGE-1 (the invoice PoC, source pattern), AGE-6, AGE-7 (platform-side)

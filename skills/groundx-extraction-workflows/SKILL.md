@@ -51,7 +51,10 @@ delegates to `groundx-api`.
    For a full local run, use
    `templates/run_extraction.py`. For interactive platform execution, route to
    `groundx-api`.
-7. Compare output with `templates/compare.py` when ground truth exists.
+7. Score against ground truth: `templates/score_extraction.py` for one document, or
+   `templates/batch_extraction.py` to ingest + score a folder live. To re-score a captured
+   run **offline (no re-ingest)** — after editing answer keys or to score on another
+   machine — use `templates/batch_score.py <run_dir> --keys-dir <keys>`.
 8. Iterate one field at a time; inspect X-Ray before tightening prompts when accuracy
    stalls or a field is wrong.
 

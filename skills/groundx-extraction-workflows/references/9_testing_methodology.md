@@ -39,7 +39,7 @@ Spawn a fresh general-purpose sub-agent with explicit constraints:
 
 ### 9.2.2 Inputs
 
-- The Linear ticket for the customer (e.g. AGE-1 for Warner)
+- The Linear ticket for the customer (e.g. AGE-1)
 - The skill at HEAD
 - The customer's PDF + answer key
 - `GROUNDX_API_KEY` available in env or a `.env` file in the
@@ -49,7 +49,7 @@ Spawn a fresh general-purpose sub-agent with explicit constraints:
 
 - Zero local patches required to complete the run
 - Accuracy target met for the customer (e.g. ≥95% statement + 3/3
-  charges for Warner)
+  charges for the invoice example)
 - `run.log` shows the expected event sequence (compile → validate →
   workflow.create → bucket.create → workflow.add_to_bucket → ingest →
   poll → xray.captured → extract.captured → run.done)
@@ -90,7 +90,7 @@ A skill-change PR should include, in the top-level body or comment:
 
 - **Audience A test recipe** — how a customer would validate the
   change. Reference the relevant Linear ticket + fixture (e.g. AGE-1
-  + Warner invoice + answer key CSV).
+  + an invoice + answer key).
 - **Audience B test recipe** — concrete validate + smoke commands the
   reviewer can run locally.
 - **What was verified** — a snapshot of accuracy numbers achieved,

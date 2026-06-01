@@ -52,7 +52,7 @@ charges:
     #   - charge_description_as_printed   (verbatim description)
     #
     # See references/6_known_limitations.md for the workaround pattern
-    # (alias mapping in compare.py).
+    # (alias mapping in score_extraction.py).
     charge_description_as_printed:
       prompt:
         description: the description of this individual record exactly as printed

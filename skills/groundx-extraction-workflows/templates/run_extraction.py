@@ -37,6 +37,7 @@ import time
 import typing
 
 import dotenv
+import yaml
 
 # Resolve .env from the user's cwd, not the script's __file__ tree.
 dotenv.load_dotenv(dotenv.find_dotenv(usecwd=True))
@@ -44,9 +45,37 @@ dotenv.load_dotenv(dotenv.find_dotenv(usecwd=True))
 from groundx import Document, GroundX
 
 # Sibling template imports (in-process — no subprocess overhead).
-from compile_workflow import build_workflow
+from business_logic import apply_business_logic
+from compile_workflow import _GROUP_METADATA_KEYS, build_workflow
 from run_log import RunLog
 from validate_workflow_json import validate as validate_workflow
+from xray_to_extract import xray_to_extract
+
+
+def _load_business_logic_metadata(yaml_path: str) -> dict:
+    """Extract per-group business-logic metadata from the extraction YAML.
+
+    Returns `{group_name: {unique_attrs, match_attrs, conflict_attrs,
+    passthrough}}` for every group that declares at least one such key. Groups
+    with none are omitted, so a YAML carrying no business-logic metadata yields
+    `{}` and `apply_business_logic` is a no-op (backward compatible).
+    """
+    bl_keys = _GROUP_METADATA_KEYS - {"slot"}
+    try:
+        with open(yaml_path) as f:
+            raw = yaml.safe_load(f) or {}
+    except (OSError, yaml.YAMLError):
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    metadata: dict = {}
+    for group_name, cfg in raw.items():
+        if not isinstance(cfg, dict):
+            continue
+        group_meta = {k: cfg[k] for k in bl_keys if k in cfg}
+        if group_meta:
+            metadata[group_name] = group_meta
+    return metadata
 
 
 def _abs(out: str, name: str) -> str:
@@ -110,6 +139,44 @@ def _poll(gx: GroundX, process_id: str, interval: int, max_polls: int, rl: RunLo
         time.sleep(interval)
     rl.event("ingest.timeout", polls=max_polls, interval=interval)
     raise SystemExit("ingest timed out")
+
+
+def extract_from_document(
+    gx: GroundX,
+    document_id: str,
+    bl_metadata: typing.Optional[dict] = None,
+    rl: typing.Optional[RunLog] = None,
+) -> typing.Tuple[dict, dict, str]:
+    """Given an ingested document_id, derive its extraction. Returns
+    (extract, xray, source). Shared by run_extraction (single doc) and
+    batch_extraction (per doc) so the get_extract/X-Ray-fallback/business-logic
+    logic lives in exactly one place.
+
+    `get_extract` returns the server-side doc-level artifact. On deployments
+    without the extract microservice it either 404s OR returns a truthy-but-
+    incomplete object lacking the chunk-level repeating arrays (charges/meters),
+    so trust it only when it carries populated records; otherwise aggregate the
+    captured X-Ray locally (`xray_to_extract` reproduces the same shape). See
+    references/6_known_limitations.md §4.
+    """
+    xray = _to_plain_dict(gx.documents.get_xray(document_id=document_id))
+    source = "get_extract"
+    try:
+        fetched = _to_plain_dict(gx.documents.get_extract(document_id=document_id))
+    except Exception as e:
+        fetched = None
+        if rl:
+            rl.event("extract.get_extract_unavailable", reason=str(e)[:200])
+    if fetched and any(isinstance(v, list) and v for v in fetched.values()):
+        extract = fetched
+    else:
+        extract = xray_to_extract(xray)
+        source = "xray_to_extract"
+    if bl_metadata:
+        extract = apply_business_logic(extract, bl_metadata)
+        if rl:
+            rl.event("business_logic.applied", groups=sorted(bl_metadata.keys()))
+    return extract, xray, source
 
 
 def main() -> int:
@@ -226,16 +293,22 @@ def main() -> int:
             with open(_abs(args.out, "document_id.txt"), "w") as f:
                 f.write(document_id)
 
-        xray_dict = _to_plain_dict(gx.documents.get_xray(document_id=document_id))
+        # Derive the extraction (get_extract when populated, else aggregate the
+        # X-Ray) + apply per-group business logic. Shared with batch_extraction.
+        # A YAML with no business-logic keys yields {} -> the call is a no-op and
+        # output.json is unchanged (backward compatible).
+        bl_metadata = _load_business_logic_metadata(args.yaml)
+        extract_dict, xray_dict, extract_source = extract_from_document(
+            gx, document_id, bl_metadata, rl
+        )
         with open(xray_path, "w") as f:
             json.dump(xray_dict, f, indent=2, default=str)
         rl.event("xray.captured", path=xray_path, chunks=len(xray_dict.get("chunks") or []))
 
-        extract_dict = _to_plain_dict(gx.documents.get_extract(document_id=document_id))
         with open(extract_path, "w") as f:
             json.dump(extract_dict, f, indent=2, default=str)
         ac_count = len(extract_dict.get("account_charges") or [])
-        rl.event("extract.captured", path=extract_path, account_charges_count=ac_count)
+        rl.event("extract.captured", path=extract_path, source=extract_source, account_charges_count=ac_count)
 
         rl.quota_snapshot(gx, label="run.end")
         rl.event("run.done", account_charges_count=ac_count)

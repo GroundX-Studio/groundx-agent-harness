@@ -106,7 +106,7 @@ operational decision (privacy, retention, access control).
 │   ├── prompt.yaml                first-draft schema
 │   ├── workflow.json              compiled workflow JSON
 │   ├── output.json                what GroundX returned
-│   ├── compare-report.txt         compare.py output
+│   ├── compare-report.txt         score_extraction.py output
 │   └── notes.md                   rationale for v1, observed failures
 └── v2/                            second iteration (same shape) — only if needed
 ```

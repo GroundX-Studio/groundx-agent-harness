@@ -78,17 +78,21 @@ def xray_to_extract(xray: dict) -> dict:
                 seen_charges.add(key)
                 charges.append(record)
 
-        # Meters from chunkSummary
-        chunk_summary = _parse_json_field(chunk.get("chunkSummary"))
-        if chunk_summary and isinstance(chunk_summary.get("meters"), list):
-            for record in chunk_summary["meters"]:
-                if not isinstance(record, dict):
-                    continue
-                key = _record_key(record)
-                if key in seen_meters:
-                    continue
-                seen_meters.add(key)
-                meters.append(record)
+        # Meters from the chunk-sum output. Depending on the X-Ray shape it
+        # surfaces under `chunkSummary` OR `suggestedText` (overriding `chunk-sum`
+        # replaces the chunk's suggestedText — see 3_prompt_pipeline.md §7). Try
+        # both; dedup by record key prevents double-counting.
+        for src_field in ("chunkSummary", "suggestedText"):
+            chunk_summary = _parse_json_field(chunk.get(src_field))
+            if chunk_summary and isinstance(chunk_summary.get("meters"), list):
+                for record in chunk_summary["meters"]:
+                    if not isinstance(record, dict):
+                        continue
+                    key = _record_key(record)
+                    if key in seen_meters:
+                        continue
+                    seen_meters.add(key)
+                    meters.append(record)
 
         # Statement from sectionSummary
         ss = _parse_json_field(chunk.get("sectionSummary"))

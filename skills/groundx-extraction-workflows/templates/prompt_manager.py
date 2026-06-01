@@ -32,12 +32,10 @@ from groundx import Document, GroundX
 
 from compile_workflow import (
     build_workflow,
-    prompt_charges_extract_request as default_prompt_charges_extract_request,
-    prompt_charges_extract_task as default_prompt_charges_extract_task,
-    prompt_meters_extract_request as default_prompt_meters_extract_request,
-    prompt_meters_extract_task as default_prompt_meters_extract_task,
-    prompt_statement_extract_request as default_prompt_statement_extract_request,
-    prompt_statement_extract_task as default_prompt_statement_extract_task,
+    _repeating_request,
+    _repeating_task,
+    _singleton_request,
+    _singleton_task,
 )
 
 
@@ -78,23 +76,28 @@ class ExtractionWorkflowManager:
         workflow = self.workflow_body(yaml_path=yaml_path, workflow_name=workflow_name)
         return typing.cast(dict[str, typing.Any], workflow.get("extract", {}))
 
+    # These per-group methods are the override points for a custom manager
+    # subclass (the EXTRACT_WRAPPER_MODULE convention). The defaults delegate to
+    # the compiler's generic builders — `statement` is a singleton group,
+    # `charges`/`meters` are repeating groups — so they track the domain-agnostic
+    # compiler instead of bespoke per-group functions.
     def prompt_statement_extract_request(self, field_specs: str) -> str:
-        return default_prompt_statement_extract_request(field_specs)
+        return _singleton_request(field_specs)
 
     def prompt_statement_extract_task(self, field_descriptions: str) -> str:
-        return default_prompt_statement_extract_task(field_descriptions)
+        return _singleton_task(field_descriptions)
 
     def prompt_charges_extract_request(self, field_specs: str, group_definition: str) -> str:
-        return default_prompt_charges_extract_request(field_specs, group_definition)
+        return _repeating_request("charges", field_specs, group_definition)
 
     def prompt_charges_extract_task(self, field_descriptions: str) -> str:
-        return default_prompt_charges_extract_task(field_descriptions)
+        return _repeating_task("charges", field_descriptions)
 
     def prompt_meters_extract_request(self, field_specs: str, group_definition: str) -> str:
-        return default_prompt_meters_extract_request(field_specs, group_definition)
+        return _repeating_request("meters", field_specs, group_definition)
 
     def prompt_meters_extract_task(self, field_descriptions: str) -> str:
-        return default_prompt_meters_extract_task(field_descriptions)
+        return _repeating_task("meters", field_descriptions)
 
     def prompt_statement_reconcile(
         self,

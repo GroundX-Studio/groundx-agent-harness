@@ -33,7 +33,7 @@ behavior usually has a boring artifact cause.
 
 ## 10.2 Worked example — the v0.1.2 bug
 
-Warner-001 testing produced `account_charges: []` despite per-chunk
+invoice-001 testing produced `account_charges: []` despite per-chunk
 X-Ray extractions being correct. The actual cause was a wire-format
 issue: Pydantic v1's `.dict()` silently dropped unset fields, so the
 compiled workflow JSON was missing 5 of 7 `WorkflowSteps` slot keys

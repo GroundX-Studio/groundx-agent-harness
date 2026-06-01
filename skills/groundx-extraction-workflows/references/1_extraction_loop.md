@@ -29,14 +29,14 @@ applied to the same document — produces the same extraction.
                             ┌──────────────┐
                             │ output.json  │
                             └──────┬───────┘
-                                   │ python compare.py
+                                   │ python score_extraction.py
                                    ▼
                           pass/fail/warn report
 ```
 
 The user edits `prompt.yaml`. Everything downstream is mechanical:
 `compile_workflow.py` produces the workflow JSON, `groundx-api`
-operations register and run it, `compare.py` evaluates accuracy.
+operations register and run it, `score_extraction.py` evaluates accuracy.
 
 ## 2. Setup
 
@@ -57,8 +57,8 @@ Before the loop runs, the working directory must have:
 6. `run_extraction.py` — copied from
    `skills/groundx-extraction-workflows/templates/run_extraction.py` when the
    same command should also ingest, poll, capture X-Ray, and retrieve extract
-7. `compare.py` — copied from
-   `skills/groundx-extraction-workflows/templates/compare.py`
+7. `score_extraction.py` — copied from
+   `skills/groundx-extraction-workflows/templates/score_extraction.py`
 8. `requirements.txt` — copied from
    `skills/groundx-extraction-workflows/templates/requirements.txt`
 9. The input PDF (named anything; pass the path as needed)
@@ -171,7 +171,7 @@ The manual operation loop is:
 ### 3.4 Compare to ground truth
 
 ```bash
-python compare.py output.json ground_truth.csv
+python score_extraction.py output.json ground_truth.csv
 ```
 
 The comparator emits a structured report: PASS / FAIL / WARN per

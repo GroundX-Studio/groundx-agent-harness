@@ -9,9 +9,24 @@ this is a pure offline transformation. The output is the exact body
 shape you POST to `/v1/workflow` (or pass to `gx.workflows.create()`,
 or to the `workflow_create` MCP tool from the groundx-api skill).
 
-Reads .env for EXTRACT_MODEL_* (engine config). The script does not
-need a real GROUNDX_API_KEY because no API calls are made; a
-placeholder is acceptable.
+Domain-agnostic group→slot mapping
+----------------------------------
+The compiler carries no hardcoded group names. Each top-level YAML key is a
+group; its workflow slot is resolved by precedence:
+
+  1. an explicit `slot:` on the group, then
+  2. a top-level `domain:` whose profile (templates/domains/<domain>.yaml)
+     supplies the group→slot map, then
+  3. a hard error if neither is present.
+
+Slots must be on the proven menu (SLOT_MENU): `chunk-instruct` (singleton
+per-document object), `chunk-keys` and `chunk-summary` (repeating record
+arrays). One group per slot. Reserved top-level keys (e.g. `domain`) and the
+per-group `slot:` key are consumed locally and never reach the workflow JSON —
+only `{name, chunk_strategy, extract, steps}` is sent to the platform.
+
+Reads .env for EXTRACT_MODEL_* (engine config). No real GROUNDX_API_KEY is
+needed because no API calls are made; a placeholder is acceptable.
 
 For the actual API calls (workflow create, attach to bucket, ingest,
 poll, retrieve extract), use the groundx-api skill — that is the
@@ -24,9 +39,11 @@ import importlib.util
 import json
 import os
 import sys
+import tempfile
 import typing
 
 import dotenv
+import yaml
 
 # Resolve .env from the user's cwd, not the script's __file__ tree.
 dotenv.load_dotenv(dotenv.find_dotenv(usecwd=True))
@@ -43,10 +60,63 @@ from groundx import (
 from groundx.extract import Logger, PromptManager, Source
 
 
-# --- Inline wrapper templates ---------------------------------------------
+# --- Proven slot menu + reserved keys -------------------------------------
+#
+# The platform exposes a grid of pipeline-stage slots (level × kind). Only the
+# three chunk-level slots below are PROVEN for structured extraction (live +
+# via xray_to_extract.py). `field` is the output field the step writes to —
+# decoupled from the slot name — which xray_to_extract.py reads back:
+#   chunk-instruct → field sect-sum  → X-Ray sectionSummary → singleton object
+#   chunk-keys     → field (none)    → X-Ray chunkKeywords   → repeating array
+#   chunk-summary  → field chunk-sum → X-Ray chunkSummary    → repeating array
+# Expanding this menu requires the slot spike (see openspec extraction-runner-e2e).
+SLOT_MENU: typing.Dict[str, typing.Dict[str, typing.Any]] = {
+    "chunk-instruct": {"stage": "chunk_instruct", "field": "sect-sum", "kind": "singleton"},
+    "chunk-keys": {"stage": "chunk_keys", "field": None, "kind": "repeating"},
+    "chunk-summary": {"stage": "chunk_summary", "field": "chunk-sum", "kind": "repeating"},
+}
+
+# Exactly the WorkflowSteps stage attrs the workflow JSON carries. Passed
+# explicitly (None for unused) so the wire form is stable; this set is
+# intentionally the same one the prior compiler emitted (no sect-keys /
+# search-query) so existing workflows compile identically.
+_ALL_STAGE_ATTRS = (
+    "chunk_instruct",
+    "chunk_keys",
+    "chunk_summary",
+    "doc_keys",
+    "doc_summary",
+    "sect_instruct",
+    "sect_summary",
+)
+
+# Top-level YAML keys that are NOT groups. Consumed locally during compile.
+RESERVED_TOP_LEVEL_KEYS = {"domain"}
+
+# Per-group keys consumed locally and stripped before the YAML reaches the SDK
+# PromptManager: the slot selector plus the client-side business-logic metadata
+# (applied post-extraction by templates/business_logic.py, not on the platform).
+# Keeping them out of the filtered YAML ensures they never become extract fields.
+_GROUP_METADATA_KEYS = {
+    "slot",
+    "unique_attrs",
+    "match_attrs",
+    "conflict_attrs",
+    "passthrough",
+}
+
+# Domain profiles live next to this script.
+DOMAINS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "domains")
 
 
-def _statement_request(field_specs: str) -> str:
+# --- Generic prompt builders ----------------------------------------------
+#
+# Two builders keyed by slot kind, parameterized by group name. They carry no
+# domain vocabulary: domain-specific guidance belongs in the YAML (per-field
+# `instructions` and the group-level `prompt`/definition), not here.
+
+
+def _singleton_request(field_specs: str) -> str:
     return f"""
 # Request
 
@@ -66,7 +136,7 @@ as a JSON object.
 """
 
 
-def _statement_task(field_descriptions: str) -> str:
+def _singleton_task(field_descriptions: str) -> str:
     return f"""
 # Identity
 
@@ -84,7 +154,7 @@ return the information as a JSON object.
 """
 
 
-def _charges_request(field_specs: str, charge_definition: str) -> str:
+def _repeating_request(group_name: str, field_specs: str, group_definition: str) -> str:
     return f"""
 # Request
 
@@ -92,7 +162,7 @@ Analyze the provided document content and extract every individual record.
 
 # Extraction Guidelines
 
-{charge_definition.strip()}
+{group_definition.strip()}
 
 # Field Values
 
@@ -103,7 +173,7 @@ found.
 
 # Output shape
 
-Return a single JSON object whose top-level key is `charges` and whose
+Return a single JSON object whose top-level key is `{group_name}` and whose
 value is a JSON array of record objects. Each record object uses the
 field `Field` value (above) as its keys.
 
@@ -112,14 +182,14 @@ real `Field` values from "Field Values" above):
 
 ```json
 {{
-  "charges": [
+  "{group_name}": [
     {{"field_a": "value", "field_b": 123}},
     {{"field_a": "value", "field_b": 456}}
   ]
 }}
 ```
 
-If you cannot find any records in this content, return `{{"charges": []}}`.
+If you cannot find any records in this content, return `{{"{group_name}": []}}`.
 
 DO NOT return a raw JSON array at the top level. DO NOT invent records
 that are not visible in the content provided. Only include records you
@@ -133,12 +203,12 @@ can read directly from the document text or page images.
 """
 
 
-def _charges_task(field_descriptions: str) -> str:
+def _repeating_task(group_name: str, field_descriptions: str) -> str:
     return f"""
 # Identity
 
 You are a structured-data assistant. Extract repeating records from documents
-and return them as a JSON object with a `charges` array.
+and return them as a JSON object with a `{group_name}` array.
 
 # Process
 
@@ -147,109 +217,12 @@ and return them as a JSON object with a `charges` array.
 2. For each record, look for the following fields:
 {field_descriptions}
 3. Build one JSON object per record with the `Field` values as keys.
-4. Wrap the array of record objects in a top-level `{{"charges": [...]}}`
-   object. Always use the `charges` key — never return a raw array,
+4. Wrap the array of record objects in a top-level `{{"{group_name}": [...]}}`
+   object. Always use the `{group_name}` key — never return a raw array,
    never use a different wrapper name.
-5. If no records are found, return `{{"charges": []}}`.
+5. If no records are found, return `{{"{group_name}": []}}`.
 6. Return only the resulting JSON object.
     """
-
-
-def _meters_request(field_specs: str, meter_definition: str) -> str:
-    return f"""
-# Request
-
-Analyze the provided document content and extract every physical meter or
-metered-service usage record.
-
-# Extraction Guidelines
-
-{meter_definition.strip()}
-
-# Field Values
-
-You must extract the following information for each meter record, if it can be
-found.
-
-{field_specs.strip()}
-
-# Output shape
-
-Return a single JSON object whose top-level key is `meters` and whose value is
-a JSON array of meter objects. Each meter object uses the field `Field` value
-(above) as its keys.
-
-Example shape (illustrative — field names are placeholders, use the real
-`Field` values from "Field Values" above):
-
-```json
-{{
-  "meters": [
-    {{"meter_number": "A123", "usage": 42.5}},
-    {{"meter_number": "B456", "usage": 17.2}}
-  ]
-}}
-```
-
-If you cannot find any meters in this content, return `{{"meters": []}}`.
-
-DO NOT return a raw JSON array at the top level. DO NOT invent meters that are
-not visible in the content provided. Only include records you can read directly
-from the document text or page images.
-
-# Final Notes
-
-- Use the value in `Field` as the JSON key inside each meter record.
-- Exclude fields you cannot identify with confidence.
-- Return only the JSON object — no commentary, no code fences.
-"""
-
-
-def _meters_task(field_descriptions: str) -> str:
-    return f"""
-# Identity
-
-You are a structured-data assistant. Extract physical meter or metered-service
-usage records from documents and return them as a JSON object with a `meters`
-array.
-
-# Process
-
-1. Identify each physical meter or metered-service usage record that is visible
-   in the provided document content. Do not invent records.
-2. For each meter record, look for the following fields:
-{field_descriptions}
-3. Build one JSON object per meter record with the `Field` values as keys.
-4. Wrap the array of meter objects in a top-level `{{"meters": [...]}}`
-   object. Always use the `meters` key — never return a raw array, never use a
-   different wrapper name.
-5. If no meters are found, return `{{"meters": []}}`.
-6. Return only the resulting JSON object.
-"""
-
-
-def prompt_statement_extract_request(field_specs: str) -> str:
-    return _statement_request(field_specs)
-
-
-def prompt_statement_extract_task(field_descriptions: str) -> str:
-    return _statement_task(field_descriptions)
-
-
-def prompt_charges_extract_request(field_specs: str, charge_definition: str) -> str:
-    return _charges_request(field_specs, charge_definition)
-
-
-def prompt_charges_extract_task(field_descriptions: str) -> str:
-    return _charges_task(field_descriptions)
-
-
-def prompt_meters_extract_request(field_specs: str, meter_definition: str) -> str:
-    return _meters_request(field_specs, meter_definition)
-
-
-def prompt_meters_extract_task(field_descriptions: str) -> str:
-    return _meters_task(field_descriptions)
 
 
 # --- Optional external wrapper support ------------------------------------
@@ -295,6 +268,102 @@ def _call_wrapper(
     return fallback(*args)
 
 
+def _wrapper_names(group_name: str, verb: str) -> tuple[str, ...]:
+    """Per-group prompt-wrapper override names (back-compatible).
+
+    For `statement`/`charges`/`meters` these reproduce the historical names
+    (`prompt_statement_extract_request`, ...); for any other group they follow
+    the same pattern keyed by the group name.
+    """
+    return (
+        f"prompt_{group_name}_extract_{verb}",
+        f"{group_name}_extract_{verb}",
+        f"extract_{group_name}_{verb}",
+    )
+
+
+# --- Domain profiles + slot resolution ------------------------------------
+
+
+def _load_domain_profile(domain: str) -> typing.Dict[str, str]:
+    """Load a domain profile's group→slot map from templates/domains/<domain>.yaml."""
+    path = os.path.join(DOMAINS_DIR, f"{domain}.yaml")
+    if not os.path.isfile(path):
+        available = sorted(
+            f[:-5] for f in os.listdir(DOMAINS_DIR) if f.endswith(".yaml")
+        ) if os.path.isdir(DOMAINS_DIR) else []
+        raise ValueError(
+            f"unknown domain '{domain}'. No profile at {path}. "
+            f"Available domains: {available or '(none)'}. "
+            f"Declare a known `domain:` or give each group an explicit `slot:`."
+        )
+    with open(path) as f:
+        profile = yaml.safe_load(f) or {}
+    groups = profile.get("groups") or {}
+    if not isinstance(groups, dict) or not groups:
+        raise ValueError(f"domain profile {path} has no `groups:` map")
+    return {str(g): str(s) for g, s in groups.items()}
+
+
+def _resolve_group_slots(raw: dict) -> "dict[str, str]":
+    """Resolve each group's slot by precedence: explicit `slot:` → domain → error.
+
+    Enforces the proven slot menu and one-group-per-slot.
+    """
+    domain = raw.get("domain")
+    profile = _load_domain_profile(str(domain)) if domain else {}
+
+    group_names = [k for k in raw.keys() if k not in RESERVED_TOP_LEVEL_KEYS]
+    if not group_names:
+        raise ValueError("no groups found in YAML (only reserved keys present)")
+
+    resolved: dict[str, str] = {}
+    used: dict[str, str] = {}
+    for name in group_names:
+        cfg = raw[name] if isinstance(raw[name], dict) else {}
+        slot = cfg.get("slot") or profile.get(name)
+        if not slot:
+            raise ValueError(
+                f"group '{name}' has no slot. Declare a `slot:` on the group "
+                f"(one of {sorted(SLOT_MENU)}) or a top-level `domain:` whose "
+                f"profile maps '{name}'."
+            )
+        if slot not in SLOT_MENU:
+            raise ValueError(
+                f"group '{name}' declares slot '{slot}', which is not on the "
+                f"proven slot menu {sorted(SLOT_MENU)}."
+            )
+        if slot in used:
+            raise ValueError(
+                f"slot '{slot}' is mapped by both '{used[slot]}' and '{name}'. "
+                f"Each slot carries exactly one group."
+            )
+        used[slot] = name
+        resolved[name] = slot
+    return resolved
+
+
+def _write_filtered_yaml(raw: dict, yaml_dir: str) -> str:
+    """Write a groups-only YAML (reserved top-level keys and per-group
+    metadata keys stripped) so the SDK PromptManager parses only real groups
+    and never sees the slot selector or business-logic metadata. Returns the
+    temp file path (caller deletes it)."""
+    filtered: dict = {}
+    for key, value in raw.items():
+        if key in RESERVED_TOP_LEVEL_KEYS:
+            continue
+        if isinstance(value, dict):
+            filtered[key] = {
+                k: v for k, v in value.items() if k not in _GROUP_METADATA_KEYS
+            }
+        else:
+            filtered[key] = value
+    fd, path = tempfile.mkstemp(dir=yaml_dir, prefix="_cf_", suffix=".yaml")
+    with os.fdopen(fd, "w") as f:
+        yaml.safe_dump(filtered, f, sort_keys=False, allow_unicode=True)
+    return path
+
+
 # --- Compile helper -------------------------------------------------------
 
 
@@ -307,6 +376,7 @@ class _CompileManager(PromptManager):
         model_id: str,
         model_reasoning: typing.Optional[str],
         service: str,
+        group_slots: typing.Dict[str, str],
         wrapper_module: typing.Any = None,
         **data: typing.Any,
     ) -> None:
@@ -314,6 +384,7 @@ class _CompileManager(PromptManager):
         self.model_id = model_id
         self.model_reasoning = model_reasoning
         self.service = service
+        self.group_slots = group_slots
         self.wrapper_module = wrapper_module
 
     def _engine(self) -> WorkflowEngine:
@@ -323,133 +394,59 @@ class _CompileManager(PromptManager):
             service=self.service,
         )
 
-    def _statement_step_config(self) -> WorkflowStepConfig:
+    def get_fields_for_workflow(self, *args: typing.Any, **kwargs: typing.Any) -> dict:
+        # Defensive: never let a reserved key surface as an extract group.
+        fields = super().get_fields_for_workflow(*args, **kwargs)
+        return {k: v for k, v in fields.items() if k not in RESERVED_TOP_LEVEL_KEYS}
+
+    def _step_config(self, group_name: str, slot_meta: dict) -> WorkflowStepConfig:
+        if slot_meta["kind"] == "singleton":
+            request_prompt = _call_wrapper(
+                self.wrapper_module,
+                _wrapper_names(group_name, "request"),
+                _singleton_request,
+                self.group_field_prompts(group_name),
+            )
+            task_prompt = _call_wrapper(
+                self.wrapper_module,
+                _wrapper_names(group_name, "task"),
+                _singleton_task,
+                self.group_descriptions(group_name),
+            )
+        else:  # repeating
+            request_prompt = _call_wrapper(
+                self.wrapper_module,
+                _wrapper_names(group_name, "request"),
+                lambda fs, gd: _repeating_request(group_name, fs, gd),
+                self.group_field_prompts(group_name),
+                self.group_definition(group_name),
+            )
+            task_prompt = _call_wrapper(
+                self.wrapper_module,
+                _wrapper_names(group_name, "task"),
+                lambda fd: _repeating_task(group_name, fd),
+                self.group_descriptions(group_name),
+            )
         return WorkflowStepConfig(
             engine=self._engine(),
-            field="sect-sum",
+            field=slot_meta["field"],
             includes={"pageImages": True},
             prompt=WorkflowPromptGroup(
-                request=WorkflowPrompt(
-                    prompt=_call_wrapper(
-                        self.wrapper_module,
-                        (
-                            "prompt_statement_extract_request",
-                            "statement_extract_request",
-                            "extract_statement_request",
-                        ),
-                        _statement_request,
-                        self.group_field_prompts("statement"),
-                    ),
-                    role="user",
-                ),
-                task=WorkflowPrompt(
-                    prompt=_call_wrapper(
-                        self.wrapper_module,
-                        (
-                            "prompt_statement_extract_task",
-                            "statement_extract_task",
-                            "extract_statement_task",
-                        ),
-                        _statement_task,
-                        self.group_descriptions("statement"),
-                    ),
-                    role="developer",
-                ),
+                request=WorkflowPrompt(prompt=request_prompt, role="user"),
+                task=WorkflowPrompt(prompt=task_prompt, role="developer"),
             ),
-        )
-
-    def _charges_step_config(self) -> WorkflowStepConfig:
-        return WorkflowStepConfig(
-            engine=self._engine(),
-            includes={"pageImages": True},
-            prompt=WorkflowPromptGroup(
-                request=WorkflowPrompt(
-                    prompt=_call_wrapper(
-                        self.wrapper_module,
-                        (
-                            "prompt_charges_extract_request",
-                            "charges_extract_request",
-                            "extract_charges_request",
-                        ),
-                        _charges_request,
-                        self.group_field_prompts("charges"),
-                        self.group_definition("charges"),
-                    ),
-                    role="user",
-                ),
-                task=WorkflowPrompt(
-                    prompt=_call_wrapper(
-                        self.wrapper_module,
-                        (
-                            "prompt_charges_extract_task",
-                            "charges_extract_task",
-                            "extract_charges_task",
-                        ),
-                        _charges_task,
-                        self.group_descriptions("charges"),
-                    ),
-                    role="developer",
-                ),
-            ),
-        )
-
-    def _meters_step_config(self) -> WorkflowStepConfig:
-        return WorkflowStepConfig(
-            engine=self._engine(),
-            field="chunk-sum",
-            includes={"pageImages": True},
-            prompt=WorkflowPromptGroup(
-                request=WorkflowPrompt(
-                    prompt=_call_wrapper(
-                        self.wrapper_module,
-                        (
-                            "prompt_meters_extract_request",
-                            "meters_extract_request",
-                            "extract_meters_request",
-                        ),
-                        _meters_request,
-                        self.group_field_prompts("meters"),
-                        self.group_definition("meters"),
-                    ),
-                    role="user",
-                ),
-                task=WorkflowPrompt(
-                    prompt=_call_wrapper(
-                        self.wrapper_module,
-                        (
-                            "prompt_meters_extract_task",
-                            "meters_extract_task",
-                            "extract_meters_task",
-                        ),
-                        _meters_task,
-                        self.group_descriptions("meters"),
-                    ),
-                    role="developer",
-                ),
-            ),
-        )
-
-    def _has_top_level_group(self, group_name: str) -> bool:
-        return group_name in self.get_fields_for_workflow()
-
-    def _warn_missing_group(self, group_name: str, exc: Exception) -> None:
-        print(
-            f"[{self.default_file_name}] missing {group_name} definitions: {exc}",
-            file=sys.stderr,
         )
 
     def workflow_steps_for_yaml(self) -> WorkflowSteps:
-        # Every WorkflowStep variant and every WorkflowSteps slot must be
-        # passed explicitly (None for unused). Pydantic v1's `.dict()` drops
-        # unset fields, which produces a workflow JSON missing slot keys —
-        # the platform then treats the workflow as partial and silently skips
-        # extraction aggregators. See `_to_dict` below.
-        statement_step = None
-        charges_step = None
-        meters_step = None
-        try:
-            cfg = self._statement_step_config()
-            statement_step = WorkflowStep(
+        # Every WorkflowSteps slot is passed explicitly (None for unused) so the
+        # wire form stays stable. See _ALL_STAGE_ATTRS.
+        stage_steps: typing.Dict[str, typing.Optional[WorkflowStep]] = {
+            attr: None for attr in _ALL_STAGE_ATTRS
+        }
+        for group_name, slot in self.group_slots.items():
+            meta = SLOT_MENU[slot]
+            cfg = self._step_config(group_name, meta)
+            stage_steps[meta["stage"]] = WorkflowStep(
                 all_=None,
                 figure=cfg,
                 paragraph=cfg,
@@ -457,42 +454,7 @@ class _CompileManager(PromptManager):
                 table=None,
                 table_figure=cfg,
             )
-        except Exception as exc:
-            self._warn_missing_group("statement", exc)
-        try:
-            cfg = self._charges_step_config()
-            charges_step = WorkflowStep(
-                all_=None,
-                figure=cfg,
-                paragraph=cfg,
-                json_=None,
-                table=None,
-                table_figure=cfg,
-            )
-        except Exception as exc:
-            self._warn_missing_group("charges", exc)
-        if self._has_top_level_group("meters"):
-            try:
-                cfg = self._meters_step_config()
-                meters_step = WorkflowStep(
-                    all_=None,
-                    figure=cfg,
-                    paragraph=cfg,
-                    json_=None,
-                    table=None,
-                    table_figure=cfg,
-                )
-            except Exception as exc:
-                self._warn_missing_group("meters", exc)
-        return WorkflowSteps(
-            chunk_instruct=statement_step,
-            chunk_keys=charges_step,
-            chunk_summary=meters_step,
-            doc_keys=None,
-            doc_summary=None,
-            sect_instruct=None,
-            sect_summary=None,
-        )
+        return WorkflowSteps(**stage_steps)
 
 
 def _to_dict(obj: typing.Any) -> typing.Any:
@@ -518,6 +480,15 @@ def build_workflow(yaml_path: str, name: typing.Optional[str] = None) -> dict:
     yaml_basename = os.path.splitext(os.path.basename(yaml_path))[0]
     resolved_name = name or yaml_basename
 
+    with open(yaml_path) as f:
+        raw = yaml.safe_load(f) or {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"{yaml_path}: top-level YAML must be a mapping of groups")
+
+    group_slots = _resolve_group_slots(raw)
+    filtered_path = _write_filtered_yaml(raw, yaml_dir)
+    filtered_basename = os.path.splitext(os.path.basename(filtered_path))[0]
+
     api_key = os.environ.get("GROUNDX_API_KEY", "compile-only-not-used")
     base_url = os.environ.get("GROUNDX_BASE_URL", "https://api.groundx.ai/api")
     gx = GroundX(api_key=api_key, base_url=base_url)
@@ -526,25 +497,32 @@ def build_workflow(yaml_path: str, name: typing.Optional[str] = None) -> dict:
     source = Source(logger=logger, cache_path=yaml_dir)
     wrapper_module = _load_wrapper_module(yaml_dir)
 
-    runner = _CompileManager(
-        model_id=os.environ.get("EXTRACT_MODEL_ID", "gpt-5-mini"),
-        model_reasoning=os.environ.get("EXTRACT_MODEL_REASONING", "high"),
-        service=os.environ.get("EXTRACT_MODEL_SERVICE", "openai"),
-        wrapper_module=wrapper_module,
-        cache_source=source,
-        config_source=source,
-        gx_client=gx,
-        logger=logger,
-        default_file_name=yaml_basename,
-        default_workflow_id=resolved_name,
-    )
+    try:
+        runner = _CompileManager(
+            model_id=os.environ.get("EXTRACT_MODEL_ID", "gpt-5-mini"),
+            model_reasoning=os.environ.get("EXTRACT_MODEL_REASONING", "high"),
+            service=os.environ.get("EXTRACT_MODEL_SERVICE", "openai"),
+            group_slots=group_slots,
+            wrapper_module=wrapper_module,
+            cache_source=source,
+            config_source=source,
+            gx_client=gx,
+            logger=logger,
+            default_file_name=filtered_basename,
+            default_workflow_id=filtered_basename,
+        )
 
-    return {
-        "name": resolved_name,
-        "chunk_strategy": "element",
-        "extract": _to_dict(runner.workflow_extract_dict()),
-        "steps": _to_dict(runner.workflow_steps_for_yaml()),
-    }
+        return {
+            "name": resolved_name,
+            "chunk_strategy": "element",
+            "extract": _to_dict(runner.workflow_extract_dict()),
+            "steps": _to_dict(runner.workflow_steps_for_yaml()),
+        }
+    finally:
+        try:
+            os.remove(filtered_path)
+        except OSError:
+            pass
 
 
 def main() -> int:

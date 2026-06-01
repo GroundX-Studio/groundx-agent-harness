@@ -21,28 +21,18 @@ These names are not configurable. The runner and YAML must use them
 exactly. The YAML key for each becomes the JSON key in the extraction
 output.
 
-### 1.2 The alias workaround
+### 1.2 Aligning answer-key field names
 
-When the application or ground truth uses different field names (e.g. a
-CSV column named `CHG_AMT` instead of `charge_amount`), the comparator
-maps between them rather than working around the platform constraint
-silently.
+Use the platform-required names (`charge_amount`,
+`charge_description_as_printed`) directly in the YAML, and make the answer key
+use the **same field names** as the extraction output (both derive from the
+YAML). The comparator (`templates/score_extraction.py`) matches by field name and does
+not bridge differing names — answer keys are JSON in the runner's output shape,
+so convert any other format (CSV, etc.) to that shape with matching field names
+first.
 
-The alias map is defined inside
-`skills/groundx-extraction-workflows/templates/compare.py`:
-
-| Comparator key | Reads from extraction | Reads from ground truth |
-|---|---|---|
-| `chg_desc_1` | `charge_description_as_printed` or `chg_desc_1` | `CHG_DESC_1` (CSV) |
-| `chg_amt` | `charge_amount` or `chg_amt` | `CHG_AMT` (CSV) |
-
-When extending the comparator for a new ground-truth schema, add new
-alias entries to the `field_aliases` map rather than renaming fields in
-the YAML.
-
-A documented platform constraint with a documented workaround is not a
-failure mode; an undocumented divergence between the YAML and the ground
-truth is.
+A documented platform constraint is not a failure mode; an undocumented
+divergence between the YAML field names and the answer-key field names is.
 
 ## 2. Convention ambiguity (AGE-7-style)
 
@@ -137,3 +127,28 @@ After filing, document the new limitation in this reference doc (§1 if
 it is a name lock, §2 if it is a convention ambiguity, or a new
 subsection if it is a category not yet covered). The skill becomes more
 useful as more limitations are catalogued explicitly.
+
+## 4. `get_extract` returns 404 for chunk-level workflows
+
+`document_getextract` only returns the **document-level** extract artifact,
+which the platform populates from doc-level workflow steps. The schema-first
+workflows this skill produces are **chunk-level** (`statement` →
+`chunk-instruct`, `charges` → `chunk-keys`, `meters` → `chunk-summary`): their
+structured output is written into the **X-Ray chunk fields**
+(`sectionSummary`, `chunkKeywords`, `chunkSummary`), not the document-level
+artifact. As a result `get_extract` returns `404 — "We could not find
+extractions for the documentId you provided"` even though the extraction ran
+correctly and the workflow was attached before ingest.
+
+Confirmed live (2026-05-30) against the invoice example with a regular user key:
+`get_extract` 404'd while the X-Ray held a fully populated statement (23
+fields) and 20 charges. Re-confirmed 2026-05-31 with a valid documentId,
+`add_to_account`, and ~3 min of post-ingest polling — the hosted tier does not
+return server-side extractions; the X-Ray fallback is the working path.
+
+**Resolution (in this skill):** `run_extraction.py` tries `get_extract` first
+and, when it is empty or 404s, falls back to `xray_to_extract.py`, which
+aggregates the X-Ray chunk fields into the same shape `get_extract` would
+return. The runner therefore completes end-to-end for chunk-level workflows.
+`xray_to_extract.py` remains the canonical local aggregator for X-Ray-first
+iteration (see `references/README.md` and `10_debugging_methodology.md`).
