@@ -3,15 +3,24 @@
 The YAML schema is the durable artifact. Every other output of this skill
 derives from it. This reference describes how to author one well.
 
-## 1. Groups and the proven slot menu
+## 1. Final groups, workflow groups, and the proven slot menu
 
-A GroundX extraction schema has top-level groups. Each group maps to a
-**workflow slot**; the compiler
-(`skills/groundx-extraction-workflows/templates/compile_workflow.py`) is
-domain-agnostic and resolves a group's slot by precedence — an explicit
-per-group `slot:`, then a top-level `domain:` profile, then a hard error.
-Group names are arbitrary; only the **slot** is constrained, to the three
-proven for structured extraction:
+A GroundX extraction schema has real top-level groups that define the **final
+data object**. These names are the customer-facing output contract after
+extraction and reassembly.
+
+The workflow execution shape can be the same as the final shape, or it can be
+different through optional `_pseudo_groups`. A pseudo group is workflow-only:
+it is addressable by name in workflow artifacts, but it does not appear in the
+final output object. Use pseudo groups to split a large final group into
+smaller agents or to combine small sibling final groups into one agent.
+
+Each prepared workflow group maps to a **workflow slot**; the compiler
+(`skills/groundx-extraction-workflows/templates/compile_workflow.py`) resolves a
+workflow group's slot by precedence — SDK-resolved workflow metadata such as
+explicit or inherited `slot:`, then a top-level `domain:` profile keyed by
+workflow group name, then a hard error. Group names are arbitrary; only the
+**slot** is constrained, to the three proven for structured extraction:
 
 | Slot (`slot:`) | Output shape | X-Ray field read back | When to use |
 |---|---|---|---|
@@ -23,11 +32,60 @@ The `invoice` domain profile (`templates/domains/invoice.yaml`) supplies the
 canonical billing decomposition — `statement` → `chunk-instruct`,
 `charges` → `chunk-keys`, `meters` → `chunk-summary` — so an invoice YAML need
 only declare `domain: invoice` and omit per-group `slot:`. A new domain either
-declares an explicit `slot:` per group or adds its own profile. `xray_to_extract.py`
-reads each slot's X-Ray field back into the aggregated output. Omit any group a
-document does not have; one group per slot.
+declares an explicit `slot:` per workflow group or adds its own profile.
+`xray_to_extract.py` reads each slot's X-Ray field back into the aggregated
+output. Omit any final group a document does not have. Multiple workflow groups
+may resolve to the same slot; the compiler renders a combined slot prompt.
 
-### 1.1 statement: per-document fields
+The public syntax walkthrough is
+[Structured Extraction Workflow](https://docs.groundx.ai/documentation/structured-extraction-workflow).
+
+### 1.1 `_defs` and `_pseudo_groups`
+
+`_defs` is a fields-only authoring helper. Shared prompt context belongs under
+real final groups or pseudo groups, not inside `_defs`. `_defs` expands into
+final groups before pseudo routing.
+
+`_pseudo_groups` routes workflow fields to final fields using final-output JSON
+Pointer paths:
+
+```yaml
+statement:
+  prompt:
+    instructions: Extract statement-level fields for the final object.
+  fields:
+    account_number:
+      prompt:
+        description: The account number printed on the statement.
+        identifiers: ["Account Number"]
+        instructions: Return the account number exactly as printed.
+        type: str
+    total_due:
+      prompt:
+        description: The total amount due.
+        identifiers: ["Total Due"]
+        instructions: Return the total as a number.
+        type: float
+
+_pseudo_groups:
+  statement_identity:
+    slot: chunk-instruct
+    fields:
+      account_number:
+        path: /statement/account_number
+  statement_totals:
+    slot: chunk-summary
+    fields:
+      total_due:
+        path: /statement/total_due
+```
+
+Pseudo groups may contain `prompt`, `fields`, and documented workflow metadata
+such as `slot`. Arbitrary pseudo-group author metadata is rejected in v1.
+Route paths are final-output JSON Pointers such as
+`/statement/account_number`, not dot-separated strings.
+
+### 1.2 statement: per-document fields
 
 Use this group for fields that appear once per document, even if they are
 scattered across pages: account numbers, dates, totals, addresses,
@@ -52,7 +110,7 @@ statement:
 }
 ```
 
-### 1.2 charges: repeating records
+### 1.3 charges: repeating records
 
 Use this group for records that repeat — typically line items, transactions,
 charges, or service rows. Each chunk contributes complete records (not
@@ -84,7 +142,7 @@ charges:
 }
 ```
 
-### 1.3 meters: utility-style usage records
+### 1.4 meters: utility-style usage records
 
 Use this group for utility-style per-meter usage records: documents where
 each meter on a property reports its own consumption over a billing
@@ -133,7 +191,7 @@ The output appears under the `meters` array key:
 }
 ```
 
-### 1.4 When the shape does not fit
+### 1.5 When the shape does not fit
 
 If the document type is not a per-document object, a repeating record list,
 or a metered-usage list (e.g. a free-form report with hierarchical structure),
@@ -142,21 +200,21 @@ surface this to the user and either model the document as one of the supported
 shapes (typically `statement` with nested fields rendered as JSON strings) or
 escalate per §3.3 in `6_known_limitations.md`.
 
-### 1.5 Categories and agent load
+### 1.6 Final group shape and agent load
 
-Use **category** for a functional grouping of fields, such as
-`statement`, `charges`, or `meters`. Each category has a corresponding
-extraction agent that handles extraction, reconciliation, and QA for
-that category. Do not design one pre-process extraction agent per field.
+Use **final group** for a functional grouping of fields in the final output,
+such as `statement`, `charges`, or `meters`. Do not split the final data object
+only because an agent has too many fields; split workflow load with
+`_pseudo_groups` instead.
 
-As a rule of thumb, keep each category's extraction load to **20 fields
+As a rule of thumb, keep each workflow group's extraction load to **20 fields
 or fewer**. Above that, LLM cognitive load starts to work against
-accuracy and consistency. If a category grows beyond 20 fields, split it
-into smaller coherent categories rather than adding one agent per field.
-The category boundary should follow the document's natural structure:
-one-per-document statement fields, repeating charge/service rows,
-per-meter usage records, or another domain-specific group that the user
-and downstream system can reason about.
+accuracy and consistency. If a final group grows beyond 20 fields but should
+remain one final object, keep the final group intact and create smaller coherent
+pseudo groups. If two sibling final groups each have fewer than roughly 10
+fields and appear in the same document region, consider one pseudo workflow
+group that routes fields back to both final groups. Do not design one
+pre-process extraction agent per field.
 
 ## 2. Field anatomy
 

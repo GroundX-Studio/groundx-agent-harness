@@ -37,7 +37,6 @@ import time
 import typing
 
 import dotenv
-import yaml
 
 # Resolve .env from the user's cwd, not the script's __file__ tree.
 dotenv.load_dotenv(dotenv.find_dotenv(usecwd=True))
@@ -46,7 +45,7 @@ from groundx import Document, GroundX
 
 # Sibling template imports (in-process — no subprocess overhead).
 from business_logic import apply_business_logic
-from compile_workflow import _GROUP_METADATA_KEYS, build_workflow
+from compile_workflow import build_workflow_artifacts
 from run_log import RunLog
 from validate_workflow_json import validate as validate_workflow
 from xray_to_extract import xray_to_extract
@@ -60,22 +59,12 @@ def _load_business_logic_metadata(yaml_path: str) -> dict:
     with none are omitted, so a YAML carrying no business-logic metadata yields
     `{}` and `apply_business_logic` is a no-op (backward compatible).
     """
-    bl_keys = _GROUP_METADATA_KEYS - {"slot"}
     try:
-        with open(yaml_path) as f:
-            raw = yaml.safe_load(f) or {}
-    except (OSError, yaml.YAMLError):
+        _, metadata = build_workflow_artifacts(yaml_path)
+    except Exception:
         return {}
-    if not isinstance(raw, dict):
-        return {}
-    metadata: dict = {}
-    for group_name, cfg in raw.items():
-        if not isinstance(cfg, dict):
-            continue
-        group_meta = {k: cfg[k] for k in bl_keys if k in cfg}
-        if group_meta:
-            metadata[group_name] = group_meta
-    return metadata
+    final_group_metadata = metadata.get("final_group_metadata")
+    return final_group_metadata if isinstance(final_group_metadata, dict) else {}
 
 
 def _abs(out: str, name: str) -> str:
@@ -94,10 +83,16 @@ def _to_plain_dict(obj: typing.Any) -> dict:
 
 def _compile(yaml_path: str, workflow_json_path: str, name: str, rl: RunLog) -> dict:
     rl.event("compile.start", yaml_path=yaml_path)
-    workflow = build_workflow(yaml_path, name=name)
+    workflow, metadata = build_workflow_artifacts(yaml_path, name=name)
     with open(workflow_json_path, "w") as f:
         json.dump(workflow, f, indent=2, default=str)
-    rl.event("compile.done", workflow_json=workflow_json_path)
+    metadata_path = os.path.join(
+        os.path.dirname(workflow_json_path),
+        "extraction_workflow_metadata_v1.json",
+    )
+    with open(metadata_path, "w") as f:
+        json.dump(metadata, f, indent=2, default=str)
+    rl.event("compile.done", workflow_json=workflow_json_path, metadata_json=metadata_path)
     return workflow
 
 

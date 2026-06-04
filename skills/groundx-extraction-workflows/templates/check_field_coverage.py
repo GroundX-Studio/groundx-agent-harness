@@ -45,7 +45,7 @@ _GROUP_META_KEYS = {
     "passthrough",
     "pipeline",
 }
-_RESERVED_TOP_LEVEL_KEYS = {"domain"}
+_RESERVED_TOP_LEVEL_KEYS = {"domain", "_defs", "_pseudo_groups"}
 
 
 def yaml_field_names(doc: typing.Any) -> typing.Set[str]:

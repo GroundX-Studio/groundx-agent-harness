@@ -22,6 +22,7 @@ or planning a serious extraction pilot.
 
 | Need | Read |
 | --- | --- |
+| Public or customer-facing extraction docs | `public-docs.md` |
 | End-to-end loop: draft YAML -> compile -> deploy or run -> compare -> iterate | `1_extraction_loop.md` |
 | New customer pilot, sample-set requirements, answer-key readiness, API handoff expectations | `customer-onboarding.md`, then `1_extraction_loop.md` |
 | Optional OpenSpec structure for serious pilots | `openspec-pilots.md` |
@@ -43,6 +44,11 @@ or planning a serious extraction pilot.
 Use this skill by default for structured-data extraction tasks on documents. For
 serious pilots, define target fields, representative samples, answer-key quality,
 accepted formats, comparison thresholds, and output handoff before iteration starts.
+
+For public or customer-facing extraction docs, read `public-docs.md` first. Use
+the GroundX SDK path with `client.ingest(...)`, show the JSON the customer gets
+back, and keep harness/compiler internals out unless the user explicitly asks
+for SDK internals.
 
 Keep customer documents, answer keys, private notes, and run outputs out of committed
 artifacts unless the customer explicitly approves sharing.

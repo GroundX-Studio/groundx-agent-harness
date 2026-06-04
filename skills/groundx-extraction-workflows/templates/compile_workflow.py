@@ -9,21 +9,27 @@ this is a pure offline transformation. The output is the exact body
 shape you POST to `/v1/workflow` (or pass to `gx.workflows.create()`,
 or to the `workflow_create` MCP tool from the groundx-api skill).
 
-Domain-agnostic group→slot mapping
-----------------------------------
-The compiler carries no hardcoded group names. Each top-level YAML key is a
-group; its workflow slot is resolved by precedence:
+Domain-agnostic workflow group→slot mapping
+-------------------------------------------
+The compiler carries no hardcoded final group names. Top-level real YAML groups
+define the final data object. Optional `_pseudo_groups` define workflow-only
+execution groups for splitting a large final group or combining small sibling
+final groups. The SDK prepares both surfaces before compilation.
 
-  1. an explicit `slot:` on the group, then
+Each prepared workflow group resolves its workflow slot by precedence:
+
+  1. SDK-resolved workflow metadata such as explicit/inherited `slot:`, then
   2. a top-level `domain:` whose profile (templates/domains/<domain>.yaml)
-     supplies the group→slot map, then
+     supplies the workflow-group→slot map, then
   3. a hard error if neither is present.
 
 Slots must be on the proven menu (SLOT_MENU): `chunk-instruct` (singleton
 per-document object), `chunk-keys` and `chunk-summary` (repeating record
-arrays). One group per slot. Reserved top-level keys (e.g. `domain`) and the
-per-group `slot:` key are consumed locally and never reach the workflow JSON —
-only `{name, chunk_strategy, extract, steps}` is sent to the platform.
+arrays). Multiple workflow groups may share a slot; the compiler renders one
+combined prompt for that slot. Reserved authoring keys and metadata are consumed
+locally and never reach the workflow JSON. Compile/run/deploy paths also emit
+`extraction_workflow_metadata_v1.json`, which carries the route map and final
+schema for reassembly.
 
 Reads .env for EXTRACT_MODEL_* (engine config). No real GROUNDX_API_KEY is
 needed because no API calls are made; a placeholder is acceptable.
@@ -34,6 +40,9 @@ source of truth for those operations.
 """
 
 import argparse
+import copy
+import dataclasses
+import hashlib
 import importlib
 import importlib.util
 import json
@@ -58,6 +67,11 @@ from groundx import (
     WorkflowSteps,
 )
 from groundx.extract import Logger, PromptManager, Source
+
+try:
+    from groundx.extract import prepare_extraction_yaml as _sdk_prepare_extraction_yaml
+except ImportError:
+    _sdk_prepare_extraction_yaml = None
 
 
 # --- Proven slot menu + reserved keys -------------------------------------
@@ -90,8 +104,8 @@ _ALL_STAGE_ATTRS = (
     "sect_summary",
 )
 
-# Top-level YAML keys that are NOT groups. Consumed locally during compile.
-RESERVED_TOP_LEVEL_KEYS = {"domain"}
+# Top-level YAML keys that are NOT final groups. Consumed locally during compile.
+RESERVED_TOP_LEVEL_KEYS = {"domain", "_defs", "_pseudo_groups"}
 
 # Per-group keys consumed locally and stripped before the YAML reaches the SDK
 # PromptManager: the slot selector plus the client-side business-logic metadata
@@ -103,10 +117,182 @@ _GROUP_METADATA_KEYS = {
     "match_attrs",
     "conflict_attrs",
     "passthrough",
+    "pipeline",
 }
+
+_TOP_LEVEL_METADATA_KEYS = {"domain"}
+_WORKFLOW_GROUP_METADATA_KEYS = {"slot"}
+_FINAL_GROUP_METADATA_KEYS = _GROUP_METADATA_KEYS - _WORKFLOW_GROUP_METADATA_KEYS
 
 # Domain profiles live next to this script.
 DOMAINS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "domains")
+
+
+@dataclasses.dataclass
+class _PreparedWorkflowSchema:
+    groups: dict
+    workflow_groups: dict
+    pseudo_groups: dict
+    workflow_field_paths: dict
+    top_level_metadata: dict
+    final_group_metadata: dict
+    workflow_group_metadata: dict
+
+
+class _NoDuplicateSafeLoader(yaml.SafeLoader):
+    pass
+
+
+def _construct_mapping_no_duplicates(
+    loader: _NoDuplicateSafeLoader,
+    node: yaml.nodes.MappingNode,
+    deep: bool = False,
+) -> dict:
+    mapping: dict = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key == "<<":
+            raise ValueError("YAML merge keys (`<<`) are not supported")
+        if key in mapping:
+            raise ValueError(f"duplicate YAML key: {key!r}")
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+_NoDuplicateSafeLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _construct_mapping_no_duplicates,
+)
+
+
+def _assert_no_cycles(obj: typing.Any, path: str, active: typing.Optional[set[int]] = None) -> None:
+    if active is None:
+        active = set()
+    if not isinstance(obj, (dict, list)):
+        return
+    oid = id(obj)
+    if oid in active:
+        raise ValueError(f"recursive YAML alias or cyclic graph at {path}")
+    active.add(oid)
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            _assert_no_cycles(value, f"{path}.{key}", active)
+    else:
+        for idx, value in enumerate(obj):
+            _assert_no_cycles(value, f"{path}[{idx}]", active)
+    active.remove(oid)
+
+
+def _safe_load_yaml(text: str, source: str) -> typing.Any:
+    try:
+        data = yaml.load(text, Loader=_NoDuplicateSafeLoader)
+    except yaml.constructor.ConstructorError as exc:
+        if "recursive" in str(exc).lower():
+            raise ValueError(f"{source}: recursive YAML alias or cyclic graph") from exc
+        raise
+    _assert_no_cycles(data, source)
+    return data
+
+
+def _contains_include(obj: typing.Any) -> bool:
+    if isinstance(obj, dict):
+        if "include" in obj:
+            return True
+        return any(_contains_include(v) for v in obj.values())
+    if isinstance(obj, list):
+        return any(_contains_include(v) for v in obj)
+    return False
+
+
+def _identity_route_map(groups: dict) -> dict:
+    route_map: dict = {}
+    for group_name, group in groups.items():
+        if not isinstance(group, dict):
+            continue
+        fields = group.get("fields")
+        if not isinstance(fields, dict):
+            continue
+        route_map[group_name] = {
+            str(field_name): f"/{group_name}/{field_name}" for field_name in fields.keys()
+        }
+    return route_map
+
+
+def _prepare_legacy_schema(raw: dict) -> _PreparedWorkflowSchema:
+    top_level_metadata = {
+        key: copy.deepcopy(raw[key]) for key in _TOP_LEVEL_METADATA_KEYS if key in raw
+    }
+    groups: dict = {}
+    final_group_metadata: dict = {}
+    workflow_group_metadata: dict = {}
+    for group_name, value in raw.items():
+        if group_name in RESERVED_TOP_LEVEL_KEYS:
+            continue
+        if isinstance(value, dict):
+            final_meta = {
+                key: copy.deepcopy(value[key])
+                for key in _FINAL_GROUP_METADATA_KEYS
+                if key in value
+            }
+            workflow_meta = {
+                key: copy.deepcopy(value[key])
+                for key in _WORKFLOW_GROUP_METADATA_KEYS
+                if key in value
+            }
+            if final_meta:
+                final_group_metadata[group_name] = final_meta
+            if workflow_meta:
+                workflow_group_metadata[group_name] = workflow_meta
+            groups[group_name] = {
+                key: copy.deepcopy(item)
+                for key, item in value.items()
+                if key not in _GROUP_METADATA_KEYS
+            }
+        else:
+            groups[group_name] = copy.deepcopy(value)
+
+    return _PreparedWorkflowSchema(
+        groups=groups,
+        workflow_groups=copy.deepcopy(groups),
+        pseudo_groups={},
+        workflow_field_paths=_identity_route_map(groups),
+        top_level_metadata=top_level_metadata,
+        final_group_metadata=final_group_metadata,
+        workflow_group_metadata=workflow_group_metadata,
+    )
+
+
+def _prepare_schema(raw_yaml: str, source: str) -> typing.Any:
+    if _sdk_prepare_extraction_yaml is not None:
+        return _sdk_prepare_extraction_yaml(
+            raw_yaml,
+            top_level_metadata_keys=_TOP_LEVEL_METADATA_KEYS,
+            final_group_metadata_keys=_FINAL_GROUP_METADATA_KEYS,
+            workflow_group_metadata_keys=_WORKFLOW_GROUP_METADATA_KEYS,
+        )
+
+    raw = _safe_load_yaml(raw_yaml, source) or {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"{source}: top-level YAML must be a mapping of groups")
+    if "_pseudo_groups" in raw or "_defs" in raw or _contains_include(raw):
+        raise RuntimeError(
+            "YAML features `_pseudo_groups`, `_defs`, and `include` use syntax "
+            "that requires groundx[extract] with prepare_extraction_yaml support. "
+            "Upgrade the GroundX Python SDK to the pseudo-group release or remove "
+            "those features for legacy YAML compilation."
+        )
+    return _prepare_legacy_schema(raw)
+
+
+def _read_and_prepare_schema(yaml_path: str) -> tuple[str, typing.Any]:
+    with open(yaml_path, encoding="utf-8") as f:
+        raw_yaml = f.read()
+    prepared = _prepare_schema(raw_yaml, yaml_path)
+    if not isinstance(getattr(prepared, "workflow_groups", None), dict):
+        raise ValueError(f"{yaml_path}: prepared workflow groups must be a mapping")
+    if not isinstance(getattr(prepared, "groups", None), dict):
+        raise ValueError(f"{yaml_path}: prepared final groups must be a mapping")
+    return raw_yaml, prepared
 
 
 # --- Generic prompt builders ----------------------------------------------
@@ -297,70 +483,60 @@ def _load_domain_profile(domain: str) -> typing.Dict[str, str]:
             f"Available domains: {available or '(none)'}. "
             f"Declare a known `domain:` or give each group an explicit `slot:`."
         )
-    with open(path) as f:
-        profile = yaml.safe_load(f) or {}
+    with open(path, encoding="utf-8") as f:
+        profile = _safe_load_yaml(f.read(), path) or {}
     groups = profile.get("groups") or {}
     if not isinstance(groups, dict) or not groups:
         raise ValueError(f"domain profile {path} has no `groups:` map")
     return {str(g): str(s) for g, s in groups.items()}
 
 
-def _resolve_group_slots(raw: dict) -> "dict[str, str]":
-    """Resolve each group's slot by precedence: explicit `slot:` → domain → error.
+def _resolve_group_slots(prepared: typing.Any) -> "dict[str, str]":
+    """Resolve each workflow group's slot.
 
-    Enforces the proven slot menu and one-group-per-slot.
+    Slot metadata already reflects SDK pseudo-group override/inheritance rules.
+    Harness only interprets the resolved workflow metadata, falls back to a
+    domain profile keyed by workflow group name, and validates the proven menu.
     """
-    domain = raw.get("domain")
-    profile = _load_domain_profile(str(domain)) if domain else {}
+    top_level_metadata = getattr(prepared, "top_level_metadata", {}) or {}
+    workflow_group_metadata = getattr(prepared, "workflow_group_metadata", {}) or {}
+    workflow_groups = getattr(prepared, "workflow_groups", {}) or {}
+    domain = top_level_metadata.get("domain")
+    profile: typing.Optional[typing.Dict[str, str]] = None
 
-    group_names = [k for k in raw.keys() if k not in RESERVED_TOP_LEVEL_KEYS]
+    group_names = list(workflow_groups.keys())
     if not group_names:
-        raise ValueError("no groups found in YAML (only reserved keys present)")
+        raise ValueError("no workflow groups found in prepared YAML")
 
     resolved: dict[str, str] = {}
-    used: dict[str, str] = {}
     for name in group_names:
-        cfg = raw[name] if isinstance(raw[name], dict) else {}
-        slot = cfg.get("slot") or profile.get(name)
+        metadata = workflow_group_metadata.get(name) or {}
+        slot = metadata.get("slot")
+        if not slot and domain:
+            if profile is None:
+                profile = _load_domain_profile(str(domain))
+            slot = profile.get(name)
         if not slot:
             raise ValueError(
-                f"group '{name}' has no slot. Declare a `slot:` on the group "
+                f"workflow group '{name}' has no slot. Declare a `slot:` on the "
+                f"workflow group/final group "
                 f"(one of {sorted(SLOT_MENU)}) or a top-level `domain:` whose "
                 f"profile maps '{name}'."
             )
         if slot not in SLOT_MENU:
             raise ValueError(
-                f"group '{name}' declares slot '{slot}', which is not on the "
+                f"workflow group '{name}' declares slot '{slot}', which is not on the "
                 f"proven slot menu {sorted(SLOT_MENU)}."
             )
-        if slot in used:
-            raise ValueError(
-                f"slot '{slot}' is mapped by both '{used[slot]}' and '{name}'. "
-                f"Each slot carries exactly one group."
-            )
-        used[slot] = name
         resolved[name] = slot
     return resolved
 
 
-def _write_filtered_yaml(raw: dict, yaml_dir: str) -> str:
-    """Write a groups-only YAML (reserved top-level keys and per-group
-    metadata keys stripped) so the SDK PromptManager parses only real groups
-    and never sees the slot selector or business-logic metadata. Returns the
-    temp file path (caller deletes it)."""
-    filtered: dict = {}
-    for key, value in raw.items():
-        if key in RESERVED_TOP_LEVEL_KEYS:
-            continue
-        if isinstance(value, dict):
-            filtered[key] = {
-                k: v for k, v in value.items() if k not in _GROUP_METADATA_KEYS
-            }
-        else:
-            filtered[key] = value
+def _write_prepared_workflow_yaml(workflow_groups: dict, yaml_dir: str) -> str:
+    """Write prepared workflow groups so PromptManager parses only execution groups."""
     fd, path = tempfile.mkstemp(dir=yaml_dir, prefix="_cf_", suffix=".yaml")
     with os.fdopen(fd, "w") as f:
-        yaml.safe_dump(filtered, f, sort_keys=False, allow_unicode=True)
+        yaml.safe_dump(workflow_groups, f, sort_keys=False, allow_unicode=True)
     return path
 
 
@@ -399,34 +575,149 @@ class _CompileManager(PromptManager):
         fields = super().get_fields_for_workflow(*args, **kwargs)
         return {k: v for k, v in fields.items() if k not in RESERVED_TOP_LEVEL_KEYS}
 
-    def _step_config(self, group_name: str, slot_meta: dict) -> WorkflowStepConfig:
+    def _combined_group_field_prompts(self, group_names: typing.Sequence[str]) -> str:
+        if len(group_names) == 1:
+            return self.group_field_prompts(group_names[0])
+        blocks = []
+        for group_name in group_names:
+            blocks.append(
+                f"# Workflow group: {group_name}\n\n"
+                f"{self.group_field_prompts(group_name)}"
+            )
+        return "\n\n".join(blocks)
+
+    def _combined_group_descriptions(self, group_names: typing.Sequence[str]) -> str:
+        if len(group_names) == 1:
+            return self.group_descriptions(group_names[0])
+        blocks = []
+        for group_name in group_names:
+            blocks.append(
+                f"- Workflow group `{group_name}`:\n"
+                f"{self.group_descriptions(group_name)}"
+            )
+        return "\n".join(blocks)
+
+    def _combined_group_definition(self, group_names: typing.Sequence[str]) -> str:
+        blocks = []
+        for group_name in group_names:
+            try:
+                definition = self.group_definition(group_name).strip()
+            except Exception:
+                definition = ""
+            if definition:
+                blocks.append(f"# Workflow group: {group_name}\n\n{definition}")
+        return "\n\n".join(blocks)
+
+    def _multi_repeating_request(
+        self,
+        group_names: typing.Sequence[str],
+        field_specs: str,
+        group_definition: str,
+    ) -> str:
+        group_list = ", ".join(f"`{name}`" for name in group_names)
+        empty_shape = ", ".join(f'"{name}": []' for name in group_names)
+        return f"""
+# Request
+
+Analyze the provided document content and extract every individual record for
+these workflow groups: {group_list}.
+
+# Extraction Guidelines
+
+{group_definition.strip()}
+
+# Field Values
+
+You must extract the following information for each workflow group, if it can
+be found.
+
+{field_specs.strip()}
+
+# Output shape
+
+Return a single JSON object with one top-level array key for each workflow group:
+{group_list}. Each record object uses the field `Field` value as its keys.
+
+If you cannot find any records in this content, return `{{{empty_shape}}}`.
+Do not invent records that are not visible in the document content.
+Return only the JSON object.
+"""
+
+    def _multi_repeating_task(
+        self,
+        group_names: typing.Sequence[str],
+        field_descriptions: str,
+    ) -> str:
+        group_list = ", ".join(f"`{name}`" for name in group_names)
+        return f"""
+# Identity
+
+You are a structured-data assistant. Extract repeating records from documents
+and return them as a JSON object with array keys for these workflow groups:
+{group_list}.
+
+# Process
+
+1. Identify each individual record that is visible in the provided document
+   content. Do not invent records.
+2. For each workflow group, look for the following fields:
+{field_descriptions}
+3. Build one JSON object per visible record with the `Field` values as keys.
+4. Wrap records under the appropriate workflow group key. Never return a raw
+   array.
+5. If no records are found for a workflow group, return an empty array for that
+   group.
+6. Return only the resulting JSON object.
+"""
+
+    def _step_config(
+        self,
+        group_names: typing.Sequence[str],
+        slot_meta: dict,
+    ) -> WorkflowStepConfig:
+        primary_group = group_names[0]
         if slot_meta["kind"] == "singleton":
-            request_prompt = _call_wrapper(
-                self.wrapper_module,
-                _wrapper_names(group_name, "request"),
-                _singleton_request,
-                self.group_field_prompts(group_name),
-            )
-            task_prompt = _call_wrapper(
-                self.wrapper_module,
-                _wrapper_names(group_name, "task"),
-                _singleton_task,
-                self.group_descriptions(group_name),
-            )
+            field_specs = self._combined_group_field_prompts(group_names)
+            field_descriptions = self._combined_group_descriptions(group_names)
+            if len(group_names) == 1:
+                request_prompt = _call_wrapper(
+                    self.wrapper_module,
+                    _wrapper_names(primary_group, "request"),
+                    _singleton_request,
+                    field_specs,
+                )
+                task_prompt = _call_wrapper(
+                    self.wrapper_module,
+                    _wrapper_names(primary_group, "task"),
+                    _singleton_task,
+                    field_descriptions,
+                )
+            else:
+                request_prompt = _singleton_request(field_specs)
+                task_prompt = _singleton_task(field_descriptions)
         else:  # repeating
-            request_prompt = _call_wrapper(
-                self.wrapper_module,
-                _wrapper_names(group_name, "request"),
-                lambda fs, gd: _repeating_request(group_name, fs, gd),
-                self.group_field_prompts(group_name),
-                self.group_definition(group_name),
-            )
-            task_prompt = _call_wrapper(
-                self.wrapper_module,
-                _wrapper_names(group_name, "task"),
-                lambda fd: _repeating_task(group_name, fd),
-                self.group_descriptions(group_name),
-            )
+            field_specs = self._combined_group_field_prompts(group_names)
+            field_descriptions = self._combined_group_descriptions(group_names)
+            group_definition = self._combined_group_definition(group_names)
+            if len(group_names) == 1:
+                request_prompt = _call_wrapper(
+                    self.wrapper_module,
+                    _wrapper_names(primary_group, "request"),
+                    lambda fs, gd: _repeating_request(primary_group, fs, gd),
+                    field_specs,
+                    self.group_definition(primary_group),
+                )
+                task_prompt = _call_wrapper(
+                    self.wrapper_module,
+                    _wrapper_names(primary_group, "task"),
+                    lambda fd: _repeating_task(primary_group, fd),
+                    field_descriptions,
+                )
+            else:
+                request_prompt = self._multi_repeating_request(
+                    group_names, field_specs, group_definition
+                )
+                task_prompt = self._multi_repeating_task(group_names, field_descriptions)
         return WorkflowStepConfig(
             engine=self._engine(),
             field=slot_meta["field"],
@@ -443,9 +734,13 @@ class _CompileManager(PromptManager):
         stage_steps: typing.Dict[str, typing.Optional[WorkflowStep]] = {
             attr: None for attr in _ALL_STAGE_ATTRS
         }
+        groups_by_slot: typing.Dict[str, typing.List[str]] = {}
         for group_name, slot in self.group_slots.items():
+            groups_by_slot.setdefault(slot, []).append(group_name)
+
+        for slot, group_names in groups_by_slot.items():
             meta = SLOT_MENU[slot]
-            cfg = self._step_config(group_name, meta)
+            cfg = self._step_config(group_names, meta)
             stage_steps[meta["stage"]] = WorkflowStep(
                 all_=None,
                 figure=cfg,
@@ -470,8 +765,30 @@ def _to_dict(obj: typing.Any) -> typing.Any:
     return obj
 
 
-def build_workflow(yaml_path: str, name: typing.Optional[str] = None) -> dict:
-    """Compile a YAML schema into a workflow JSON dict.
+def _metadata_from_prepared(
+    yaml_path: str,
+    raw_yaml: str,
+    prepared: typing.Any,
+) -> dict:
+    return {
+        "schema_version": "extraction_workflow_metadata_v1",
+        "source_yaml": {
+            "path": os.path.abspath(yaml_path),
+            "sha256": hashlib.sha256(raw_yaml.encode("utf-8")).hexdigest(),
+        },
+        "workflow_field_paths": copy.deepcopy(prepared.workflow_field_paths),
+        "prepared_final_groups": copy.deepcopy(prepared.groups),
+        "top_level_metadata": copy.deepcopy(prepared.top_level_metadata),
+        "final_group_metadata": copy.deepcopy(prepared.final_group_metadata),
+        "workflow_group_metadata": copy.deepcopy(prepared.workflow_group_metadata),
+    }
+
+
+def build_workflow_artifacts(
+    yaml_path: str,
+    name: typing.Optional[str] = None,
+) -> tuple[dict, dict]:
+    """Compile a YAML schema into workflow JSON plus reassembly metadata.
 
     Exposed for in-process callers (e.g. run_extraction.py) so they can
     skip the subprocess + file round-trip that the CLI entry point uses.
@@ -480,13 +797,9 @@ def build_workflow(yaml_path: str, name: typing.Optional[str] = None) -> dict:
     yaml_basename = os.path.splitext(os.path.basename(yaml_path))[0]
     resolved_name = name or yaml_basename
 
-    with open(yaml_path) as f:
-        raw = yaml.safe_load(f) or {}
-    if not isinstance(raw, dict):
-        raise ValueError(f"{yaml_path}: top-level YAML must be a mapping of groups")
-
-    group_slots = _resolve_group_slots(raw)
-    filtered_path = _write_filtered_yaml(raw, yaml_dir)
+    raw_yaml, prepared = _read_and_prepare_schema(yaml_path)
+    group_slots = _resolve_group_slots(prepared)
+    filtered_path = _write_prepared_workflow_yaml(prepared.workflow_groups, yaml_dir)
     filtered_basename = os.path.splitext(os.path.basename(filtered_path))[0]
 
     api_key = os.environ.get("GROUNDX_API_KEY", "compile-only-not-used")
@@ -512,17 +825,24 @@ def build_workflow(yaml_path: str, name: typing.Optional[str] = None) -> dict:
             default_workflow_id=filtered_basename,
         )
 
-        return {
+        workflow = {
             "name": resolved_name,
             "chunk_strategy": "element",
             "extract": _to_dict(runner.workflow_extract_dict()),
             "steps": _to_dict(runner.workflow_steps_for_yaml()),
         }
+        return workflow, _metadata_from_prepared(yaml_path, raw_yaml, prepared)
     finally:
         try:
             os.remove(filtered_path)
         except OSError:
             pass
+
+
+def build_workflow(yaml_path: str, name: typing.Optional[str] = None) -> dict:
+    """Compile a YAML schema into a workflow JSON dict."""
+    workflow, _ = build_workflow_artifacts(yaml_path, name=name)
+    return workflow
 
 
 def main() -> int:

@@ -14,6 +14,12 @@ All ingest operations are **asynchronous**. Submitting an ingest request returns
 `document_getprocessingstatusbyid` (§5) until `status` is `complete` or `error` before
 treating documents as searchable.
 
+Public Python docs and customer-facing Python examples should use the SDK-level
+`client.ingest()` method with `Document(...)`. Do not use
+`client.documents.ingest_remote()` or `client.documents.ingest_local()` in public
+Python docs. The `document_ingestremote` and REST sections below are operation
+references for agents, MCP, and REST fallback.
+
 ### 1.1 Status lifecycle
 
 ```

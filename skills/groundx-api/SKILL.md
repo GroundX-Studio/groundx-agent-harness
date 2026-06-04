@@ -17,6 +17,12 @@ Use this skill for customer-scoped GroundX platform operations: ingest,
 processing status, search, document lookup, source retrieval, buckets, groups,
 workflows, extraction retrieval, SDK integration, and REST fallback.
 
+When writing public Python docs or customer-facing Python examples, use
+`client.ingest()` with `Document(...)`. Do not use
+`client.documents.ingest_remote()` or `client.documents.ingest_local()` in public
+Python docs; those lower-level generated names are for SDK-internals or
+operation-level references.
+
 ## Routing Contract
 
 - **Role:** `reference`.

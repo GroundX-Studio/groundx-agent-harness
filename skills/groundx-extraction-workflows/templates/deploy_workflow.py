@@ -31,7 +31,7 @@ import typing
 import dotenv
 from groundx import GroundX
 
-from compile_workflow import build_workflow
+from compile_workflow import build_workflow_artifacts
 from validate_workflow_json import validate
 
 
@@ -129,10 +129,12 @@ def _compile_workflow(yaml_path: str, workflow_name: str, out: str, skip_validat
     if not os.path.exists(yaml_path):
         raise SystemExit(f"ERROR: YAML file not found: {yaml_path}")
 
-    workflow = build_workflow(yaml_path, name=workflow_name)
+    workflow, extraction_metadata = build_workflow_artifacts(yaml_path, name=workflow_name)
     workflow_json_path = _abs(out, "workflow.json")
     with open(workflow_json_path, "w", encoding="utf-8") as f:
         json.dump(workflow, f, indent=2, default=str)
+    with open(_abs(out, "extraction_workflow_metadata_v1.json"), "w", encoding="utf-8") as f:
+        json.dump(extraction_metadata, f, indent=2, default=str)
 
     if not skip_validate:
         errors = validate(workflow)

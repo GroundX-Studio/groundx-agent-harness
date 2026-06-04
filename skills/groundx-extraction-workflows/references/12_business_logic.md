@@ -3,20 +3,22 @@
 GroundX extracts records. It does not dedup them, link them across groups,
 surface their conflicts, or copy parent fields onto children. Customers
 routinely need that. This skill supplies it as a small set of declarative,
-client-side primitives driven by per-group YAML metadata, applied **after**
+client-side primitives driven by final-group YAML metadata, applied **after**
 extraction by `templates/business_logic.py`.
 
-Runs client-side, not on the platform. The runner aggregates X-Ray chunk
-output into an extract dict shaped like `{<singleton scalar fields>,
+Runs client-side, not on the platform. The runner aggregates X-Ray chunk output
+into an extract dict shaped like `{<singleton scalar fields>,
 "account_charges": [...], "meters": [...]}` (see `templates/xray_to_extract.py`),
 then `run_extraction.py` calls `apply_business_logic(extract_dict, metadata)`
-before writing `output.json`. None of this metadata reaches the GroundX
-workflow: `compile_workflow.py` strips it (`_GROUP_METADATA_KEYS`) before the
-YAML is handed to the PromptManager, so the keys never become extract fields.
+before writing `output.json`. When `_pseudo_groups` are used, run this logic on
+the reassembled final data shape unless a workflow-scoped primitive is
+explicitly documented. None of this metadata reaches the GroundX workflow:
+`compile_workflow.py` reads it from `PreparedExtractionYaml.final_group_metadata`
+and strips it from workflow groups, so the keys never become extract fields.
 
 ## 1. Metadata vocabulary
 
-Declared per group in the extraction YAML, all optional:
+Declared per final group in the extraction YAML, all optional:
 
 | Key | Shape | Meaning |
 |---|---|---|
@@ -42,6 +44,10 @@ account_charges:
     meter_number: {...}
     charge_amount: {...}
 ```
+
+Do not declare these keys under `_pseudo_groups`. Pseudo groups accept
+`prompt`, `fields`, and documented workflow metadata such as `slot`; final
+business metadata remains attached to final groups.
 
 ## 2. Primitives
 

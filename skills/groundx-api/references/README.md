@@ -63,6 +63,11 @@ Use `groundx-extraction-workflows` first for schema-first extraction work. Extra
 uses GroundX workflows under the hood, but the YAML schema, compiled workflow artifact,
 comparison loop, and field-accuracy iteration are owned by the extraction skill.
 
+For public Python docs or customer-facing Python examples, use `client.ingest()`
+with `Document(...)`. Do not use `client.documents.ingest_remote()` or
+`client.documents.ingest_local()` in public Python docs; those lower-level generated
+names are for SDK-internals or operation references.
+
 Prefer the documented async ingest pattern. Ingest and document-management operations
 return a `processId`; code should poll process status and tests should assert the
 polling/error path.

@@ -53,7 +53,7 @@ dotenv.load_dotenv(dotenv.find_dotenv(usecwd=True))
 
 from groundx import Document, GroundX  # noqa: E402
 
-from compile_workflow import build_workflow  # noqa: E402
+from compile_workflow import build_workflow_artifacts  # noqa: E402
 import score_extraction as cmp  # noqa: E402
 from batch_score import aggregate_reports  # noqa: E402
 from run_extraction import _load_business_logic_metadata, _poll, extract_from_document  # noqa: E402
@@ -100,7 +100,7 @@ def main() -> int:
 
     with RunLog(os.path.join(args.out, "verify.log")) as rl:
         rl.event("verify.start", yaml=args.yaml, docs=len(docs), out=args.out)
-        wf = build_workflow(args.yaml, name=workflow_name)
+        wf, extraction_metadata = build_workflow_artifacts(args.yaml, name=workflow_name)
         errors = validate_workflow(wf)
         if errors:
             rl.event("validate.error", errors=errors)
@@ -112,6 +112,8 @@ def main() -> int:
                 f.write(src.read())
         with open(os.path.join(args.out, "workflow.json"), "w") as f:
             json.dump(wf, f, indent=2, default=str)
+        with open(os.path.join(args.out, "extraction_workflow_metadata_v1.json"), "w") as f:
+            json.dump(extraction_metadata, f, indent=2, default=str)
         created = gx.workflows.create(name=wf["name"], chunk_strategy=wf.get("chunk_strategy"),
                                       extract=wf.get("extract"), steps=wf.get("steps"))
         workflow_id = created.workflow.workflow_id

@@ -13,6 +13,17 @@ a coherent iteration milestone informed by real customer use cases. The
 
 ## Unreleased
 
+- **Public extraction docs guidance.** Added `references/public-docs.md` and a
+  gate so public docs stay customer-facing: use the SDK-level `client.ingest(...)`
+  path, show the JSON result, and avoid exposing harness/compiler internals such
+  as workflow routing syntax unless the user explicitly asks for SDK internals.
+- **Extraction YAML pseudo groups.** `compile_workflow.py` consumes the SDK
+  `prepare_extraction_yaml()` contract when available, preserves legacy no-pseudo
+  YAML through a guarded fallback, compiles prepared workflow groups, supports
+  same-slot workflow groups with combined prompts, and emits
+  `extraction_workflow_metadata_v1.json` for Arcadia reassembly. The extraction
+  references now distinguish final groups from workflow-only pseudo groups and
+  add `references/workflow-how-to.md`.
 - **Field-level scoring within repeating records.** `score_extraction.py`
   scores each field inside a matched record (not all-or-nothing) with miss-type
   classification (not-found / field-mismatch / expected-null); the batch rollup

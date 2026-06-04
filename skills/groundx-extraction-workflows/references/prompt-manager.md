@@ -19,13 +19,15 @@ prompts/
 manager.py
 ```
 
-The manager owns orchestration. The wrappers own language. The YAML owns fields.
-Do not put real GroundX API keys in any of these files.
+The manager owns orchestration. The wrappers own language. The YAML owns final
+fields and optional workflow grouping. Do not put real GroundX API keys in any
+of these files.
 
 ## 2. Wrapper Function Contract
 
-For the default statement group, the compile template can load external extract
-wrappers from `EXTRACT_WRAPPER_MODULE`:
+For a workflow group, the compile template can load external extract wrappers
+from `EXTRACT_WRAPPER_MODULE`. Wrapper names are keyed by workflow group name,
+not necessarily final output group name when `_pseudo_groups` are used:
 
 ```bash
 EXTRACT_WRAPPER_MODULE=prompts.extract_statement \
@@ -49,7 +51,8 @@ def prompt_meters_extract_task(field_descriptions: str) -> str: ...
 ```
 
 For reconcile and QA stages, keep explicit functions beside the extract
-wrappers:
+wrappers. These functions may run against workflow-group intermediate output,
+final reassembled output, or both, but the boundary must be explicit:
 
 ```python
 def prompt_statement_reconcile(*, candidate_json: dict, xray_context: dict) -> str: ...
@@ -87,11 +90,23 @@ should expose the same concepts even if method names differ:
 `groundx-api` remains the source of truth for endpoint semantics. This reference
 owns the extraction-specific order and the manager convention.
 
+Custom managers should call or mirror the shared SDK preparation contract:
+
+```python
+from groundx.extract import prepare_extraction_yaml
+```
+
+Use prepared workflow groups for prompt rendering and workflow JSON. Use
+prepared final groups plus `workflow_field_paths` for reassembly, requiredness,
+QA, and final output. Do not reimplement pseudo-group routing or slot inheritance
+inside a customer manager.
+
 ## 4. Workflow Management Sequence
 
 For a new prompt schema:
 
-1. Compile the YAML and wrappers into workflow JSON.
+1. Compile the YAML and wrappers into workflow JSON and
+   `extraction_workflow_metadata_v1.json`.
 2. Validate the workflow JSON shape.
 3. Create the workflow.
 4. Check the workflow by reading it back and confirming prompt slots are present.
@@ -102,6 +117,8 @@ For a new prompt schema:
 8. Poll until complete.
 9. Retrieve extract output.
 10. Retrieve X-Ray output.
+11. Reassemble workflow output into the final data object when route-map
+    metadata is present.
 
 For a prompt edit, use `update_prompts` rather than creating a new workflow.
 Detach with `remove_from_id` or `remove_from_account` when a pilot should no
@@ -114,7 +131,8 @@ When output is wrong or empty, inspect evidence before rewriting prompts:
 1. Check document status and confirm the ingest completed.
 2. Retrieve `get_extract` and inspect the structured result.
 3. Retrieve `get_xray` and inspect the source chunk evidence.
-4. Compare the initial extraction result shape against the expected output shape.
+4. Compare the initial extraction result shape against the expected workflow
+   shape and, after reassembly, the expected final output shape.
 5. Use section summary, suggested text, and chunk evidence to decide whether the
    YAML field prompt, wrapper prompt, or downstream reconcile/QA prompt needs the
    change.
@@ -133,6 +151,6 @@ direction:
 - Workflow lifecycle operations are centralized in one manager.
 - Debug evidence is captured in a predictable shape.
 
-When the SDK abstraction matures, the customer should be able to replace the
-manager glue with `groundx-python/extract` calls while keeping most of the YAML
-and prompt-stage intent.
+As the SDK abstraction grows, the customer should be able to replace manager
+glue with `groundx-python/extract` calls while keeping most of the YAML and
+prompt-stage intent.

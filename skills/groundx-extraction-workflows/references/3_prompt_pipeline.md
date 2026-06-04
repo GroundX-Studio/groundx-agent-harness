@@ -10,7 +10,10 @@ why a field is or is not producing output.
 prompt.yaml
   │
   ▼
-parse → Group + ExtractedField data model (groundx.extract)
+prepare → final groups + workflow groups + route map (groundx.extract)
+  │
+  ▼
+parse workflow groups → Group + ExtractedField data model
   │
   ▼
 render → field-spec text + field-description bullets + group definition
@@ -32,13 +35,18 @@ does steps 2-4 inline. Steps 5-6 happen on the GroundX platform.
 
 The SDK parses the YAML into a typed data model:
 
-- Each top-level YAML key becomes a `Group` with optional group-level
-  `prompt`
-- Each entry under a group's `fields:` block becomes an `ExtractedField`
+- Real top-level YAML groups define the final data object.
+- `_defs`, when present, expands into final groups before workflow routing.
+- `_pseudo_groups`, when present, defines workflow-only groups. These groups are
+  addressable by authored name in workflow artifacts, but do not appear in final
+  output.
+- The SDK emits `workflow_field_paths`, a route map from workflow field aliases
+  to final-output JSON Pointer paths such as `/statement/account_number`.
+- Each entry under a prepared workflow group's `fields:` block becomes an `ExtractedField`
   with a `Prompt` carrying its description, format, identifiers,
   instructions, and type
 - Each field's `attr_name` is set automatically from its YAML key — this
-  is the JSON key the LLM is instructed to use in the output
+  is the JSON key the LLM is instructed to use in workflow output
 
 The data model is read-only; the YAML is the only edit surface.
 
@@ -101,15 +109,16 @@ adapter contract. See section 3 in `4_sdk_integration.md`.
 
 ## 6. Choosing chunk_instruct vs chunk_keys
 
-Each group is wired to one of two workflow slots. The choice determines
-how the platform reconciles per-chunk outputs.
+Each workflow group is wired to one of the proven workflow slots. The choice
+determines how the platform reconciles per-chunk outputs.
 
 ### 6.1 chunk_instruct
 
 - **Output shape:** one flat object
 - **Cross-chunk behavior:** reconcile and merge (each chunk contributes
   partial fields)
-- **Used for:** the `statement` group (per-document fields)
+- **Used for:** per-document workflow groups, often a `statement` group or a
+  pseudo split such as `statement_identity`
 - **Mental model:** assembling one puzzle from pieces scattered across
   the document
 
@@ -123,7 +132,7 @@ top-level object.
 - **Output shape:** array of objects
 - **Cross-chunk behavior:** aggregate (each chunk contributes complete
   records)
-- **Used for:** the `charges` group (repeating records)
+- **Used for:** repeating workflow groups, often a `charges` group
 - **Mental model:** collecting stamps — each chunk adds more instances of
   a record
 
@@ -145,8 +154,9 @@ page), `chunk_instruct` handles it correctly — the reconciliation step
 de-duplicates identical values.
 
 If a field is conceptually repeating but the runner produces one merged
-object instead of an array, the group is wired to the wrong slot. Move it
-out of `statement` into `charges`.
+object instead of an array, the workflow group is wired to the wrong slot.
+Move that workflow group to a repeating slot, or route the field through a
+different pseudo group.
 
 ## 7. Current extraction QA field contract
 
@@ -197,6 +207,11 @@ The LLM responds with a JSON object whose keys are the field `attr_name`
 values from the YAML. The platform either reconciles (`chunk_instruct`) or
 aggregates (`chunk_keys`) those responses across chunks, then runs a QA
 pass, then makes the result available via `get_extract()`.
+
+When `_pseudo_groups` are used, that raw workflow output is an intermediate
+shape. Arcadia reassembles it into the final data object with
+`workflow_field_paths` before final scoring/output and final-group business
+logic that depends on the customer-facing shape.
 
 For debugging — if a field is missing from the final JSON, the per-chunk
 LLM response is visible via `get_xray()`. See §3 in `6_known_limitations.md`

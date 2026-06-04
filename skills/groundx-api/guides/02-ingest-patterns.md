@@ -14,8 +14,11 @@ The right method depends on which client is doing the ingesting.
 ### 1.1 From the Python SDK
 
 Use only `client.ingest()` or `client.ingest_directory()` (full reference in §13).
-Do not call lower-level methods such as `client.documents.ingest_remote()` from
-Python code — they are not part of the supported Python SDK surface.
+For public Python docs and customer-facing Python examples, use `client.ingest()`
+with `Document(...)`. Do not call lower-level methods such as
+`client.documents.ingest_remote()` or `client.documents.ingest_local()` from public
+Python docs or application code — they are not part of the supported Python SDK
+surface.
 These are the preferred ingest paths for application code: they automatically handle
 the pre-signed upload flow for local files and still land on the same remote / hosted
 file limits described in §3.
