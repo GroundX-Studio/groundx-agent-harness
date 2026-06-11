@@ -70,8 +70,10 @@ should expose the same concepts even if method names differ:
 
 - `workflow_body(yaml_path, workflow_name=None)` — compile YAML and wrappers to a
   workflow body
-- `workflow_steps(...)` and `workflow_extract_dict(...)` — expose the compiled
-  workflow slots and extraction schema separately for readback/comparison tests
+- `workflow_steps(...)`, `workflow_extract_dict(...)`, and
+  `persisted_workflow_extract_dict(...)` — expose workflow slots, execution
+  groups, and the reloadable extraction contract separately for
+  readback/comparison tests
 - `prompt_statement_extract_request(...)`, `prompt_statement_extract_task(...)`,
   `prompt_charges_extract_request(...)`, `prompt_charges_extract_task(...)`,
   `prompt_meters_extract_request(...)`, and `prompt_meters_extract_task(...)`
@@ -96,10 +98,27 @@ Custom managers should call or mirror the shared SDK preparation contract:
 from groundx.extract import prepare_extraction_yaml
 ```
 
-Use prepared workflow groups for prompt rendering and workflow JSON. Use
-prepared final groups plus `workflow_field_paths` for reassembly, requiredness,
-QA, and final output. Do not reimplement pseudo-group routing or slot inheritance
-inside a customer manager.
+Use prepared workflow groups for prompt rendering and workflow steps. Use the
+SDK persisted workflow extract mapping for workflow JSON `extract`; that is the
+payload downstream runtime can download and prepare again. Use prepared final
+groups plus `workflow_field_paths` for reassembly, requiredness, QA, and final
+output. Do not reimplement pseudo-group routing or slot inheritance inside a
+customer manager.
+
+When the YAML carries relationship metadata, expose it separately from workflow
+metadata. A manager should be able to answer four different questions:
+
+- What final JSON groups and fields exist?
+- What workflow groups will GroundX execute?
+- Where does each workflow field write in the final JSON?
+- What final-group metadata controls dedupe, matching, conflict surfacing,
+  passthrough, reconcile context, or QA context?
+
+Do not derive those answers from group-name guesses. For example, two pseudo
+workflow groups may both write into one final `statement`, or one workflow group
+may combine fields from multiple small final groups. Reconcile and QA wrappers
+that need relationship context should receive the final-shape fields and
+final-group metadata explicitly.
 
 ## 4. Workflow Management Sequence
 
@@ -107,6 +126,8 @@ For a new prompt schema:
 
 1. Compile the YAML and wrappers into workflow JSON and
    `extraction_workflow_metadata_v1.json`.
+   `workflow.json.extract` must come from the SDK persisted workflow extract
+   mapping, not from an execution-only group dictionary.
 2. Validate the workflow JSON shape.
 3. Create the workflow.
 4. Check the workflow by reading it back and confirming prompt slots are present.

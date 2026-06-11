@@ -26,10 +26,11 @@ Each prepared workflow group resolves its workflow slot by precedence:
 Slots must be on the proven menu (SLOT_MENU): `chunk-instruct` (singleton
 per-document object), `chunk-keys` and `chunk-summary` (repeating record
 arrays). Multiple workflow groups may share a slot; the compiler renders one
-combined prompt for that slot. Reserved authoring keys and metadata are consumed
-locally and never reach the workflow JSON. Compile/run/deploy paths also emit
-`extraction_workflow_metadata_v1.json`, which carries the route map and final
-schema for reassembly.
+combined prompt for that slot. The executable workflow groups are sent to
+GroundX, and authored YAML metadata is preserved inside `workflow.extract` when
+present so downstream runtime code can reconstruct final schema and routing
+rules. Compile/run/deploy paths also emit `extraction_workflow_metadata_v1.json`
+for local runs.
 
 Reads .env for EXTRACT_MODEL_* (engine config). No real GROUNDX_API_KEY is
 needed because no API calls are made; a placeholder is acceptable.
@@ -105,7 +106,13 @@ _ALL_STAGE_ATTRS = (
 )
 
 # Top-level YAML keys that are NOT final groups. Consumed locally during compile.
-RESERVED_TOP_LEVEL_KEYS = {"domain", "_defs", "_pseudo_groups"}
+RESERVED_TOP_LEVEL_KEYS = {
+    "domain",
+    "extraction_policy_version",
+    "_defs",
+    "_groundx_persisted_extract",
+    "_pseudo_groups",
+}
 
 # Per-group keys consumed locally and stripped before the YAML reaches the SDK
 # PromptManager: the slot selector plus the client-side business-logic metadata
@@ -113,16 +120,31 @@ RESERVED_TOP_LEVEL_KEYS = {"domain", "_defs", "_pseudo_groups"}
 # Keeping them out of the filtered YAML ensures they never become extract fields.
 _GROUP_METADATA_KEYS = {
     "slot",
-    "unique_attrs",
-    "match_attrs",
+    "always_check_attrs",
     "conflict_attrs",
+    "deregulation_status_values",
+    "equivalent_service_types",
+    "exclude_dict_attrs",
+    "explanation_attrs",
+    "fill_rules",
+    "final_value_aliases",
+    "match_attrs",
+    "not_required_service_types",
+    "partial_pair_attrs",
     "passthrough",
+    "passthrough_attrs",
+    "passthrough_pair_attrs",
     "pipeline",
+    "remaining_attrs",
+    "required_any_attrs",
+    "required_attrs",
+    "unique_attrs",
 }
 
-_TOP_LEVEL_METADATA_KEYS = {"domain"}
+_TOP_LEVEL_METADATA_KEYS = {"domain", "extraction_policy_version"}
 _WORKFLOW_GROUP_METADATA_KEYS = {"slot"}
 _FINAL_GROUP_METADATA_KEYS = _GROUP_METADATA_KEYS - _WORKFLOW_GROUP_METADATA_KEYS
+_PERSISTED_EXTRACT_REQUIRED_GROUP_KEYS = _GROUP_METADATA_KEYS
 
 # Domain profiles live next to this script.
 DOMAINS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "domains")
@@ -293,6 +315,65 @@ def _read_and_prepare_schema(yaml_path: str) -> tuple[str, typing.Any]:
     if not isinstance(getattr(prepared, "groups", None), dict):
         raise ValueError(f"{yaml_path}: prepared final groups must be a mapping")
     return raw_yaml, prepared
+
+
+def _requires_persisted_workflow_extract(raw_yaml: str, source: str) -> bool:
+    raw = _safe_load_yaml(raw_yaml, source) or {}
+    if not isinstance(raw, dict):
+        return False
+
+    if (
+        any(key in raw for key in _TOP_LEVEL_METADATA_KEYS)
+        or "_groundx_persisted_extract" in raw
+        or "_pseudo_groups" in raw
+        or "_defs" in raw
+        or _contains_include(raw)
+    ):
+        return True
+
+    for group_name, group_data in raw.items():
+        if group_name in RESERVED_TOP_LEVEL_KEYS:
+            continue
+        if isinstance(group_data, dict) and any(
+            key in group_data for key in _PERSISTED_EXTRACT_REQUIRED_GROUP_KEYS
+        ):
+            return True
+
+    return False
+
+
+def _persisted_workflow_extract(
+    *,
+    raw_yaml: str,
+    source: str,
+    prepared: typing.Any,
+) -> dict:
+    sdk_persisted = getattr(prepared, "persisted_workflow_extract", None)
+    if sdk_persisted is not None:
+        if not isinstance(sdk_persisted, dict):
+            raise ValueError("prepared persisted workflow extract must be a mapping")
+        persisted = copy.deepcopy(sdk_persisted)
+        if (
+            _requires_persisted_workflow_extract(raw_yaml, source)
+            and "_groundx_persisted_extract" not in persisted
+        ):
+            raw = _safe_load_yaml(raw_yaml, source) or {}
+            if not isinstance(raw, dict):
+                raise ValueError(f"{source}: top-level YAML must be a mapping of groups")
+            persisted["_groundx_persisted_extract"] = copy.deepcopy(raw)
+        return persisted
+
+    workflow_groups = getattr(prepared, "workflow_groups", None)
+    if not isinstance(workflow_groups, dict):
+        raise ValueError("prepared workflow groups must be a mapping")
+
+    persisted = copy.deepcopy(workflow_groups)
+    if _requires_persisted_workflow_extract(raw_yaml, source):
+        raw = _safe_load_yaml(raw_yaml, source) or {}
+        if not isinstance(raw, dict):
+            raise ValueError(f"{source}: top-level YAML must be a mapping of groups")
+        persisted["_groundx_persisted_extract"] = copy.deepcopy(raw)
+    return persisted
 
 
 # --- Generic prompt builders ----------------------------------------------
@@ -799,6 +880,11 @@ def build_workflow_artifacts(
 
     raw_yaml, prepared = _read_and_prepare_schema(yaml_path)
     group_slots = _resolve_group_slots(prepared)
+    persisted_extract = _persisted_workflow_extract(
+        raw_yaml=raw_yaml,
+        source=yaml_path,
+        prepared=prepared,
+    )
     filtered_path = _write_prepared_workflow_yaml(prepared.workflow_groups, yaml_dir)
     filtered_basename = os.path.splitext(os.path.basename(filtered_path))[0]
 
@@ -828,7 +914,7 @@ def build_workflow_artifacts(
         workflow = {
             "name": resolved_name,
             "chunk_strategy": "element",
-            "extract": _to_dict(runner.workflow_extract_dict()),
+            "extract": _to_dict(persisted_extract),
             "steps": _to_dict(runner.workflow_steps_for_yaml()),
         }
         return workflow, _metadata_from_prepared(yaml_path, raw_yaml, prepared)

@@ -17,6 +17,29 @@ Collect or confirm:
 
 For a shape-only proof, one representative document can be enough. For a serious pilot, prefer 20-100 representative documents when practical. For benchmark-style claims, prefer about 100 clean labeled examples with a trusted answer key. Do not treat a customer-provided answer key as automatically correct; validate obvious mismatches before tightening prompts.
 
+## Desired output shape
+
+Before drafting YAML, ask what JSON the customer wants to consume after
+extraction. Write down:
+
+- document-level values
+- repeating record lists
+- the values that relate records to each other
+- fields that must be copied from a parent record to child records
+- fields where disagreements should be preserved instead of hidden
+
+Then check whether the desired shape fits the supported relationship model:
+dedupe by shared values, match child records to parent records by shared values,
+surface conflicts, and passthrough parent values to children. If the customer
+needs computed totals, multi-hop matching, unit conversion, conditional
+derivation, or document-set-level decisions, record that as a capability gap
+before YAML authoring.
+
+Only after the final JSON shape is clear should you decide whether workflow
+pseudo groups are needed to split a large section or combine small sections for
+execution. Pseudo groups must not become names the customer's application
+depends on.
+
 ## Readiness and batch boundaries
 
 Some workflows cannot know automatically when the document set is complete. If extraction depends on multiple files that arrive over time, make the readiness trigger explicit.

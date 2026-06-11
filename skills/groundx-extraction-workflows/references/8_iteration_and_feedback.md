@@ -20,6 +20,25 @@ A typical customer onboarding has three phases:
 This document covers phase 2 (iteration journey) and the hand-off
 into phase 3 (compounding feedback).
 
+## 1.1 Answer-key uncertainty
+
+Treat the answer key as evidence, not as unquestionable truth. If the extracted
+value is visible in the source document but the answer key has a normalized,
+blank, sentinel, or database-derived value, pause before changing YAML prompts.
+
+Record the mismatch in the run notes with:
+
+- the source page or X-Ray chunk where the value appears
+- the extracted value
+- the answer-key value
+- the question that needs human confirmation
+
+Do not tune prompts to reproduce a suspected answer-key artifact. After the
+expected value is confirmed, make the smallest change: comparison normalization
+when the customer's expected format is valid, YAML prompt wording when the model
+picked the wrong source value, or business logic when the output shape needs a
+dedupe/link/passthrough rule.
+
 ## 2. Iteration budget
 
 ### 2.1 Default: 2 iterations max per working session

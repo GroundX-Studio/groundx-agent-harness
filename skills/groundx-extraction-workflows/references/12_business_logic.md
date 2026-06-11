@@ -16,6 +16,31 @@ explicitly documented. None of this metadata reaches the GroundX workflow:
 `compile_workflow.py` reads it from `PreparedExtractionYaml.final_group_metadata`
 and strips it from workflow groups, so the keys never become extract fields.
 
+## Final shape vs. workflow grouping
+
+Start with the JSON the customer wants, not the workflow execution plan. In an
+invoice-shaped extraction, a document-level `statement`, a list of `meters`,
+and a list of `charges` may be related by values such as account number, meter
+number, service address, or a charge label. Those relationships belong to the
+final groups and to the custom logic that consumes their metadata.
+
+Pseudo workflow groups do not create those relationships. They only decide how
+the extraction work is split or combined for GroundX workflow execution. A
+pseudo group named like `statement_totals` or `meter_charges` is still
+workflow-only unless the final JSON has a matching group. Do not infer
+charge-to-meter matching, dedupe rules, passthrough, reconcile behavior, or QA
+scope from pseudo group names.
+
+For projects with a custom manager, pass the final-group metadata into the
+manager's reconcile, QA, and post-extraction steps explicitly. Keep these
+concepts separate:
+
+- final groups: the JSON keys the customer reads
+- workflow groups: how extraction work is assigned
+- route map: where each workflow field writes in the final JSON
+- relationship metadata: keys such as `unique_attrs`, `match_attrs`,
+  `conflict_attrs`, and `passthrough`
+
 ## 1. Metadata vocabulary
 
 Declared per final group in the extraction YAML, all optional:
