@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Customer-facing GroundX agent harness for API use, schema-first extraction, on-prem deployment, architecture, and approved GTM guidance.",
-    "version": "2.1.4"
+    "version": "2.1.5"
   },
   "plugins": [
     {
