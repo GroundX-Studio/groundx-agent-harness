@@ -47,17 +47,20 @@ capture, and `12_business_logic.md` for the primitive semantics.
 ### Axis 3 — new domain
 
 A new document family gets its own `examples/<domain>/` directory and resolves
-each group's slot one of two ways:
+each workflow group's execution one of three ways:
 
 - **Domain profile** — add `templates/domains/<domain>.yaml` mapping group names
   to slots, then declare `domain: <domain>` in the YAML (like `invoice`).
-- **Explicit slots** — declare `slot:` on each group, no profile needed (like the
-  `insurance-claim` smoke fixture).
+- **Custom workflow steps** — define `workflow.custom_steps`, assign each group
+  with `workflow_step: <name>`, and set `workflow_output_key` on routed fields.
+  The compiler emits `customSteps`, `outputRoutes`, and `leafFields`, and local
+  readback can map `customChunkOutputs`, `customSectionOutputs`, and
+  `customDocumentOutputs` back to final JSON paths.
+- **Legacy explicit slots** — declare `slot:` on each group, no profile needed
+  (like the `insurance-claim` smoke fixture).
 
-Either way the group names are free; only the **slot** is constrained, to the
-three proven slots (`chunk-instruct`, `chunk-keys`, `chunk-summary` — see
-`2_schema_design.md`). A new domain needs **no runner code** unless it also needs
-a new primitive (axis 4).
+Group names are free in all three modes. A new domain needs **no runner code**
+unless it also needs a new primitive (axis 4).
 
 ### Axis 4 — new primitive (the only code path)
 

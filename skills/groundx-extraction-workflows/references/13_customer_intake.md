@@ -50,24 +50,29 @@ samples — see `3_prompt_pipeline.md` §6.3 decision rules.
 
 ## 3. Inventory → draft `prompt.yaml`
 
-### 3.1 Choose domain or explicit slots
+### 3.1 Choose workflow steps
 
-Group the inventory by scope, then resolve each group's workflow slot — the
-compiler is domain-agnostic and needs one of two routes per `2_schema_design.md`:
+Group the inventory by scope, then choose how each workflow group executes. The
+forward path is custom workflow metadata; legacy slots remain for compatibility
+and older invoice examples.
 
 - **Known domain:** if the document fits a domain with a profile
   (`templates/domains/<domain>.yaml`, e.g. `invoice`), declare a top-level
   `domain:` and use the profile's group names; the profile maps each group to a
   slot. For billing/invoice documents, `domain: invoice` gives
   `statement`→`chunk-instruct`, `charges`→`chunk-keys`, `meters`→`chunk-summary`.
-- **No profile:** declare an explicit `slot:` on each group from the proven menu
-  (`chunk-instruct` singleton, `chunk-keys` / `chunk-summary` repeating arrays).
-  Group names are arbitrary; only the slot is constrained. One group per slot.
+- **Custom workflow:** define top-level `workflow.custom_steps`, assign groups
+  with `workflow_step: <name>`, and put `workflow_output_key` on each routed
+  field. Keep each executable custom step to 20 fields or fewer.
+- **Legacy slot fallback:** declare an explicit `slot:` on each group from the
+  legacy proven menu (`chunk-instruct` singleton, `chunk-keys` /
+  `chunk-summary` repeating arrays). Group names are arbitrary; the legacy slot
+  only chooses the fixed platform output field.
 
 Do not force an unrelated document into invoice-shaped group names. A claim form,
-contract, or schedule declares its own group names plus explicit slots, or earns
-a new domain profile (a data file, no compiler change — see `2_schema_design.md`
-§1).
+contract, or schedule declares its own group names plus custom workflow steps,
+uses legacy explicit slots, or earns a new domain profile (a data file, no
+compiler change — see `2_schema_design.md` §1).
 
 ### 3.2 Write field prompts
 

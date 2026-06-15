@@ -56,7 +56,143 @@ def _record_key(record: dict) -> str:
     return json.dumps(record, sort_keys=True, default=str)
 
 
-def xray_to_extract(xray: dict) -> dict:
+def _chunk_identity(chunk: dict) -> str:
+    for key in ("chunkId", "chunk_id", "id"):
+        value = chunk.get(key)
+        if value not in (None, ""):
+            return f"{key}:{value}"
+    return _record_key(chunk)
+
+
+def _iter_chunks(xray: dict) -> typing.Iterator[dict]:
+    top_level_keys: set[str] = set()
+    for chunk in xray.get("chunks") or []:
+        if isinstance(chunk, dict):
+            top_level_keys.add(_chunk_identity(chunk))
+            yield chunk
+    for page in xray.get("documentPages") or []:
+        if not isinstance(page, dict):
+            continue
+        for chunk in page.get("chunks") or []:
+            if isinstance(chunk, dict):
+                if _chunk_identity(chunk) in top_level_keys:
+                    continue
+                yield chunk
+
+
+def _custom_route_value(container: dict, route: dict) -> typing.Any:
+    output_map = container.get(route.get("output_map"))
+    if not isinstance(output_map, dict):
+        return None
+    step_value = output_map.get(route.get("step_name"))
+    if isinstance(step_value, dict):
+        return step_value.get(route.get("output_key"))
+    return step_value
+
+
+def _set_nested_value(record: dict, parts: list[str], value: typing.Any) -> None:
+    current = record
+    for part in parts[:-1]:
+        next_value = current.setdefault(part, {})
+        if not isinstance(next_value, dict):
+            return
+        current = next_value
+    current[parts[-1]] = value
+
+
+def _set_pointer(
+    result: dict,
+    pointer: str,
+    value: typing.Any,
+    *,
+    repeated_records: dict[tuple[tuple[str, ...], tuple[typing.Any, ...]], dict],
+    record_key: tuple[typing.Any, ...],
+) -> None:
+    parts = [part for part in pointer.split("/")[1:] if part]
+    if not parts:
+        return
+    if "*" in parts:
+        star_index = parts.index("*")
+        list_path = parts[:star_index]
+        if not list_path:
+            return
+        current = result
+        for part in list_path[:-1]:
+            next_value = current.setdefault(part, {})
+            if not isinstance(next_value, dict):
+                return
+            current = next_value
+        list_name = list_path[-1]
+        records = current.setdefault(list_name, [])
+        if not isinstance(records, list):
+            return
+        item_key = (tuple(list_path), record_key)
+        record = repeated_records.get(item_key)
+        if record is None:
+            record = {}
+            repeated_records[item_key] = record
+            records.append(record)
+        field_path = parts[star_index + 1 :]
+        if field_path:
+            _set_nested_value(record, field_path, value)
+        return
+
+    current = result
+    for part in parts[:-1]:
+        next_value = current.setdefault(part, {})
+        if not isinstance(next_value, dict):
+            return
+        current = next_value
+    current[parts[-1]] = value
+
+
+def _apply_custom_outputs(result: dict, xray: dict, workflow_extract: typing.Optional[dict]) -> None:
+    if not workflow_extract:
+        return
+    workflow = workflow_extract.get("workflow")
+    if not isinstance(workflow, dict):
+        return
+    routes = workflow.get("output_routes") or []
+    if not isinstance(routes, list):
+        return
+
+    containers_by_level = {
+        "document": [xray],
+        "chunk": list(_iter_chunks(xray)),
+        "section": list(_iter_chunks(xray)),
+    }
+    seen_repeated: set[tuple[str, tuple[typing.Any, ...], str]] = set()
+    repeated_records: dict[tuple[tuple[str, ...], tuple[typing.Any, ...]], dict] = {}
+    for route in routes:
+        if not isinstance(route, dict):
+            continue
+        containers = containers_by_level.get(route.get("level"), [])
+        for container_index, container in enumerate(containers):
+            value = _custom_route_value(container, route)
+            if value in (None, "", []):
+                continue
+            final_path = route.get("final_path")
+            if not isinstance(final_path, str):
+                continue
+            record_key = (route.get("level"), container_index)
+            key = (
+                final_path,
+                record_key,
+                _record_key(value) if isinstance(value, dict) else str(value),
+            )
+            if "*" in final_path and key in seen_repeated:
+                continue
+            seen_repeated.add(key)
+            _set_pointer(
+                result,
+                final_path,
+                value,
+                repeated_records=repeated_records,
+                record_key=record_key,
+            )
+
+
+def xray_to_extract(xray: dict, workflow_extract: typing.Optional[dict] = None) -> dict:
     """Convert an X-Ray dict to a `get_extract()`-shaped dict."""
     chunks = xray.get("chunks") or []
     statement: dict = {}
@@ -108,6 +244,7 @@ def xray_to_extract(xray: dict) -> dict:
                 statement[field] = value
 
     result = dict(statement)
+    _apply_custom_outputs(result, xray, workflow_extract)
     result["account_charges"] = charges
     result["meters"] = meters
     return result
@@ -116,6 +253,11 @@ def xray_to_extract(xray: dict) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("xray_path", help="Path to X-Ray JSON file")
+    parser.add_argument(
+        "--workflow-json",
+        default=None,
+        help="Optional compiled workflow.json whose extract.workflow routes custom outputs",
+    )
     parser.add_argument(
         "--indent",
         type=int,
@@ -126,8 +268,12 @@ def main() -> int:
 
     with open(args.xray_path) as f:
         xray = json.load(f)
+    workflow_extract = None
+    if args.workflow_json:
+        with open(args.workflow_json) as f:
+            workflow_extract = (json.load(f) or {}).get("extract")
 
-    extract = xray_to_extract(xray)
+    extract = xray_to_extract(xray, workflow_extract=workflow_extract)
     sys.stdout.write(json.dumps(extract, indent=args.indent, default=str))
     sys.stdout.write("\n")
     return 0

@@ -21,7 +21,7 @@ for the live list):
 | Path | Why it's hand-written |
 |---|---|
 | `src/groundx/extract/` | The entire extract submodule. See [§3 extract](./03-extract.md). |
-| `src/groundx/ingest.py` | Hand-written `client.ingest()` entry point wrapping the generated upload flow. |
+| `src/groundx/ingest.py` | Hand-written client helpers: `client.ingest()`, `client.ingest_directories()`, and extraction workflow load/create/update methods. |
 | `src/groundx/csv_splitter.py` | Hand-written CSV-splitting utility used by ingest. |
 | `README.md` | User-facing README — preserved across regenerations. |
 

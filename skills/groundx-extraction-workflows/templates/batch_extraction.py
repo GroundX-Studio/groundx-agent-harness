@@ -53,7 +53,7 @@ dotenv.load_dotenv(dotenv.find_dotenv(usecwd=True))
 
 from groundx import Document, GroundX  # noqa: E402
 
-from compile_workflow import build_workflow_artifacts  # noqa: E402
+from compile_workflow import build_workflow_artifacts, workflow_sdk_kwargs  # noqa: E402
 import score_extraction as cmp  # noqa: E402
 from batch_score import aggregate_reports  # noqa: E402
 from run_extraction import _load_business_logic_metadata, _poll, extract_from_document  # noqa: E402
@@ -62,6 +62,42 @@ from validate_workflow_json import validate as validate_workflow  # noqa: E402
 
 
 # ── live batch orchestration ────────────────────────────────────────────────
+
+
+def _value(obj: typing.Any, *names: str) -> typing.Any:
+    current = obj
+    for name in names:
+        if current is None:
+            return None
+        if isinstance(current, dict):
+            current = current.get(name)
+        else:
+            current = getattr(current, name, None)
+    return current
+
+
+def _workflow_id(response: typing.Any) -> str:
+    workflow_id = (
+        _value(response, "workflow", "workflow_id")
+        or _value(response, "workflow", "workflowId")
+        or _value(response, "workflow_id")
+        or _value(response, "workflowId")
+    )
+    if not workflow_id:
+        raise RuntimeError(f"workflow response did not include a workflow ID: {response!r}")
+    return str(workflow_id)
+
+
+def _create_workflow(
+    gx: GroundX,
+    yaml_path: str,
+    workflow: dict[str, typing.Any],
+    workflow_name: str,
+) -> typing.Any:
+    gx_client = typing.cast(typing.Any, gx)
+    if hasattr(gx_client, "create_extraction_workflow"):
+        return gx_client.create_extraction_workflow(path=yaml_path, name=workflow_name)
+    return gx.workflows.create(**workflow_sdk_kwargs(workflow))
 
 
 def main() -> int:
@@ -114,14 +150,14 @@ def main() -> int:
             json.dump(wf, f, indent=2, default=str)
         with open(os.path.join(args.out, "extraction_workflow_metadata_v1.json"), "w") as f:
             json.dump(extraction_metadata, f, indent=2, default=str)
-        created = gx.workflows.create(name=wf["name"], chunk_strategy=wf.get("chunk_strategy"),
-                                      extract=wf.get("extract"), steps=wf.get("steps"))
-        workflow_id = created.workflow.workflow_id
+        created = _create_workflow(gx, args.yaml, wf, workflow_name)
+        workflow_id = _workflow_id(created)
         if args.add_to_account:
             gx.workflows.add_to_account(workflow_id=workflow_id)
         bucket_id = gx.buckets.create(name=args.bucket_name).bucket.bucket_id
         gx.workflows.add_to_id(id=bucket_id, workflow_id=workflow_id)
         rl.event("verify.deployed", workflow_id=workflow_id, bucket_id=bucket_id)
+        workflow_extract = wf.get("extract")
 
         per_doc = []
         try:
@@ -136,7 +172,13 @@ def main() -> int:
                 document_id = _poll(gx, ingest.ingest.process_id, args.poll_interval, args.max_polls, rl)
                 # Same extract derivation as run_extraction (get_extract → X-Ray
                 # fallback → business logic), shared via extract_from_document.
-                extract, xray, _ = extract_from_document(gx, document_id, bl_meta, rl)
+                extract, xray, _ = extract_from_document(
+                    gx,
+                    document_id,
+                    bl_meta,
+                    rl,
+                    workflow_extract=workflow_extract,
+                )
                 expected = cmp.load_answer_key(key_path)
                 report = cmp.compare_extraction(extract, expected)
                 per_doc.append({"doc": base, "report": report})

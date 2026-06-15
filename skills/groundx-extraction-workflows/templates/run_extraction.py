@@ -45,7 +45,7 @@ from groundx import Document, GroundX
 
 # Sibling template imports (in-process — no subprocess overhead).
 from business_logic import apply_business_logic
-from compile_workflow import build_workflow_artifacts
+from compile_workflow import build_workflow_artifacts, workflow_sdk_kwargs
 from run_log import RunLog
 from validate_workflow_json import validate as validate_workflow
 from xray_to_extract import xray_to_extract
@@ -81,6 +81,30 @@ def _to_plain_dict(obj: typing.Any) -> dict:
     return dict(obj)
 
 
+def _value(obj: typing.Any, *names: str) -> typing.Any:
+    current = obj
+    for name in names:
+        if current is None:
+            return None
+        if isinstance(current, dict):
+            current = current.get(name)
+        else:
+            current = getattr(current, name, None)
+    return current
+
+
+def _workflow_id(response: typing.Any) -> str:
+    workflow_id = (
+        _value(response, "workflow", "workflow_id")
+        or _value(response, "workflow", "workflowId")
+        or _value(response, "workflow_id")
+        or _value(response, "workflowId")
+    )
+    if not workflow_id:
+        raise RuntimeError(f"workflow response did not include a workflow ID: {response!r}")
+    return str(workflow_id)
+
+
 def _compile(yaml_path: str, workflow_json_path: str, name: str, rl: RunLog) -> dict:
     rl.event("compile.start", yaml_path=yaml_path)
     workflow, metadata = build_workflow_artifacts(yaml_path, name=name)
@@ -105,6 +129,18 @@ def _validate(workflow: dict, workflow_json_path: str, rl: RunLog) -> None:
             "workflow validation failed:\n  - " + "\n  - ".join(errors)
         )
     rl.event("validate.done")
+
+
+def _create_workflow(
+    gx: GroundX,
+    yaml_path: str,
+    workflow: dict,
+    workflow_name: str,
+) -> typing.Any:
+    gx_client = typing.cast(typing.Any, gx)
+    if hasattr(gx_client, "create_extraction_workflow"):
+        return gx_client.create_extraction_workflow(path=yaml_path, name=workflow_name)
+    return gx.workflows.create(**workflow_sdk_kwargs(workflow))
 
 
 def _safe_delete(rl: RunLog, kind: str, fn: typing.Callable[[], typing.Any], **ids: typing.Any) -> None:
@@ -141,6 +177,7 @@ def extract_from_document(
     document_id: str,
     bl_metadata: typing.Optional[dict] = None,
     rl: typing.Optional[RunLog] = None,
+    workflow_extract: typing.Optional[dict] = None,
 ) -> typing.Tuple[dict, dict, str]:
     """Given an ingested document_id, derive its extraction. Returns
     (extract, xray, source). Shared by run_extraction (single doc) and
@@ -165,7 +202,7 @@ def extract_from_document(
     if fetched and any(isinstance(v, list) and v for v in fetched.values()):
         extract = fetched
     else:
-        extract = xray_to_extract(xray)
+        extract = xray_to_extract(xray, workflow_extract=workflow_extract)
         source = "xray_to_extract"
     if bl_metadata:
         extract = apply_business_logic(extract, bl_metadata)
@@ -219,22 +256,30 @@ def main() -> int:
         bucket_id: typing.Optional[int] = None
         created_workflow_id: typing.Optional[str] = None
         created_bucket_id: typing.Optional[int] = None
+        workflow_extract: typing.Optional[dict] = None
 
         try:
             if args.reuse_workflow:
                 workflow_id = args.reuse_workflow
+                definition_loader = getattr(gx, "load_extraction_definition", None)
+                if callable(definition_loader):
+                    definition = definition_loader(workflow_id=workflow_id)
+                    workflow_extract = getattr(definition, "extract", None)
+                else:
+                    workflow_loader = getattr(
+                        gx, "load_extraction_definition_from_workflow", None
+                    )
+                    if callable(workflow_loader):
+                        definition = workflow_loader(workflow_id)
+                        workflow_extract = getattr(definition, "extract", None)
                 rl.event("workflow.reuse", workflow_id=workflow_id)
             else:
                 wf_body = _compile(args.yaml, workflow_json_path, workflow_name, rl)
+                workflow_extract = wf_body.get("extract")
                 if not args.skip_validate:
                     _validate(wf_body, workflow_json_path, rl)
-                create_resp = gx.workflows.create(
-                    name=wf_body["name"],
-                    chunk_strategy=wf_body.get("chunk_strategy"),
-                    extract=wf_body.get("extract"),
-                    steps=wf_body.get("steps"),
-                )
-                workflow_id = create_resp.workflow.workflow_id
+                create_resp = _create_workflow(gx, args.yaml, wf_body, workflow_name)
+                workflow_id = _workflow_id(create_resp)
                 created_workflow_id = workflow_id
                 rl.event("workflow.create", workflow_id=workflow_id, workflow_name=wf_body["name"])
                 with open(_abs(args.out, "workflow_id.txt"), "w") as f:
@@ -294,7 +339,11 @@ def main() -> int:
         # output.json is unchanged (backward compatible).
         bl_metadata = _load_business_logic_metadata(args.yaml)
         extract_dict, xray_dict, extract_source = extract_from_document(
-            gx, document_id, bl_metadata, rl
+            gx,
+            document_id,
+            bl_metadata,
+            rl,
+            workflow_extract=workflow_extract,
         )
         with open(xray_path, "w") as f:
             json.dump(xray_dict, f, indent=2, default=str)

@@ -80,7 +80,7 @@ as separate Python files. This keeps the user's working directory
 small; `templates/prompt_manager.py` is available when a pilot needs a
 thin manager around workflow lifecycle and custom wrappers.
 
-The three shapes the templates handle:
+The legacy fixed-slot shapes the templates handle:
 
 - **statement-style** — one flat object, `chunk_instruct` slot, the
   step config has `field="sect-sum"`
@@ -93,8 +93,10 @@ The three shapes the templates handle:
 All three shapes use the same identity ("structured-data assistant"), the
 same process steps, and the same output contract (return only JSON).
 
-If the document type does not fit one of these shapes, prefer an external
-wrapper module or the prompt-manager adapter before editing compiler templates.
+If the document type does not fit one of these shapes, prefer custom workflow
+metadata (`workflow.custom_steps`, `workflow_step`, `workflow_output_key`) over
+editing compiler branches. The compiler emits `customSteps`, `outputRoutes`,
+and `leafFields` when the SDK-prepared YAML carries custom workflow metadata.
 See §3.2 below.
 
 ### 2.3 External wrapper modules
@@ -127,9 +129,9 @@ manager layer; see `prompt-manager.md`.
 ### 3.1 Different group names
 
 If the YAML uses group names other than `statement`, `charges`, and `meters`,
-the compile script will not auto-wire them. The fix is local: edit
-`_CompileManager.workflow_steps_for_yaml` and add new branches that
-build steps for the new group names.
+do not add group-name branches to the compiler. Use a domain profile, legacy
+explicit `slot:`, or custom `workflow_step:` metadata. The compiler stays
+domain-agnostic and consumes the SDK-prepared workflow metadata.
 
 ### 3.2 Different document types
 
@@ -187,8 +189,9 @@ GroundX workflow and document operations. The full set of operations:
 
 | Step | Operation | Where documented |
 |---|---|---|
-| Create workflow | `workflow_create` (MCP first) / `workflows.create()` (SDK) | `skills/groundx-api/references/06-workflows.md` |
-| Update workflow | `workflows.update()` | same |
+| Load reusable workflow settings | `client.load_extraction_definition(path=...)` / `client.load_extraction_definition(workflow_id=...)` | public Python SDK docs |
+| Create workflow | `client.create_extraction_workflow(...)` (preferred SDK helper) / `workflow_create` (MCP first) / `workflows.create()` fallback | `skills/groundx-api/references/06-workflows.md` |
+| Update workflow | `client.update_extraction_workflow(...)` (preferred SDK helper) / `workflows.update()` fallback | same |
 | Attach workflow to bucket | `workflow_add_to_id` / `workflows.add_to_id()` | same |
 | Ingest a local PDF | `gx.ingest()` SDK helper or pre-signed upload, then `document_ingestremote` for the hosted URL | `skills/groundx-api/references/02-documents.md` |
 | Poll status | `document_getprocessingstatusbyid` / `GET /v1/ingest/{processId}` | same |
@@ -199,6 +202,11 @@ For an iteration that involves only prompt changes, after the
 workflow is created once, subsequent iterations use `workflow_update`
 rather than `workflow_create`. The compile output is the same shape
 either way; only the API operation changes.
+
+The local Python templates use the high-level extraction workflow helpers when
+the installed SDK exposes them. They retain `workflow_sdk_kwargs(...)` plus
+`workflows.create/update` as a compatibility fallback until the minimum supported
+SDK version includes those helpers everywhere.
 
 `document_getextract` returns the workflow-defined JSON object exactly as
 GroundX stored it. Do not assume a fixed vocabulary such as `amount_due` or

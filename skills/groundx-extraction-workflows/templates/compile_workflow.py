@@ -109,6 +109,7 @@ _ALL_STAGE_ATTRS = (
 RESERVED_TOP_LEVEL_KEYS = {
     "domain",
     "extraction_policy_version",
+    "workflow",
     "_defs",
     "_groundx_persisted_extract",
     "_pseudo_groups",
@@ -120,6 +121,7 @@ RESERVED_TOP_LEVEL_KEYS = {
 # Keeping them out of the filtered YAML ensures they never become extract fields.
 _GROUP_METADATA_KEYS = {
     "slot",
+    "workflow_step",
     "always_check_attrs",
     "conflict_attrs",
     "deregulation_status_values",
@@ -142,7 +144,7 @@ _GROUP_METADATA_KEYS = {
 }
 
 _TOP_LEVEL_METADATA_KEYS = {"domain", "extraction_policy_version"}
-_WORKFLOW_GROUP_METADATA_KEYS = {"slot"}
+_WORKFLOW_GROUP_METADATA_KEYS = {"slot", "workflow_step"}
 _FINAL_GROUP_METADATA_KEYS = _GROUP_METADATA_KEYS - _WORKFLOW_GROUP_METADATA_KEYS
 _PERSISTED_EXTRACT_REQUIRED_GROUP_KEYS = _GROUP_METADATA_KEYS
 
@@ -216,6 +218,35 @@ def _safe_load_yaml(text: str, source: str) -> typing.Any:
     return data
 
 
+def _workflow_group_items(raw: dict) -> typing.Iterator[tuple[str, dict]]:
+    for group_name, group_data in raw.items():
+        if group_name in RESERVED_TOP_LEVEL_KEYS:
+            continue
+        if isinstance(group_data, dict):
+            yield str(group_name), group_data
+
+    pseudo_groups = raw.get("_pseudo_groups")
+    if isinstance(pseudo_groups, dict):
+        for group_name, group_data in pseudo_groups.items():
+            if isinstance(group_data, dict):
+                yield str(group_name), group_data
+
+
+def _assert_no_slot_workflow_step_conflicts(raw: dict, source: str) -> None:
+    for group_name, group_data in _workflow_group_items(raw):
+        if "slot" in group_data and "workflow_step" in group_data:
+            raise ValueError(
+                f"{source}: workflow group '{group_name}' cannot declare both "
+                "`slot` and `workflow_step`"
+            )
+
+
+def _raw_uses_custom_workflow_metadata(raw: dict) -> bool:
+    if "workflow" in raw:
+        return True
+    return any("workflow_step" in group_data for _, group_data in _workflow_group_items(raw))
+
+
 def _contains_include(obj: typing.Any) -> bool:
     if isinstance(obj, dict):
         if "include" in obj:
@@ -285,17 +316,33 @@ def _prepare_legacy_schema(raw: dict) -> _PreparedWorkflowSchema:
 
 
 def _prepare_schema(raw_yaml: str, source: str) -> typing.Any:
+    raw = _safe_load_yaml(raw_yaml, source) or {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"{source}: top-level YAML must be a mapping of groups")
+    _assert_no_slot_workflow_step_conflicts(raw, source)
+    uses_custom_workflow = _raw_uses_custom_workflow_metadata(raw)
+
     if _sdk_prepare_extraction_yaml is not None:
-        return _sdk_prepare_extraction_yaml(
+        prepared = _sdk_prepare_extraction_yaml(
             raw_yaml,
             top_level_metadata_keys=_TOP_LEVEL_METADATA_KEYS,
             final_group_metadata_keys=_FINAL_GROUP_METADATA_KEYS,
             workflow_group_metadata_keys=_WORKFLOW_GROUP_METADATA_KEYS,
         )
+        if uses_custom_workflow and _custom_workflow_metadata(prepared) is None:
+            raise RuntimeError(
+                "YAML custom workflow metadata requires groundx[extract] with "
+                "custom workflow support. Upgrade the GroundX Python SDK or use "
+                "legacy `slot:` YAML."
+            )
+        return prepared
 
-    raw = _safe_load_yaml(raw_yaml, source) or {}
-    if not isinstance(raw, dict):
-        raise ValueError(f"{source}: top-level YAML must be a mapping of groups")
+    if uses_custom_workflow:
+        raise RuntimeError(
+            "YAML custom workflow metadata requires groundx[extract] with "
+            "custom workflow support. Upgrade the GroundX Python SDK or use "
+            "legacy `slot:` YAML."
+        )
     if "_pseudo_groups" in raw or "_defs" in raw or _contains_include(raw):
         raise RuntimeError(
             "YAML features `_pseudo_groups`, `_defs`, and `include` use syntax "
@@ -846,6 +893,94 @@ def _to_dict(obj: typing.Any) -> typing.Any:
     return obj
 
 
+def _custom_workflow_metadata(prepared: typing.Any) -> typing.Optional[dict]:
+    persisted = getattr(prepared, "persisted_workflow_extract", None)
+    if not isinstance(persisted, dict):
+        return None
+    workflow = persisted.get("workflow")
+    if not isinstance(workflow, dict):
+        return None
+    if not workflow.get("custom_steps"):
+        return None
+    return workflow
+
+
+def _empty_workflow_steps() -> dict:
+    return _to_dict(WorkflowSteps(**{attr: None for attr in _ALL_STAGE_ATTRS}))
+
+
+def _custom_step_body(step: dict) -> dict:
+    body = {
+        "name": step["name"],
+        "level": step["level"],
+        "kind": step["kind"],
+    }
+    if "config" in step:
+        body["config"] = copy.deepcopy(step["config"])
+    required_keys = step.get("required_template_keys")
+    if required_keys:
+        body["requiredTemplateKeys"] = copy.deepcopy(required_keys)
+    return body
+
+
+def _custom_route_body(route: dict) -> dict:
+    return {
+        "workflowGroup": route["workflow_group"],
+        "workflowField": route["workflow_field"],
+        "finalPath": route["final_path"],
+        "stepName": route["step_name"],
+        "level": route["level"],
+        "outputMap": route["output_map"],
+        "outputKey": route["output_key"],
+        "readbackPath": route["readback_path"],
+    }
+
+
+def _custom_leaf_body(leaf: dict) -> dict:
+    return {
+        "finalPath": leaf["final_path"],
+        "workflowGroup": leaf["workflow_group"],
+        "workflowField": leaf["workflow_field"],
+        "stepName": leaf["step_name"],
+        "level": leaf["level"],
+        "outputKey": leaf["output_key"],
+        "fieldType": leaf["field_type"],
+        "isRepeated": leaf["is_repeated"],
+        "repetitionScope": leaf["repetition_scope"],
+    }
+
+
+def _custom_workflow_body_fields(metadata: dict) -> dict:
+    body: dict = {
+        "customSteps": [_custom_step_body(step) for step in metadata.get("custom_steps", [])],
+        "outputRoutes": [_custom_route_body(route) for route in metadata.get("output_routes", [])],
+        "leafFields": [_custom_leaf_body(leaf) for leaf in metadata.get("leaf_fields", [])],
+    }
+    template = metadata.get("template")
+    if template:
+        body["template"] = copy.deepcopy(template)
+    return body
+
+
+def workflow_sdk_kwargs(workflow: dict) -> dict:
+    kwargs = {
+        "name": workflow["name"],
+        "chunk_strategy": workflow.get("chunk_strategy"),
+        "extract": workflow.get("extract"),
+        "steps": workflow.get("steps"),
+    }
+    optional_fields = {
+        "template": "template",
+        "custom_steps": "customSteps",
+        "output_routes": "outputRoutes",
+        "leaf_fields": "leafFields",
+    }
+    for sdk_key, workflow_key in optional_fields.items():
+        if workflow_key in workflow:
+            kwargs[sdk_key] = workflow.get(workflow_key)
+    return kwargs
+
+
 def _metadata_from_prepared(
     yaml_path: str,
     raw_yaml: str,
@@ -879,12 +1014,23 @@ def build_workflow_artifacts(
     resolved_name = name or yaml_basename
 
     raw_yaml, prepared = _read_and_prepare_schema(yaml_path)
-    group_slots = _resolve_group_slots(prepared)
     persisted_extract = _persisted_workflow_extract(
         raw_yaml=raw_yaml,
         source=yaml_path,
         prepared=prepared,
     )
+    custom_metadata = _custom_workflow_metadata(prepared)
+    if custom_metadata is not None:
+        workflow = {
+            "name": resolved_name,
+            "chunk_strategy": "element",
+            "extract": _to_dict(persisted_extract),
+            "steps": _empty_workflow_steps(),
+            **_custom_workflow_body_fields(custom_metadata),
+        }
+        return workflow, _metadata_from_prepared(yaml_path, raw_yaml, prepared)
+
+    group_slots = _resolve_group_slots(prepared)
     filtered_path = _write_prepared_workflow_yaml(prepared.workflow_groups, yaml_dir)
     filtered_basename = os.path.splitext(os.path.basename(filtered_path))[0]
 

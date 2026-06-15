@@ -92,18 +92,22 @@ should expose the same concepts even if method names differ:
 `groundx-api` remains the source of truth for endpoint semantics. This reference
 owns the extraction-specific order and the manager convention.
 
-Custom managers should call or mirror the shared SDK preparation contract:
+Custom managers should use the high-level SDK workflow helpers when available:
 
 ```python
-from groundx.extract import prepare_extraction_yaml
+workflow = client.create_extraction_workflow(path="prompt.yaml", name="customer-workflow")
+client.update_extraction_workflow(workflow.workflow.workflow_id, path="prompt.yaml")
+existing = client.load_extraction_definition(workflow_id=workflow.workflow.workflow_id)
 ```
 
-Use prepared workflow groups for prompt rendering and workflow steps. Use the
-SDK persisted workflow extract mapping for workflow JSON `extract`; that is the
-payload downstream runtime can download and prepare again. Use prepared final
-groups plus `workflow_field_paths` for reassembly, requiredness, QA, and final
-output. Do not reimplement pseudo-group routing or slot inheritance inside a
-customer manager.
+Use the lower-level `prepare_extraction_yaml(...)` path only when the manager is
+working inside compiler internals or running against an SDK that does not yet
+expose the helpers. Use prepared workflow groups for prompt rendering and
+workflow steps. Use the SDK persisted workflow extract mapping for workflow JSON
+`extract`; that is the payload downstream runtime can download and prepare again.
+Use prepared final groups plus `workflow_field_paths` for reassembly,
+requiredness, QA, and final output. Do not reimplement pseudo-group routing or
+slot inheritance inside a customer manager.
 
 When the YAML carries relationship metadata, expose it separately from workflow
 metadata. A manager should be able to answer four different questions:

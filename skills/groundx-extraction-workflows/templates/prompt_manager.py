@@ -32,6 +32,7 @@ from groundx import Document, GroundX
 
 from compile_workflow import (
     build_workflow,
+    workflow_sdk_kwargs,
     _repeating_request,
     _repeating_task,
     _singleton_request,
@@ -57,6 +58,30 @@ def _to_plain_dict(obj: typing.Any) -> dict[str, typing.Any]:
     if hasattr(obj, "dict"):
         return obj.dict(by_alias=True)
     return dict(obj)
+
+
+def _value(obj: typing.Any, *names: str) -> typing.Any:
+    current = obj
+    for name in names:
+        if current is None:
+            return None
+        if isinstance(current, dict):
+            current = current.get(name)
+        else:
+            current = getattr(current, name, None)
+    return current
+
+
+def _workflow_id(response: typing.Any) -> str:
+    workflow_id = (
+        _value(response, "workflow", "workflow_id")
+        or _value(response, "workflow", "workflowId")
+        or _value(response, "workflow_id")
+        or _value(response, "workflowId")
+    )
+    if not workflow_id:
+        raise RuntimeError(f"workflow response did not include a workflow ID: {response!r}")
+    return str(workflow_id)
 
 
 class ExtractionWorkflowManager:
@@ -132,13 +157,12 @@ class ExtractionWorkflowManager:
 
     def init_prompts(self, *, yaml_path: str, workflow_name: str | None = None) -> str:
         workflow = self.workflow_body(yaml_path=yaml_path, workflow_name=workflow_name)
-        response = self.gx_client.workflows.create(
-            name=workflow["name"],
-            chunk_strategy=workflow.get("chunk_strategy"),
-            extract=workflow.get("extract"),
-            steps=workflow.get("steps"),
-        )
-        return response.workflow.workflow_id
+        gx_client = typing.cast(typing.Any, self.gx_client)
+        if hasattr(gx_client, "create_extraction_workflow"):
+            response = gx_client.create_extraction_workflow(path=yaml_path, name=workflow["name"])
+        else:
+            response = self.gx_client.workflows.create(**workflow_sdk_kwargs(workflow))
+        return _workflow_id(response)
 
     def update_prompts(
         self,
@@ -148,17 +172,18 @@ class ExtractionWorkflowManager:
         workflow_name: str | None = None,
     ) -> str:
         workflow = self.workflow_body(yaml_path=yaml_path, workflow_name=workflow_name)
-        self.gx_client.workflows.update(
-            workflow_id=workflow_id,
-            name=workflow["name"],
-            chunk_strategy=workflow.get("chunk_strategy"),
-            extract=workflow.get("extract"),
-            steps=workflow.get("steps"),
-        )
+        gx_client = typing.cast(typing.Any, self.gx_client)
+        if hasattr(gx_client, "update_extraction_workflow"):
+            gx_client.update_extraction_workflow(workflow_id, path=yaml_path, name=workflow["name"])
+        else:
+            self.gx_client.workflows.update(
+                id=workflow_id,
+                **workflow_sdk_kwargs(workflow),
+            )
         return workflow_id
 
     def check_workflow(self, *, workflow_id: str) -> dict[str, typing.Any]:
-        return _to_plain_dict(self.gx_client.workflows.get(workflow_id=workflow_id))
+        return _to_plain_dict(self.gx_client.workflows.get(id=workflow_id))
 
     def list_workflows(self) -> dict[str, typing.Any]:
         return _to_plain_dict(self.gx_client.workflows.list())

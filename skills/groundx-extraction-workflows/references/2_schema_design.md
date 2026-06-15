@@ -3,7 +3,7 @@
 The YAML schema is the durable artifact. Every other output of this skill
 derives from it. This reference describes how to author one well.
 
-## 1. Final groups, workflow groups, and the proven slot menu
+## 1. Final groups, workflow groups, and workflow execution
 
 A GroundX extraction schema has real top-level groups that define the **final
 data object**. These names are the customer-facing output contract after
@@ -15,14 +15,20 @@ it is addressable by name in workflow artifacts, but it does not appear in the
 final output object. Use pseudo groups to split a large final group into
 smaller agents or to combine small sibling final groups into one agent.
 
-Each prepared workflow group maps to a **workflow slot**; the compiler
-(`skills/groundx-extraction-workflows/templates/compile_workflow.py`) resolves a
-workflow group's slot by precedence — SDK-resolved workflow metadata such as
-explicit or inherited `slot:`, then a top-level `domain:` profile keyed by
-workflow group name, then a hard error. Group names are arbitrary; only the
-**slot** is constrained, to the three proven for structured extraction:
+For new custom extraction workflows, assign each prepared workflow group with
+`workflow_step: <custom_step_name>` and put the executable step definitions under
+top-level `workflow.custom_steps`. Field-level `workflow_output_key` names the
+custom output key that maps the step output back to the final field. The
+compiler emits the public workflow fields `customSteps`, `outputRoutes`,
+`leafFields`, and optional workflow-level `template`; X-Ray readback uses
+`customChunkOutputs`, `customSectionOutputs`, and `customDocumentOutputs`.
 
-| Slot (`slot:`) | Output shape | X-Ray field read back | When to use |
+Legacy YAML may still use `slot:`. In that compatibility mode, the compiler
+resolves a workflow group's slot by precedence — SDK-resolved explicit or
+inherited `slot:`, then a top-level `domain:` profile keyed by workflow group
+name, then a hard error. The legacy proven slots are:
+
+| Legacy slot (`slot:`) | Output shape | X-Ray field read back | When to use |
 |---|---|---|---|
 | `chunk-instruct` | One flat object | `sectionSummary` | Per-document fields that appear once per file |
 | `chunk-keys` | Array of objects | `chunkKeywords` | Repeating records (line items, transactions) |
@@ -32,7 +38,8 @@ The `invoice` domain profile (`templates/domains/invoice.yaml`) supplies the
 canonical billing decomposition — `statement` → `chunk-instruct`,
 `charges` → `chunk-keys`, `meters` → `chunk-summary` — so an invoice YAML need
 only declare `domain: invoice` and omit per-group `slot:`. A new domain either
-declares an explicit `slot:` per workflow group or adds its own profile.
+declares custom `workflow_step:` metadata, declares a legacy explicit `slot:`
+per workflow group, or adds its own profile.
 `xray_to_extract.py` reads each slot's X-Ray field back into the aggregated
 output. Omit any final group a document does not have. Multiple workflow groups
 may resolve to the same slot; the compiler renders a combined slot prompt.
@@ -81,7 +88,8 @@ _pseudo_groups:
 ```
 
 Pseudo groups may contain `prompt`, `fields`, and documented workflow metadata
-such as `slot`. Arbitrary pseudo-group author metadata is rejected in v1.
+such as `workflow_step` or legacy `slot`. Arbitrary pseudo-group author metadata
+is rejected.
 Route paths are final-output JSON Pointers such as
 `/statement/account_number`, not dot-separated strings.
 

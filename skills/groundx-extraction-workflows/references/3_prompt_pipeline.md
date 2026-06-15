@@ -22,14 +22,18 @@ render → field-spec text + field-description bullets + group definition
 wrap → "request" message (user) + "task" message (developer)
   │
   ▼
-register → WorkflowStepConfig wired into a workflow slot
+register → fixed WorkflowStepConfig or customSteps/outputRoutes/leafFields
   │
   ▼
 upload → server-side per-chunk LLM calls produce JSON
 ```
 
 The compiler (`skills/groundx-extraction-workflows/templates/compile_workflow.py`)
-does steps 2-4 inline. Steps 5-6 happen on the GroundX platform.
+does steps 2-4 inline for legacy fixed slots. For custom workflows, the SDK
+prepares `workflow.custom_steps`, `workflow_step`, and `workflow_output_key`
+metadata; the compiler passes it through as public `customSteps`,
+`outputRoutes`, `leafFields`, and optional workflow-level `template`. Steps 5-6
+happen on the GroundX platform.
 
 ## 2. Step 1: YAML parsing
 
@@ -107,10 +111,13 @@ customize wrapper text, provide a prompt-manager or wrapper module through
 `EXTRACT_WRAPPER_MODULE`; use `templates/prompt_manager.py` for the minimal
 adapter contract. See section 3 in `4_sdk_integration.md`.
 
-## 6. Choosing chunk_instruct vs chunk_keys
+## 6. Choosing fixed slots or custom workflow steps
 
-Each workflow group is wired to one of the proven workflow slots. The choice
-determines how the platform reconciles per-chunk outputs.
+Legacy workflow groups are wired to fixed workflow slots. New custom workflows
+use `workflow_step:` and route outputs through `customChunkOutputs`,
+`customSectionOutputs`, or `customDocumentOutputs`. The choice determines how
+the platform reconciles outputs and how local `xray_to_extract.py` maps X-Ray
+values back to final JSON.
 
 ### 6.1 chunk_instruct
 
