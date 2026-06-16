@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Structural self-check on a compiled GroundX workflow JSON.
 
-Catches the slot-wiring regression class: Pydantic serialization silently
-dropping unset fields, producing a workflow the platform accepts but
-doesn't recognize as fully configured. The `chunk_keys → account_charges`
-aggregator skips when slot keys are missing, and `get_extract()` returns
-`account_charges: []` even though every chunk's X-Ray output is correct.
+Catches custom-workflow wiring regressions before live ingest: missing custom
+steps, incomplete output routes, missing leaf fields, unrouted extract fields,
+and the older slot serialization class where required null keys disappeared
+from the generated `steps` object.
 
 Run after `compile_workflow.py` and before any live ingest. Failing here
 costs nothing; failing after a 5–15 minute ingest costs quota and time.
@@ -18,13 +17,13 @@ error messages otherwise.
 
 Validated:
     - top-level: `extract` and `steps` dicts present
-    - `steps`: all 7 `WorkflowSteps` slot keys present (may be null):
-      chunk-instruct, chunk-keys, chunk-summary, doc-keys, doc-summary,
-      sect-instruct, sect-summary
+    - `steps`: all GroundX workflow step keys present (may be null)
     - each non-null step: all 6 `WorkflowStep` variant keys present
       (may be null): all, figure, paragraph, json, table, table-figure
-    - at least one of `chunk-instruct` or `chunk-keys` is non-null
-      (otherwise no extraction will run)
+    - custom workflows include matching `customSteps`, `outputRoutes`, and
+      `leafFields`
+    - every final extract field has a custom output route when custom workflow
+      fields are present
 """
 
 import argparse
@@ -60,6 +59,7 @@ CUSTOM_OUTPUT_MAPS = {
     "section": "customSectionOutputs",
     "document": "customDocumentOutputs",
 }
+REPEATED_CUSTOM_STEP_KINDS = {"keys", "summary"}
 RESERVED_CUSTOM_NAMES = {
     "workflow",
     "template",
@@ -77,6 +77,12 @@ RESERVED_CUSTOM_NAMES = {
     "sect_keys",
     "sect_summary",
     "sect_instruct",
+}
+RESERVED_EXTRACT_KEYS = {
+    "workflow",
+    "_defs",
+    "_pseudo_groups",
+    "_groundx_persisted_extract",
 }
 
 
@@ -119,6 +125,34 @@ def _custom_match_key(item: dict) -> tuple:
         item.get("level"),
         item.get("outputKey"),
     )
+
+
+def _final_field_pointer(group_name: str, field_name: str) -> str:
+    return f"/{group_name}/{field_name}"
+
+
+def _normalize_final_pointer(pointer: typing.Any) -> typing.Optional[str]:
+    if not isinstance(pointer, str) or not pointer.startswith("/"):
+        return None
+    parts = [part for part in pointer.split("/")[1:] if part and part != "*"]
+    if len(parts) < 2:
+        return None
+    return "/" + "/".join(parts)
+
+
+def _extract_final_field_pointers(extract: typing.Any) -> typing.Iterator[tuple[str, str, str]]:
+    if not isinstance(extract, dict):
+        return
+    for group_name, group_data in extract.items():
+        if group_name in RESERVED_EXTRACT_KEYS or str(group_name).startswith("_"):
+            continue
+        if not isinstance(group_data, dict):
+            continue
+        fields = group_data.get("fields")
+        if not isinstance(fields, dict):
+            continue
+        for field_name in fields:
+            yield str(group_name), str(field_name), _final_field_pointer(str(group_name), str(field_name))
 
 
 def _validate_custom_workflow(workflow: dict) -> typing.List[str]:
@@ -202,7 +236,12 @@ def _validate_custom_workflow(workflow: dict) -> typing.List[str]:
         )
         if route.get("readbackPath") != expected_readback:
             errors.append(f"readbackPath for {step_name}.{output_key} must be {expected_readback}")
-        _pointer_segments(route.get("finalPath"), f"outputRoutes[{index}].finalPath", errors)
+        segments = _pointer_segments(route.get("finalPath"), f"outputRoutes[{index}].finalPath", errors)
+        if step.get("kind") in REPEATED_CUSTOM_STEP_KINDS and "*" not in segments:
+            errors.append(
+                f"output route {route.get('finalPath')} for repeated custom step "
+                f"{step_name} must include a wildcard segment"
+            )
         field_counts[typing.cast(str, step_name)] = field_counts.get(typing.cast(str, step_name), 0) + 1
 
     leaves_by_key: typing.Dict[tuple, dict] = {}
@@ -225,6 +264,23 @@ def _validate_custom_workflow(workflow: dict) -> typing.List[str]:
         segments = _pointer_segments(leaf.get("finalPath"), f"leafFields[{index}].finalPath", errors)
         is_repeated = leaf.get("isRepeated")
         repetition_scope = leaf.get("repetitionScope")
+        step_repeats = step.get("kind") in REPEATED_CUSTOM_STEP_KINDS
+        if step_repeats:
+            if is_repeated is not True:
+                errors.append(
+                    f"leaf field {leaf.get('finalPath')} for repeated custom step "
+                    f"{step_name} must set isRepeated true"
+                )
+            if "*" not in segments:
+                errors.append(
+                    f"leaf field {leaf.get('finalPath')} for repeated custom step "
+                    f"{step_name} must include a wildcard segment"
+                )
+            elif repetition_scope != "/" + "/".join(segments[: segments.index("*") + 1]):
+                errors.append(
+                    f"leaf field {leaf.get('finalPath')} for repeated custom step "
+                    f"{step_name} has invalid repetitionScope"
+                )
         if is_repeated is True:
             if "*" not in segments:
                 errors.append(f"leaf field {leaf.get('finalPath')} is repeated but has no wildcard segment")
@@ -242,6 +298,22 @@ def _validate_custom_workflow(workflow: dict) -> typing.List[str]:
     for key, leaf in leaves_by_key.items():
         if key not in routes_by_key:
             errors.append(f"missing output route for leaf field {leaf.get('finalPath')}")
+
+    for step_name in steps_by_name:
+        if step_name not in field_counts:
+            errors.append(f"custom step '{step_name}' has no output routes")
+
+    routed_final_fields = {
+        normalized
+        for route in output_routes
+        for normalized in (_normalize_final_pointer(route.get("finalPath")),)
+        if normalized
+    }
+    for group_name, field_name, pointer in _extract_final_field_pointers(workflow.get("extract")):
+        if pointer not in routed_final_fields:
+            errors.append(
+                f"extract group '{group_name}' field '{field_name}' has no custom output route"
+            )
 
     for step_name, count in field_counts.items():
         if count > CUSTOM_WORKFLOW_MAX_FIELDS:

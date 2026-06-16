@@ -65,6 +65,16 @@ directory or a full path. `--workflow-name` is optional; without it, the script
 uses the YAML filename without `.yaml`. `--workflow-id` switches the command
 from create to update.
 
+The deploy script compiles and validates the YAML first, then sends the
+compiled workflow body to the GroundX SDK. It does not re-load the raw YAML path
+after compilation. This keeps harness-specific `workflow_step:`,
+`workflow.custom_steps`, route metadata, and pilot metadata on the compiler path
+that already validated them. The public SDK
+`create_extraction_workflow(path=...)` and
+`update_extraction_workflow(path=...)` helpers remain valid for YAML that is
+directly SDK-loadable, but harness local templates should not compile a YAML and
+then pass the same raw path back to those helpers.
+
 ## Engine-Only Updates
 
 When the only intended change is the model endpoint for existing workflow steps,
@@ -110,12 +120,13 @@ workflow from a clean source definition.
 Use this path when GroundX MCP tools are visible in the agent session:
 
 1. Compile the YAML to `workflow.json`.
-2. Use `groundx-api/references/06-workflows.md` for the exact
+2. Validate it with `python validate_workflow_json.py workflow.json`.
+3. Use `groundx-api/references/06-workflows.md` for the exact
    `workflow_create` or `workflow_update` arguments. Pass the compiled workflow
    fields from `workflow.json`; do not hand-build a different schema. Use
    `workflow_update` only when you already have the existing workflow ID.
-3. Save the returned workflow ID.
-4. Attach it with `workflow_add_to_id` for a bucket/group or
+4. Save the returned workflow ID.
+5. Attach it with `workflow_add_to_id` for a bucket/group or
    `workflow_add_to_account` for the account default.
 
 Minimal field mapping:

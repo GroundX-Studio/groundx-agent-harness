@@ -94,9 +94,6 @@ def _create_workflow(
     workflow: dict[str, typing.Any],
     workflow_name: str,
 ) -> typing.Any:
-    gx_client = typing.cast(typing.Any, gx)
-    if hasattr(gx_client, "create_extraction_workflow"):
-        return gx_client.create_extraction_workflow(path=yaml_path, name=workflow_name)
     return gx.workflows.create(**workflow_sdk_kwargs(workflow))
 
 

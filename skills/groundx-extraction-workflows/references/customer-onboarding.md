@@ -35,10 +35,9 @@ needs computed totals, multi-hop matching, unit conversion, conditional
 derivation, or document-set-level decisions, record that as a capability gap
 before YAML authoring.
 
-Only after the final JSON shape is clear should you decide whether workflow
-pseudo groups are needed to split a large section or combine small sections for
-execution. Pseudo groups must not become names the customer's application
-depends on.
+Only after the final JSON shape is clear should you assign each real group to a
+custom workflow step. If one group is too large, split it into user-approved real
+groups or escalate the unsupported grouping need.
 
 ## Readiness and batch boundaries
 

@@ -3,31 +3,50 @@
 # This file is the durable artifact of a groundx-extraction-workflows run. The agent
 # drafts it for a specific document type; the user edits and versions it.
 #
-# Three top-level groups are supported by templates/compile_workflow.py:
+# This starter enables two common custom steps:
 #
-#   statement: per-document fields. Wired to chunk_instruct: each chunk
-#              contributes partial fields, the platform reconciles into one
-#              flat object.
+#   statement_fields: per-document fields. Each chunk contributes partial
+#                     fields, and the platform reconciles them into one flat
+#                     object.
 #
-#   charges:   repeating records (line items, transactions, etc.). Wired
-#              to chunk_keys: each chunk contributes complete records,
-#              the platform aggregates into an array.
+#   charge_lines: repeating records (line items, transactions, etc.). Each
+#                 chunk contributes complete records, and the platform
+#                 aggregates them into an array.
 #
-#   meters:    physical-meter or metered-usage records. Wired to
-#              chunk_summary/chunk-sum: each chunk contributes complete
-#              meter records, the platform aggregates into an array.
+# It also shows an optional `meter_lines` step with the commented `meters`
+# group below. Uncomment the step and the group together; a custom step with
+# no routed fields is invalid.
 #
 # Omit groups that do not apply to the document type.
 #
 # See references/2_schema_design.md for the field anatomy and group
 # decomposition rules.
 
+workflow:
+  custom_steps:
+    - name: statement_fields
+      level: chunk
+      kind: instruct
+    - name: charge_lines
+      level: chunk
+      # `keys` means each chunk can return zero or more complete records.
+      # Use this for repeating rows such as charges, line items, transactions,
+      # or service rows.
+      kind: keys
+    # Add this step with the `meters` group below when the document has
+    # physical-meter or metered-usage records.
+    # - name: meter_lines
+    #   level: chunk
+    #   kind: summary
+
 statement:
+  workflow_step: statement_fields
   fields:
     # Replace these illustrative entries with the fields you need to
     # extract. Each field's YAML key becomes the JSON key in the
     # extraction output.
     document_id_example:
+      workflow_output_key: document_id_example
       prompt:
         description: a short human description of what this field represents
         format: string
@@ -40,6 +59,7 @@ statement:
         type: str
 
 charges:
+  workflow_step: charge_lines
   fields:
     # Replace these illustrative entries with the fields that describe one
     # repeating record. The platform will produce an array of objects with
@@ -54,6 +74,7 @@ charges:
     # See references/6_known_limitations.md for the workaround pattern
     # (alias mapping in score_extraction.py).
     charge_description_as_printed:
+      workflow_output_key: charge_description_as_printed
       prompt:
         description: the description of this individual record exactly as printed
         identifiers:
@@ -64,6 +85,7 @@ charges:
           - Do not include monetary amounts in the description
         type: str
     charge_amount:
+      workflow_output_key: charge_amount
       prompt:
         description: the numeric value associated with this record
         identifiers:
@@ -91,8 +113,10 @@ charges:
 # usage records.
 #
 # meters:
+#   workflow_step: meter_lines
 #   fields:
 #     meter_number:
+#       workflow_output_key: meter_number
 #       prompt:
 #         description: the meter identifier exactly as printed
 #         identifiers:
@@ -103,6 +127,7 @@ charges:
 #           - Do not invent a meter identifier when none is visible
 #         type: str
 #     meter_usage:
+#       workflow_output_key: meter_usage
 #       prompt:
 #         description: the usage quantity for this meter in the billing period
 #         identifiers:

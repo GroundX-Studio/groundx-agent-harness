@@ -25,16 +25,9 @@ of these files.
 
 ## 2. Wrapper Function Contract
 
-For a workflow group, the compile template can load external extract wrappers
-from `EXTRACT_WRAPPER_MODULE`. Wrapper names are keyed by workflow group name,
-not necessarily final output group name when `_pseudo_groups` are used:
-
-```bash
-EXTRACT_WRAPPER_MODULE=prompts.extract_statement \
-python skills/groundx-extraction-workflows/templates/compile_workflow.py prompt.yaml
-```
-
-The module may define:
+For a workflow group, keep extract wrapper functions keyed by the real group
+name assigned to the custom step. The minimal manager adapter exposes methods
+such as:
 
 ```python
 def prompt_statement_extract_request(field_specs: str) -> str: ...
@@ -68,17 +61,17 @@ prompts, and source-document evidence such as page images or X-Ray context.
 Use `templates/prompt_manager.py` as the minimal adapter. A customer manager
 should expose the same concepts even if method names differ:
 
-- `workflow_body(yaml_path, workflow_name=None)` — compile YAML and wrappers to a
+- `workflow_body(yaml_path, workflow_name=None)` — compile YAML to a
   workflow body
 - `workflow_steps(...)`, `workflow_extract_dict(...)`, and
-  `persisted_workflow_extract_dict(...)` — expose workflow slots, execution
+  `persisted_workflow_extract_dict(...)` — expose workflow steps, execution
   groups, and the reloadable extraction contract separately for
   readback/comparison tests
 - `prompt_statement_extract_request(...)`, `prompt_statement_extract_task(...)`,
   `prompt_charges_extract_request(...)`, `prompt_charges_extract_task(...)`,
   `prompt_meters_extract_request(...)`, and `prompt_meters_extract_task(...)`
-  — default per-group extract wrapper methods that projects can override or
-  replace with external wrapper modules
+  — default per-group extract wrapper methods that projects can override in a
+  manager subclass or replace in project-specific manager code
 - `prompt_statement_reconcile(...)` and `prompt_statement_qa(...)` — minimal
   reconcile/QA wrapper methods that make candidate state and evidence explicit
 - `init_prompts(...)` — create a workflow
@@ -92,7 +85,8 @@ should expose the same concepts even if method names differ:
 `groundx-api` remains the source of truth for endpoint semantics. This reference
 owns the extraction-specific order and the manager convention.
 
-Custom managers should use the high-level SDK workflow helpers when available:
+Custom managers that are not compiling harness YAML should use the high-level
+SDK workflow helpers when available:
 
 ```python
 workflow = client.create_extraction_workflow(path="prompt.yaml", name="customer-workflow")
@@ -100,14 +94,14 @@ client.update_extraction_workflow(workflow.workflow.workflow_id, path="prompt.ya
 existing = client.load_extraction_definition(workflow_id=workflow.workflow.workflow_id)
 ```
 
-Use the lower-level `prepare_extraction_yaml(...)` path only when the manager is
-working inside compiler internals or running against an SDK that does not yet
-expose the helpers. Use prepared workflow groups for prompt rendering and
-workflow steps. Use the SDK persisted workflow extract mapping for workflow JSON
-`extract`; that is the payload downstream runtime can download and prepare again.
-Use prepared final groups plus `workflow_field_paths` for reassembly,
-requiredness, QA, and final output. Do not reimplement pseudo-group routing or
-slot inheritance inside a customer manager.
+Managers that do compile harness YAML should deploy the compiled workflow body,
+not re-load the same raw YAML path through the SDK after compilation. Use
+prepared workflow groups for prompt rendering and workflow steps. Use the SDK
+persisted workflow extract mapping for workflow JSON `extract`; that is the
+payload downstream runtime can download and prepare again. Use prepared final
+groups plus `workflow_field_paths` for readback, requiredness, QA, and final
+output diagnostics. Do not reimplement unsupported pseudo-group routing or
+legacy slot inheritance inside a customer manager.
 
 When the YAML carries relationship metadata, expose it separately from workflow
 metadata. A manager should be able to answer four different questions:
@@ -118,9 +112,7 @@ metadata. A manager should be able to answer four different questions:
 - What final-group metadata controls dedupe, matching, conflict surfacing,
   passthrough, reconcile context, or QA context?
 
-Do not derive those answers from group-name guesses. For example, two pseudo
-workflow groups may both write into one final `statement`, or one workflow group
-may combine fields from multiple small final groups. Reconcile and QA wrappers
+Do not derive those answers from group-name guesses. Reconcile and QA wrappers
 that need relationship context should receive the final-shape fields and
 final-group metadata explicitly.
 
@@ -128,13 +120,13 @@ final-group metadata explicitly.
 
 For a new prompt schema:
 
-1. Compile the YAML and wrappers into workflow JSON and
+1. Compile the YAML into workflow JSON and
    `extraction_workflow_metadata_v1.json`.
    `workflow.json.extract` must come from the SDK persisted workflow extract
    mapping, not from an execution-only group dictionary.
 2. Validate the workflow JSON shape.
 3. Create the workflow.
-4. Check the workflow by reading it back and confirming prompt slots are present.
+4. Check the workflow by reading it back and confirming custom steps/routes are present.
 5. Attach to the account default only if the pilot needs account-level default
    behavior.
 6. Attach to the test bucket.

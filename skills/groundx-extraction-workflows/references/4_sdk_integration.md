@@ -11,7 +11,7 @@ non-default cases.
 │  groundx.extract (hand-written extension)      │
 │   PromptManager, Source, Logger, Group,        │
 │   Prompt, ExtractedField                        │
-│   Used by: compile_workflow.py                  │
+│   Used by: compile_workflow.py when installed   │
 │   Installed via: pip install groundx[extract]  │
 ├────────────────────────────────────────────────┤
 │  groundx (Fern-generated core client)          │
@@ -25,9 +25,11 @@ non-default cases.
 └────────────────────────────────────────────────┘
 ```
 
-This skill uses the `[extract]` extra at *compile* time only — to
-parse the YAML and render the prompts into the typed workflow objects
-the core SDK serializes. **No API calls happen during compile.**
+This skill uses the `[extract]` extra for deploy/run workflows and prefers it at
+compile time when installed. `compile_workflow.py` also carries a narrow
+SDK-free fallback for harness-authored `workflow.custom_steps` YAML so offline
+CI and plugin validation do not depend on the published SDK being installed.
+**No API calls happen during compile.**
 
 For local deploy and run commands, this skill uses the GroundX Python
 SDK. For interactive agent API calls (workflow create/update/attach,
@@ -46,72 +48,59 @@ The script (`skills/groundx-extraction-workflows/templates/compile_workflow.py`)
 executes the following sequence when invoked as
 `python compile_workflow.py prompt.yaml > workflow.json`:
 
-1. **Load env.** Reads `.env` for `EXTRACT_MODEL_*` engine settings.
+1. **Load env.** Reads `.env` for `EXTRACT_MODEL_*` engine settings when
+   `python-dotenv` is installed; otherwise it uses the process environment and
+   built-in defaults.
    `GROUNDX_API_KEY` is not required at compile time; a
    placeholder is acceptable since no API call is made.
-2. **Load YAML.** A thin `PromptManager` subclass (`_CompileManager`)
-   takes the YAML's directory as its `Source` cache path and loads
-   the schema by basename. The SDK parses the YAML into typed
-   `Group` and `ExtractedField` objects.
-3. **Render the prompt text for each group.** Per-field markdown
-   blocks (description, format, identifiers, instructions) are
-   concatenated and wrapped in the per-step user/developer message
-   templates (the inline functions `_statement_request`,
-   `_statement_task`, `_charges_request`, `_charges_task`,
-   `_meters_request`, `_meters_task`) unless `EXTRACT_WRAPPER_MODULE`
-   points at an external wrapper module.
-4. **Build the typed workflow steps.** Each step config wires the
-   rendered prompts into `WorkflowStepConfig` with the engine and
-   `pageImages: True`, then wraps it in `WorkflowStep` for the three
-   content types (`figure`, `paragraph`, `table_figure`).
-5. **Assemble the final dict.** The output is a Python dict with four
-   keys: `name`, `chunk_strategy`, `extract`, `steps`. The steps and
-   extract dicts are produced by serializing the typed objects.
+2. **Load YAML.** The SDK prepares final groups, workflow groups, route
+   metadata, and persisted extract metadata when available. If the SDK is not
+   installed, the compiler uses its built-in fallback for harness-authored
+   `workflow.custom_steps` YAML only.
+3. **Validate harness metadata.** The compiler requires
+   `workflow.custom_steps`, `workflow_step:`, and field-level
+   `workflow_output_key` where custom output routing is needed.
+4. **Build workflow settings.** The compiler emits `extract`, empty built-in
+   `steps`, plus `template`, `customSteps`, `outputRoutes`, and `leafFields`
+   from prepared metadata.
+5. **Assemble the final dict.** The output is a Python dict with workflow create
+   or update settings. The deploy and run templates pass it through
+   `workflow_sdk_kwargs(workflow)`.
 6. **Emit JSON to stdout.** `json.dumps(workflow, indent=2)` is
    written to stdout. Stderr is unused on success.
 
 The output is the exact body shape that POSTs to `/v1/workflow`.
 
-### 2.2 Inline wrapper templates
+### 2.2 Custom step templates
 
-The six wrapper templates that turn rendered field specs into LLM
-messages live as module-level functions in `compile_workflow.py`, not
-as separate Python files. This keeps the user's working directory
-small; `templates/prompt_manager.py` is available when a pilot needs a
-thin manager around workflow lifecycle and custom wrappers.
+The prompt text for custom workflow steps is prepared from the YAML. When the
+SDK is installed, `groundx.extract` owns that preparation. When the SDK is
+absent, `compile_workflow.py` uses the same harness-specific metadata contract
+for offline validation. It does not load a second prompt-wrapper module or
+re-parse the raw path through a high-level SDK helper after compilation.
 
-The legacy fixed-slot shapes the templates handle:
+The custom workflow shapes the templates handle:
 
-- **statement-style** — one flat object, `chunk_instruct` slot, the
-  step config has `field="sect-sum"`
-- **charges-style** — array of records, `chunk_keys` slot, the step
-  config additionally injects the rendered group definition as an
-  "Extraction Guidelines" section
-- **meters-style** — array of physical-meter or metered-usage records,
-  `chunk_summary` slot, the step config has `field="chunk-sum"`
+- **statement-style** — one flat object through a custom step with
+  `kind: instruct`
+- **charges-style** — array of records through a custom step with `kind: keys`
+- **meters-style** — array of physical-meter or metered-usage records through a
+  custom step with `kind: summary`
 
 All three shapes use the same identity ("structured-data assistant"), the
 same process steps, and the same output contract (return only JSON).
 
-If the document type does not fit one of these shapes, prefer custom workflow
-metadata (`workflow.custom_steps`, `workflow_step`, `workflow_output_key`) over
-editing compiler branches. The compiler emits `customSteps`, `outputRoutes`,
-and `leafFields` when the SDK-prepared YAML carries custom workflow metadata.
+If the document type does not fit one of these shapes, still prefer custom
+workflow metadata (`workflow.custom_steps`, `workflow_step`,
+`workflow_output_key`) over editing compiler branches. The compiler emits
+`customSteps`, `outputRoutes`, and `leafFields` when the prepared YAML carries
+custom workflow metadata.
 See §3.2 below.
 
-### 2.3 External wrapper modules
+### 2.3 Prompt-manager wrapper methods
 
-For quickstart-style pilots that already have separate prompt modules, keep
-those modules and let the compiler load them:
-
-```bash
-EXTRACT_WRAPPER_MODULE=prompts.extract_statement \
-python skills/groundx-extraction-workflows/templates/compile_workflow.py prompt.yaml
-```
-
-The environment variable may be a module path (`prompts.extract_statement`) or a
-Python-file path relative to the YAML directory (`prompts/extract_statement.py`).
-Supported extract wrapper names are:
+For pilots that keep separate prompt modules, use `templates/prompt_manager.py`
+as the thin lifecycle manager. Supported extract wrapper names are:
 
 - `prompt_statement_extract_request(field_specs)`
 - `prompt_statement_extract_task(field_descriptions)`
@@ -120,35 +109,29 @@ Supported extract wrapper names are:
 - `prompt_meters_extract_request(field_specs, group_definition)`
 - `prompt_meters_extract_task(field_descriptions)`
 
-Older aliases such as `statement_extract_request` and `extract_statement_task`
-are accepted as compatibility names. Reconcile and QA wrappers stay in the
-manager layer; see `prompt-manager.md`.
+Reconcile and QA wrappers stay in the manager layer; see `prompt-manager.md`.
 
 ## 3. Customizing the compile script
 
 ### 3.1 Different group names
 
 If the YAML uses group names other than `statement`, `charges`, and `meters`,
-do not add group-name branches to the compiler. Use a domain profile, legacy
-explicit `slot:`, or custom `workflow_step:` metadata. The compiler stays
-domain-agnostic and consumes the SDK-prepared workflow metadata.
+do not add group-name branches to the compiler. Use `workflow.custom_steps`,
+`workflow_step:`, and `workflow_output_key`. The compiler stays domain-agnostic
+and consumes prepared workflow metadata.
 
 ### 3.2 Different document types
 
 For non-invoice documents (forms, receipts, contracts, reports), the
-schema-first runner shape is still applicable: per-document fields go
-in a chunk_instruct group, repeating records go in a chunk_keys
-group, and physical-meter or metered-usage records go in a chunk_summary
-group. What typically needs to change is the wrapper template wording
-(the `Identity` and few-shot examples). Use an external wrapper module or
-edit the inline template functions to match the document genre.
+schema-first runner shape is still applicable: per-document fields usually use
+custom `kind: instruct` steps, repeating records use `kind: keys`, and
+physical-meter or metered-usage records use `kind: summary`.
 
 If a customer repo already has `manager.py`, `simple.yaml`, and separate
 `extract_statement.py`, `reconcile_statement.py`, and `qa_statement.py` prompt
-modules, prefer `EXTRACT_WRAPPER_MODULE` plus `templates/prompt_manager.py` over
-rewriting the project into inline compiler functions. That shape works today and
-keeps the migration path clear for a future `groundx-python/extract`
-abstraction.
+modules, prefer `templates/prompt_manager.py` over rewriting the project into
+compiler branches. That shape keeps the migration path clear for a future
+`groundx-python/extract` abstraction.
 
 For documents that do not fit these shapes (e.g. hierarchical
 reports, free-form correspondence), the schema-first runner is not
@@ -203,10 +186,13 @@ workflow is created once, subsequent iterations use `workflow_update`
 rather than `workflow_create`. The compile output is the same shape
 either way; only the API operation changes.
 
-The local Python templates use the high-level extraction workflow helpers when
-the installed SDK exposes them. They retain `workflow_sdk_kwargs(...)` plus
-`workflows.create/update` as a compatibility fallback until the minimum supported
-SDK version includes those helpers everywhere.
+The local Python templates compile first and then call
+`workflows.create/update` with `workflow_sdk_kwargs(workflow)`. Do not compile a
+YAML and then pass the same raw path back through
+`create_extraction_workflow(path=...)`; that second parse bypasses the harness
+compiler contract for `workflow_step:`, custom routes, and metadata-aware pilot
+YAML. The high-level SDK helpers remain the preferred public SDK surface for
+YAML that is directly SDK-loadable.
 
 `document_getextract` returns the workflow-defined JSON object exactly as
 GroundX stored it. Do not assume a fixed vocabulary such as `amount_due` or
@@ -232,14 +218,14 @@ The split between this skill and `groundx-api` is deliberate:
   field anatomy, identifiers/instructions craft. No other skill
   teaches this.
 - **YAML→workflow JSON translation is unique** to this skill: the
-  rendered prompt text format, the chunk_instruct vs chunk_keys
-  routing, the page-images include. The output is a wire-format JSON
-  that can be POSTed by anyone.
+  rendered prompt text format, custom step routing, output routes,
+  leaf fields, and page-image include behavior. The output is a
+  wire-format JSON that can be POSTed by anyone.
 - **Workflow API operations are not unique** to this skill — they are
   documented once, in `groundx-api`, and consumed by anything that
   needs them (this skill, UI implementation skills, future skills).
 
 If GroundX changes the workflow API surface, only `groundx-api`
 updates. If the schema authoring conventions evolve (e.g. a new
-content-type slot, a new group name pattern), only this skill
+custom step kind, a new group name pattern), only this skill
 updates. Each skill stays in its lane.

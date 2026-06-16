@@ -6,7 +6,7 @@ and how to read its report.
 ## 1. The compare loop
 
 The comparator (`skills/groundx-extraction-workflows/templates/score_extraction.py`) reads the
-extracted JSON and the ground truth (CSV or JSON) and emits a
+extracted JSON and the ground-truth answer-key JSON and emits a
 field-by-field report:
 
 ```
@@ -214,6 +214,8 @@ under a top-level `meters` array in a JSON answer key:
 
 CSV answer keys do not have a general meter convention; use JSON answer
 keys for metered-usage validation.
+Use JSON answer keys for scoring. CSV remains supported only for the
+field-catalog coverage helper, not for `score_extraction.py`.
 
 ## 6. Accuracy thresholds
 

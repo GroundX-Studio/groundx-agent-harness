@@ -64,7 +64,16 @@ def normalize_value(val: typing.Any) -> str:
 def _get_aliased(d: typing.Dict[str, typing.Any], key: str) -> typing.Any:
     # Field names in the answer key are expected to match the extraction's
     # field names (both derive from the YAML). No client-specific bridging.
-    return d.get(key, "")
+    if key in d:
+        return d.get(key, "")
+    if "." not in key:
+        return ""
+    current: typing.Any = d
+    for part in key.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return ""
+        current = current.get(part)
+    return current
 
 
 def _resolve_group(extracted: typing.Dict[str, typing.Any], group_name: str) -> typing.List[dict]:
@@ -404,7 +413,7 @@ def _icon(status: str) -> str:
 
 def main(argv: typing.List[str]) -> int:
     if len(argv) != 3:
-        print("usage: python score_extraction.py <output.json> <answer_key.(csv|json)>", file=sys.stderr)
+        print("usage: python score_extraction.py <output.json> <answer_key.json>", file=sys.stderr)
         return 2
 
     extract_path, key_path = argv[1], argv[2]

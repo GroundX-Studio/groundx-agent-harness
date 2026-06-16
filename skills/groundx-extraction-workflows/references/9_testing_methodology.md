@@ -76,7 +76,7 @@ trivially fixable. Without clean-room testing both would have shipped.
 
 For routine maintainer changes:
 
-1. **`node scripts/validate.mjs`** from repo root — all 13 must pass.
+1. **`node scripts/validate.mjs`** from repo root — every check must pass.
 2. **Smoke the iteration aids** if any was touched:
    - `compile_workflow.py` → `validate_workflow_json.py` on output
    - `run_extraction.py` → end-to-end against a known fixture

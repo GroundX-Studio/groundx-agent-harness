@@ -9,89 +9,68 @@ A GroundX extraction schema has real top-level groups that define the **final
 data object**. These names are the customer-facing output contract after
 extraction and reassembly.
 
-The workflow execution shape can be the same as the final shape, or it can be
-different through optional `_pseudo_groups`. A pseudo group is workflow-only:
-it is addressable by name in workflow artifacts, but it does not appear in the
-final output object. Use pseudo groups to split a large final group into
-smaller agents or to combine small sibling final groups into one agent.
+The harness-supported workflow execution shape uses those same real top-level
+groups. Each real group is assigned to one custom workflow step with
+`workflow_step:`.
 
 For new custom extraction workflows, assign each prepared workflow group with
 `workflow_step: <custom_step_name>` and put the executable step definitions under
 top-level `workflow.custom_steps`. Field-level `workflow_output_key` names the
-custom output key that maps the step output back to the final field. The
+safe custom output key that maps the step output back to the final field. It
+must match `^[a-z][a-z0-9_]{0,63}$`. The YAML field key remains the final
+customer-facing JSON key inside its group; use a safe `workflow_output_key`
+when the customer-facing key is not a valid custom output key. The
 compiler emits the public workflow fields `customSteps`, `outputRoutes`,
 `leafFields`, and optional workflow-level `template`; X-Ray readback uses
 `customChunkOutputs`, `customSectionOutputs`, and `customDocumentOutputs`.
 
-Legacy YAML may still use `slot:`. In that compatibility mode, the compiler
-resolves a workflow group's slot by precedence — SDK-resolved explicit or
-inherited `slot:`, then a top-level `domain:` profile keyed by workflow group
-name, then a hard error. The legacy proven slots are:
+The harness compiler accepts only the custom workflow shape. Define each
+executable step under `workflow.custom_steps`, then assign each workflow group to
+one step with `workflow_step:`. The SDK preparation layer emits `customSteps`,
+`outputRoutes`, and `leafFields`; local X-Ray readback uses
+`customChunkOutputs`, `customSectionOutputs`, or `customDocumentOutputs`.
 
-| Legacy slot (`slot:`) | Output shape | X-Ray field read back | When to use |
-|---|---|---|---|
-| `chunk-instruct` | One flat object | `sectionSummary` | Per-document fields that appear once per file |
-| `chunk-keys` | Array of objects | `chunkKeywords` | Repeating records (line items, transactions) |
-| `chunk-summary` | Array of objects | `chunkSummary` | A second repeating record type (e.g. meters) |
+Use step kinds to describe the extraction shape:
 
-The `invoice` domain profile (`templates/domains/invoice.yaml`) supplies the
-canonical billing decomposition — `statement` → `chunk-instruct`,
-`charges` → `chunk-keys`, `meters` → `chunk-summary` — so an invoice YAML need
-only declare `domain: invoice` and omit per-group `slot:`. A new domain either
-declares custom `workflow_step:` metadata, declares a legacy explicit `slot:`
-per workflow group, or adds its own profile.
-`xray_to_extract.py` reads each slot's X-Ray field back into the aggregated
-output. Omit any final group a document does not have. Multiple workflow groups
-may resolve to the same slot; the compiler renders a combined slot prompt.
+| Step kind | Output shape | Typical use |
+|---|---|---|
+| `instruct` | One flat object | Per-document fields that appear once per file |
+| `keys` | Array of objects | Repeating records such as charge lines, line items, transactions, or service rows |
+| `summary` | Array of objects | A second repeating record type such as physical meters or usage records |
+
+For example, a custom step named `charge_lines` uses `kind: keys` because it
+extracts many records with the same shape. Each chunk returns zero or more
+complete charge objects, and GroundX aggregates those objects into an array.
+Do not use `kind: keys` for a field that should appear once in the final JSON;
+use `kind: instruct` for those fields.
+
+The `level` controls where the step runs:
+
+| Level | Readback map | Typical use |
+|---|---|---|
+| `chunk` | `customChunkOutputs` | Most extraction work; each chunk sees local text and page evidence |
+| `section` | `customSectionOutputs` | Section-level summaries or records when chunks are too narrow |
+| `document` | `customDocumentOutputs` | Document-level aggregation when a full-document step is supported |
+
+`kind: instruct` is invalid with `level: document` in the harness validator.
+
+The harness intentionally does not load `domain:` or `slot:` YAML forms. Use the
+public GroundX Python SDK helper directly when you need SDK-level YAML loading
+outside the harness templates. Omit any final group a document does not have.
 
 The public syntax walkthrough is
 [Structured Extraction Workflow](https://docs.groundx.ai/documentation/structured-extraction-workflow).
 
-### 1.1 `_defs` and `_pseudo_groups`
+### 1.1 `_defs` and unsupported `_pseudo_groups`
 
 `_defs` is a fields-only authoring helper. Shared prompt context belongs under
-real final groups or pseudo groups, not inside `_defs`. `_defs` expands into
-final groups before pseudo routing.
+real final groups, not inside `_defs`.
 
-`_pseudo_groups` routes workflow fields to final fields using final-output JSON
-Pointer paths:
-
-```yaml
-statement:
-  prompt:
-    instructions: Extract statement-level fields for the final object.
-  fields:
-    account_number:
-      prompt:
-        description: The account number printed on the statement.
-        identifiers: ["Account Number"]
-        instructions: Return the account number exactly as printed.
-        type: str
-    total_due:
-      prompt:
-        description: The total amount due.
-        identifiers: ["Total Due"]
-        instructions: Return the total as a number.
-        type: float
-
-_pseudo_groups:
-  statement_identity:
-    slot: chunk-instruct
-    fields:
-      account_number:
-        path: /statement/account_number
-  statement_totals:
-    slot: chunk-summary
-    fields:
-      total_due:
-        path: /statement/total_due
-```
-
-Pseudo groups may contain `prompt`, `fields`, and documented workflow metadata
-such as `workflow_step` or legacy `slot`. Arbitrary pseudo-group author metadata
-is rejected.
-Route paths are final-output JSON Pointers such as
-`/statement/account_number`, not dot-separated strings.
+Do not author `_pseudo_groups` in harness YAML today. The compiler rejects them
+with a clear error because that path does not yet have a real compile fixture
+covering route generation, validation, readback, and reassembly. If a final
+group is too large for one extraction agent, split it into real final groups
+only when the user accepts that JSON shape, or escalate the grouping need.
 
 ### 1.2 statement: per-document fields
 
@@ -100,21 +79,32 @@ scattered across pages: account numbers, dates, totals, addresses,
 identifiers. Each chunk of the document contributes whichever of these
 fields it can see; the platform reconciles them into one flat object.
 
-Each field appears as a top-level key in the extraction output:
+The `statement` group appears as an object in the extraction output:
 
 ```yaml
+workflow:
+  custom_steps:
+    - name: statement_fields
+      level: chunk
+      kind: instruct
+
 statement:
+  workflow_step: statement_fields
   fields:
     invoice_date:
+      workflow_output_key: invoice_date
       prompt: { ... }
     total_due:
+      workflow_output_key: total_due
       prompt: { ... }
 ```
 
 ```json
 {
-  "invoice_date": "2026-01-22",
-  "total_due": 38.99
+  "statement": {
+    "invoice_date": "2026-01-22",
+    "total_due": 38.99
+  }
 }
 ```
 
@@ -124,20 +114,30 @@ Use this group for records that repeat — typically line items, transactions,
 charges, or service rows. Each chunk contributes complete records (not
 partial fields of one record); the platform aggregates them into an array.
 
-The output appears under the `account_charges` array key:
+Compiled custom routes write the output under the authored final group key,
+such as `charges`.
 
 ```yaml
+workflow:
+  custom_steps:
+    - name: charge_lines
+      level: chunk
+      kind: keys
+
 charges:
+  workflow_step: charge_lines
   fields:
     charge_description_as_printed:
+      workflow_output_key: charge_description_as_printed
       prompt: { ... }
     charge_amount:
+      workflow_output_key: charge_amount
       prompt: { ... }
 ```
 
 ```json
 {
-  "account_charges": [
+  "charges": [
     {
       "charge_description_as_printed": "Classic Cable - Bulk",
       "charge_amount": 36.75
@@ -155,30 +155,37 @@ charges:
 Use this group for utility-style per-meter usage records: documents where
 each meter on a property reports its own consumption over a billing
 period (kWh used, gallons consumed, demand readings). The intended
-output shape is an array of meter objects, one per physical meter.
-
-`compile_workflow.py` wires `meters` to `chunk_summary` and writes to the
-`chunk-sum` field. The prompt wrapper must return a top-level
-`{"meters": [...]}` object. The local X-Ray helper reads each chunk's
-`chunkSummary` JSON and accumulates records into the final `meters` array.
+output shape is an array of meter objects, one per physical meter. In harness
+YAML, meters are just another workflow group assigned to a custom step. Use
+`kind: summary` when the meter extraction should produce a second repeating
+record stream distinct from `kind: keys` charge lines.
 
 For documents that contain metered services, define the concrete meter
 fields in the group:
 
 ```yaml
+workflow:
+  custom_steps:
+    - name: meter_records
+      level: chunk
+      kind: summary
+
 meters:
+  workflow_step: meter_records
   prompt:
     instructions: |
       Extract one record per physical meter or metered service shown in
       the document. Do not invent meters that are not visible.
   fields:
     meter_number:
+      workflow_output_key: meter_number
       prompt:
         description: "Meter identifier exactly as printed."
         identifiers: ["Meter #", "Meter Number"]
         instructions: "Return the printed meter identifier."
         type: str
     meter_usage:
+      workflow_output_key: meter_usage
       prompt:
         description: "Usage quantity for this billing period."
         identifiers: ["Usage", "Consumption"]
@@ -212,25 +219,24 @@ escalate per §3.3 in `6_known_limitations.md`.
 
 Use **final group** for a functional grouping of fields in the final output,
 such as `statement`, `charges`, or `meters`. Do not split the final data object
-only because an agent has too many fields; split workflow load with
-`_pseudo_groups` instead.
+only because an agent has too many fields.
 
 As a rule of thumb, keep each workflow group's extraction load to **20 fields
 or fewer**. Above that, LLM cognitive load starts to work against
-accuracy and consistency. If a final group grows beyond 20 fields but should
-remain one final object, keep the final group intact and create smaller coherent
-pseudo groups. If two sibling final groups each have fewer than roughly 10
-fields and appear in the same document region, consider one pseudo workflow
-group that routes fields back to both final groups. Do not design one
-pre-process extraction agent per field.
+accuracy and consistency. If a final group grows beyond 20 fields, split it into
+coherent real final groups only when that output shape is acceptable to the
+user. If the final JSON must remain one large object, pause and escalate the
+unsupported workflow-grouping need. Do not design one pre-process extraction
+agent per field.
 
 ## 2. Field anatomy
 
-Every field in the YAML has the same shape. The top-level YAML key becomes
-the JSON key in the output.
+Every field in the YAML has the same shape. The field key under its group
+becomes the JSON key inside that final group.
 
 ```yaml
 field_key:
+  workflow_output_key: field_key
   prompt:
     description: "..."
     format: "..."
@@ -241,10 +247,15 @@ field_key:
     type: str
 ```
 
-### 2.1 The five required keys
+### 2.1 Required field keys
+
+Every routed field also needs `workflow_output_key`. Use the field key itself
+when it already matches `^[a-z][a-z0-9_]{0,63}$`; otherwise choose a safe
+snake_case internal key for the workflow output.
 
 | Key | What it does | Required? |
 |---|---|---|
+| `workflow_output_key` | Safe internal key used by custom workflow output routing | Yes for routed fields |
 | `description` | Plain-language description of what the field represents | Yes |
 | `format` | Output format constraint | Optional but strongly recommended for dates and codes |
 | `identifiers` | Label hints — where to look on the document | Yes |
@@ -337,9 +348,14 @@ distinguishing individual records from subtotal or section-header lines.
 
 ```yaml
 charges:
+  workflow_step: charge_lines
   fields:
-    charge_description_as_printed: { prompt: { ... } }
-    charge_amount: { prompt: { ... } }
+    charge_description_as_printed:
+      workflow_output_key: charge_description_as_printed
+      prompt: { ... }
+    charge_amount:
+      workflow_output_key: charge_amount
+      prompt: { ... }
   prompt:
     instructions: |
       Extract every individual line item.
@@ -375,9 +391,9 @@ See §1 in `6_known_limitations.md` for the platform-locked charge field names.
 ## 5. A worked example
 
 `skills/groundx-extraction-workflows/examples/utility-invoice/prompt.yaml` is a
-synthetic invoice-domain schema: `domain: invoice` groups (`statement` +
-`charges` + `meters`) with per-field prompts, a group-level prompt that
-distinguishes line items from subtotals, and inline business-logic metadata.
-Read it before authoring a new schema for any invoice-shaped document.
-`examples/insurance-claim/prompt.yaml` is the non-invoice counterpart (explicit
-`slot:` per group). Real customer schemas live out-of-repo, never in the skill.
+synthetic invoice-shaped schema: `statement`, `charges`, and `meters` groups with
+custom workflow steps, per-field prompts, a group-level prompt that distinguishes
+line items from subtotals, and inline business-logic metadata. Read it before
+authoring a new schema for any invoice-shaped document.
+`examples/insurance-claim/prompt.yaml` is the non-invoice custom-step
+counterpart. Real customer schemas live out-of-repo, never in the skill.

@@ -190,22 +190,6 @@ def _create_or_update_workflow(
     yaml_path: str,
     workflow_id: str | None,
 ) -> tuple[str, str, typing.Any]:
-    gx_client = typing.cast(typing.Any, gx)
-    if hasattr(gx_client, "create_extraction_workflow") and hasattr(gx_client, "update_extraction_workflow"):
-        if workflow_id:
-            response = gx_client.update_extraction_workflow(
-                workflow_id,
-                path=yaml_path,
-                name=workflow["name"],
-            )
-            return workflow_id, "updated", response
-
-        response = gx_client.create_extraction_workflow(
-            path=yaml_path,
-            name=workflow["name"],
-        )
-        return _workflow_id(response), "created", response
-
     kwargs = workflow_sdk_kwargs(workflow)
     if workflow_id:
         response = gx.workflows.update(

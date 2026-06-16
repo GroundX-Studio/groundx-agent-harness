@@ -15,9 +15,14 @@ Or import as a module:
     from xray_to_extract import xray_to_extract
     extract_dict = xray_to_extract(xray_dict)
 
-Charges aggregation: each chunk's `chunkKeywords` is parsed as JSON; the
-top-level `charges` array (if present) is accumulated. Duplicate records
-across chunks are removed by full-record hash (canonical JSON form).
+Custom workflow aggregation: when a compiled workflow extract is provided,
+`workflow.output_routes` reads `customChunkOutputs`, `customSectionOutputs`, or
+`customDocumentOutputs` and writes values back to their final JSON Pointer
+paths.
+
+Legacy fallback aggregation: each chunk's `chunkKeywords` is parsed as JSON; the
+top-level `charges` array (if present) is accumulated. Duplicate records across
+chunks are removed by full-record hash (canonical JSON form).
 
 Meters aggregation: each chunk's `chunkSummary` is parsed as JSON; the
 top-level `meters` array (if present) is accumulated. Duplicate records
@@ -33,6 +38,8 @@ import argparse
 import json
 import sys
 import typing
+
+_REPEATED_STEP_KINDS = {"keys", "summary"}
 
 
 def _parse_json_field(raw: typing.Any) -> typing.Optional[dict]:
@@ -80,14 +87,34 @@ def _iter_chunks(xray: dict) -> typing.Iterator[dict]:
                 yield chunk
 
 
-def _custom_route_value(container: dict, route: dict) -> typing.Any:
+def _custom_route_values(
+    container: dict,
+    route: dict,
+    *,
+    repeated: bool,
+) -> list[tuple[typing.Optional[int], typing.Any]]:
     output_map = container.get(route.get("output_map"))
     if not isinstance(output_map, dict):
-        return None
+        return []
     step_value = output_map.get(route.get("step_name"))
+    output_key = route.get("output_key")
+
+    if repeated and isinstance(step_value, list):
+        values: list[tuple[typing.Optional[int], typing.Any]] = []
+        for index, row in enumerate(step_value):
+            if isinstance(row, dict):
+                values.append((index, row.get(output_key)))
+            else:
+                values.append((index, row))
+        return values
+
     if isinstance(step_value, dict):
-        return step_value.get(route.get("output_key"))
-    return step_value
+        value = step_value.get(output_key)
+        if repeated and isinstance(value, list):
+            return [(index, item) for index, item in enumerate(value)]
+        return [(None, value)]
+
+    return [(None, step_value)]
 
 
 def _set_nested_value(record: dict, parts: list[str], value: typing.Any) -> None:
@@ -98,6 +125,27 @@ def _set_nested_value(record: dict, parts: list[str], value: typing.Any) -> None
             return
         current = next_value
     current[parts[-1]] = value
+
+
+def _custom_step_kinds(workflow: dict) -> dict[str, str]:
+    step_kinds: dict[str, str] = {}
+    for step in workflow.get("custom_steps") or []:
+        if not isinstance(step, dict):
+            continue
+        name = step.get("name")
+        kind = step.get("kind")
+        if isinstance(name, str) and isinstance(kind, str):
+            step_kinds[name] = kind
+    return step_kinds
+
+
+def _repeat_pointer_for_step(pointer: str, *, should_repeat: bool) -> str:
+    if not should_repeat or "*" in pointer:
+        return pointer
+    parts = [part for part in pointer.split("/")[1:] if part]
+    if len(parts) < 2:
+        return pointer
+    return "/" + "/".join([*parts[:-1], "*", parts[-1]])
 
 
 def _set_pointer(
@@ -155,6 +203,7 @@ def _apply_custom_outputs(result: dict, xray: dict, workflow_extract: typing.Opt
     routes = workflow.get("output_routes") or []
     if not isinstance(routes, list):
         return
+    step_kinds = _custom_step_kinds(workflow)
 
     containers_by_level = {
         "document": [xray],
@@ -168,28 +217,57 @@ def _apply_custom_outputs(result: dict, xray: dict, workflow_extract: typing.Opt
             continue
         containers = containers_by_level.get(route.get("level"), [])
         for container_index, container in enumerate(containers):
-            value = _custom_route_value(container, route)
-            if value in (None, "", []):
-                continue
             final_path = route.get("final_path")
             if not isinstance(final_path, str):
                 continue
-            record_key = (route.get("level"), container_index)
-            key = (
+            step_name = route.get("step_name")
+            is_repeated_step = step_kinds.get(step_name) in _REPEATED_STEP_KINDS
+            final_path = _repeat_pointer_for_step(
                 final_path,
-                record_key,
-                _record_key(value) if isinstance(value, dict) else str(value),
+                should_repeat=is_repeated_step,
             )
-            if "*" in final_path and key in seen_repeated:
-                continue
-            seen_repeated.add(key)
-            _set_pointer(
-                result,
-                final_path,
-                value,
-                repeated_records=repeated_records,
-                record_key=record_key,
-            )
+            for record_index, value in _custom_route_values(
+                container,
+                route,
+                repeated=is_repeated_step,
+            ):
+                if value in (None, "", []):
+                    continue
+                record_key = (route.get("level"), container_index, step_name, record_index)
+                key = (
+                    final_path,
+                    record_key,
+                    _record_key(value) if isinstance(value, dict) else str(value),
+                )
+                if "*" in final_path and key in seen_repeated:
+                    continue
+                seen_repeated.add(key)
+                _set_pointer(
+                    result,
+                    final_path,
+                    value,
+                    repeated_records=repeated_records,
+                    record_key=record_key,
+                )
+
+
+def _merge_fallback_records(result: dict, key: str, records: list) -> None:
+    existing = result.get(key)
+    if not isinstance(existing, list):
+        if key not in result:
+            result[key] = records
+        return
+
+    seen = {_record_key(record) for record in existing if isinstance(record, dict)}
+    for record in records:
+        if not isinstance(record, dict):
+            existing.append(record)
+            continue
+        record_key = _record_key(record)
+        if record_key in seen:
+            continue
+        seen.add(record_key)
+        existing.append(record)
 
 
 def xray_to_extract(xray: dict, workflow_extract: typing.Optional[dict] = None) -> dict:
@@ -214,10 +292,9 @@ def xray_to_extract(xray: dict, workflow_extract: typing.Optional[dict] = None) 
                 seen_charges.add(key)
                 charges.append(record)
 
-        # Meters from the chunk-sum output. Depending on the X-Ray shape it
-        # surfaces under `chunkSummary` OR `suggestedText` (overriding `chunk-sum`
-        # replaces the chunk's suggestedText — see 3_prompt_pipeline.md §7). Try
-        # both; dedup by record key prevents double-counting.
+        # Legacy meters fallback. Custom workflows should route meter values
+        # through workflow.output_routes and custom*Outputs above; older captures
+        # may still surface meter JSON in chunkSummary or suggestedText.
         for src_field in ("chunkSummary", "suggestedText"):
             chunk_summary = _parse_json_field(chunk.get(src_field))
             if chunk_summary and isinstance(chunk_summary.get("meters"), list):
@@ -245,8 +322,8 @@ def xray_to_extract(xray: dict, workflow_extract: typing.Optional[dict] = None) 
 
     result = dict(statement)
     _apply_custom_outputs(result, xray, workflow_extract)
-    result["account_charges"] = charges
-    result["meters"] = meters
+    _merge_fallback_records(result, "account_charges", charges)
+    _merge_fallback_records(result, "meters", meters)
     return result
 
 

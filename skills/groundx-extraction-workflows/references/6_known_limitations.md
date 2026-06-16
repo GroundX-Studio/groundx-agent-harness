@@ -82,9 +82,11 @@ work through these steps in order before escalating.
 ### 3.1 Step 1: X-Ray inspection
 
 `gx_client.documents.get_xray(document_id=...)` returns the raw chunks
-the platform produced from the document, including `sectionSummary` (the
-chunk-level statement extraction) and `chunkKeys` (the chunk-level
-charge extractions).
+the platform produced from the document. For custom workflow YAML, inspect
+`customChunkOutputs`, `customSectionOutputs`, or `customDocumentOutputs`
+under the custom step name and output key. Older legacy captures may also
+expose fallback fields such as `sectionSummary`, `chunkKeywords`/`chunkKeys`,
+`chunkSummary`, or `suggestedText`.
 
 Use X-Ray to answer one question: **was the data even parsed correctly?**
 
@@ -130,15 +132,14 @@ useful as more limitations are catalogued explicitly.
 
 ## 4. `get_extract` returns 404 for chunk-level workflows
 
-`document_getextract` only returns the **document-level** extract artifact,
-which the platform populates from doc-level workflow steps. The schema-first
-workflows this skill produces are **chunk-level** (`statement` →
-`chunk-instruct`, `charges` → `chunk-keys`, `meters` → `chunk-summary`): their
-structured output is written into the **X-Ray chunk fields**
-(`sectionSummary`, `chunkKeywords`, `chunkSummary`), not the document-level
-artifact. As a result `get_extract` returns `404 — "We could not find
-extractions for the documentId you provided"` even though the extraction ran
-correctly and the workflow was attached before ingest.
+`document_getextract` only returns the **document-level** extract artifact in
+some hosted environments. The schema-first workflows this skill produces often
+run at chunk or section level, so their structured output may be visible first
+in X-Ray custom output maps (`customChunkOutputs`, `customSectionOutputs`, or
+`customDocumentOutputs`) rather than the document-level artifact. As a result
+`get_extract` can return `404 — "We could not find extractions for the
+documentId you provided"` even though the extraction ran correctly and the
+workflow was attached before ingest.
 
 Confirmed live (2026-05-30) against the invoice example with a regular user key:
 `get_extract` 404'd while the X-Ray held a fully populated statement (23

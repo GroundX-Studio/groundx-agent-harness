@@ -137,9 +137,6 @@ def _create_workflow(
     workflow: dict,
     workflow_name: str,
 ) -> typing.Any:
-    gx_client = typing.cast(typing.Any, gx)
-    if hasattr(gx_client, "create_extraction_workflow"):
-        return gx_client.create_extraction_workflow(path=yaml_path, name=workflow_name)
     return gx.workflows.create(**workflow_sdk_kwargs(workflow))
 
 
@@ -209,6 +206,31 @@ def extract_from_document(
         if rl:
             rl.event("business_logic.applied", groups=sorted(bl_metadata.keys()))
     return extract, xray, source
+
+
+def _has_extracted_value(value: typing.Any) -> bool:
+    return value not in (None, "", [])
+
+
+def _extract_group_counts(extract_dict: dict) -> dict[str, int]:
+    """Return a domain-neutral summary of top-level extraction output."""
+    counts: dict[str, int] = {}
+    for group, value in extract_dict.items():
+        if isinstance(value, list):
+            counts[group] = len(value)
+        elif isinstance(value, dict):
+            counts[group] = sum(
+                1 for field_value in value.values() if _has_extracted_value(field_value)
+            )
+        else:
+            counts[group] = 1 if _has_extracted_value(value) else 0
+    return counts
+
+
+def _format_group_counts(counts: dict[str, int]) -> str:
+    if not counts:
+        return "none"
+    return ",".join(f"{group}={count}" for group, count in counts.items())
 
 
 def main() -> int:
@@ -351,13 +373,16 @@ def main() -> int:
 
         with open(extract_path, "w") as f:
             json.dump(extract_dict, f, indent=2, default=str)
-        ac_count = len(extract_dict.get("account_charges") or [])
-        rl.event("extract.captured", path=extract_path, source=extract_source, account_charges_count=ac_count)
+        group_counts = _extract_group_counts(extract_dict)
+        rl.event("extract.captured", path=extract_path, source=extract_source, group_counts=group_counts)
 
         rl.quota_snapshot(gx, label="run.end")
-        rl.event("run.done", account_charges_count=ac_count)
+        rl.event("run.done", group_counts=group_counts)
 
-    print(f"run complete. out={args.out} document_id={document_id} account_charges={ac_count}")
+    print(
+        f"run complete. out={args.out} document_id={document_id} "
+        f"groups={_format_group_counts(group_counts)}"
+    )
     return 0
 
 

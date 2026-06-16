@@ -36,16 +36,16 @@ import yaml
 # group's `fields:` block; everything else is structural or business-logic
 # metadata.
 _GROUP_META_KEYS = {
-    "slot",
     "fields",
     "prompt",
+    "workflow_step",
     "unique_attrs",
     "match_attrs",
     "conflict_attrs",
     "passthrough",
     "pipeline",
 }
-_RESERVED_TOP_LEVEL_KEYS = {"domain", "_defs", "_pseudo_groups"}
+_RESERVED_TOP_LEVEL_KEYS = {"workflow", "_defs", "_pseudo_groups"}
 
 
 def yaml_field_names(doc: typing.Any) -> typing.Set[str]:

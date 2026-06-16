@@ -33,10 +33,6 @@ from groundx import Document, GroundX
 from compile_workflow import (
     build_workflow,
     workflow_sdk_kwargs,
-    _repeating_request,
-    _repeating_task,
-    _singleton_request,
-    _singleton_task,
 )
 
 
@@ -84,6 +80,39 @@ def _workflow_id(response: typing.Any) -> str:
     return str(workflow_id)
 
 
+def _singleton_request(field_specs: str) -> str:
+    return (
+        "Analyze the document content and return only a JSON object for these "
+        "fields:\n\n"
+        f"{field_specs}"
+    )
+
+
+def _singleton_task(field_descriptions: str) -> str:
+    return (
+        "Extract the requested per-document values. Exclude values that are not "
+        "visible or not supported by the evidence.\n\n"
+        f"{field_descriptions}"
+    )
+
+
+def _repeating_request(group_name: str, field_specs: str, group_definition: str) -> str:
+    return (
+        f"Analyze the document content and return only JSON with a `{group_name}` "
+        "array. Extract every visible record that matches this definition:\n\n"
+        f"{group_definition}\n\n"
+        f"{field_specs}"
+    )
+
+
+def _repeating_task(group_name: str, field_descriptions: str) -> str:
+    return (
+        f"Extract repeating records for `{group_name}`. Do not invent records. "
+        "Use only the requested field keys.\n\n"
+        f"{field_descriptions}"
+    )
+
+
 class ExtractionWorkflowManager:
     """Small adapter around GroundX workflow lifecycle for extraction pilots."""
 
@@ -101,8 +130,16 @@ class ExtractionWorkflowManager:
         workflow = self.workflow_body(yaml_path=yaml_path, workflow_name=workflow_name)
         return typing.cast(dict[str, typing.Any], workflow.get("extract", {}))
 
+    def persisted_workflow_extract_dict(
+        self,
+        *,
+        yaml_path: str,
+        workflow_name: str | None = None,
+    ) -> dict[str, typing.Any]:
+        return self.workflow_extract_dict(yaml_path=yaml_path, workflow_name=workflow_name)
+
     # These per-group methods are the override points for a custom manager
-    # subclass (the EXTRACT_WRAPPER_MODULE convention). The defaults delegate to
+    # subclass. The defaults delegate to
     # the compiler's generic builders — `statement` is a singleton group,
     # `charges`/`meters` are repeating groups — so they track the domain-agnostic
     # compiler instead of bespoke per-group functions.
@@ -157,11 +194,7 @@ class ExtractionWorkflowManager:
 
     def init_prompts(self, *, yaml_path: str, workflow_name: str | None = None) -> str:
         workflow = self.workflow_body(yaml_path=yaml_path, workflow_name=workflow_name)
-        gx_client = typing.cast(typing.Any, self.gx_client)
-        if hasattr(gx_client, "create_extraction_workflow"):
-            response = gx_client.create_extraction_workflow(path=yaml_path, name=workflow["name"])
-        else:
-            response = self.gx_client.workflows.create(**workflow_sdk_kwargs(workflow))
+        response = self.gx_client.workflows.create(**workflow_sdk_kwargs(workflow))
         return _workflow_id(response)
 
     def update_prompts(
@@ -172,14 +205,10 @@ class ExtractionWorkflowManager:
         workflow_name: str | None = None,
     ) -> str:
         workflow = self.workflow_body(yaml_path=yaml_path, workflow_name=workflow_name)
-        gx_client = typing.cast(typing.Any, self.gx_client)
-        if hasattr(gx_client, "update_extraction_workflow"):
-            gx_client.update_extraction_workflow(workflow_id, path=yaml_path, name=workflow["name"])
-        else:
-            self.gx_client.workflows.update(
-                id=workflow_id,
-                **workflow_sdk_kwargs(workflow),
-            )
+        self.gx_client.workflows.update(
+            id=workflow_id,
+            **workflow_sdk_kwargs(workflow),
+        )
         return workflow_id
 
     def check_workflow(self, *, workflow_id: str) -> dict[str, typing.Any]:

@@ -62,7 +62,7 @@ Before the loop runs, the working directory must have:
 8. `requirements.txt` — copied from
    `skills/groundx-extraction-workflows/templates/requirements.txt`
 9. The input PDF (named anything; pass the path as needed)
-10. A ground truth file: CSV (preferred for v1) or JSON
+10. A ground truth answer-key JSON file in the runner output shape
 
 A throwaway working directory under `/tmp` is fine for one-shot
 extractions. A persistent directory (e.g.
@@ -83,21 +83,28 @@ anatomy. Author the YAML based on:
   provided, the keys in the ground truth)
 - One worked example to look at the document and identify each field's
   visual identifiers and edge cases
-- The two-group convention: `statement:` for per-document fields,
-  `charges:` for repeating records
+- Final groups that match the customer-facing JSON shape. Invoice-like
+  documents often use `statement`, `charges`, and optional `meters`; claim
+  forms, contracts, schedules, and other document types should use
+  domain-aligned names such as `claim` and `line_items`.
+- Matching `workflow.custom_steps`, per-group `workflow_step`, and per-field
+  `workflow_output_key`.
 
-If the document type does not fit either shape, see "When you have
-neither" in `2_schema_design.md`.
+If the document shape does not fit singleton objects or repeating record
+lists, see `2_schema_design.md` §1.5.
 
 ### 3.2 Compile to workflow JSON
 
 ```bash
 python compile_workflow.py prompt.yaml > workflow.json
+python validate_workflow_json.py workflow.json
 ```
 
 `compile_workflow.py` is offline — it does not call any GroundX API.
 It loads the YAML, renders the field-spec text, and emits the
 workflow JSON in the exact shape the GroundX workflow API accepts.
+`validate_workflow_json.py` must pass before workflow create/update, MCP
+registration, or ingest.
 
 The resulting `workflow.json` is the durable artifact for this run.
 Diff it across iterations to see exactly what the prompts look like
@@ -171,10 +178,10 @@ The manual operation loop is:
 ### 3.4 Compare to ground truth
 
 ```bash
-python score_extraction.py output.json ground_truth.csv
+python score_extraction.py output.json answer_key.json
 ```
 
-The comparator emits a structured report: PASS / FAIL / WARN per
+The comparator reads JSON answer keys and emits a structured report: PASS / FAIL / WARN per
 field, with the expected and extracted values for any non-PASS row.
 See §2 in `5_validation.md` for what each verdict means and how the
 comparison logic treats casing, dates, floats, and arrays.
