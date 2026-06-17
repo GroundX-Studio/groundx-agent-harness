@@ -25,6 +25,8 @@ Optional flags:
     --skip-validate        Skip validate_workflow_json check. Not recommended.
     --add-to-account       Also set the workflow as the account default
                            (some platform aggregations are gated on this).
+    --require-raw-extract  Fail if GroundX get_extract is unavailable. The
+                           runner still writes X-Ray diagnostic artifacts.
     --poll-interval <sec>  Seconds between status polls (default: 15).
     --max-polls <n>        Maximum number of polls before timeout (default: 120).
 """
@@ -93,6 +95,56 @@ def _value(obj: typing.Any, *names: str) -> typing.Any:
     return current
 
 
+def _documents_from_progress_group(progress: typing.Any, group_name: str) -> list:
+    group = _value(progress, group_name)
+    documents = _value(group, "documents")
+    return documents if isinstance(documents, list) else []
+
+
+def _document_id_from_progress_doc(document: typing.Any) -> typing.Optional[str]:
+    document_id = (
+        _value(document, "document_id")
+        or _value(document, "documentId")
+        or _value(document, "id")
+    )
+    return str(document_id) if document_id not in (None, "") else None
+
+
+def _document_error_message(document: typing.Any) -> str:
+    message = (
+        _value(document, "status_message")
+        or _value(document, "statusMessage")
+        or _value(document, "message")
+        or _value(document, "error")
+    )
+    document_id = _document_id_from_progress_doc(document)
+    if document_id and message:
+        return f"{document_id}: {message}"
+    if document_id:
+        return document_id
+    return str(message or document)
+
+
+def _progress_error_documents(progress: typing.Any) -> list:
+    documents = _documents_from_progress_group(progress, "errors")
+    if documents:
+        return documents
+    return _documents_from_progress_group(progress, "failed")
+
+
+def _progress_error_total(progress: typing.Any) -> int:
+    for group_name in ("errors", "failed"):
+        group = _value(progress, group_name)
+        total = _value(group, "total")
+        if total in (None, ""):
+            continue
+        try:
+            return int(total)
+        except (TypeError, ValueError):
+            continue
+    return 0
+
+
 def _workflow_id(response: typing.Any) -> str:
     workflow_id = (
         _value(response, "workflow", "workflow_id")
@@ -148,18 +200,38 @@ def _safe_delete(rl: RunLog, kind: str, fn: typing.Callable[[], typing.Any], **i
         rl.event(f"cleanup.{kind}.error", error=str(e), **ids)
 
 
-def _poll(gx: GroundX, process_id: str, interval: int, max_polls: int, rl: RunLog) -> typing.Optional[str]:
+def _poll(gx: GroundX, process_id: str, interval: int, max_polls: int, rl: RunLog) -> str:
     document_id: typing.Optional[str] = None
     for i in range(max_polls):
         st = gx.documents.get_processing_status_by_id(process_id=process_id)
         status = st.ingest.status
         rl.event("ingest.poll", poll=i + 1, status=status)
-        if st.ingest.progress:
-            if st.ingest.progress.complete and st.ingest.progress.complete.documents:
-                document_id = st.ingest.progress.complete.documents[0].document_id
-            elif st.ingest.progress.processing and st.ingest.progress.processing.documents:
-                document_id = st.ingest.progress.processing.documents[0].document_id
+        progress = st.ingest.progress
+        if progress:
+            error_documents = _progress_error_documents(progress)
+            if error_documents:
+                details = [_document_error_message(document) for document in error_documents]
+                rl.event("ingest.failed", status=status, detail="; ".join(details))
+                raise SystemExit("ingest completed with document errors: " + "; ".join(details))
+            error_total = _progress_error_total(progress)
+            if error_total:
+                detail = f"{error_total} document error"
+                if error_total != 1:
+                    detail += "s"
+                detail += " reported in progress.errors"
+                rl.event("ingest.failed", status=status, detail=detail)
+                raise SystemExit("ingest completed with " + detail)
+            complete_documents = _documents_from_progress_group(progress, "complete")
+            processing_documents = _documents_from_progress_group(progress, "processing")
+            if complete_documents:
+                document_id = _document_id_from_progress_doc(complete_documents[0])
+            elif processing_documents:
+                document_id = _document_id_from_progress_doc(processing_documents[0])
         if status == "complete":
+            if not document_id:
+                detail = "ingest completed with no completed document ID"
+                rl.event("ingest.failed", status=status, detail=detail)
+                raise SystemExit(detail)
             return document_id
         if status in ("error", "cancelled"):
             rl.event("ingest.failed", status=status, detail=str(st.ingest))
@@ -169,6 +241,53 @@ def _poll(gx: GroundX, process_id: str, interval: int, max_polls: int, rl: RunLo
     raise SystemExit("ingest timed out")
 
 
+def derive_extraction_artifacts(
+    gx: GroundX,
+    document_id: str,
+    bl_metadata: typing.Optional[dict] = None,
+    rl: typing.Optional[RunLog] = None,
+    workflow_extract: typing.Optional[dict] = None,
+) -> dict:
+    """Capture raw extract, X-Ray diagnostics, and final local output separately."""
+    xray = _to_plain_dict(gx.documents.get_xray(document_id=document_id))
+    raw_extract = None
+    diagnostic_extract = None
+    final_output = None
+    source = "get_extract"
+
+    try:
+        fetched = _to_plain_dict(gx.documents.get_extract(document_id=document_id))
+    except Exception as e:
+        fetched = None
+        if rl:
+            rl.event("extract.get_extract_unavailable", reason=str(e)[:200])
+
+    if isinstance(fetched, dict) and fetched:
+        raw_extract = fetched
+        if bl_metadata:
+            final_output = apply_business_logic(raw_extract, bl_metadata)
+            if rl:
+                rl.event("business_logic.applied", groups=sorted(bl_metadata.keys()))
+    else:
+        if isinstance(fetched, dict) and rl:
+            rl.event("extract.get_extract_empty")
+        diagnostic_extract = xray_to_extract(xray, workflow_extract=workflow_extract)
+        final_output = diagnostic_extract
+        source = "xray_to_extract"
+        if bl_metadata:
+            final_output = apply_business_logic(diagnostic_extract, bl_metadata)
+            if rl:
+                rl.event("business_logic.applied", groups=sorted(bl_metadata.keys()))
+
+    return {
+        "raw_extract": raw_extract,
+        "xray": xray,
+        "diagnostic_extract": diagnostic_extract,
+        "final_output": final_output,
+        "source": source,
+    }
+
+
 def extract_from_document(
     gx: GroundX,
     document_id: str,
@@ -176,39 +295,24 @@ def extract_from_document(
     rl: typing.Optional[RunLog] = None,
     workflow_extract: typing.Optional[dict] = None,
 ) -> typing.Tuple[dict, dict, str]:
-    """Given an ingested document_id, derive its extraction. Returns
-    (extract, xray, source). Shared by run_extraction (single doc) and
-    batch_extraction (per doc) so the get_extract/X-Ray-fallback/business-logic
-    logic lives in exactly one place.
-
-    `get_extract` returns the server-side doc-level artifact. On deployments
-    without the extract microservice it either 404s OR returns a truthy-but-
-    incomplete object lacking the chunk-level repeating arrays (charges/meters),
-    so trust it only when it carries populated records; otherwise aggregate the
-    captured X-Ray locally (`xray_to_extract` reproduces the same shape). See
-    references/6_known_limitations.md §4.
-    """
-    xray = _to_plain_dict(gx.documents.get_xray(document_id=document_id))
-    source = "get_extract"
-    try:
-        fetched = _to_plain_dict(gx.documents.get_extract(document_id=document_id))
-    except Exception as e:
-        fetched = None
-        if rl:
-            rl.event("extract.get_extract_unavailable", reason=str(e)[:200])
-    if fetched and any(isinstance(v, list) and v for v in fetched.values()):
-        extract = fetched
-    else:
-        extract = xray_to_extract(xray, workflow_extract=workflow_extract)
-        source = "xray_to_extract"
-    if bl_metadata:
-        extract = apply_business_logic(extract, bl_metadata)
-        if rl:
-            rl.event("business_logic.applied", groups=sorted(bl_metadata.keys()))
-    return extract, xray, source
+    """Compatibility wrapper returning the best usable local output."""
+    artifacts = derive_extraction_artifacts(
+        gx,
+        document_id,
+        bl_metadata,
+        rl,
+        workflow_extract=workflow_extract,
+    )
+    extract = (
+        artifacts["final_output"]
+        or artifacts["raw_extract"]
+        or artifacts["diagnostic_extract"]
+        or {}
+    )
+    return extract, artifacts["xray"], artifacts["source"]
 
 
-def _has_extracted_value(value: typing.Any) -> bool:
+def _has_countable_extracted_value(value: typing.Any) -> bool:
     return value not in (None, "", [])
 
 
@@ -220,10 +324,12 @@ def _extract_group_counts(extract_dict: dict) -> dict[str, int]:
             counts[group] = len(value)
         elif isinstance(value, dict):
             counts[group] = sum(
-                1 for field_value in value.values() if _has_extracted_value(field_value)
+                1
+                for field_value in value.values()
+                if _has_countable_extracted_value(field_value)
             )
         else:
-            counts[group] = 1 if _has_extracted_value(value) else 0
+            counts[group] = 1 if _has_countable_extracted_value(value) else 0
     return counts
 
 
@@ -231,6 +337,23 @@ def _format_group_counts(counts: dict[str, int]) -> str:
     if not counts:
         return "none"
     return ",".join(f"{group}={count}" for group, count in counts.items())
+
+
+def _completion_message(
+    *,
+    out_dir: str,
+    document_id: str,
+    group_counts: dict[str, int],
+    source: str,
+    has_raw_extract: bool,
+) -> str:
+    artifact_status = "raw get_extract captured"
+    if not has_raw_extract:
+        artifact_status = "diagnostic/final output only (raw get_extract unavailable)"
+    return (
+        f"run complete. out={out_dir} document_id={document_id} "
+        f"groups={_format_group_counts(group_counts)} source={source} {artifact_status}"
+    )
 
 
 def main() -> int:
@@ -244,6 +367,11 @@ def main() -> int:
     parser.add_argument("--reuse-bucket", type=int, default=None, help="Existing bucket_id to reuse")
     parser.add_argument("--skip-validate", action="store_true", help="Skip workflow JSON validation")
     parser.add_argument("--add-to-account", action="store_true", help="Set workflow as account default")
+    parser.add_argument(
+        "--require-raw-extract",
+        action="store_true",
+        help="Return an error if GroundX get_extract is unavailable; still writes X-Ray diagnostics",
+    )
     parser.add_argument("--poll-interval", type=int, default=15, help="Seconds between status polls")
     parser.add_argument("--max-polls", type=int, default=120, help="Max status polls before timeout")
     args = parser.parse_args()
@@ -253,6 +381,8 @@ def main() -> int:
     workflow_json_path = _abs(args.out, "workflow.json")
     xray_path = _abs(args.out, "xray.json")
     extract_path = _abs(args.out, "output.json")
+    diagnostic_path = _abs(args.out, "xray_diagnostic.json")
+    final_output_path = _abs(args.out, "final_output.json")
 
     api_key = os.environ.get("GROUNDX_API_KEY")
     if not api_key:
@@ -355,33 +485,72 @@ def main() -> int:
             with open(_abs(args.out, "document_id.txt"), "w") as f:
                 f.write(document_id)
 
-        # Derive the extraction (get_extract when populated, else aggregate the
-        # X-Ray) + apply per-group business logic. Shared with batch_extraction.
-        # A YAML with no business-logic keys yields {} -> the call is a no-op and
-        # output.json is unchanged (backward compatible).
+        # Capture the raw GroundX extract separately from local X-Ray
+        # diagnostics. output.json is reserved for the true get_extract payload.
         bl_metadata = _load_business_logic_metadata(args.yaml)
-        extract_dict, xray_dict, extract_source = extract_from_document(
+        artifacts = derive_extraction_artifacts(
             gx,
             document_id,
             bl_metadata,
             rl,
             workflow_extract=workflow_extract,
         )
+        xray_dict = artifacts["xray"]
         with open(xray_path, "w") as f:
             json.dump(xray_dict, f, indent=2, default=str)
         rl.event("xray.captured", path=xray_path, chunks=len(xray_dict.get("chunks") or []))
 
-        with open(extract_path, "w") as f:
-            json.dump(extract_dict, f, indent=2, default=str)
-        group_counts = _extract_group_counts(extract_dict)
-        rl.event("extract.captured", path=extract_path, source=extract_source, group_counts=group_counts)
+        output_for_summary = None
+        raw_extract = artifacts["raw_extract"]
+        diagnostic_extract = artifacts["diagnostic_extract"]
+        final_output = artifacts["final_output"]
+
+        if raw_extract is not None:
+            with open(extract_path, "w") as f:
+                json.dump(raw_extract, f, indent=2, default=str)
+            output_for_summary = raw_extract
+            rl.event("extract.captured", path=extract_path, source="get_extract")
+        else:
+            rl.event("extract.raw_unavailable", output_json_written=False)
+
+        if diagnostic_extract is not None:
+            with open(diagnostic_path, "w") as f:
+                json.dump(diagnostic_extract, f, indent=2, default=str)
+            output_for_summary = diagnostic_extract
+            rl.event("extract.diagnostic_captured", path=diagnostic_path)
+
+        if final_output is not None:
+            with open(final_output_path, "w") as f:
+                json.dump(final_output, f, indent=2, default=str)
+            output_for_summary = final_output
+            rl.event("extract.final_output_captured", path=final_output_path)
+
+        group_counts = _extract_group_counts(output_for_summary or {})
+        rl.event("extract.summary", source=artifacts["source"], group_counts=group_counts)
+
+        if args.require_raw_extract and raw_extract is None:
+            rl.event(
+                "extract.required_raw_missing",
+                diagnostic_json=diagnostic_path if diagnostic_extract is not None else None,
+                final_output_json=final_output_path if final_output is not None else None,
+            )
+            print(
+                "ERROR: GroundX get_extract was unavailable; wrote X-Ray diagnostics instead",
+                file=sys.stderr,
+            )
+            return 1
 
         rl.quota_snapshot(gx, label="run.end")
         rl.event("run.done", group_counts=group_counts)
 
     print(
-        f"run complete. out={args.out} document_id={document_id} "
-        f"groups={_format_group_counts(group_counts)}"
+        _completion_message(
+            out_dir=args.out,
+            document_id=document_id,
+            group_counts=group_counts,
+            source=artifacts["source"],
+            has_raw_extract=raw_extract is not None,
+        )
     )
     return 0
 

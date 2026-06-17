@@ -17,10 +17,9 @@ direct real groups with group-level `workflow_step:`, or `_pseudo_groups` that
 split oversized final groups into smaller workflow-only groups and route back
 to final fields with `path`.
 
-Legacy `domain:` and `slot:` YAMLs are intentionally rejected here; those
-compatibility paths belong to internal-arcadia-agents and the GroundX Python SDK
-helpers, not the harness templates. Field-level `workflow_step` is also
-rejected because split/recombine belongs in `_pseudo_groups`.
+Older `domain:` and `slot:` YAMLs are intentionally rejected here. Harness
+templates author the v1 shape only. Field-level `workflow_step` is also rejected
+because split/recombine belongs in `_pseudo_groups`.
 
 Reads .env for EXTRACT_MODEL_* (engine config) when python-dotenv is installed.
 No real GROUNDX_API_KEY is needed because no API calls are made; a placeholder
@@ -246,27 +245,23 @@ def _contains_include(obj: typing.Any) -> bool:
 def _assert_no_legacy_harness_metadata(raw: dict, source: str) -> None:
     if "domain" in raw:
         raise ValueError(
-            f"{source}: harness templates do not support legacy `domain:` YAML. "
+            f"{source}: harness templates do not support retired `domain:` YAML. "
             "Use `workflow.custom_steps` plus `workflow_step:` metadata for "
-            "new harness-authored YAML. Legacy YAML compatibility belongs to "
-            "internal-arcadia-agents and groundx-python helpers such as "
-            "create_extraction_workflow(path=...)."
+            "new harness-authored YAML."
         )
     for group_name, group_data in _workflow_group_items(raw):
         if "slot" in group_data:
             raise ValueError(
-                f"{source}: workflow group '{group_name}' uses legacy `slot:` "
+                f"{source}: workflow group '{group_name}' uses retired `slot:` "
                 "metadata. Harness templates require top-level "
-                "`workflow.custom_steps` and per-group `workflow_step:` metadata. "
-                "Legacy YAML compatibility belongs to internal-arcadia-agents "
-                "and groundx-python helpers such as create_extraction_workflow(path=...)."
+                "`workflow.custom_steps` and per-group `workflow_step:` metadata."
             )
     pseudo_groups = raw.get("_pseudo_groups")
     if isinstance(pseudo_groups, dict):
         for group_name, group_data in pseudo_groups.items():
             if isinstance(group_data, dict) and "slot" in group_data:
                 raise ValueError(
-                    f"{source}: pseudo group '{group_name}' uses legacy `slot:` "
+                    f"{source}: pseudo group '{group_name}' uses retired `slot:` "
                     "metadata. Harness templates require `workflow_step:` on "
                     "direct workflow groups or pseudo groups."
                 )
@@ -437,9 +432,8 @@ def _requires_custom_workflow_metadata(raw: dict, source: str) -> None:
     raise ValueError(
         f"{source}: harness workflow YAML must declare top-level "
         "`workflow.custom_steps` and assign each workflow group with "
-        "`workflow_step:`. For plain YAML that is directly SDK-loadable, use "
-        "groundx-python create_extraction_workflow(path=...) instead of the "
-        "harness compiler."
+        "`workflow_step:`. Add v1 workflow metadata before using the harness "
+        "compiler."
     )
 
 
@@ -476,7 +470,7 @@ def _assert_prepared_workflow_groups_are_routed(prepared: typing.Any, source: st
         metadata = workflow_group_metadata.get(group_name)
         if not isinstance(metadata, dict) or not metadata.get("workflow_step"):
             raise ValueError(
-                f"{source}: workflow group '{group_name}' has fields but no "
+                f"{source}: final group '{group_name}' has fields but no "
                 "`workflow_step:` metadata. Assign every real workflow group to "
                 "a custom step, or route oversized final groups through "
                 "`_pseudo_groups`."
@@ -782,6 +776,7 @@ def _validate_agent_chain(raw_chain: list, workflow_groups: set[str]) -> None:
 
     has_save = False
     serial_start_index = 1
+    covered_groups: set[str] = set()
     for stage_index, raw_stage in enumerate(raw_chain):
         if isinstance(raw_stage, str):
             _validate_agent_chain_task(
@@ -820,6 +815,7 @@ def _validate_agent_chain(raw_chain: list, workflow_groups: set[str]) -> None:
                 raise ValueError(f"{path}.group must be a non-empty string")
             if group not in workflow_groups:
                 raise ValueError(f"{path}.group [{group}] is not a workflow group")
+            covered_groups.add(group)
 
             chain = raw_branch["chain"]
             if not isinstance(chain, list) or not chain:
@@ -873,6 +869,12 @@ def _validate_agent_chain(raw_chain: list, workflow_groups: set[str]) -> None:
     if not has_save:
         raise ValueError("workflow.agent_chain must include a save task")
     _validate_agent_chain_serial_tasks(raw_chain, serial_start_index)
+    _validate_agent_chain_group_coverage(
+        raw_chain,
+        workflow_groups,
+        covered_groups,
+        serial_start_index,
+    )
 
 
 def _validate_agent_chain_serial_tasks(
@@ -905,6 +907,35 @@ def _validate_agent_chain_serial_tasks(
                 f"matching save task [{expected_save}]"
             )
         stage_index += 2
+
+
+def _validate_agent_chain_group_coverage(
+    raw_chain: list[typing.Any],
+    workflow_groups: set[str],
+    branch_covered_groups: set[str],
+    serial_start_index: int,
+) -> None:
+    covered_groups = set(branch_covered_groups)
+    stage_index = serial_start_index
+    while stage_index < len(raw_chain):
+        raw_stage = raw_chain[stage_index]
+        if (
+            isinstance(raw_stage, str)
+            and raw_stage in _CUSTOM_WORKFLOW_AGENT_CHAIN_AGENT_TASKS
+        ):
+            suffix = _agent_chain_task_suffix(raw_stage)
+            if suffix in workflow_groups:
+                covered_groups.add(suffix)
+            stage_index += 2
+            continue
+        stage_index += 1
+
+    missing_groups = sorted(workflow_groups - covered_groups)
+    if missing_groups:
+        raise ValueError(
+            "workflow.agent_chain does not cover workflow groups "
+            f"[{', '.join(missing_groups)}]"
+        )
 
 
 def _validate_agent_chain_task(task: typing.Any, path: str) -> str:
@@ -1046,9 +1077,28 @@ def _prepare_extraction_yaml_fallback(raw: dict, source: str) -> _PreparedExtrac
     if missing_final_paths:
         missing = ", ".join(missing_final_paths[:5])
         suffix = "" if len(missing_final_paths) <= 5 else ", ..."
+        missing_groups = sorted(
+            {
+                path.strip("/").split("/", 1)[0]
+                for path in missing_final_paths
+                if path.strip("/")
+            }
+        )
+        if len(missing_groups) == 1:
+            group_detail = f"final group '{missing_groups[0]}' has fields"
+        elif missing_groups:
+            group_detail = "final groups " + ", ".join(
+                f"'{group}'" for group in missing_groups[:5]
+            )
+            if len(missing_groups) > 5:
+                group_detail += ", ..."
+            group_detail += " have fields"
+        else:
+            group_detail = "final fields"
         raise ValueError(
-            f"{source}: final fields are not routed by direct workflow_output_key "
-            f"or `_pseudo_groups` path: {missing}{suffix}"
+            f"{source}: {group_detail} not routed. Use direct group "
+            f"`workflow_step:` plus field `workflow_output_key`, or "
+            f"`_pseudo_groups` fields with `path`: {missing}{suffix}"
         )
 
     field_counts: dict[str, int] = {}
@@ -1070,7 +1120,7 @@ def _prepare_extraction_yaml_fallback(raw: dict, source: str) -> _PreparedExtrac
     if agent_chain is not None:
         if not isinstance(agent_chain, list) or not agent_chain:
             raise ValueError("workflow.agent_chain must be a non-empty list")
-        _validate_agent_chain(agent_chain, set(workflow_groups.keys()))
+        _validate_agent_chain(agent_chain, {route["workflow_group"] for route in routes})
         workflow_metadata["agent_chain"] = copy.deepcopy(agent_chain)
     workflow_metadata["schema_hash"] = _custom_workflow_schema_hash(workflow_metadata)
 
@@ -1395,9 +1445,8 @@ def build_workflow_artifacts(
 
     raise ValueError(
         f"{yaml_path}: harness workflow YAML must compile through "
-        "`workflow.custom_steps` and `workflow_step:` metadata. Plain or legacy "
-        "YAML should use the public groundx-python helpers such as "
-        "create_extraction_workflow(path=...) instead of the harness compiler."
+        "`workflow.custom_steps` and `workflow_step:` metadata. Add v1 workflow "
+        "metadata before using the harness compiler."
     )
 
 

@@ -27,7 +27,7 @@ applied to the same document — produces the same extraction.
 └────────────┘                      │
                                     ▼
                             ┌──────────────┐
-                            │ output.json  │
+                            │ output.json  │ raw get_extract when available
                             └──────┬───────┘
                                    │ python score_extraction.py
                                    ▼
@@ -140,7 +140,10 @@ Use `--dry-run` first when you want compile/validation and planned actions
 without a live API call.
 
 **Full local run:** when you need deploy + ingest + poll + X-Ray +
-extract output, use `run_extraction.py`.
+extract output, use `run_extraction.py`. It writes `output.json` only for the
+raw GroundX `get_extract` payload. If raw extract is unavailable, it writes
+`xray_diagnostic.json` and `final_output.json` instead. Add
+`--require-raw-extract` when missing `output.json` should fail the run.
 
 **Interactive agent path:** when an agent is operating inside Claude or
 Codex and GroundX MCP tools are visible, follow the `groundx-api`
@@ -173,13 +176,15 @@ The manual operation loop is:
    ingest produced. Save the JSON.
 
 ```bash
-# After running steps 1-5 via groundx-api, you have output.json
+# After running steps 1-5 via groundx-api, save raw get_extract as output.json.
 ```
 
 ### 3.4 Compare to ground truth
 
 ```bash
 python score_extraction.py output.json answer_key.json
+# If you are intentionally scoring local diagnostic output:
+python score_extraction.py final_output.json answer_key.json
 ```
 
 The comparator reads JSON answer keys and emits a structured report: PASS / FAIL / WARN per
@@ -229,7 +234,13 @@ with a note.
 
 - `prompt.yaml` — the durable artifact. Version it, share it, fork it
   as the starting point for related document types.
-- `output.json` — the extraction for this specific PDF.
+- `output.json` — the raw GroundX extraction for this specific PDF, when
+  `get_extract` is available.
+- `xray.json` — the raw X-Ray evidence captured by the runner.
+- `xray_diagnostic.json` — local reconstruction from X-Ray, written only when
+  raw extract is unavailable.
+- `final_output.json` — local diagnostic/business-logic output, written only
+  when produced.
 - The accuracy report — captures the field-by-field state at the time
   the YAML was finalized.
 

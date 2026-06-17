@@ -62,9 +62,11 @@ what to fix.
 
 | tool | scope | ingest? |
 |---|---|---|
-| `score_extraction.py extracted.json key.json` | one document | no (offline) |
+| `score_extraction.py output.json key.json` | one document, raw GroundX `get_extract` output | no (offline) |
+| `score_extraction.py final_output.json key.json` | one document, intentional local final output scoring | no (offline) |
 | `batch_extraction.py …` | a folder of documents | **yes** — live ingest + extract + score + aggregate |
-| `batch_score.py <run_dir> --keys-dir keys/` | a captured run (a `batch_extraction` `--out`) | **no** — re-scores `<doc>.extracted.json` offline |
+| `batch_score.py <run_dir> --keys-dir keys/` | a captured run (a `batch_extraction` `--out`) | **no** — re-scores raw `<doc>.extracted.json` offline |
+| `batch_score.py <run_dir> --keys-dir keys/ --artifact-kind final` | a captured run's local final output | **no** — re-scores `<doc>.final_output.json` offline |
 
 `batch_score.py` is the economical iteration loop: ingest **once** with
 `batch_extraction`, then re-score the captured set as many times as you like —
@@ -73,6 +75,16 @@ another machine — **without paying for ingest again**. It imports only the
 SDK-free `score_extraction` engine, so it runs anywhere with no GroundX
 credentials. `aggregate_reports` lives in `score_extraction` and is shared by
 both `batch_extraction` (live) and `batch_score.py` (offline).
+
+Artifact names matter:
+
+- `output.json` and `<doc>.extracted.json` are raw GroundX `get_extract`
+  responses.
+- `xray_diagnostic.json` and `<doc>.xray_diagnostic.json` are local X-Ray
+  reconstructions for debugging. Do not score them as clean raw extraction.
+- `final_output.json` and `<doc>.final_output.json` are local final outputs
+  after diagnostic reconstruction and optional business logic. Score them only
+  when that is the explicit goal.
 
 ## 2. Comparison rules
 

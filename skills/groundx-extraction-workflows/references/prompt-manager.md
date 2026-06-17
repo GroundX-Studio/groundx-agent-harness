@@ -100,9 +100,9 @@ prepared workflow groups for prompt rendering and workflow steps. Use the SDK
 persisted workflow extract mapping for workflow JSON `extract`; that is the
 payload downstream runtime can download and prepare again. Use prepared final
 groups plus `workflow_field_paths` for readback, requiredness, QA, and final
-output diagnostics. Do not reimplement pseudo-group routing or legacy slot
-inheritance inside a customer manager; use the compiler's `_pseudo_groups`
-route metadata for split/recombine.
+output diagnostics. Do not reimplement pseudo-group routing or retired slot
+behavior inside a customer manager; use the compiler's `_pseudo_groups` route
+metadata for split/recombine.
 
 When the YAML carries relationship metadata, expose it separately from workflow
 metadata. A manager should be able to answer four different questions:

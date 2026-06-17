@@ -124,7 +124,10 @@ operational decision (privacy, retention, access control).
 ├── v1/
 │   ├── prompt.yaml                first-draft schema
 │   ├── workflow.json              compiled workflow JSON
-│   ├── output.json                what GroundX returned
+│   ├── output.json                raw GroundX get_extract, when available
+│   ├── xray.json                  raw X-Ray evidence
+│   ├── xray_diagnostic.json       local X-Ray reconstruction, when needed
+│   ├── final_output.json          local diagnostic/business-logic output, when needed
 │   ├── compare-report.txt         score_extraction.py output
 │   └── notes.md                   rationale for v1, observed failures
 └── v2/                            second iteration (same shape) — only if needed
@@ -293,7 +296,8 @@ When iterating from v1 to v2, the sub-agent reads three artifacts
 together:
 
 - `v1/compare-report.txt` — which fields passed/failed
-- `v1/output.json` — what GroundX returned
+- `v1/output.json` — raw GroundX `get_extract`, when available
+- `v1/final_output.json` — local diagnostic/business-logic output, when used
 - `v1/xray.json` — what GroundX parsed per chunk (the diagnostic
   ground truth)
 

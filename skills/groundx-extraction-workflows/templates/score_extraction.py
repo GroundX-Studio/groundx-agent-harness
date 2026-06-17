@@ -3,6 +3,7 @@ score_extraction.py — compare an extraction JSON against a ground-truth answer
 
 Usage:
     python score_extraction.py output.json answer_key.json
+    python score_extraction.py final_output.json answer_key.json
 
 Domain-agnostic comparison
 --------------------------
@@ -413,7 +414,7 @@ def _icon(status: str) -> str:
 
 def main(argv: typing.List[str]) -> int:
     if len(argv) != 3:
-        print("usage: python score_extraction.py <output.json> <answer_key.json>", file=sys.stderr)
+        print("usage: python score_extraction.py <extraction.json> <answer_key.json>", file=sys.stderr)
         return 2
 
     extract_path, key_path = argv[1], argv[2]

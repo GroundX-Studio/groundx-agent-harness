@@ -10,8 +10,10 @@ Runs client-side, not on the platform. For current custom workflows, the runner
 aggregates X-Ray output into the final customer-facing group shape such as
 `{"statement": {...}, "charges": [...], "meters": [...]}` (see
 `templates/xray_to_extract.py`), then `run_extraction.py` calls
-`apply_business_logic(extract_dict, metadata)` before writing `output.json`.
-Run this logic on the final data shape unless a workflow-scoped primitive is
+`apply_business_logic(extract_dict, metadata)` before writing
+`final_output.json`. `output.json` remains the raw GroundX `get_extract`
+payload when available. Run this logic on the final data shape unless a
+workflow-scoped primitive is
 explicitly documented. None of this metadata reaches the GroundX workflow:
 `compile_workflow.py` reads it from `PreparedExtractionYaml.final_group_metadata`
 and strips it from workflow groups, so the keys never become extract fields.

@@ -251,6 +251,16 @@ def _apply_custom_outputs(result: dict, xray: dict, workflow_extract: typing.Opt
                 )
 
 
+def _has_custom_output_routes(workflow_extract: typing.Optional[dict]) -> bool:
+    if not workflow_extract:
+        return False
+    workflow = workflow_extract.get("workflow")
+    if not isinstance(workflow, dict):
+        return False
+    routes = workflow.get("output_routes")
+    return isinstance(routes, list) and len(routes) > 0
+
+
 def _merge_fallback_records(result: dict, key: str, records: list) -> None:
     existing = result.get(key)
     if not isinstance(existing, list):
@@ -272,6 +282,7 @@ def _merge_fallback_records(result: dict, key: str, records: list) -> None:
 
 def xray_to_extract(xray: dict, workflow_extract: typing.Optional[dict] = None) -> dict:
     """Convert an X-Ray dict to a `get_extract()`-shaped dict."""
+    has_custom_routes = _has_custom_output_routes(workflow_extract)
     chunks = xray.get("chunks") or []
     statement: dict = {}
     charges: list = []
@@ -320,8 +331,10 @@ def xray_to_extract(xray: dict, workflow_extract: typing.Optional[dict] = None) 
                     continue
                 statement[field] = value
 
-    result = dict(statement)
+    result = {} if has_custom_routes else dict(statement)
     _apply_custom_outputs(result, xray, workflow_extract)
+    if has_custom_routes:
+        return result
     _merge_fallback_records(result, "account_charges", charges)
     _merge_fallback_records(result, "meters", meters)
     return result
