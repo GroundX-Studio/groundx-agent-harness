@@ -35,9 +35,10 @@ needs computed totals, multi-hop matching, unit conversion, conditional
 derivation, or document-set-level decisions, record that as a capability gap
 before YAML authoring.
 
-Only after the final JSON shape is clear should you assign each real group to a
-custom workflow step. If one group is too large, split it into user-approved real
-groups or escalate the unsupported grouping need.
+Only after the final JSON shape is clear should you assign workflow groups. Use
+direct real groups when the field load is small enough. If one final group is
+too large but the output shape must stay stable, split execution with
+`_pseudo_groups` and route back to the final fields.
 
 ## Readiness and batch boundaries
 

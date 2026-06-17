@@ -155,6 +155,18 @@ def _extract_final_field_pointers(extract: typing.Any) -> typing.Iterator[tuple[
             yield str(group_name), str(field_name), _final_field_pointer(str(group_name), str(field_name))
 
 
+def _route_workflow_field_keys(routes: list) -> typing.Set[tuple[str, str]]:
+    keys: typing.Set[tuple[str, str]] = set()
+    for route in routes:
+        if not isinstance(route, dict):
+            continue
+        workflow_group = route.get("workflowGroup")
+        workflow_field = route.get("workflowField")
+        if isinstance(workflow_group, str) and isinstance(workflow_field, str):
+            keys.add((workflow_group, workflow_field))
+    return keys
+
+
 def _validate_custom_workflow(workflow: dict) -> typing.List[str]:
     errors: typing.List[str] = []
     custom_steps = workflow.get("customSteps") or []
@@ -309,10 +321,18 @@ def _validate_custom_workflow(workflow: dict) -> typing.List[str]:
         for normalized in (_normalize_final_pointer(route.get("finalPath")),)
         if normalized
     }
+    routed_workflow_fields = _route_workflow_field_keys(output_routes)
     for group_name, field_name, pointer in _extract_final_field_pointers(workflow.get("extract")):
-        if pointer not in routed_final_fields:
+        if (group_name, field_name) not in routed_workflow_fields:
             errors.append(
                 f"extract group '{group_name}' field '{field_name}' has no custom output route"
+            )
+    extract = workflow.get("extract")
+    authored = extract.get("_groundx_persisted_extract") if isinstance(extract, dict) else None
+    for group_name, field_name, pointer in _extract_final_field_pointers(authored):
+        if pointer not in routed_final_fields:
+            errors.append(
+                f"authored final field '{group_name}.{field_name}' has no custom output route"
             )
 
     for step_name, count in field_counts.items():

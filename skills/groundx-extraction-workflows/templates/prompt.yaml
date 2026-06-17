@@ -22,6 +22,8 @@
 # See references/2_schema_design.md for the field anatomy and group
 # decomposition rules.
 
+extraction_policy_version: v1
+
 workflow:
   custom_steps:
     - name: statement_fields

@@ -21,8 +21,9 @@ a coherent iteration milestone informed by real customer use cases. The
   `prepare_extraction_yaml()` contract when available, requires harness-authored
   custom workflow metadata, compiles prepared workflow groups, and emits
   `extraction_workflow_metadata_v1.json` for diagnostics. The extraction
-  references now keep harness authoring on real workflow groups; authored
-  `_pseudo_groups` are rejected until a compiler fixture proves that path.
+  references now support direct real workflow groups and `_pseudo_groups` for
+  split/recombine, while rejecting `slot:`, `domain:`, and field-level
+  `workflow_step`.
 - **Field-level scoring within repeating records.** `score_extraction.py`
   scores each field inside a matched record (not all-or-nothing) with miss-type
   classification (not-found / field-mismatch / expected-null); the batch rollup

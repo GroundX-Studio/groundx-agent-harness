@@ -30,7 +30,8 @@ upload → server-side per-chunk LLM calls produce JSON
 
 The compiler (`skills/groundx-extraction-workflows/templates/compile_workflow.py`)
 relies on the SDK to prepare `workflow.custom_steps`, `workflow_step`, and
-`workflow_output_key` metadata. The compiler passes that through as public
+route metadata. Direct groups use `workflow_output_key`; pseudo groups use the
+pseudo field key plus `path`. The compiler passes that through as public
 `customSteps`, `outputRoutes`, `leafFields`, and optional workflow-level
 `template`. Steps 5-6 happen on the GroundX platform.
 
@@ -38,8 +39,12 @@ relies on the SDK to prepare `workflow.custom_steps`, `workflow_step`, and
 
 The SDK parses the YAML into a typed data model:
 
+- Top-level `extraction_policy_version: v1` selects the supported custom
+  workflow YAML contract.
 - Real top-level YAML groups define the final data object.
 - `_defs`, when present, expands into final groups before workflow routing.
+- `_pseudo_groups`, when present, define workflow-only groups that route back to
+  real final fields.
 - The SDK emits `workflow_field_paths`, a route map from workflow field aliases
   to final-output JSON Pointer paths such as `/statement/account_number`.
 - Each entry under a prepared workflow group's `fields:` block becomes an `ExtractedField`
@@ -175,9 +180,11 @@ group with the right step kind.
 
 ## 7. Custom workflow routing contract
 
-Every prepared workflow group with fields must declare `workflow_step:`. Every
-routed field must declare `workflow_output_key`. The compiler rejects partially
-routed YAML instead of letting a group disappear from `outputRoutes`.
+Every prepared workflow group with fields must declare group-level
+`workflow_step:`. Direct routed fields declare `workflow_output_key`; pseudo
+fields use the pseudo field key as the output key and declare `path` to the
+final field. The compiler rejects partially routed YAML instead of letting a
+group disappear from `outputRoutes`.
 
 The generated workflow has three public custom-workflow fields:
 
@@ -204,13 +211,15 @@ For every chunk the platform processes, the LLM receives:
 2. The user message (field-spec block + group definition + the chunk's
    text content + the chunk's page images, if `pageImages: True` is set)
 
-The LLM responds with JSON whose keys are the field `workflow_output_key`
-values from the YAML. The custom step `kind` controls whether GroundX treats
-the response as one object (`instruct`) or a repeating record stream (`keys` or
-`summary`), then makes the result available through `get_extract()`.
+The LLM responds with JSON whose keys are the workflow output keys: direct
+fields use `workflow_output_key`, and pseudo fields use the pseudo field key.
+The custom step `kind` controls whether GroundX treats the response as one
+object (`instruct`) or a repeating record stream (`keys` or `summary`), then
+makes the result available through `get_extract()`.
 
-The harness-supported path keeps workflow groups aligned with real final groups.
-Use `workflow_field_paths`, `outputRoutes`, and `leafFields` as diagnostics for
+The harness-supported path keeps final groups stable while allowing workflow
+groups to be direct real groups or pseudo execution groups. Use
+`workflow_field_paths`, `outputRoutes`, and `leafFields` as diagnostics for
 where custom step output lands in the final object.
 
 For debugging — if a field is missing from the final JSON, the per-chunk

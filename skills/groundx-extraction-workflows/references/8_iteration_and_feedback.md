@@ -266,7 +266,7 @@ is a pattern.
 
 X-Ray is the raw output of GroundX's parsing + chunking step. It
 contains each chunk's text, content type (`paragraph` / `figure` /
-`table_figure` / etc.), page numbers, and any per-slot extraction
+`table_figure` / etc.), page numbers, and any custom workflow extraction
 outputs already produced. Reading X-Ray is the most direct way to
 answer **"why didn't this field extract"** — was the value in the
 chunk at all? Was the chunk routed to the right extraction step? Did

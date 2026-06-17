@@ -12,15 +12,15 @@ or to the `workflow_create` MCP tool from the groundx-api skill).
 Domain-agnostic custom workflow mapping
 ---------------------------------------
 The compiler carries no hardcoded final group names. Top-level real YAML groups
-define the final data object and the harness-supported workflow groups. Authored
-`_pseudo_groups` are intentionally rejected until the compiler has a real fixture
-that proves route generation, validation, and reassembly behavior end to end.
+define the final data object. Harness-authored YAML has two workflow shapes:
+direct real groups with group-level `workflow_step:`, or `_pseudo_groups` that
+split oversized final groups into smaller workflow-only groups and route back
+to final fields with `path`.
 
-Harness-authored YAML must use top-level `workflow.custom_steps` plus
-per-workflow-group `workflow_step:` metadata. Legacy `domain:` and `slot:` YAMLs
-are intentionally rejected here; those compatibility paths belong to
-internal-arcadia-agents and the GroundX Python SDK helpers, not the harness
-templates.
+Legacy `domain:` and `slot:` YAMLs are intentionally rejected here; those
+compatibility paths belong to internal-arcadia-agents and the GroundX Python SDK
+helpers, not the harness templates. Field-level `workflow_step` is also
+rejected because split/recombine belongs in `_pseudo_groups`.
 
 Reads .env for EXTRACT_MODEL_* (engine config) when python-dotenv is installed.
 No real GROUNDX_API_KEY is needed because no API calls are made; a placeholder
@@ -103,7 +103,6 @@ _GROUP_METADATA_KEYS = {
     "passthrough",
     "passthrough_attrs",
     "passthrough_pair_attrs",
-    "pipeline",
     "remaining_attrs",
     "required_any_attrs",
     "required_attrs",
@@ -120,6 +119,25 @@ _CUSTOM_WORKFLOW_OUTPUT_MAPS = {
     "section": "customSectionOutputs",
     "document": "customDocumentOutputs",
 }
+_CUSTOM_WORKFLOW_AGENT_CHAIN_AGENT_TASKS = frozenset(
+    {
+        "reconcile_charges",
+        "reconcile_meters",
+        "reconcile_statement",
+        "qa_meters",
+        "qa_statement",
+    }
+)
+_CUSTOM_WORKFLOW_AGENT_CHAIN_SAVE_TASKS = frozenset(
+    {
+        "save_charges",
+        "save_meters",
+        "save_statement",
+    }
+)
+_CUSTOM_WORKFLOW_AGENT_CHAIN_SUPPORTED_TASKS = (
+    _CUSTOM_WORKFLOW_AGENT_CHAIN_AGENT_TASKS | _CUSTOM_WORKFLOW_AGENT_CHAIN_SAVE_TASKS
+)
 _CUSTOM_WORKFLOW_REPEATED_STEP_KINDS = {"keys", "summary"}
 _EMPTY_WORKFLOW_STEP_KEYS = (
     "chunk-instruct",
@@ -243,18 +261,174 @@ def _assert_no_legacy_harness_metadata(raw: dict, source: str) -> None:
                 "Legacy YAML compatibility belongs to internal-arcadia-agents "
                 "and groundx-python helpers such as create_extraction_workflow(path=...)."
             )
+    pseudo_groups = raw.get("_pseudo_groups")
+    if isinstance(pseudo_groups, dict):
+        for group_name, group_data in pseudo_groups.items():
+            if isinstance(group_data, dict) and "slot" in group_data:
+                raise ValueError(
+                    f"{source}: pseudo group '{group_name}' uses legacy `slot:` "
+                    "metadata. Harness templates require `workflow_step:` on "
+                    "direct workflow groups or pseudo groups."
+                )
 
 
-def _assert_no_authored_pseudo_groups(raw: dict, source: str) -> None:
-    if "_pseudo_groups" not in raw:
+def _walk_field_items(
+    fields: typing.Any,
+    prefix: tuple[str, ...] = (),
+) -> typing.Iterator[tuple[tuple[str, ...], dict]]:
+    if not isinstance(fields, dict):
         return
-    raise ValueError(
-        f"{source}: harness custom workflow YAML does not support authored "
-        "`_pseudo_groups` yet. Keep `workflow_step:` on real workflow groups, "
-        "or split the final output into real groups only when the user accepts "
-        "that output shape. Pseudo-group support needs a dedicated compiler "
-        "fixture before it is promoted."
-    )
+    for field_name, field_data in fields.items():
+        if not isinstance(field_data, dict):
+            continue
+        path = (*prefix, str(field_name))
+        yield path, field_data
+        nested_fields = field_data.get("fields")
+        if isinstance(nested_fields, dict):
+            yield from _walk_field_items(nested_fields, path)
+
+
+def _assert_no_field_level_workflow_step(raw: dict, source: str) -> None:
+    for group_name, group_data in _workflow_group_items(raw):
+        for field_path, field_data in _walk_field_items(group_data.get("fields")):
+            if "workflow_step" in field_data:
+                dotted_path = ".".join((group_name, *field_path))
+                raise ValueError(
+                    f"{source}: field '{dotted_path}' uses field-level "
+                    "`workflow_step`. Put `workflow_step:` on a direct workflow "
+                    "group, or use `_pseudo_groups` with `path` routes for "
+                    "split/recombine."
+                )
+
+    pseudo_groups = raw.get("_pseudo_groups")
+    if not isinstance(pseudo_groups, dict):
+        return
+    for group_name, group_data in pseudo_groups.items():
+        if not isinstance(group_data, dict):
+            continue
+        for field_path, field_data in _walk_field_items(group_data.get("fields")):
+            if "workflow_step" in field_data:
+                dotted_path = ".".join((str(group_name), *field_path))
+                raise ValueError(
+                    f"{source}: pseudo field '{dotted_path}' uses field-level "
+                    "`workflow_step`. Put `workflow_step:` on the pseudo group."
+                )
+
+
+def _json_pointer_segments(pointer: str) -> list[str]:
+    if not pointer.startswith("/"):
+        raise ValueError(f"JSON pointer must start with '/': {pointer}")
+    if pointer == "/":
+        return []
+    return [
+        segment.replace("~1", "/").replace("~0", "~")
+        for segment in pointer[1:].split("/")
+    ]
+
+
+def _resolve_final_field(groups: dict, pointer: str, source: str) -> dict:
+    try:
+        segments = _json_pointer_segments(pointer)
+    except ValueError as exc:
+        raise ValueError(f"{source}: invalid pseudo-group path [{pointer}]") from exc
+    if len(segments) < 2:
+        raise ValueError(f"{source}: pseudo-group path [{pointer}] must target a final field")
+
+    group_name = segments[0]
+    group = groups.get(group_name)
+    if not isinstance(group, dict):
+        raise ValueError(f"{source}: pseudo-group path [{pointer}] targets unknown group")
+
+    fields = group.get("fields")
+    field_data: typing.Any = None
+    for segment in (s for s in segments[1:] if s != "*"):
+        if not isinstance(fields, dict) or segment not in fields:
+            raise ValueError(f"{source}: pseudo-group path [{pointer}] targets unknown field")
+        field_data = fields[segment]
+        fields = field_data.get("fields") if isinstance(field_data, dict) else None
+
+    if not isinstance(field_data, dict):
+        raise ValueError(f"{source}: pseudo-group path [{pointer}] must target a field mapping")
+    return field_data
+
+
+def _collect_final_leaf_paths(groups: dict) -> set[str]:
+    leaf_paths: set[str] = set()
+
+    def _walk(group_name: str, fields: typing.Any, prefix: tuple[str, ...] = ()) -> None:
+        if not isinstance(fields, dict):
+            return
+        for field_name, field_data in fields.items():
+            if not isinstance(field_data, dict):
+                continue
+            path = (*prefix, str(field_name))
+            nested_fields = field_data.get("fields")
+            if isinstance(nested_fields, dict) and nested_fields:
+                _walk(group_name, nested_fields, path)
+            else:
+                leaf_paths.add(_json_pointer((group_name, *path)))
+
+    for group_name, group_data in groups.items():
+        if isinstance(group_data, dict):
+            _walk(str(group_name), group_data.get("fields"))
+
+    return leaf_paths
+
+
+def _assert_pseudo_groups_are_routable(raw: dict, source: str) -> None:
+    pseudo_groups = raw.get("_pseudo_groups")
+    if pseudo_groups is None:
+        return
+    if not isinstance(pseudo_groups, dict) or not pseudo_groups:
+        raise ValueError(f"{source}: `_pseudo_groups` must be a non-empty mapping")
+
+    final_groups = {name: data for name, data in _workflow_group_items(raw)}
+    routed_paths: set[str] = set()
+    routed_final_groups: set[str] = set()
+
+    for pseudo_name, pseudo_group in pseudo_groups.items():
+        if not isinstance(pseudo_group, dict):
+            raise ValueError(f"{source}: pseudo group '{pseudo_name}' must be a mapping")
+        if not isinstance(pseudo_group.get("workflow_step"), str):
+            raise ValueError(f"{source}: pseudo group '{pseudo_name}' must declare workflow_step")
+        fields = pseudo_group.get("fields")
+        if not isinstance(fields, dict) or not fields:
+            raise ValueError(f"{source}: pseudo group '{pseudo_name}' must declare non-empty fields")
+        for output_key, field_data in fields.items():
+            if not isinstance(field_data, dict):
+                raise ValueError(
+                    f"{source}: pseudo field '{pseudo_name}.{output_key}' must be a mapping"
+                )
+            if _CUSTOM_WORKFLOW_FIELD_METADATA_KEY in field_data:
+                raise ValueError(
+                    f"{source}: pseudo field '{pseudo_name}.{output_key}' must use "
+                    "the pseudo field key as the workflow output key, not "
+                    "`workflow_output_key`."
+                )
+            final_path = field_data.get("path")
+            if not isinstance(final_path, str):
+                raise ValueError(
+                    f"{source}: pseudo field '{pseudo_name}.{output_key}' must declare path"
+                )
+            if final_path in routed_paths:
+                raise ValueError(f"{source}: duplicate pseudo-group route to [{final_path}]")
+            routed_paths.add(final_path)
+            try:
+                segments = _json_pointer_segments(final_path)
+            except ValueError as exc:
+                raise ValueError(f"{source}: invalid pseudo-group path [{final_path}]") from exc
+            if segments:
+                routed_final_groups.add(segments[0])
+            _resolve_final_field(final_groups, final_path, source)
+
+    for group_name in routed_final_groups:
+        group = final_groups.get(group_name)
+        if isinstance(group, dict) and "workflow_step" in group:
+            raise ValueError(
+                f"{source}: final group '{group_name}' is routed by `_pseudo_groups` "
+                "and also declares direct `workflow_step:` metadata. Use one "
+                "routing model for that final group."
+            )
 
 
 def _requires_custom_workflow_metadata(raw: dict, source: str) -> None:
@@ -304,8 +478,8 @@ def _assert_prepared_workflow_groups_are_routed(prepared: typing.Any, source: st
             raise ValueError(
                 f"{source}: workflow group '{group_name}' has fields but no "
                 "`workflow_step:` metadata. Assign every real workflow group to "
-                "a custom step; authored `_pseudo_groups` are not supported by "
-                "the harness compiler yet."
+                "a custom step, or route oversized final groups through "
+                "`_pseudo_groups`."
             )
 
 
@@ -380,14 +554,11 @@ def _collect_fallback_custom_routes(
     for field_name, field_data in fields.items():
         if not isinstance(field_data, dict):
             continue
-        nested_step_name = field_data.get("workflow_step", step_name)
         output_key = field_data.get(_CUSTOM_WORKFLOW_FIELD_METADATA_KEY)
         if output_key is not None:
-            if not isinstance(nested_step_name, str):
-                raise ValueError(f"workflow_step for [{group_name}.{field_name}] must be a string")
-            step = steps_by_name.get(nested_step_name)
+            step = steps_by_name.get(step_name)
             if step is None:
-                raise ValueError(f"unknown custom step [{nested_step_name}]")
+                raise ValueError(f"unknown custom step [{step_name}]")
             if not isinstance(output_key, str):
                 raise ValueError(
                     f"workflow_output_key for [{group_name}.{field_name}] must be a string"
@@ -399,17 +570,17 @@ def _collect_fallback_custom_routes(
                 "workflow_group": group_name,
                 "workflow_field": workflow_field,
                 "final_path": final_path,
-                "step_name": nested_step_name,
+                "step_name": step_name,
                 "level": level,
                 "output_map": _custom_workflow_output_map(level),
                 "output_key": output_key,
-                "readback_path": _custom_workflow_readback_path(level, nested_step_name, output_key),
+                "readback_path": _custom_workflow_readback_path(level, step_name, output_key),
             }
             leaf = {
                 "final_path": final_path,
                 "workflow_group": group_name,
                 "workflow_field": workflow_field,
-                "step_name": nested_step_name,
+                "step_name": step_name,
                 "level": level,
                 "output_key": output_key,
                 "field_type": _field_type(field_data),
@@ -425,7 +596,7 @@ def _collect_fallback_custom_routes(
             nested_routes, nested_leaves, nested_paths = _collect_fallback_custom_routes(
                 fields=nested_fields,
                 group_name=group_name,
-                step_name=nested_step_name if isinstance(nested_step_name, str) else step_name,
+                step_name=step_name,
                 steps_by_name=steps_by_name,
                 prefix=(*prefix, str(field_name)),
             )
@@ -436,14 +607,335 @@ def _collect_fallback_custom_routes(
     return routes, leaves, field_paths
 
 
+def _collect_fallback_pseudo_group_routes(
+    *,
+    pseudo_groups: dict,
+    final_groups: dict,
+    steps_by_name: dict,
+    source: str,
+) -> tuple[dict, dict, list[dict], list[dict], dict[str, dict[str, str]]]:
+    workflow_groups: dict[str, dict] = {}
+    workflow_group_metadata: dict[str, dict] = {}
+    routes: list[dict] = []
+    leaves: list[dict] = []
+    workflow_field_paths: dict[str, dict[str, str]] = {}
+
+    for pseudo_name, pseudo_group in pseudo_groups.items():
+        if not isinstance(pseudo_group, dict):
+            raise ValueError(f"{source}: pseudo group '{pseudo_name}' must be a mapping")
+        step_name = pseudo_group.get("workflow_step")
+        if not isinstance(step_name, str):
+            raise ValueError(f"{source}: pseudo group '{pseudo_name}' must declare workflow_step")
+        step = steps_by_name.get(step_name)
+        if step is None:
+            raise ValueError(f"{source}: pseudo group '{pseudo_name}' references unknown workflow_step [{step_name}]")
+        fields = pseudo_group.get("fields")
+        if not isinstance(fields, dict) or not fields:
+            raise ValueError(f"{source}: pseudo group '{pseudo_name}' must declare non-empty fields")
+
+        workflow_group = {
+            key: copy.deepcopy(value)
+            for key, value in pseudo_group.items()
+            if key not in {"workflow_step", "fields"}
+        }
+        workflow_group["fields"] = {}
+        group_paths: dict[str, str] = {}
+
+        for output_key, field_data in fields.items():
+            if not isinstance(field_data, dict):
+                raise ValueError(f"{source}: pseudo field '{pseudo_name}.{output_key}' must be a mapping")
+            final_path = field_data.get("path")
+            if not isinstance(final_path, str):
+                raise ValueError(f"{source}: pseudo field '{pseudo_name}.{output_key}' must declare path")
+
+            final_field = _resolve_final_field(final_groups, final_path, source)
+            field_body = _strip_field_metadata(final_field)
+            overrides = {
+                key: copy.deepcopy(value)
+                for key, value in field_data.items()
+                if key not in {"path", _CUSTOM_WORKFLOW_FIELD_METADATA_KEY, "workflow_step"}
+            }
+            if overrides:
+                field_body.update(_strip_field_metadata(overrides))
+            workflow_group["fields"][str(output_key)] = field_body
+
+            level = step["level"]
+            route = {
+                "workflow_group": str(pseudo_name),
+                "workflow_field": str(output_key),
+                "final_path": final_path,
+                "step_name": step_name,
+                "level": level,
+                "output_map": _custom_workflow_output_map(level),
+                "output_key": str(output_key),
+                "readback_path": _custom_workflow_readback_path(level, step_name, str(output_key)),
+            }
+            leaf = {
+                "final_path": final_path,
+                "workflow_group": str(pseudo_name),
+                "workflow_field": str(output_key),
+                "step_name": step_name,
+                "level": level,
+                "output_key": str(output_key),
+                "field_type": _field_type(final_field),
+                "is_repeated": False,
+                "repetition_scope": "none",
+            }
+            routes.append(route)
+            leaves.append(leaf)
+            group_paths[str(output_key)] = final_path
+
+        workflow_groups[str(pseudo_name)] = workflow_group
+        workflow_group_metadata[str(pseudo_name)] = {"workflow_step": step_name}
+        workflow_field_paths[str(pseudo_name)] = group_paths
+
+    return workflow_groups, workflow_group_metadata, routes, leaves, workflow_field_paths
+
+
 def _custom_workflow_schema_hash(metadata: dict) -> str:
-    payload = copy.deepcopy(metadata)
-    payload.pop("schema_hash", None)
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    steps: list[dict] = []
+    for step in metadata.get("custom_steps", []):
+        normalized_step = {
+            "name": step["name"],
+            "level": step["level"],
+            "kind": step["kind"],
+        }
+        keys = sorted(step.get("required_template_keys", []))
+        if keys:
+            normalized_step["required_template_keys"] = keys
+        steps.append(normalized_step)
+
+    routes = [
+        {
+            "final_path": route["final_path"],
+            "workflow_group": route["workflow_group"],
+            "workflow_field": route["workflow_field"],
+            "step_name": route["step_name"],
+            "level": route["level"],
+            "output_map": route["output_map"],
+            "output_key": route["output_key"],
+            "readback_path": route["readback_path"],
+        }
+        for route in metadata.get("output_routes", [])
+    ]
+    leaves = [
+        {
+            "final_path": leaf["final_path"],
+            "workflow_group": leaf["workflow_group"],
+            "workflow_field": leaf["workflow_field"],
+            "step_name": leaf["step_name"],
+            "level": leaf["level"],
+            "output_key": leaf["output_key"],
+            "field_type": leaf["field_type"],
+            "is_repeated": leaf["is_repeated"],
+            "repetition_scope": leaf["repetition_scope"],
+        }
+        for leaf in metadata.get("leaf_fields", [])
+    ]
+
+    steps.sort(key=lambda step: step["name"])
+    routes.sort(key=_custom_route_identity)
+    leaves.sort(key=_custom_leaf_identity)
+
+    payload: dict[str, typing.Any] = {
+        "metadata_version": metadata.get("metadata_version", 1)
+    }
+    if steps:
+        payload["custom_steps"] = steps
+    if routes:
+        payload["output_routes"] = routes
+    if leaves:
+        payload["leaf_fields"] = leaves
+
+    encoded = json.dumps(payload, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _prepare_extraction_yaml_fallback(raw: dict) -> _PreparedExtractionYaml:
+def _custom_route_identity(route: dict) -> str:
+    return "\x00".join(
+        [
+            route["final_path"],
+            route["workflow_group"],
+            route["workflow_field"],
+            route["step_name"],
+            route["output_key"],
+        ]
+    )
+
+
+def _custom_leaf_identity(leaf: dict) -> str:
+    return "\x00".join(
+        [
+            leaf["final_path"],
+            leaf["workflow_group"],
+            leaf["workflow_field"],
+            leaf["step_name"],
+            leaf["output_key"],
+        ]
+    )
+
+
+def _validate_agent_chain(raw_chain: list, workflow_groups: set[str]) -> None:
+    first_stage = raw_chain[0]
+    if not isinstance(first_stage, dict) or set(first_stage.keys()) != {"parallel"}:
+        raise ValueError("workflow.agent_chain must start with a parallel stage")
+
+    has_save = False
+    serial_start_index = 1
+    for stage_index, raw_stage in enumerate(raw_chain):
+        if isinstance(raw_stage, str):
+            _validate_agent_chain_task(
+                raw_stage,
+                f"workflow.agent_chain[{stage_index}]",
+            )
+            if raw_stage in _CUSTOM_WORKFLOW_AGENT_CHAIN_SAVE_TASKS:
+                has_save = True
+            continue
+
+        if not isinstance(raw_stage, dict) or set(raw_stage.keys()) != {"parallel"}:
+            raise ValueError(
+                "workflow.agent_chain stages must be task strings or {parallel: [...]}"
+            )
+        if stage_index != 0:
+            raise ValueError(
+                "workflow.agent_chain parallel stages after the first stage are not supported"
+            )
+
+        raw_branches = raw_stage["parallel"]
+        if not isinstance(raw_branches, list) or not raw_branches:
+            raise ValueError("workflow.agent_chain parallel stage must have branches")
+
+        branch_terminal_saves: list[bool] = []
+        branch_suffixes: list[str] = []
+
+        for branch_index, raw_branch in enumerate(raw_branches):
+            path = f"workflow.agent_chain[{stage_index}].parallel[{branch_index}]"
+            if not isinstance(raw_branch, dict):
+                raise ValueError(f"{path} must be a mapping")
+            if set(raw_branch.keys()) != {"group", "chain"}:
+                raise ValueError(f"{path} must contain only group and chain")
+
+            group = raw_branch["group"]
+            if not isinstance(group, str) or not group:
+                raise ValueError(f"{path}.group must be a non-empty string")
+            if group not in workflow_groups:
+                raise ValueError(f"{path}.group [{group}] is not a workflow group")
+
+            chain = raw_branch["chain"]
+            if not isinstance(chain, list) or not chain:
+                raise ValueError(f"{path}.chain must be a non-empty list")
+            parsed_chain = [
+                _validate_agent_chain_task(task, f"{path}.chain")
+                for task in chain
+            ]
+            if any(
+                task in _CUSTOM_WORKFLOW_AGENT_CHAIN_SAVE_TASKS
+                for task in parsed_chain[:-1]
+            ):
+                raise ValueError(f"{path}.chain save task must be last")
+            suffixes = {_agent_chain_task_suffix(task) for task in parsed_chain}
+            if len(suffixes) != 1:
+                raise ValueError(f"{path}.chain must use one processing suffix")
+            branch_suffixes.append(suffixes.pop())
+            branch_terminal_saves.append(
+                parsed_chain[-1] in _CUSTOM_WORKFLOW_AGENT_CHAIN_SAVE_TASKS
+            )
+
+        terminal_save = _agent_chain_following_save_task(raw_chain, stage_index)
+        if any(branch_terminal_saves):
+            has_save = True
+            serial_start_index = stage_index + 1
+            if terminal_save is not None:
+                raise ValueError(
+                    "workflow.agent_chain parallel branch save tasks cannot be "
+                    "combined with a following top-level save task"
+                )
+            if not all(branch_terminal_saves):
+                raise ValueError(
+                    "workflow.agent_chain parallel branches must either all end in "
+                    "save tasks or all use the following top-level save task"
+                )
+        elif terminal_save is None:
+            raise ValueError(
+                "workflow.agent_chain parallel branches must end in a save task or "
+                "be followed by one top-level save task"
+            )
+        else:
+            serial_start_index = stage_index + 2
+            terminal_suffix = _agent_chain_task_suffix(terminal_save)
+            for suffix in branch_suffixes:
+                if suffix != terminal_suffix:
+                    raise ValueError(
+                        "workflow.agent_chain parallel branch processing suffix "
+                        "must match following save task"
+                    )
+
+    if not has_save:
+        raise ValueError("workflow.agent_chain must include a save task")
+    _validate_agent_chain_serial_tasks(raw_chain, serial_start_index)
+
+
+def _validate_agent_chain_serial_tasks(
+    raw_chain: list[typing.Any],
+    start_index: int,
+) -> None:
+    stage_index = start_index
+    while stage_index < len(raw_chain):
+        path = f"workflow.agent_chain[{stage_index}]"
+        task = _validate_agent_chain_task(raw_chain[stage_index], path)
+        if task in _CUSTOM_WORKFLOW_AGENT_CHAIN_SAVE_TASKS:
+            raise ValueError(
+                f"{path} top-level save task [{task}] must follow a matching "
+                "top-level agent task"
+            )
+
+        expected_save = f"save_{_agent_chain_task_suffix(task)}"
+        next_index = stage_index + 1
+        if next_index >= len(raw_chain):
+            raise ValueError(
+                f"{path} top-level agent task [{task}] must be followed by "
+                f"matching save task [{expected_save}]"
+            )
+
+        next_path = f"workflow.agent_chain[{next_index}]"
+        next_task = _validate_agent_chain_task(raw_chain[next_index], next_path)
+        if next_task != expected_save:
+            raise ValueError(
+                f"{path} top-level agent task [{task}] must be followed by "
+                f"matching save task [{expected_save}]"
+            )
+        stage_index += 2
+
+
+def _validate_agent_chain_task(task: typing.Any, path: str) -> str:
+    if not isinstance(task, str) or not task:
+        raise ValueError(f"{path} task must be a non-empty string")
+    if task not in _CUSTOM_WORKFLOW_AGENT_CHAIN_SUPPORTED_TASKS:
+        raise ValueError(f"{path} contains unsupported task [{task}]")
+    return task
+
+
+def _agent_chain_following_save_task(
+    raw_chain: list[typing.Any],
+    stage_index: int,
+) -> typing.Optional[str]:
+    next_index = stage_index + 1
+    if next_index >= len(raw_chain):
+        return None
+    raw_next = raw_chain[next_index]
+    if (
+        isinstance(raw_next, str)
+        and raw_next in _CUSTOM_WORKFLOW_AGENT_CHAIN_SAVE_TASKS
+    ):
+        return raw_next
+    return None
+
+
+def _agent_chain_task_suffix(task: str) -> str:
+    return task.rsplit("_", 1)[-1]
+
+
+def _prepare_extraction_yaml_fallback(raw: dict, source: str) -> _PreparedExtractionYaml:
     workflow = raw.get("workflow")
     if not isinstance(workflow, dict):
         raise ValueError("workflow.custom_steps is required for harness workflow YAML")
@@ -482,21 +974,16 @@ def _prepare_extraction_yaml_fallback(raw: dict) -> _PreparedExtractionYaml:
     final_group_metadata: dict[str, dict] = {}
     workflow_group_metadata: dict[str, dict] = {}
     workflow_field_paths: dict[str, dict] = {}
+    workflow_groups: dict[str, dict] = {}
     routes: list[dict] = []
     leaves: list[dict] = []
 
     for group_name, group_data in _workflow_group_items(raw):
-        step_name = group_data.get("workflow_step")
-        if not isinstance(step_name, str):
-            raise ValueError(f"workflow group '{group_name}' must declare workflow_step")
-        if step_name not in steps_by_name:
-            raise ValueError(f"workflow group '{group_name}' references unknown workflow_step [{step_name}]")
         fields = group_data.get("fields")
         if not isinstance(fields, dict) or not fields:
-            raise ValueError(f"workflow group '{group_name}' must declare non-empty fields")
+            raise ValueError(f"final group '{group_name}' must declare non-empty fields")
 
         groups[group_name] = _strip_group_metadata(group_data)
-        workflow_group_metadata[group_name] = {"workflow_step": step_name}
         metadata = {
             key: copy.deepcopy(value)
             for key, value in group_data.items()
@@ -504,6 +991,17 @@ def _prepare_extraction_yaml_fallback(raw: dict) -> _PreparedExtractionYaml:
         }
         if metadata:
             final_group_metadata[group_name] = metadata
+
+        step_name = group_data.get("workflow_step")
+        if step_name is None:
+            continue
+        if not isinstance(step_name, str):
+            raise ValueError(f"workflow group '{group_name}' must declare workflow_step as a string")
+        if step_name not in steps_by_name:
+            raise ValueError(f"workflow group '{group_name}' references unknown workflow_step [{step_name}]")
+
+        workflow_groups[group_name] = _strip_group_metadata(group_data)
+        workflow_group_metadata[group_name] = {"workflow_step": step_name}
         group_routes, group_leaves, group_paths = _collect_fallback_custom_routes(
             fields=fields,
             group_name=group_name,
@@ -514,8 +1012,44 @@ def _prepare_extraction_yaml_fallback(raw: dict) -> _PreparedExtractionYaml:
         leaves.extend(group_leaves)
         workflow_field_paths[group_name] = group_paths
 
+    pseudo_groups = raw.get("_pseudo_groups")
+    if isinstance(pseudo_groups, dict):
+        (
+            pseudo_workflow_groups,
+            pseudo_workflow_metadata,
+            pseudo_routes,
+            pseudo_leaves,
+            pseudo_paths,
+        ) = _collect_fallback_pseudo_group_routes(
+            pseudo_groups=pseudo_groups,
+            final_groups={name: data for name, data in _workflow_group_items(raw)},
+            steps_by_name=steps_by_name,
+            source=source,
+        )
+        workflow_groups.update(pseudo_workflow_groups)
+        workflow_group_metadata.update(pseudo_workflow_metadata)
+        routes.extend(pseudo_routes)
+        leaves.extend(pseudo_leaves)
+        workflow_field_paths.update(pseudo_paths)
+
     if not routes or not leaves:
-        raise ValueError("custom workflow steps require routed fields with workflow_output_key")
+        raise ValueError(
+            "custom workflow steps require direct routed fields with "
+            "workflow_output_key or `_pseudo_groups` fields with path"
+        )
+    routed_final_paths = {
+        route["final_path"]
+        for route in routes
+        if isinstance(route.get("final_path"), str)
+    }
+    missing_final_paths = sorted(_collect_final_leaf_paths(groups) - routed_final_paths)
+    if missing_final_paths:
+        missing = ", ".join(missing_final_paths[:5])
+        suffix = "" if len(missing_final_paths) <= 5 else ", ..."
+        raise ValueError(
+            f"{source}: final fields are not routed by direct workflow_output_key "
+            f"or `_pseudo_groups` path: {missing}{suffix}"
+        )
 
     field_counts: dict[str, int] = {}
     for route in routes:
@@ -532,16 +1066,22 @@ def _prepare_extraction_yaml_fallback(raw: dict) -> _PreparedExtractionYaml:
         workflow_metadata["template"] = copy.deepcopy(workflow["template"])
     if field_counts:
         workflow_metadata["field_counts"] = field_counts
+    agent_chain = workflow.get("agent_chain")
+    if agent_chain is not None:
+        if not isinstance(agent_chain, list) or not agent_chain:
+            raise ValueError("workflow.agent_chain must be a non-empty list")
+        _validate_agent_chain(agent_chain, set(workflow_groups.keys()))
+        workflow_metadata["agent_chain"] = copy.deepcopy(agent_chain)
     workflow_metadata["schema_hash"] = _custom_workflow_schema_hash(workflow_metadata)
 
-    persisted_workflow_extract = copy.deepcopy(groups)
+    persisted_workflow_extract = copy.deepcopy(workflow_groups)
     persisted_workflow_extract["workflow"] = copy.deepcopy(workflow_metadata)
     persisted_workflow_extract["_groundx_persisted_extract"] = copy.deepcopy(raw)
 
     return _PreparedExtractionYaml(
         groups=groups,
-        workflow_groups=copy.deepcopy(groups),
-        pseudo_groups={},
+        workflow_groups=copy.deepcopy(workflow_groups),
+        pseudo_groups=copy.deepcopy(pseudo_groups) if isinstance(pseudo_groups, dict) else {},
         workflow_field_paths=workflow_field_paths,
         persisted_workflow_extract=persisted_workflow_extract,
         top_level_metadata=top_level_metadata,
@@ -554,13 +1094,14 @@ def _prepare_schema(raw_yaml: str, source: str) -> typing.Any:
     raw = _safe_load_yaml(raw_yaml, source) or {}
     if not isinstance(raw, dict):
         raise ValueError(f"{source}: top-level YAML must be a mapping of groups")
-    _assert_no_authored_pseudo_groups(raw, source)
     _assert_no_legacy_harness_metadata(raw, source)
+    _assert_no_field_level_workflow_step(raw, source)
+    _assert_pseudo_groups_are_routable(raw, source)
     _requires_custom_workflow_metadata(raw, source)
     _assert_routed_raw_fields_name_output_keys(raw, source)
 
-    if _sdk_prepare_extraction_yaml is None:
-        return _prepare_extraction_yaml_fallback(raw)
+    if _sdk_prepare_extraction_yaml is None or "_pseudo_groups" in raw:
+        return _prepare_extraction_yaml_fallback(raw, source)
 
     return _sdk_prepare_extraction_yaml(
         raw_yaml,

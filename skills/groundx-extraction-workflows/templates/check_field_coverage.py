@@ -43,7 +43,6 @@ _GROUP_META_KEYS = {
     "match_attrs",
     "conflict_attrs",
     "passthrough",
-    "pipeline",
 }
 _RESERVED_TOP_LEVEL_KEYS = {"workflow", "_defs", "_pseudo_groups"}
 

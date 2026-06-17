@@ -57,9 +57,10 @@ samples — see `3_prompt_pipeline.md` §6.3 decision rules.
 ### 3.1 Choose workflow steps
 
 Group the inventory by scope, then choose how each workflow group executes.
-Harness-authored YAML defines top-level `workflow.custom_steps`, assigns groups
-with `workflow_step: <name>`, and puts `workflow_output_key` on each routed
-field. Keep each executable custom step to 20 fields or fewer.
+Harness-authored YAML sets top-level `extraction_policy_version: v1`, defines
+top-level `workflow.custom_steps`, assigns groups with `workflow_step: <name>`,
+and puts `workflow_output_key` on each routed field. Keep each executable
+custom step to 20 fields or fewer.
 
 Do not force an unrelated document into invoice-shaped group names. A claim form,
 contract, or schedule should use group names that match the desired JSON output

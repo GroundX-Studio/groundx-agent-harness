@@ -87,8 +87,9 @@ anatomy. Author the YAML based on:
   documents often use `statement`, `charges`, and optional `meters`; claim
   forms, contracts, schedules, and other document types should use
   domain-aligned names such as `claim` and `line_items`.
-- Matching `workflow.custom_steps`, per-group `workflow_step`, and per-field
-  `workflow_output_key`.
+- Matching `workflow.custom_steps` and either direct groups with group-level
+  `workflow_step` plus `workflow_output_key`, or `_pseudo_groups` with
+  `workflow_step` plus `path` routes.
 
 If the document shape does not fit singleton objects or repeating record
 lists, see `2_schema_design.md` §1.5.
