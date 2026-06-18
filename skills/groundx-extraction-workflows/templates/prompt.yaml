@@ -40,6 +40,15 @@ workflow:
     # - name: meter_lines
     #   level: chunk
     #   kind: summary
+  agent_chain:
+    - parallel:
+        - group: statement
+          chain: [reconcile_statement, qa_statement, save_statement]
+        - group: charges
+          chain: [reconcile_charges, save_charges]
+        # Uncomment with the `meter_lines` step and `meters` group below.
+        # - group: meters
+        #   chain: [reconcile_meters, qa_meters, save_meters]
 
 statement:
   workflow_step: statement_fields

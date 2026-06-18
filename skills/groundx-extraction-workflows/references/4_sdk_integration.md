@@ -58,8 +58,9 @@ executes the following sequence when invoked as
    installed, the compiler uses its built-in fallback for harness-authored
    `workflow.custom_steps` YAML only.
 3. **Validate harness metadata.** The compiler requires
-   `workflow.custom_steps`, `workflow_step:`, and field-level
-   `workflow_output_key` where custom output routing is needed.
+   `extraction_policy_version: v1`, `workflow.custom_steps`,
+   `workflow.agent_chain`, group-level `workflow_step:`, and field-level
+   `workflow_output_key` where direct custom output routing is needed.
 4. **Build workflow settings.** The compiler emits `extract`, empty built-in
    `steps`, plus `template`, `customSteps`, `outputRoutes`, and `leafFields`
    from prepared metadata.
@@ -126,6 +127,8 @@ For non-invoice documents (forms, receipts, contracts, reports), the
 schema-first runner shape is still applicable: per-document fields usually use
 custom `kind: instruct` steps, repeating records use `kind: keys`, and
 physical-meter or metered-usage records use `kind: summary`.
+The `workflow.agent_chain` branches still reference the workflow group names,
+while task names stay internal runtime roles.
 
 If a customer repo already has `manager.py`, `simple.yaml`, and separate
 `extract_statement.py`, `reconcile_statement.py`, and `qa_statement.py` prompt

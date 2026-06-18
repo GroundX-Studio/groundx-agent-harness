@@ -26,6 +26,13 @@ emits the public workflow fields `customSteps`, `outputRoutes`, `leafFields`,
 and optional workflow-level `template`; X-Ray readback uses
 `customChunkOutputs`, `customSectionOutputs`, and `customDocumentOutputs`.
 
+Every harness-authored v1 YAML must also declare `workflow.agent_chain`. This
+is the runtime task schedule. It references workflow groups, not customer names:
+use the real group name for direct groups and the pseudo group name for
+`_pseudo_groups`. The runtime task names remain internal role names such as
+`reconcile_statement`, `qa_statement`, `save_statement`, `reconcile_charges`,
+`save_charges`, `reconcile_meters`, `qa_meters`, and `save_meters`.
+
 The harness compiler accepts only the custom workflow shape. Define each
 executable step under `workflow.custom_steps`, then assign each direct workflow
 group or pseudo group to one step with group-level `workflow_step:`. Do not put
@@ -89,6 +96,12 @@ The public syntax walkthrough is
 `_defs` is a fields-only authoring helper. Shared prompt context belongs under
 real final groups, not inside `_defs`.
 
+Use `include` only on `_defs` fragments or real final groups. A `_defs` fragment
+contains `fields:` and optional `include:`. A final group may include one
+fragment or a list of fragments, then add its own `fields:`. Duplicate final
+field names, unknown includes, cyclic includes, field-level `include`, and
+pseudo-group `include` are invalid.
+
 Use `_pseudo_groups` only when a final group is too large for one extraction
 agent but the final JSON shape must stay stable. Pseudo groups are
 workflow-only. They are never final output keys.
@@ -101,6 +114,11 @@ workflow:
     - name: eligibility_1_11
       level: chunk
       kind: instruct
+  agent_chain:
+    - parallel:
+        - group: eligibility_1_11
+          chain: [reconcile_statement, qa_statement]
+    - save_statement
 
 eligibility_requirements:
   fields:
@@ -141,6 +159,11 @@ workflow:
     - name: statement_fields
       level: chunk
       kind: instruct
+  agent_chain:
+    - parallel:
+        - group: statement
+          chain: [reconcile_statement, qa_statement]
+    - save_statement
 
 statement:
   workflow_step: statement_fields
@@ -177,6 +200,10 @@ workflow:
     - name: charge_lines
       level: chunk
       kind: keys
+  agent_chain:
+    - parallel:
+        - group: charges
+          chain: [reconcile_charges, save_charges]
 
 charges:
   workflow_step: charge_lines
@@ -223,6 +250,10 @@ workflow:
     - name: meter_records
       level: chunk
       kind: summary
+  agent_chain:
+    - parallel:
+        - group: meters
+          chain: [reconcile_meters, qa_meters, save_meters]
 
 meters:
   workflow_step: meter_records
@@ -275,9 +306,9 @@ Use **final group** for a functional grouping of fields in the final output,
 such as `statement`, `charges`, or `meters`. Do not split the final data object
 only because an agent has too many fields.
 
-As a rule of thumb, keep each workflow group's extraction load to **20 fields
+As a rule of thumb, keep each workflow group's extraction load to **30 fields
 or fewer**. Above that, LLM cognitive load starts to work against
-accuracy and consistency. If a final group grows beyond 20 fields, use
+accuracy and consistency. If a final group grows beyond 30 fields, use
 `_pseudo_groups` to split execution while recombining into the same final
 group. Split into multiple real final groups only when that output shape is
 what the user wants. Do not design one pre-process extraction agent per field.
