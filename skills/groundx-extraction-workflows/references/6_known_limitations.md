@@ -82,9 +82,11 @@ work through these steps in order before escalating.
 ### 3.1 Step 1: X-Ray inspection
 
 `gx_client.documents.get_xray(document_id=...)` returns the raw chunks
-the platform produced from the document, including `sectionSummary` (the
-chunk-level statement extraction) and `chunkKeys` (the chunk-level
-charge extractions).
+the platform produced from the document. For custom workflow YAML, inspect
+`customChunkOutputs`, `customSectionOutputs`, or `customDocumentOutputs`
+under the custom step name and output key. Older platform captures may also
+expose diagnostic fields such as `sectionSummary`, `chunkKeywords`/`chunkKeys`,
+`chunkSummary`, or `suggestedText`.
 
 Use X-Ray to answer one question: **was the data even parsed correctly?**
 
@@ -130,15 +132,14 @@ useful as more limitations are catalogued explicitly.
 
 ## 4. `get_extract` returns 404 for chunk-level workflows
 
-`document_getextract` only returns the **document-level** extract artifact,
-which the platform populates from doc-level workflow steps. The schema-first
-workflows this skill produces are **chunk-level** (`statement` →
-`chunk-instruct`, `charges` → `chunk-keys`, `meters` → `chunk-summary`): their
-structured output is written into the **X-Ray chunk fields**
-(`sectionSummary`, `chunkKeywords`, `chunkSummary`), not the document-level
-artifact. As a result `get_extract` returns `404 — "We could not find
-extractions for the documentId you provided"` even though the extraction ran
-correctly and the workflow was attached before ingest.
+`document_getextract` only returns the **document-level** extract artifact in
+some hosted environments. The schema-first workflows this skill produces often
+run at chunk or section level, so their structured output may be visible first
+in X-Ray custom output maps (`customChunkOutputs`, `customSectionOutputs`, or
+`customDocumentOutputs`) rather than the document-level artifact. As a result
+`get_extract` can return `404 — "We could not find extractions for the
+documentId you provided"` even though the extraction ran correctly and the
+workflow was attached before ingest.
 
 Confirmed live (2026-05-30) against the invoice example with a regular user key:
 `get_extract` 404'd while the X-Ray held a fully populated statement (23
@@ -146,9 +147,11 @@ fields) and 20 charges. Re-confirmed 2026-05-31 with a valid documentId,
 `add_to_account`, and ~3 min of post-ingest polling — the hosted tier does not
 return server-side extractions; the X-Ray fallback is the working path.
 
-**Resolution (in this skill):** `run_extraction.py` tries `get_extract` first
-and, when it is empty or 404s, falls back to `xray_to_extract.py`, which
-aggregates the X-Ray chunk fields into the same shape `get_extract` would
-return. The runner therefore completes end-to-end for chunk-level workflows.
-`xray_to_extract.py` remains the canonical local aggregator for X-Ray-first
-iteration (see `references/README.md` and `10_debugging_methodology.md`).
+**Resolution (in this skill):** `run_extraction.py` tries `get_extract` first.
+When raw extract is available, it writes that payload to `output.json`. When
+`get_extract` is empty or 404s, it writes `xray_diagnostic.json` from
+`xray_to_extract.py` and writes `final_output.json` for local
+diagnostic/business-logic output. Add `--require-raw-extract` when the absence
+of `output.json` should fail the run. `xray_to_extract.py` remains the
+canonical local aggregator for X-Ray-first diagnostics (see `references/README.md`
+and `10_debugging_methodology.md`).

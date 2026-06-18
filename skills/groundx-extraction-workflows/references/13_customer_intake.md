@@ -20,8 +20,8 @@ inventing substitutes.
 |---|---|---|
 | **Field catalog** (spreadsheet, schema, data dictionary, or PDF listing expected fields) | The authoritative set of output fields; drives the coverage gate in §5 | Reconstruct from sample docs + the owner's answers; flag that coverage cannot be verified |
 | **Sample documents** | Ground the field inventory in what actually appears on the page | Cannot ground identifiers/instructions; ask for at least one representative file |
-| **Answer keys** (ground truth, CSV or JSON) | Enables `score_extraction.py` scoring and the per-field accuracy bar | Defer accuracy claims; do shape-only proof |
-| **Naming constraints** | Required output key names, casing, downstream column names | Use the customer's catalog names verbatim where possible |
+| **Answer keys** (ground-truth JSON in runner output shape) | Enables `score_extraction.py` scoring and the per-field accuracy bar | Defer accuracy claims; do shape-only proof |
+| **Naming constraints** | Required output key names, casing, downstream column names | Keep the customer-facing YAML/JSON key when possible; choose a safe `workflow_output_key` for custom outputs |
 | **Null semantics** | Which fields are legitimately blank vs. always present; how "not applicable" is encoded | Treat all fields as possibly-null; confirm before scoring |
 
 Also confirm, per `customer-onboarding.md`: document type and business outcome,
@@ -34,13 +34,17 @@ Turn the catalog into a flat inventory the agent reasons over. For each field
 record:
 
 - **field name** — the customer's name; this becomes the YAML key and JSON output key
+  inside the final group when it is valid for the desired output contract
 - **scope** — `singleton` (appears once per document) or `repeating` (one value per
-  record in a list). Scope decides the group: singletons go in a `chunk-instruct`
-  group; repeating fields go in a `chunk-keys` / `chunk-summary` group
+  record in a list). Scope decides the custom step kind: singletons use
+  `kind: instruct`; repeating records use `kind: keys` or `kind: summary`
 - **null rule** — always present, sometimes null, or never null. Records the
   null-vs-miss expectation `score_extraction.py` uses (legitimate null = PASS, not a miss)
 - **required output name** — the exact key the downstream system expects, if it
-  differs from the catalog label
+  differs from the catalog label. This is separate from `workflow_output_key`,
+  which is an internal custom-output key and must match
+  `^[a-z][a-z0-9_]{0,63}$`. If the customer-facing key is not safe for custom
+  outputs, keep it as the YAML field key and choose a safe `workflow_output_key`.
 
 Cross-check the catalog against the sample documents: every catalog field should
 be locatable on a sample, and any field on the sample that the catalog omits is a
@@ -50,24 +54,17 @@ samples — see `3_prompt_pipeline.md` §6.3 decision rules.
 
 ## 3. Inventory → draft `prompt.yaml`
 
-### 3.1 Choose domain or explicit slots
+### 3.1 Choose workflow steps
 
-Group the inventory by scope, then resolve each group's workflow slot — the
-compiler is domain-agnostic and needs one of two routes per `2_schema_design.md`:
-
-- **Known domain:** if the document fits a domain with a profile
-  (`templates/domains/<domain>.yaml`, e.g. `invoice`), declare a top-level
-  `domain:` and use the profile's group names; the profile maps each group to a
-  slot. For billing/invoice documents, `domain: invoice` gives
-  `statement`→`chunk-instruct`, `charges`→`chunk-keys`, `meters`→`chunk-summary`.
-- **No profile:** declare an explicit `slot:` on each group from the proven menu
-  (`chunk-instruct` singleton, `chunk-keys` / `chunk-summary` repeating arrays).
-  Group names are arbitrary; only the slot is constrained. One group per slot.
+Group the inventory by scope, then choose how each workflow group executes.
+Harness-authored YAML sets top-level `extraction_policy_version: v1`, defines
+top-level `workflow.custom_steps`, assigns groups with `workflow_step: <name>`,
+and puts `workflow_output_key` on each routed field. Keep each executable
+custom step to 20 fields or fewer.
 
 Do not force an unrelated document into invoice-shaped group names. A claim form,
-contract, or schedule declares its own group names plus explicit slots, or earns
-a new domain profile (a data file, no compiler change — see `2_schema_design.md`
-§1).
+contract, or schedule should use group names that match the desired JSON output
+and custom steps that match the extraction shape; see `2_schema_design.md` §1.
 
 ### 3.2 Write field prompts
 
@@ -93,21 +90,31 @@ Ask, per repeating group and per cross-group relationship:
 | "When are two of these records actually the same record?" | dedup: collapse records sharing the identifying attrs | `unique_attrs: [..]` |
 | "Does a record in group A point at a record in group B? On what?" | cross-group link (foreign key) between groups | `match_attrs: [..]` |
 | "If the same field shows two different values, do you want both flagged?" | surface disagreeing values instead of silently picking one | `conflict_attrs: [..]` |
-| "Should a parent field be copied onto each child record?" | propagate parent fields across a relationship | `passthrough: [..]` |
+| "Should a parent field be copied onto each child record?" | propagate parent fields across a relationship | `passthrough: {from: <parent_group>, fields: [..]}` |
 
 These are declarative lists of attribute (field) names attached to the group in
 the YAML, alongside `fields:` and `prompt:`:
 
 ```yaml
+workflow:
+  custom_steps:
+    - name: charge_lines
+      level: chunk
+      kind: keys
+
 charges:
-  slot: chunk-keys
+  workflow_step: charge_lines
   unique_attrs: [charge_description_as_printed, charge_amount]   # dedup identical rows
   match_attrs: [meter_number]                                    # link to the meters group
   conflict_attrs: [charge_amount]                                # flag disagreeing amounts
-  passthrough: [account_number]                                  # copy from the statement group
+  passthrough: {from: statement, fields: [account_number]}        # copy from the statement group
   fields:
-    charge_description_as_printed: { prompt: { ... } }
-    charge_amount: { prompt: { ... } }
+    charge_description_as_printed:
+      workflow_output_key: charge_description_as_printed
+      prompt: { ... }
+    charge_amount:
+      workflow_output_key: charge_amount
+      prompt: { ... }
 ```
 
 Every attr name must be a field that exists in the inventory/YAML. Record only

@@ -27,7 +27,7 @@ applied to the same document — produces the same extraction.
 └────────────┘                      │
                                     ▼
                             ┌──────────────┐
-                            │ output.json  │
+                            │ output.json  │ raw get_extract when available
                             └──────┬───────┘
                                    │ python score_extraction.py
                                    ▼
@@ -62,7 +62,7 @@ Before the loop runs, the working directory must have:
 8. `requirements.txt` — copied from
    `skills/groundx-extraction-workflows/templates/requirements.txt`
 9. The input PDF (named anything; pass the path as needed)
-10. A ground truth file: CSV (preferred for v1) or JSON
+10. A ground truth answer-key JSON file in the runner output shape
 
 A throwaway working directory under `/tmp` is fine for one-shot
 extractions. A persistent directory (e.g.
@@ -83,21 +83,29 @@ anatomy. Author the YAML based on:
   provided, the keys in the ground truth)
 - One worked example to look at the document and identify each field's
   visual identifiers and edge cases
-- The two-group convention: `statement:` for per-document fields,
-  `charges:` for repeating records
+- Final groups that match the customer-facing JSON shape. Invoice-like
+  documents often use `statement`, `charges`, and optional `meters`; claim
+  forms, contracts, schedules, and other document types should use
+  domain-aligned names such as `claim` and `line_items`.
+- Matching `workflow.custom_steps` and either direct groups with group-level
+  `workflow_step` plus `workflow_output_key`, or `_pseudo_groups` with
+  `workflow_step` plus `path` routes.
 
-If the document type does not fit either shape, see "When you have
-neither" in `2_schema_design.md`.
+If the document shape does not fit singleton objects or repeating record
+lists, see `2_schema_design.md` §1.5.
 
 ### 3.2 Compile to workflow JSON
 
 ```bash
 python compile_workflow.py prompt.yaml > workflow.json
+python validate_workflow_json.py workflow.json
 ```
 
 `compile_workflow.py` is offline — it does not call any GroundX API.
 It loads the YAML, renders the field-spec text, and emits the
 workflow JSON in the exact shape the GroundX workflow API accepts.
+`validate_workflow_json.py` must pass before workflow create/update, MCP
+registration, or ingest.
 
 The resulting `workflow.json` is the durable artifact for this run.
 Diff it across iterations to see exactly what the prompts look like
@@ -132,7 +140,10 @@ Use `--dry-run` first when you want compile/validation and planned actions
 without a live API call.
 
 **Full local run:** when you need deploy + ingest + poll + X-Ray +
-extract output, use `run_extraction.py`.
+extract output, use `run_extraction.py`. It writes `output.json` only for the
+raw GroundX `get_extract` payload. If raw extract is unavailable, it writes
+`xray_diagnostic.json` and `final_output.json` instead. Add
+`--require-raw-extract` when missing `output.json` should fail the run.
 
 **Interactive agent path:** when an agent is operating inside Claude or
 Codex and GroundX MCP tools are visible, follow the `groundx-api`
@@ -165,16 +176,18 @@ The manual operation loop is:
    ingest produced. Save the JSON.
 
 ```bash
-# After running steps 1-5 via groundx-api, you have output.json
+# After running steps 1-5 via groundx-api, save raw get_extract as output.json.
 ```
 
 ### 3.4 Compare to ground truth
 
 ```bash
-python score_extraction.py output.json ground_truth.csv
+python score_extraction.py output.json answer_key.json
+# If you are intentionally scoring local diagnostic output:
+python score_extraction.py final_output.json answer_key.json
 ```
 
-The comparator emits a structured report: PASS / FAIL / WARN per
+The comparator reads JSON answer keys and emits a structured report: PASS / FAIL / WARN per
 field, with the expected and extracted values for any non-PASS row.
 See §2 in `5_validation.md` for what each verdict means and how the
 comparison logic treats casing, dates, floats, and arrays.
@@ -221,7 +234,13 @@ with a note.
 
 - `prompt.yaml` — the durable artifact. Version it, share it, fork it
   as the starting point for related document types.
-- `output.json` — the extraction for this specific PDF.
+- `output.json` — the raw GroundX extraction for this specific PDF, when
+  `get_extract` is available.
+- `xray.json` — the raw X-Ray evidence captured by the runner.
+- `xray_diagnostic.json` — local reconstruction from X-Ray, written only when
+  raw extract is unavailable.
+- `final_output.json` — local diagnostic/business-logic output, written only
+  when produced.
 - The accuracy report — captures the field-by-field state at the time
   the YAML was finalized.
 

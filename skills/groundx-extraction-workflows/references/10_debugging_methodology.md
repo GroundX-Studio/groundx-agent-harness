@@ -73,7 +73,28 @@ Debugging path the discipline would have taken (≈5 minutes, 0 ingests):
 - **`compare-report.txt`** — per-field PASS/FAIL diff against the
   answer key. Identifies which fields regressed.
 
-## 10.4 Prompt-manager debug loop
+## 10.4 Relationship failures
+
+When a meter, charge, line item, or other related record is missing,
+duplicated, or attached to the wrong parent, debug the relationship before
+rewriting prompts:
+
+1. Inspect the source document and find the printed values that should link the
+   records.
+2. Inspect X-Ray to see whether those values were parsed and extracted.
+3. Check whether the answer key uses the printed value or a normalized system
+   value.
+4. Check the final JSON shape and the final-group metadata that drives dedupe,
+   matching, conflict surfacing, and passthrough.
+5. Check any custom manager code that passes metadata into reconcile, QA, or
+   post-extraction logic.
+
+Common evidence problems include OCR or model ambiguity (`I` vs `1`, `O` vs
+`0`), a value appearing on one page but not the page that contains the related
+record, and an answer key that stores a customer system value instead of the
+printed document value.
+
+## 10.5 Prompt-manager debug loop
 
 For quickstart-style projects that use `manager.py`, `simple.yaml`, and
 extract/reconcile/QA prompt modules, debug the run before rewriting prompts:
@@ -89,7 +110,7 @@ extract/reconcile/QA prompt modules, debug the run before rewriting prompts:
 This keeps the today-path manager executable while preserving the future goal:
 one YAML-driven `groundx-python/extract` abstraction.
 
-## 10.5 Cross-references
+## 10.6 Cross-references
 
 - `references/9_testing_methodology.md` — verifying changes work
   proactively; this reference is for investigating why they don't
