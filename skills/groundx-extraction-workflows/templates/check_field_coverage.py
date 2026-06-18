@@ -31,37 +31,12 @@ import typing
 
 import yaml
 
-
-# Group-config keys that are not field names. Field names are the keys under a
-# group's `fields:` block; everything else is structural or business-logic
-# metadata.
-_GROUP_META_KEYS = {
-    "fields",
-    "prompt",
-    "workflow_step",
-    "unique_attrs",
-    "match_attrs",
-    "conflict_attrs",
-    "passthrough",
-}
-_RESERVED_TOP_LEVEL_KEYS = {"workflow", "_defs", "_pseudo_groups"}
+import compile_workflow
 
 
 def yaml_field_names(doc: typing.Any) -> typing.Set[str]:
-    """Collect every field key declared across the YAML's groups."""
-    names: typing.Set[str] = set()
-    if not isinstance(doc, dict):
-        return names
-    for group_name, cfg in doc.items():
-        if group_name in _RESERVED_TOP_LEVEL_KEYS or not isinstance(cfg, dict):
-            continue
-        fields = cfg.get("fields")
-        if isinstance(fields, dict):
-            names.update(str(k) for k in fields.keys())
-        else:
-            # Tolerate a group written as a bare field map (no `fields:` block).
-            names.update(str(k) for k in cfg.keys() if k not in _GROUP_META_KEYS)
-    return names
+    """Collect final field keys after compiler source validation."""
+    return compile_workflow.source_yaml_field_names(doc)
 
 
 def _catalog_from_json(data: typing.Any) -> typing.List[str]:

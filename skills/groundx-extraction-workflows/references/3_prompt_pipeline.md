@@ -41,6 +41,8 @@ The SDK parses the YAML into a typed data model:
 
 - Top-level `extraction_policy_version: v1` selects the supported custom
   workflow YAML contract.
+- `workflow.agent_chain` defines the runtime task schedule and must cover every
+  executable workflow group.
 - Real top-level YAML groups define the final data object.
 - `_defs`, when present, expands into final groups before workflow routing.
 - `_pseudo_groups`, when present, define workflow-only groups that route back to

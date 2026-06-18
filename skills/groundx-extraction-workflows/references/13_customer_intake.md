@@ -59,8 +59,9 @@ samples — see `3_prompt_pipeline.md` §6.3 decision rules.
 Group the inventory by scope, then choose how each workflow group executes.
 Harness-authored YAML sets top-level `extraction_policy_version: v1`, defines
 top-level `workflow.custom_steps`, assigns groups with `workflow_step: <name>`,
-and puts `workflow_output_key` on each routed field. Keep each executable
-custom step to 20 fields or fewer.
+puts `workflow_output_key` on each directly routed field, and declares
+`workflow.agent_chain` with one branch per executable workflow group. Keep each
+executable custom step to 30 fields or fewer.
 
 Do not force an unrelated document into invoice-shaped group names. A claim form,
 contract, or schedule should use group names that match the desired JSON output
@@ -73,7 +74,7 @@ For each inventory field, write the field anatomy from `2_schema_design.md` §2:
 (one concrete rule per line, grounded in the samples), `type`, and `format` for
 dates/codes. For repeating groups, add the group-level `prompt.instructions`
 that distinguishes a real record from a subtotal/header (`2_schema_design.md`
-§3). Keep each group ≤ 20 fields (`2_schema_design.md` §1.5).
+§3). Keep each group ≤ 30 fields (`2_schema_design.md` §1.5).
 
 ## 4. The chat step — capturing business logic
 
@@ -96,11 +97,17 @@ These are declarative lists of attribute (field) names attached to the group in
 the YAML, alongside `fields:` and `prompt:`:
 
 ```yaml
+extraction_policy_version: v1
+
 workflow:
   custom_steps:
     - name: charge_lines
       level: chunk
       kind: keys
+  agent_chain:
+    - parallel:
+        - group: charges
+          chain: [reconcile_charges, save_charges]
 
 charges:
   workflow_step: charge_lines

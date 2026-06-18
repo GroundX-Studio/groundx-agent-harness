@@ -83,6 +83,12 @@ RESERVED_TOP_LEVEL_KEYS = {
     "_groundx_persisted_extract",
     "_pseudo_groups",
 }
+_SOURCE_WORKFLOW_KEYS = {
+    "agent_chain",
+    "custom_steps",
+    "section_strategy",
+    "template",
+}
 
 # Per-group keys consumed locally: custom workflow selectors plus client-side
 # business-logic metadata applied by templates/business_logic.py after extraction.
@@ -242,6 +248,175 @@ def _contains_include(obj: typing.Any) -> bool:
     return False
 
 
+def _ensure_mapping(value: typing.Any, path: str) -> dict:
+    if not isinstance(value, dict):
+        raise ValueError(f"Expected mapping at [{path}], got {type(value)}")
+    return typing.cast(dict, value)
+
+
+def _ensure_fields_mapping(value: typing.Any, path: str) -> dict:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(f"Expected fields mapping at [{path}], got {type(value)}")
+    return typing.cast(dict, value)
+
+
+def _normalize_include(value: typing.Any, path: str) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list) and all(isinstance(item, str) for item in value):
+        return typing.cast(list[str], value)
+    raise ValueError(f"Expected string or string list at [{path}]")
+
+
+def _merge_fields(target: dict, incoming: dict, path: str) -> None:
+    for field_name, field_value in incoming.items():
+        if field_name in target:
+            raise ValueError(f"duplicate final field name [{path}.{field_name}]")
+        target[field_name] = copy.deepcopy(field_value)
+
+
+def _compose_def_fields(defs: dict, name: str, stack: tuple[str, ...]) -> dict:
+    if name not in defs:
+        raise ValueError(f"unknown _defs include [{name}]")
+    if name in stack:
+        cycle = " -> ".join([*stack, name])
+        raise ValueError(f"cyclic _defs include [{cycle}]")
+
+    fragment = _ensure_mapping(defs[name], f"_defs.{name}")
+    unsupported = set(fragment) - {"include", "fields"}
+    if unsupported:
+        raise ValueError(
+            f"unsupported _defs keys at [_defs.{name}]: {sorted(unsupported)}"
+        )
+
+    fields: dict = {}
+    for include_name in _normalize_include(fragment.get("include"), f"_defs.{name}.include"):
+        _merge_fields(
+            fields,
+            _compose_def_fields(defs, include_name, (*stack, name)),
+            f"_defs.{name}",
+        )
+    _merge_fields(
+        fields,
+        _ensure_fields_mapping(fragment.get("fields"), f"_defs.{name}.fields"),
+        f"_defs.{name}",
+    )
+    return fields
+
+
+def _compose_group_fields(group_name: str, group_data: dict, defs: dict) -> dict:
+    group = copy.deepcopy(group_data)
+    fields: dict = {}
+    for include_name in _normalize_include(group.pop("include", None), f"{group_name}.include"):
+        _merge_fields(fields, _compose_def_fields(defs, include_name, ()), group_name)
+    _merge_fields(
+        fields,
+        _ensure_fields_mapping(group.get("fields"), f"{group_name}.fields"),
+        group_name,
+    )
+    group["fields"] = fields
+    return group
+
+
+def _assert_required_v1_source_metadata(raw: dict, source: str) -> None:
+    if raw.get("extraction_policy_version") != "v1":
+        raise ValueError(
+            f"{source}: harness source YAML must declare extraction_policy_version: v1"
+        )
+
+    workflow = raw.get("workflow")
+    if not isinstance(workflow, dict):
+        raise ValueError(f"{source}: workflow.custom_steps is required for harness workflow YAML")
+
+    unsupported = set(workflow) - _SOURCE_WORKFLOW_KEYS
+    if unsupported:
+        raise ValueError(
+            f"{source}: unsupported workflow keys: {sorted(unsupported)}"
+        )
+
+    custom_steps = workflow.get("custom_steps")
+    if not isinstance(custom_steps, list) or not custom_steps:
+        raise ValueError(f"{source}: workflow.custom_steps must be a non-empty list")
+
+    agent_chain = workflow.get("agent_chain")
+    if not isinstance(agent_chain, list) or not agent_chain:
+        raise ValueError(f"{source}: workflow.agent_chain must be a non-empty list")
+
+
+def _assert_no_pseudo_group_include(raw: dict, source: str) -> None:
+    pseudo_groups = raw.get("_pseudo_groups")
+    if not isinstance(pseudo_groups, dict):
+        return
+    for group_name, group_data in pseudo_groups.items():
+        if isinstance(group_data, dict) and "include" in group_data:
+            raise ValueError(
+                f"{source}: pseudo group '{group_name}' must not use include; "
+                "put include on a final group and route pseudo fields with path."
+            )
+
+
+def _assert_no_nested_final_fields(raw: dict, source: str) -> None:
+    for group_name, group_data in _workflow_group_items(raw):
+        for field_path, field_data in _walk_field_items(group_data.get("fields")):
+            if len(field_path) > 1:
+                dotted_path = ".".join((group_name, *field_path))
+                raise ValueError(
+                    f"{source}: nested final fields are not supported by the "
+                    f"harness runtime route parser: {dotted_path}"
+                )
+            if isinstance(field_data.get("fields"), dict):
+                dotted_path = ".".join((group_name, *field_path))
+                raise ValueError(
+                    f"{source}: nested final fields are not supported by the "
+                    f"harness runtime route parser: {dotted_path}"
+                )
+
+
+def _normalize_source_yaml(raw: dict, source: str) -> dict:
+    _assert_required_v1_source_metadata(raw, source)
+    defs = raw.get("_defs")
+    if defs is None:
+        defs = {}
+    else:
+        defs = _ensure_mapping(defs, "_defs")
+        for name in defs:
+            _compose_def_fields(defs, str(name), ())
+
+    normalized = copy.deepcopy(raw)
+    _assert_no_pseudo_group_include(normalized, source)
+    for group_name, group_data in list(_workflow_group_items(normalized)):
+        normalized[group_name] = _compose_group_fields(group_name, group_data, defs)
+    _assert_no_nested_final_fields(normalized, source)
+    return normalized
+
+
+def _validated_source_yaml(raw: dict, source: str) -> dict:
+    _assert_no_legacy_harness_metadata(raw, source)
+    normalized = _normalize_source_yaml(raw, source)
+    _assert_no_field_level_workflow_step(normalized, source)
+    _assert_pseudo_groups_are_routable(normalized, source)
+    _requires_custom_workflow_metadata(normalized, source)
+    _assert_routed_raw_fields_name_output_keys(normalized, source)
+    return normalized
+
+
+def source_yaml_field_names(doc: typing.Any, source: str = "<yaml>") -> set[str]:
+    if not isinstance(doc, dict):
+        return set()
+    normalized = _validated_source_yaml(doc, source)
+    _prepare_extraction_yaml_fallback(normalized, source)
+    names: set[str] = set()
+    for group_name, group_data in _workflow_group_items(normalized):
+        fields = group_data.get("fields")
+        if isinstance(fields, dict):
+            names.update(str(field_name) for field_name in fields)
+    return names
+
+
 def _assert_no_legacy_harness_metadata(raw: dict, source: str) -> None:
     if "domain" in raw:
         raise ValueError(
@@ -326,8 +501,10 @@ def _resolve_final_field(groups: dict, pointer: str, source: str) -> dict:
         segments = _json_pointer_segments(pointer)
     except ValueError as exc:
         raise ValueError(f"{source}: invalid pseudo-group path [{pointer}]") from exc
-    if len(segments) < 2:
-        raise ValueError(f"{source}: pseudo-group path [{pointer}] must target a final field")
+    if len(segments) != 2:
+        raise ValueError(
+            f"{source}: pseudo-group path [{pointer}] must target one flat final field"
+        )
 
     group_name = segments[0]
     group = groups.get(group_name)
@@ -335,12 +512,10 @@ def _resolve_final_field(groups: dict, pointer: str, source: str) -> dict:
         raise ValueError(f"{source}: pseudo-group path [{pointer}] targets unknown group")
 
     fields = group.get("fields")
-    field_data: typing.Any = None
-    for segment in (s for s in segments[1:] if s != "*"):
-        if not isinstance(fields, dict) or segment not in fields:
-            raise ValueError(f"{source}: pseudo-group path [{pointer}] targets unknown field")
-        field_data = fields[segment]
-        fields = field_data.get("fields") if isinstance(field_data, dict) else None
+    field_name = segments[1]
+    if not isinstance(fields, dict) or field_name not in fields:
+        raise ValueError(f"{source}: pseudo-group path [{pointer}] targets unknown field")
+    field_data: typing.Any = fields[field_name]
 
     if not isinstance(field_data, dict):
         raise ValueError(f"{source}: pseudo-group path [{pointer}] must target a field mapping")
@@ -444,7 +619,8 @@ def _assert_routed_raw_fields_name_output_keys(raw: dict, source: str) -> None:
         fields = group_data.get("fields")
         if not isinstance(fields, dict):
             continue
-        for field_name, field_data in fields.items():
+        for field_path, field_data in _walk_field_items(fields):
+            field_name = ".".join(field_path)
             if isinstance(field_data, dict) and "workflow_output_key" not in field_data:
                 raise ValueError(
                     f"{source}: routed field {group_name}.{field_name} must declare "
@@ -1112,6 +1288,8 @@ def _prepare_extraction_yaml_fallback(raw: dict, source: str) -> _PreparedExtrac
         "output_routes": routes,
         "leaf_fields": leaves,
     }
+    if workflow.get("section_strategy"):
+        workflow_metadata["section_strategy"] = workflow["section_strategy"]
     if workflow.get("template"):
         workflow_metadata["template"] = copy.deepcopy(workflow["template"])
     if field_counts:
@@ -1144,17 +1322,22 @@ def _prepare_schema(raw_yaml: str, source: str) -> typing.Any:
     raw = _safe_load_yaml(raw_yaml, source) or {}
     if not isinstance(raw, dict):
         raise ValueError(f"{source}: top-level YAML must be a mapping of groups")
-    _assert_no_legacy_harness_metadata(raw, source)
-    _assert_no_field_level_workflow_step(raw, source)
-    _assert_pseudo_groups_are_routable(raw, source)
-    _requires_custom_workflow_metadata(raw, source)
-    _assert_routed_raw_fields_name_output_keys(raw, source)
+    raw = _validated_source_yaml(raw, source)
 
-    if _sdk_prepare_extraction_yaml is None or "_pseudo_groups" in raw:
+    workflow_metadata = raw.get("workflow")
+    if (
+        _sdk_prepare_extraction_yaml is None
+        or "_pseudo_groups" in raw
+        or (
+            isinstance(workflow_metadata, dict)
+            and "section_strategy" in workflow_metadata
+        )
+    ):
         return _prepare_extraction_yaml_fallback(raw, source)
 
+    prepared_raw_yaml = yaml.safe_dump(raw, sort_keys=False)
     return _sdk_prepare_extraction_yaml(
-        raw_yaml,
+        prepared_raw_yaml,
         top_level_metadata_keys=_TOP_LEVEL_METADATA_KEYS,
         final_group_metadata_keys=_FINAL_GROUP_METADATA_KEYS,
         workflow_group_metadata_keys=_WORKFLOW_GROUP_METADATA_KEYS,
@@ -1377,6 +1560,7 @@ def workflow_sdk_kwargs(workflow: dict) -> dict:
     kwargs = {
         "name": workflow["name"],
         "chunk_strategy": workflow.get("chunk_strategy"),
+        "section_strategy": workflow.get("section_strategy"),
         "extract": workflow.get("extract"),
         "steps": workflow.get("steps"),
     }
@@ -1437,6 +1621,7 @@ def build_workflow_artifacts(
         workflow = {
             "name": resolved_name,
             "chunk_strategy": "element",
+            "section_strategy": custom_metadata.get("section_strategy"),
             "extract": _to_dict(persisted_extract),
             "steps": _empty_workflow_steps(),
             **_custom_workflow_body_fields(custom_metadata),

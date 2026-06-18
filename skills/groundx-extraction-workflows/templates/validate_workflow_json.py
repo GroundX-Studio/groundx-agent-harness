@@ -53,7 +53,7 @@ REQUIRED_SLOTS = [
 
 REQUIRED_VARIANTS = ["all", "figure", "paragraph", "json", "table", "table-figure"]
 CUSTOM_STEP_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
-CUSTOM_WORKFLOW_MAX_FIELDS = 20
+CUSTOM_WORKFLOW_MAX_FIELDS = 30
 CUSTOM_OUTPUT_MAPS = {
     "chunk": "customChunkOutputs",
     "section": "customSectionOutputs",
@@ -338,7 +338,8 @@ def _validate_custom_workflow(workflow: dict) -> typing.List[str]:
     for step_name, count in field_counts.items():
         if count > CUSTOM_WORKFLOW_MAX_FIELDS:
             errors.append(
-                f"custom step {step_name} owns {count} fields; at most 20 fields "
+                f"custom step {step_name} owns {count} fields; "
+                f"at most {CUSTOM_WORKFLOW_MAX_FIELDS} fields "
                 "may route to one executable workflow step"
             )
 
