@@ -31,7 +31,7 @@ import typing
 import dotenv
 from groundx import GroundX
 
-from compile_workflow import build_workflow_artifacts
+from compile_workflow import build_workflow_artifacts, workflow_sdk_kwargs
 from validate_workflow_json import validate
 
 
@@ -187,24 +187,18 @@ def _find_bucket_id_by_name(gx: GroundX, bucket_name: str) -> int:
 def _create_or_update_workflow(
     gx: GroundX,
     workflow: dict[str, typing.Any],
+    yaml_path: str,
     workflow_id: str | None,
 ) -> tuple[str, str, typing.Any]:
+    kwargs = workflow_sdk_kwargs(workflow)
     if workflow_id:
         response = gx.workflows.update(
             workflow_id,
-            name=workflow["name"],
-            chunk_strategy=workflow.get("chunk_strategy"),
-            extract=workflow.get("extract"),
-            steps=workflow.get("steps"),
+            **kwargs,
         )
         return workflow_id, "updated", response
 
-    response = gx.workflows.create(
-        name=workflow["name"],
-        chunk_strategy=workflow.get("chunk_strategy"),
-        extract=workflow.get("extract"),
-        steps=workflow.get("steps"),
-    )
+    response = gx.workflows.create(**kwargs)
     return _workflow_id(response), "created", response
 
 
@@ -289,6 +283,7 @@ def main() -> int:
     workflow_id, workflow_action, workflow_response = _create_or_update_workflow(
         gx,
         workflow,
+        args.yaml,
         args.workflow_id,
     )
 

@@ -17,13 +17,13 @@ a coherent iteration milestone informed by real customer use cases. The
   gate so public docs stay customer-facing: use the SDK-level `client.ingest(...)`
   path, show the JSON result, and avoid exposing harness/compiler internals such
   as workflow routing syntax unless the user explicitly asks for SDK internals.
-- **Extraction YAML pseudo groups.** `compile_workflow.py` consumes the SDK
-  `prepare_extraction_yaml()` contract when available, preserves legacy no-pseudo
-  YAML through a guarded fallback, compiles prepared workflow groups, supports
-  same-slot workflow groups with combined prompts, and emits
-  `extraction_workflow_metadata_v1.json` for Arcadia reassembly. The extraction
-  references now distinguish final groups from workflow-only pseudo groups and
-  add `references/workflow-how-to.md`.
+- **Extraction YAML custom workflow contract.** `compile_workflow.py` consumes the SDK
+  `prepare_extraction_yaml()` contract when available, requires harness-authored
+  custom workflow metadata, compiles prepared workflow groups, and emits
+  `extraction_workflow_metadata_v1.json` for diagnostics. The extraction
+  references now support direct real workflow groups and `_pseudo_groups` for
+  split/recombine, while rejecting `slot:`, `domain:`, and field-level
+  `workflow_step`.
 - **Field-level scoring within repeating records.** `score_extraction.py`
   scores each field inside a matched record (not all-or-nothing) with miss-type
   classification (not-found / field-mismatch / expected-null); the batch rollup
@@ -44,16 +44,19 @@ a coherent iteration milestone informed by real customer use cases. The
 - **Fixes.** Repaired `prompt_manager.py` (imported builders the compiler
   refactor had removed) and added `test_imports.py` so import-time breakage in
   any template fails loudly.
+- **Fixture guardrails.** Utility charge rows now use the platform-locked
+  `charge_description_as_printed` field, and the non-invoice insurance fixture
+  includes an answer key so promoted examples prove compile, route shape, and
+  scoring.
 
 ## 0.2.0 — domain-agnostic e2e runner
 
-End-to-end, domain-agnostic extraction validated against real customer data
-(extraction-runner-e2e). Highlights:
+Historical milestone for the first domain-agnostic extraction runner. The current
+Unreleased contract above supersedes the older slot/domain authoring path.
+Highlights from that milestone:
 
-- **Domain-agnostic compiler.** No hardcoded group names; each group resolves
-  its slot via an explicit `slot:` or a top-level `domain:` profile
-  (`templates/domains/<domain>.yaml`), then errors. Invoice profile reproduces
-  the prior mapping byte-for-byte.
+- **Domain-agnostic compiler.** No hardcoded group names; at this milestone each
+  group resolved through the older `slot:` or `domain:` compatibility path.
 - **Generalized, null-aware comparison.** `score_extraction.py` scores arbitrary nested
   groups, pairs records by field overlap (no per-domain match key), and
   distinguishes a legitimately-null answer-key field from an extraction miss.
@@ -75,15 +78,13 @@ End-to-end, domain-agnostic extraction validated against real customer data
   statement fields; a second customer 94% on singletons). Remaining ceilings are
   answer-key data quality + record-level scoring granularity (tracked).
 
-Tier coverage today: **basic**. Single-stage extraction (extract →
+Tier coverage at that milestone: **basic**. Single-stage extraction (extract →
 compare → iterate). Advanced tier (reconcile + QA, multi-stage agents)
 is the subject of in-progress work informed by internal multi-stage
 extraction implementations.
 
-Schema scope today: **single billing example**. Group names
-`statement`, `charges`, and `meters` are wired into
-`templates/compile_workflow.py`. The planned progression for future
-minor versions:
+Schema scope at that milestone: **single billing example**. The planned
+progression was:
 
 1. **Single worked example** (current).
 2. **Schema-family generalization in the same domain**. Validates that

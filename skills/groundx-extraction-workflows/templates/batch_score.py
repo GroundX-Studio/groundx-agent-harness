@@ -8,9 +8,14 @@ after tweaking an answer key, the comparison/aliasing logic, or just to score
 the same run on another machine — without paying for ingest again.
 
     python batch_score.py <run_dir> --keys-dir answer_keys/ [--manifest m.csv] [--out run_dir]
+    python batch_score.py <run_dir> --keys-dir answer_keys/ --artifact-kind final
 
-Reads each `<doc>.extracted.json` in <run_dir> (the X-Ray-derived extraction
-captured by the live run) + its answer key, then writes:
+By default, reads each raw `<doc>.extracted.json` in <run_dir> + its answer key.
+Use `--artifact-kind final` only when you deliberately want to score
+`<doc>.final_output.json`, the local diagnostic/business-logic output. It does
+not silently score `<doc>.xray_diagnostic.json`.
+
+Then writes:
     <out>/<doc>.accuracy.json        per-document field-level report
     <out>/aggregated.accuracy.json   consolidated report across the set
 
@@ -165,19 +170,26 @@ def aggregate_reports(
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("run_dir", help="dir of captured <doc>.extracted.json (a batch_extraction --out)")
+    p.add_argument("run_dir", help="dir of captured artifacts (a batch_extraction --out)")
     p.add_argument("--keys-dir", required=True, help="dir of answer keys (<doc>.json)")
     p.add_argument("--manifest", default=None, help="csv with filename + dimension columns")
     p.add_argument("--out", default=None, help="output dir for reports (default: run_dir)")
+    p.add_argument(
+        "--artifact-kind",
+        choices=("raw", "final"),
+        default="raw",
+        help="raw scores <doc>.extracted.json; final scores <doc>.final_output.json",
+    )
     args = p.parse_args()
 
     out_dir = args.out or args.run_dir
     os.makedirs(out_dir, exist_ok=True)
     manifest = score.load_manifest(args.manifest)
+    suffix = ".extracted.json" if args.artifact_kind == "raw" else ".final_output.json"
 
     per_doc = []
-    for ext_path in sorted(glob.glob(os.path.join(args.run_dir, "*.extracted.json"))):
-        base = os.path.basename(ext_path)[: -len(".extracted.json")]
+    for ext_path in sorted(glob.glob(os.path.join(args.run_dir, f"*{suffix}"))):
+        base = os.path.basename(ext_path)[: -len(suffix)]
         key_path = score.find_answer_key(args.keys_dir, base)
         if not key_path:
             print(f"skip {base}: no answer key", file=sys.stderr)
@@ -191,7 +203,7 @@ def main() -> int:
             json.dump(aggregate_reports([{"doc": base, "report": report}]), f, indent=2, default=str)
 
     if not per_doc:
-        print(f"no <doc>.extracted.json with answer keys under {args.run_dir}", file=sys.stderr)
+        print(f"no <doc>{suffix} with answer keys under {args.run_dir}", file=sys.stderr)
         return 2
 
     agg = aggregate_reports(per_doc, manifest)

@@ -10,7 +10,7 @@ and what to prove.
 |---|---|---|---|---|
 | **New field / concept** | add `delivery_point_id`; tighten a null rule | one field def in `prompt.yaml` | none | re-compile; re-compare the touched field |
 | **New use case in a domain** | utility bill → telecom invoice; add dedup/link rules | `prompt.yaml` fields + per-group business-logic metadata | none | re-compile; the metadata changes the post-extraction output |
-| **New domain** | invoice → insurance claim | new `examples/<domain>/` + a domain profile **or** explicit per-group `slot:`, + a smoke eval | none unless a new primitive is needed | the smoke fixture compiles |
+| **New domain** | invoice → insurance claim | new `examples/<domain>/` custom-step YAML + answer-key fixture + smoke eval | none unless a new primitive is needed | fixture compiles, validates routes, and scores its answer key |
 | **New primitive** | graph / sequencing linking the metadata can't express | a runner primitive in `templates/business_logic.py` | **yes — escalation signal** | a unit test for the primitive |
 
 The first three are declarative. Only the fourth — a genuinely new
@@ -46,26 +46,22 @@ capture, and `12_business_logic.md` for the primitive semantics.
 
 ### Axis 3 — new domain
 
-A new document family gets its own `examples/<domain>/` directory and resolves
-each group's slot one of two ways:
+A new document family gets its own `examples/<domain>/` directory and custom-step
+YAML. Define `workflow.custom_steps`, assign each group with
+`workflow_step: <name>`, and set `workflow_output_key` on routed fields. The
+compiler emits `customSteps`, `outputRoutes`, and `leafFields`, and local readback
+can map `customChunkOutputs`, `customSectionOutputs`, and
+`customDocumentOutputs` back to final JSON paths.
 
-- **Domain profile** — add `templates/domains/<domain>.yaml` mapping group names
-  to slots, then declare `domain: <domain>` in the YAML (like `invoice`).
-- **Explicit slots** — declare `slot:` on each group, no profile needed (like the
-  `insurance-claim` smoke fixture).
-
-Either way the group names are free; only the **slot** is constrained, to the
-three proven slots (`chunk-instruct`, `chunk-keys`, `chunk-summary` — see
-`2_schema_design.md`). A new domain needs **no runner code** unless it also needs
+Group names are free. A new domain needs **no runner code** unless it also needs
 a new primitive (axis 4).
 
 ### Axis 4 — new primitive (the only code path)
 
-A domain needs runner code only when it requires (1) more groups than proven
-slots, (2) a slot carrying multiple groups, (3) an aggregation kind the slot grid
-lacks, or (4) linking/sequencing the metadata vocabulary cannot express (computed
-totals, conditional rollups, multi-hop joins, unit conversions). Do **not** fork
-`business_logic.py` per customer. Log the gap and escalate — see
+A domain needs runner code only when it requires a linking or aggregation
+capability the metadata vocabulary cannot express (computed totals, conditional
+rollups, multi-hop joins, unit conversions). Do **not** fork
+`business_logic.py` per customer. Log the gap and escalate; see
 `12_business_logic.md` ("the primitive gap") and `6_known_limitations.md`. This is
 the signal that feeds the platform/SDK migration track.
 
@@ -77,27 +73,31 @@ paths; see `customer-onboarding.md`.
 
 ```
 examples/<domain>/
-  prompt.yaml            # domain: <domain> + metadata, OR explicit slot: per group
-  data/answer_key.json   # runner output shape, with at least one legitimate null
+  prompt.yaml            # custom-step workflow metadata + business metadata
+  data/answer_key.json   # runner output shape; include a legitimate null when the domain has one
   business_logic.md      # the "from chat" rules mapped to the metadata vocabulary
   README.md              # the end-to-end loop for this fixture
 ```
 
-A **compile-smoke** fixture (proving a non-invoice domain compiles) can be
-minimal — just `prompt.yaml` + `README.md`, no answer key (see
-`examples/insurance-claim/`).
+A new-domain fixture should include `prompt.yaml`, `README.md`, and
+`data/answer_key.json`. Compile-only proof is too shallow for promoted examples:
+it catches hardcoded group names, but not route/readback or scorer shape drift.
 
 ## Fitness gates that keep the compiler honest
 
-Two gates prevent silent re-hardcoding of the invoice group names:
+Three gates prevent silent re-hardcoding of the invoice group names and
+non-invoice scorer drift:
 
-1. **Non-invoice smoke compile** — a fixture whose group names are not invoice
-   names (`examples/insurance-claim/`) must compile to valid workflow JSON.
-2. **Field-coverage gate** — a YAML's fields must cover the target catalog's
+1. **Non-invoice compile + route shape** — a fixture whose group names are not
+   invoice names (`examples/insurance-claim/`) must compile to valid workflow
+   JSON, and its answer key must contain every compiled final route.
+2. **Non-invoice score smoke** — the same fixture's answer key must be valid
+   runner output shape for singleton and repeating groups.
+3. **Field-coverage gate** — a YAML's fields must cover the target catalog's
    fields (YAML fields ⊇ catalog fields).
 
 Run `python templates/compile_workflow.py <prompt.yaml>` to compile a fixture
-offline (exit 0 = pass; a bad slot or missing slot is a hard error). The skill
-eval suite asserts the smoke compile, generic-slot compile, field coverage,
+offline (exit 0 = pass; missing custom workflow metadata is a hard error). The
+skill eval suite asserts the smoke compile, custom-step compile, field coverage,
 null-vs-miss classification, and at least one business-logic primitive changing
 the output.

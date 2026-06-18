@@ -32,10 +32,7 @@ from groundx import Document, GroundX
 
 from compile_workflow import (
     build_workflow,
-    _repeating_request,
-    _repeating_task,
-    _singleton_request,
-    _singleton_task,
+    workflow_sdk_kwargs,
 )
 
 
@@ -59,6 +56,63 @@ def _to_plain_dict(obj: typing.Any) -> dict[str, typing.Any]:
     return dict(obj)
 
 
+def _value(obj: typing.Any, *names: str) -> typing.Any:
+    current = obj
+    for name in names:
+        if current is None:
+            return None
+        if isinstance(current, dict):
+            current = current.get(name)
+        else:
+            current = getattr(current, name, None)
+    return current
+
+
+def _workflow_id(response: typing.Any) -> str:
+    workflow_id = (
+        _value(response, "workflow", "workflow_id")
+        or _value(response, "workflow", "workflowId")
+        or _value(response, "workflow_id")
+        or _value(response, "workflowId")
+    )
+    if not workflow_id:
+        raise RuntimeError(f"workflow response did not include a workflow ID: {response!r}")
+    return str(workflow_id)
+
+
+def _singleton_request(field_specs: str) -> str:
+    return (
+        "Analyze the document content and return only a JSON object for these "
+        "fields:\n\n"
+        f"{field_specs}"
+    )
+
+
+def _singleton_task(field_descriptions: str) -> str:
+    return (
+        "Extract the requested per-document values. Exclude values that are not "
+        "visible or not supported by the evidence.\n\n"
+        f"{field_descriptions}"
+    )
+
+
+def _repeating_request(group_name: str, field_specs: str, group_definition: str) -> str:
+    return (
+        f"Analyze the document content and return only JSON with a `{group_name}` "
+        "array. Extract every visible record that matches this definition:\n\n"
+        f"{group_definition}\n\n"
+        f"{field_specs}"
+    )
+
+
+def _repeating_task(group_name: str, field_descriptions: str) -> str:
+    return (
+        f"Extract repeating records for `{group_name}`. Do not invent records. "
+        "Use only the requested field keys.\n\n"
+        f"{field_descriptions}"
+    )
+
+
 class ExtractionWorkflowManager:
     """Small adapter around GroundX workflow lifecycle for extraction pilots."""
 
@@ -76,8 +130,16 @@ class ExtractionWorkflowManager:
         workflow = self.workflow_body(yaml_path=yaml_path, workflow_name=workflow_name)
         return typing.cast(dict[str, typing.Any], workflow.get("extract", {}))
 
+    def persisted_workflow_extract_dict(
+        self,
+        *,
+        yaml_path: str,
+        workflow_name: str | None = None,
+    ) -> dict[str, typing.Any]:
+        return self.workflow_extract_dict(yaml_path=yaml_path, workflow_name=workflow_name)
+
     # These per-group methods are the override points for a custom manager
-    # subclass (the EXTRACT_WRAPPER_MODULE convention). The defaults delegate to
+    # subclass. The defaults delegate to
     # the compiler's generic builders — `statement` is a singleton group,
     # `charges`/`meters` are repeating groups — so they track the domain-agnostic
     # compiler instead of bespoke per-group functions.
@@ -132,13 +194,8 @@ class ExtractionWorkflowManager:
 
     def init_prompts(self, *, yaml_path: str, workflow_name: str | None = None) -> str:
         workflow = self.workflow_body(yaml_path=yaml_path, workflow_name=workflow_name)
-        response = self.gx_client.workflows.create(
-            name=workflow["name"],
-            chunk_strategy=workflow.get("chunk_strategy"),
-            extract=workflow.get("extract"),
-            steps=workflow.get("steps"),
-        )
-        return response.workflow.workflow_id
+        response = self.gx_client.workflows.create(**workflow_sdk_kwargs(workflow))
+        return _workflow_id(response)
 
     def update_prompts(
         self,
@@ -149,16 +206,13 @@ class ExtractionWorkflowManager:
     ) -> str:
         workflow = self.workflow_body(yaml_path=yaml_path, workflow_name=workflow_name)
         self.gx_client.workflows.update(
-            workflow_id=workflow_id,
-            name=workflow["name"],
-            chunk_strategy=workflow.get("chunk_strategy"),
-            extract=workflow.get("extract"),
-            steps=workflow.get("steps"),
+            id=workflow_id,
+            **workflow_sdk_kwargs(workflow),
         )
         return workflow_id
 
     def check_workflow(self, *, workflow_id: str) -> dict[str, typing.Any]:
-        return _to_plain_dict(self.gx_client.workflows.get(workflow_id=workflow_id))
+        return _to_plain_dict(self.gx_client.workflows.get(id=workflow_id))
 
     def list_workflows(self) -> dict[str, typing.Any]:
         return _to_plain_dict(self.gx_client.workflows.list())

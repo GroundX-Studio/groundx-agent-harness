@@ -19,16 +19,20 @@ extraction, field by field, across the set — and where does it miss?".
 Run artifacts (written to --out, a self-contained, reproducible set):
   - `prompt.yaml`            — the schema this run used (copied verbatim).
   - `workflow.json`          — the exact compiled workflow it deployed.
-  - `<doc>.extracted.json`      — the extraction JSON per document.
+  - `<doc>.extracted.json`   — raw GroundX `get_extract` JSON when available.
   - `<doc>.xray.json`        — the raw X-Ray per document (cacheable input;
                                re-score with xray_to_extract → compare, NO re-ingest).
+  - `<doc>.xray_diagnostic.json` — local X-Ray reconstruction when raw extract is missing.
+  - `<doc>.final_output.json` — local diagnostic/business-logic output when produced.
   - `aggregated.accuracy.json`   — the consolidated field-level accuracy report.
   - `verify.log`             — structured run event log.
 
 Design notes:
   - ONE workflow + bucket for the whole batch (compiled/deployed once).
-  - Per document: ingest → poll → X-Ray → get_extract (or xray_to_extract
-    fallback) → apply business logic → compare against its answer key.
+  - Per document: ingest → poll → X-Ray → get_extract → optional local
+    X-Ray diagnostic/final output → compare against its answer key.
+  - Raw `<doc>.extracted.json` is scored by default. Use `--score-final-output`
+    to score local final output for runs where `get_extract` is unavailable.
   - `aggregate_reports()` is a pure function (unit-tested) so the scoring/rollup
     is verifiable without any API calls.
   - `--limit` and an explicit doc list keep live cost economical; iterate on a
@@ -53,15 +57,48 @@ dotenv.load_dotenv(dotenv.find_dotenv(usecwd=True))
 
 from groundx import Document, GroundX  # noqa: E402
 
-from compile_workflow import build_workflow_artifacts  # noqa: E402
+from compile_workflow import build_workflow_artifacts, workflow_sdk_kwargs  # noqa: E402
 import score_extraction as cmp  # noqa: E402
 from batch_score import aggregate_reports  # noqa: E402
-from run_extraction import _load_business_logic_metadata, _poll, extract_from_document  # noqa: E402
+from run_extraction import _load_business_logic_metadata, _poll, derive_extraction_artifacts  # noqa: E402
 from run_log import RunLog  # noqa: E402
 from validate_workflow_json import validate as validate_workflow  # noqa: E402
 
 
 # ── live batch orchestration ────────────────────────────────────────────────
+
+
+def _value(obj: typing.Any, *names: str) -> typing.Any:
+    current = obj
+    for name in names:
+        if current is None:
+            return None
+        if isinstance(current, dict):
+            current = current.get(name)
+        else:
+            current = getattr(current, name, None)
+    return current
+
+
+def _workflow_id(response: typing.Any) -> str:
+    workflow_id = (
+        _value(response, "workflow", "workflow_id")
+        or _value(response, "workflow", "workflowId")
+        or _value(response, "workflow_id")
+        or _value(response, "workflowId")
+    )
+    if not workflow_id:
+        raise RuntimeError(f"workflow response did not include a workflow ID: {response!r}")
+    return str(workflow_id)
+
+
+def _create_workflow(
+    gx: GroundX,
+    yaml_path: str,
+    workflow: dict[str, typing.Any],
+    workflow_name: str,
+) -> typing.Any:
+    return gx.workflows.create(**workflow_sdk_kwargs(workflow))
 
 
 def main() -> int:
@@ -75,6 +112,11 @@ def main() -> int:
     p.add_argument("--limit", type=int, default=0, help="max docs to process (0 = all)")
     p.add_argument("--manifest", default=None, help="csv with filename + dimension columns")
     p.add_argument("--add-to-account", action="store_true")
+    p.add_argument(
+        "--score-final-output",
+        action="store_true",
+        help="Score <doc>.final_output.json when raw <doc>.extracted.json is unavailable",
+    )
     p.add_argument("--poll-interval", type=int, default=15)
     p.add_argument("--max-polls", type=int, default=80)
     p.add_argument("--keep", action="store_true", help="keep workflow/bucket after run")
@@ -114,14 +156,14 @@ def main() -> int:
             json.dump(wf, f, indent=2, default=str)
         with open(os.path.join(args.out, "extraction_workflow_metadata_v1.json"), "w") as f:
             json.dump(extraction_metadata, f, indent=2, default=str)
-        created = gx.workflows.create(name=wf["name"], chunk_strategy=wf.get("chunk_strategy"),
-                                      extract=wf.get("extract"), steps=wf.get("steps"))
-        workflow_id = created.workflow.workflow_id
+        created = _create_workflow(gx, args.yaml, wf, workflow_name)
+        workflow_id = _workflow_id(created)
         if args.add_to_account:
             gx.workflows.add_to_account(workflow_id=workflow_id)
         bucket_id = gx.buckets.create(name=args.bucket_name).bucket.bucket_id
         gx.workflows.add_to_id(id=bucket_id, workflow_id=workflow_id)
         rl.event("verify.deployed", workflow_id=workflow_id, bucket_id=bucket_id)
+        workflow_extract = wf.get("extract")
 
         per_doc = []
         try:
@@ -134,20 +176,51 @@ def main() -> int:
                 ingest = gx.ingest(documents=[Document(bucket_id=bucket_id, file_path=doc_path,
                                                        file_name=os.path.basename(doc_path), file_type="pdf")])
                 document_id = _poll(gx, ingest.ingest.process_id, args.poll_interval, args.max_polls, rl)
-                # Same extract derivation as run_extraction (get_extract → X-Ray
-                # fallback → business logic), shared via extract_from_document.
-                extract, xray, _ = extract_from_document(gx, document_id, bl_meta, rl)
-                expected = cmp.load_answer_key(key_path)
-                report = cmp.compare_extraction(extract, expected)
-                per_doc.append({"doc": base, "report": report})
-                with open(os.path.join(args.out, f"{base}.extracted.json"), "w") as f:
-                    json.dump(extract, f, indent=2, default=str)
-                # Save the raw X-Ray too: it is the cacheable input that lets you
-                # re-score (xray_to_extract → compare) WITHOUT re-ingesting.
+                artifacts = derive_extraction_artifacts(
+                    gx,
+                    document_id,
+                    bl_meta,
+                    rl,
+                    workflow_extract=workflow_extract,
+                )
+                raw_extract = artifacts["raw_extract"]
+                diagnostic_extract = artifacts["diagnostic_extract"]
+                final_output = artifacts["final_output"]
+                xray = artifacts["xray"]
                 with open(os.path.join(args.out, f"{base}.xray.json"), "w") as f:
                     json.dump(xray, f, indent=2, default=str)
-                rl.event("verify.doc.done", doc=base,
-                         accuracy=report["summary"]["singleton"])
+                if raw_extract is not None:
+                    with open(os.path.join(args.out, f"{base}.extracted.json"), "w") as f:
+                        json.dump(raw_extract, f, indent=2, default=str)
+                if diagnostic_extract is not None:
+                    with open(os.path.join(args.out, f"{base}.xray_diagnostic.json"), "w") as f:
+                        json.dump(diagnostic_extract, f, indent=2, default=str)
+                if final_output is not None:
+                    with open(os.path.join(args.out, f"{base}.final_output.json"), "w") as f:
+                        json.dump(final_output, f, indent=2, default=str)
+
+                score_source = "raw"
+                score_extract = raw_extract
+                if score_extract is None and args.score_final_output:
+                    score_source = "final"
+                    score_extract = final_output
+                if score_extract is None:
+                    rl.event(
+                        "verify.doc.partial",
+                        doc=base,
+                        reason="raw get_extract unavailable; use --score-final-output to score local output",
+                    )
+                    continue
+
+                expected = cmp.load_answer_key(key_path)
+                report = cmp.compare_extraction(score_extract, expected)
+                per_doc.append({"doc": base, "report": report, "score_source": score_source})
+                rl.event(
+                    "verify.doc.done",
+                    doc=base,
+                    score_source=score_source,
+                    accuracy=report["summary"]["singleton"],
+                )
         finally:
             if not args.keep:
                 try:

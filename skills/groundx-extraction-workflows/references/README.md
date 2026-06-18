@@ -27,7 +27,7 @@ or planning a serious extraction pilot.
 | New customer pilot, sample-set requirements, answer-key readiness, API handoff expectations | `customer-onboarding.md`, then `1_extraction_loop.md` |
 | Optional OpenSpec structure for serious pilots | `openspec-pilots.md` |
 | Authoring or revising YAML schema | `2_schema_design.md` |
-| Choosing workflow slots and preserving RAG while extracting | `3_prompt_pipeline.md` |
+| Choosing custom workflow steps and preserving RAG while extracting | `3_prompt_pipeline.md` |
 | Wrapping YAML with custom extract/reconcile/QA prompt modules and managing prompt iterations today | `prompt-manager.md` |
 | Finished-YAML deployment decision: MCP vs deploy-only local script vs full local run | `deploy.md` |
 | Modifying compiler, deploy, or runner behavior | `4_sdk_integration.md` |
@@ -56,9 +56,8 @@ artifacts unless the customer explicitly approves sharing.
 When a customer or sample repo already has a `manager.py`, `simple.yaml`, and separate
 extract/reconcile/QA prompt modules, use `prompt-manager.md` instead of forcing those
 wrappers into inline compiler functions. The today path is a small manager adapter
-(`templates/prompt_manager.py`) plus optional `EXTRACT_WRAPPER_MODULE` support in
-`compile_workflow.py`; the future path is a single YAML-driven
-`groundx-python/extract` abstraction.
+(`templates/prompt_manager.py`) plus compiled workflow settings; the future path
+is a single YAML-driven `groundx-python/extract` abstraction.
 
 Use `deploy.md` and `deploy_workflow.py` when a finished YAML only needs workflow create/update and
 attachment through the GroundX Python SDK. Use `run_extraction.py` when you need ingest,

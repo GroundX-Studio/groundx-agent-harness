@@ -6,15 +6,40 @@ routinely need that. This skill supplies it as a small set of declarative,
 client-side primitives driven by final-group YAML metadata, applied **after**
 extraction by `templates/business_logic.py`.
 
-Runs client-side, not on the platform. The runner aggregates X-Ray chunk output
-into an extract dict shaped like `{<singleton scalar fields>,
-"account_charges": [...], "meters": [...]}` (see `templates/xray_to_extract.py`),
-then `run_extraction.py` calls `apply_business_logic(extract_dict, metadata)`
-before writing `output.json`. When `_pseudo_groups` are used, run this logic on
-the reassembled final data shape unless a workflow-scoped primitive is
+Runs client-side, not on the platform. For current custom workflows, the runner
+aggregates X-Ray output into the final customer-facing group shape such as
+`{"statement": {...}, "charges": [...], "meters": [...]}` (see
+`templates/xray_to_extract.py`), then `run_extraction.py` calls
+`apply_business_logic(extract_dict, metadata)` before writing
+`final_output.json`. `output.json` remains the raw GroundX `get_extract`
+payload when available. Run this logic on the final data shape unless a
+workflow-scoped primitive is
 explicitly documented. None of this metadata reaches the GroundX workflow:
 `compile_workflow.py` reads it from `PreparedExtractionYaml.final_group_metadata`
 and strips it from workflow groups, so the keys never become extract fields.
+
+## Final shape vs. workflow grouping
+
+Start with the JSON the customer wants, not the workflow execution plan. In an
+invoice-shaped extraction, a document-level `statement`, a list of `meters`,
+and a list of `charges` may be related by values such as account number, meter
+number, service address, or a charge label. Those relationships belong to the
+final groups and to the custom logic that consumes their metadata.
+
+Custom workflow steps do not create those relationships. They only decide how
+each real group executes on GroundX. Do not infer charge-to-meter matching,
+dedupe rules, passthrough, reconcile behavior, or QA scope from custom step
+names.
+
+For projects with a custom manager, pass the final-group metadata into the
+manager's reconcile, QA, and post-extraction steps explicitly. Keep these
+concepts separate:
+
+- final groups: the JSON keys the customer reads
+- workflow groups: how extraction work is assigned
+- route map: where each workflow field writes in the final JSON
+- relationship metadata: keys such as `unique_attrs`, `match_attrs`,
+  `conflict_attrs`, and `passthrough`
 
 ## 1. Metadata vocabulary
 
@@ -36,7 +61,7 @@ meters:
   fields:
     meter_number: {...}
     service_address: {...}
-account_charges:
+charges:
   unique_attrs: [meter_number, charge_amount]
   match_attrs: [meter_number]
   passthrough: {from: meters, fields: [service_address]}
@@ -45,9 +70,8 @@ account_charges:
     charge_amount: {...}
 ```
 
-Do not declare these keys under `_pseudo_groups`. Pseudo groups accept
-`prompt`, `fields`, and documented workflow metadata such as `slot`; final
-business metadata remains attached to final groups.
+Do not declare these keys under workflow custom step definitions. Final business
+metadata remains attached to final groups.
 
 ## 2. Primitives
 

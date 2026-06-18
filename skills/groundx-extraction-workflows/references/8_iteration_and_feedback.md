@@ -20,6 +20,25 @@ A typical customer onboarding has three phases:
 This document covers phase 2 (iteration journey) and the hand-off
 into phase 3 (compounding feedback).
 
+## 1.1 Answer-key uncertainty
+
+Treat the answer key as evidence, not as unquestionable truth. If the extracted
+value is visible in the source document but the answer key has a normalized,
+blank, sentinel, or database-derived value, pause before changing YAML prompts.
+
+Record the mismatch in the run notes with:
+
+- the source page or X-Ray chunk where the value appears
+- the extracted value
+- the answer-key value
+- the question that needs human confirmation
+
+Do not tune prompts to reproduce a suspected answer-key artifact. After the
+expected value is confirmed, make the smallest change: comparison normalization
+when the customer's expected format is valid, YAML prompt wording when the model
+picked the wrong source value, or business logic when the output shape needs a
+dedupe/link/passthrough rule.
+
 ## 2. Iteration budget
 
 ### 2.1 Default: 2 iterations max per working session
@@ -105,7 +124,10 @@ operational decision (privacy, retention, access control).
 ├── v1/
 │   ├── prompt.yaml                first-draft schema
 │   ├── workflow.json              compiled workflow JSON
-│   ├── output.json                what GroundX returned
+│   ├── output.json                raw GroundX get_extract, when available
+│   ├── xray.json                  raw X-Ray evidence
+│   ├── xray_diagnostic.json       local X-Ray reconstruction, when needed
+│   ├── final_output.json          local diagnostic/business-logic output, when needed
 │   ├── compare-report.txt         score_extraction.py output
 │   └── notes.md                   rationale for v1, observed failures
 └── v2/                            second iteration (same shape) — only if needed
@@ -247,7 +269,7 @@ is a pattern.
 
 X-Ray is the raw output of GroundX's parsing + chunking step. It
 contains each chunk's text, content type (`paragraph` / `figure` /
-`table_figure` / etc.), page numbers, and any per-slot extraction
+`table_figure` / etc.), page numbers, and any custom workflow extraction
 outputs already produced. Reading X-Ray is the most direct way to
 answer **"why didn't this field extract"** — was the value in the
 chunk at all? Was the chunk routed to the right extraction step? Did
@@ -274,7 +296,8 @@ When iterating from v1 to v2, the sub-agent reads three artifacts
 together:
 
 - `v1/compare-report.txt` — which fields passed/failed
-- `v1/output.json` — what GroundX returned
+- `v1/output.json` — raw GroundX `get_extract`, when available
+- `v1/final_output.json` — local diagnostic/business-logic output, when used
 - `v1/xray.json` — what GroundX parsed per chunk (the diagnostic
   ground truth)
 

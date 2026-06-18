@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """business_logic.py — declarative, client-side post-extraction business logic.
 
-Runs AFTER the runner aggregates X-Ray chunk output into an extract dict shaped
-like `{<singleton scalar fields>, "account_charges": [...], "meters": [...]}`
+Runs AFTER the runner aggregates X-Ray output into the final customer-facing
+group shape, such as `{"statement": {...}, "charges": [...], "meters": [...]}`
 (see `xray_to_extract.py`). The GroundX platform extracts records; it does not
 dedup them, link them across groups, surface their conflicts, or copy parent
 fields onto children. Customers need that, so this module supplies a small set
