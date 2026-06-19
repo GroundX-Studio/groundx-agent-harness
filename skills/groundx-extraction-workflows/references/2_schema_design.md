@@ -426,6 +426,11 @@ type:              # for "either int or float" (most numeric fields)
   - float
 ```
 
+If a `str` field needs to carry structured JSON, the prompt must say that the
+JSON is encoded as a string. For example, use "Return a JSON-encoded string
+representing an array of objects. Do not return an actual JSON array." Do not
+write `type: str` with instructions that ask for a native JSON array or object.
+
 ## 3. Group-level prompts
 
 The `charges` group accepts a top-level `prompt.instructions` block that
