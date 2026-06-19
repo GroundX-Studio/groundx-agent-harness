@@ -1462,12 +1462,13 @@ def _repeat_pointer_for_step(pointer: typing.Any, should_repeat: bool) -> typing
 
 
 def _repetition_scope(pointer: typing.Any) -> str:
+    # The live GroundX API only accepts the enum values "none", "field", or
+    # "item" for workflow.leafFields[].repetitionScope; it rejects path-format
+    # values like "/meters/*". A wildcard pointer is a repeated list-item leaf,
+    # which maps to "item" (the API expands it back to /meters/* on storage).
     if not isinstance(pointer, str):
         return "none"
-    parts = [part for part in pointer.split("/")[1:] if part]
-    if "*" not in parts:
-        return "none"
-    return "/" + "/".join(parts[: parts.index("*") + 1])
+    return "item" if "*" in pointer.split("/") else "none"
 
 
 def _normalized_custom_workflow_metadata(metadata: dict) -> dict:
@@ -1998,6 +1999,11 @@ def build_workflow_artifacts(
     if custom_metadata is not None:
         custom_metadata = _normalized_custom_workflow_metadata(custom_metadata)
         custom_metadata = _with_rendered_custom_step_prompts(custom_metadata, prepared)
+        # Recompute schema_hash over the normalized leaves so it matches what
+        # the SDK recomputes at update_prompts() time.  The hash was originally
+        # stored before normalization (pre-wildcard final_path, repetition_scope
+        # still "none") and would be stale for any repeated group.
+        custom_metadata["schema_hash"] = _custom_workflow_schema_hash(custom_metadata)
         persisted_extract = _with_normalized_workflow_metadata(persisted_extract, custom_metadata)
         workflow = {
             "name": resolved_name,
