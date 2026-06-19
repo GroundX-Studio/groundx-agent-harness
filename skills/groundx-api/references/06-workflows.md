@@ -225,6 +225,14 @@ X-API-Key: YOUR_API_KEY
 
 **Response:** `{ "workflow": { ... } }` — workflow object.
 
+Workflow readback may preserve `null` for optional relationship and step fields,
+including `workflow.relationships.documents`,
+`workflow.steps.chunk-instruct.figure`, and
+`workflow.steps.chunk-instruct.table-figure`. Those shapes are REST- and Python
+SDK-valid. If hosted MCP `workflow_get` fails output validation on those paths,
+classify it as MCP output-schema drift and use REST or the Python SDK with an
+`X-API-Key` from env/session secret storage while the hosted schema is fixed.
+
 ## 5. workflow_update / PUT /v1/workflow/{id}
 
 Update an existing workflow definition. Supply the desired custom overlay relative
