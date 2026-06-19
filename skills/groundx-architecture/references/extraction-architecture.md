@@ -23,7 +23,7 @@ Three architectural ideas shape the extraction microservice:
 Use **category** for a functional grouping of fields, such as `statement`, `charges`,
 or `meters`. Each category has a corresponding extraction agent that handles
 extraction, reconciliation, and QA for that category; extraction agents are **not one
-agent per field**. Keep each category's extraction load to about 20 fields or fewer
+agent per field**. Keep each category's extraction load to about 30 fields or fewer
 because higher field counts increase LLM cognitive load and reduce consistency. When a
 field set gets larger or crosses a natural document boundary, add another coherent
 category instead of adding one agent per field.

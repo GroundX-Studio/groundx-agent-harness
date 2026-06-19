@@ -83,6 +83,12 @@ RESERVED_TOP_LEVEL_KEYS = {
     "_groundx_persisted_extract",
     "_pseudo_groups",
 }
+_SOURCE_WORKFLOW_KEYS = {
+    "agent_chain",
+    "custom_steps",
+    "section_strategy",
+    "template",
+}
 
 # Per-group keys consumed locally: custom workflow selectors plus client-side
 # business-logic metadata applied by templates/business_logic.py after extraction.
@@ -138,6 +144,15 @@ _CUSTOM_WORKFLOW_AGENT_CHAIN_SUPPORTED_TASKS = (
     _CUSTOM_WORKFLOW_AGENT_CHAIN_AGENT_TASKS | _CUSTOM_WORKFLOW_AGENT_CHAIN_SAVE_TASKS
 )
 _CUSTOM_WORKFLOW_REPEATED_STEP_KINDS = {"keys", "summary"}
+_CUSTOM_WORKFLOW_PROMPT_MOLECULE_KEYS = ("figure", "paragraph", "table-figure")
+_DISABLED_DEFAULT_EXTRACTION_STEPS = (
+    "chunk-instruct",
+    "chunk-summary",
+    "doc-keys",
+    "doc-summary",
+    "sect-instruct",
+    "sect-summary",
+)
 _EMPTY_WORKFLOW_STEP_KEYS = (
     "chunk-instruct",
     "chunk-keys",
@@ -242,6 +257,175 @@ def _contains_include(obj: typing.Any) -> bool:
     return False
 
 
+def _ensure_mapping(value: typing.Any, path: str) -> dict:
+    if not isinstance(value, dict):
+        raise ValueError(f"Expected mapping at [{path}], got {type(value)}")
+    return typing.cast(dict, value)
+
+
+def _ensure_fields_mapping(value: typing.Any, path: str) -> dict:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(f"Expected fields mapping at [{path}], got {type(value)}")
+    return typing.cast(dict, value)
+
+
+def _normalize_include(value: typing.Any, path: str) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list) and all(isinstance(item, str) for item in value):
+        return typing.cast(list[str], value)
+    raise ValueError(f"Expected string or string list at [{path}]")
+
+
+def _merge_fields(target: dict, incoming: dict, path: str) -> None:
+    for field_name, field_value in incoming.items():
+        if field_name in target:
+            raise ValueError(f"duplicate final field name [{path}.{field_name}]")
+        target[field_name] = copy.deepcopy(field_value)
+
+
+def _compose_def_fields(defs: dict, name: str, stack: tuple[str, ...]) -> dict:
+    if name not in defs:
+        raise ValueError(f"unknown _defs include [{name}]")
+    if name in stack:
+        cycle = " -> ".join([*stack, name])
+        raise ValueError(f"cyclic _defs include [{cycle}]")
+
+    fragment = _ensure_mapping(defs[name], f"_defs.{name}")
+    unsupported = set(fragment) - {"include", "fields"}
+    if unsupported:
+        raise ValueError(
+            f"unsupported _defs keys at [_defs.{name}]: {sorted(unsupported)}"
+        )
+
+    fields: dict = {}
+    for include_name in _normalize_include(fragment.get("include"), f"_defs.{name}.include"):
+        _merge_fields(
+            fields,
+            _compose_def_fields(defs, include_name, (*stack, name)),
+            f"_defs.{name}",
+        )
+    _merge_fields(
+        fields,
+        _ensure_fields_mapping(fragment.get("fields"), f"_defs.{name}.fields"),
+        f"_defs.{name}",
+    )
+    return fields
+
+
+def _compose_group_fields(group_name: str, group_data: dict, defs: dict) -> dict:
+    group = copy.deepcopy(group_data)
+    fields: dict = {}
+    for include_name in _normalize_include(group.pop("include", None), f"{group_name}.include"):
+        _merge_fields(fields, _compose_def_fields(defs, include_name, ()), group_name)
+    _merge_fields(
+        fields,
+        _ensure_fields_mapping(group.get("fields"), f"{group_name}.fields"),
+        group_name,
+    )
+    group["fields"] = fields
+    return group
+
+
+def _assert_required_v1_source_metadata(raw: dict, source: str) -> None:
+    if raw.get("extraction_policy_version") != "v1":
+        raise ValueError(
+            f"{source}: harness source YAML must declare extraction_policy_version: v1"
+        )
+
+    workflow = raw.get("workflow")
+    if not isinstance(workflow, dict):
+        raise ValueError(f"{source}: workflow.custom_steps is required for harness workflow YAML")
+
+    unsupported = set(workflow) - _SOURCE_WORKFLOW_KEYS
+    if unsupported:
+        raise ValueError(
+            f"{source}: unsupported workflow keys: {sorted(unsupported)}"
+        )
+
+    custom_steps = workflow.get("custom_steps")
+    if not isinstance(custom_steps, list) or not custom_steps:
+        raise ValueError(f"{source}: workflow.custom_steps must be a non-empty list")
+
+    agent_chain = workflow.get("agent_chain")
+    if not isinstance(agent_chain, list) or not agent_chain:
+        raise ValueError(f"{source}: workflow.agent_chain must be a non-empty list")
+
+
+def _assert_no_pseudo_group_include(raw: dict, source: str) -> None:
+    pseudo_groups = raw.get("_pseudo_groups")
+    if not isinstance(pseudo_groups, dict):
+        return
+    for group_name, group_data in pseudo_groups.items():
+        if isinstance(group_data, dict) and "include" in group_data:
+            raise ValueError(
+                f"{source}: pseudo group '{group_name}' must not use include; "
+                "put include on a final group and route pseudo fields with path."
+            )
+
+
+def _assert_no_nested_final_fields(raw: dict, source: str) -> None:
+    for group_name, group_data in _workflow_group_items(raw):
+        for field_path, field_data in _walk_field_items(group_data.get("fields")):
+            if len(field_path) > 1:
+                dotted_path = ".".join((group_name, *field_path))
+                raise ValueError(
+                    f"{source}: nested final fields are not supported by the "
+                    f"harness runtime route parser: {dotted_path}"
+                )
+            if isinstance(field_data.get("fields"), dict):
+                dotted_path = ".".join((group_name, *field_path))
+                raise ValueError(
+                    f"{source}: nested final fields are not supported by the "
+                    f"harness runtime route parser: {dotted_path}"
+                )
+
+
+def _normalize_source_yaml(raw: dict, source: str) -> dict:
+    _assert_required_v1_source_metadata(raw, source)
+    defs = raw.get("_defs")
+    if defs is None:
+        defs = {}
+    else:
+        defs = _ensure_mapping(defs, "_defs")
+        for name in defs:
+            _compose_def_fields(defs, str(name), ())
+
+    normalized = copy.deepcopy(raw)
+    _assert_no_pseudo_group_include(normalized, source)
+    for group_name, group_data in list(_workflow_group_items(normalized)):
+        normalized[group_name] = _compose_group_fields(group_name, group_data, defs)
+    _assert_no_nested_final_fields(normalized, source)
+    return normalized
+
+
+def _validated_source_yaml(raw: dict, source: str) -> dict:
+    _assert_no_legacy_harness_metadata(raw, source)
+    normalized = _normalize_source_yaml(raw, source)
+    _assert_no_field_level_workflow_step(normalized, source)
+    _assert_pseudo_groups_are_routable(normalized, source)
+    _requires_custom_workflow_metadata(normalized, source)
+    _assert_routed_raw_fields_name_output_keys(normalized, source)
+    return normalized
+
+
+def source_yaml_field_names(doc: typing.Any, source: str = "<yaml>") -> set[str]:
+    if not isinstance(doc, dict):
+        return set()
+    normalized = _validated_source_yaml(doc, source)
+    _prepare_extraction_yaml_fallback(normalized, source)
+    names: set[str] = set()
+    for group_name, group_data in _workflow_group_items(normalized):
+        fields = group_data.get("fields")
+        if isinstance(fields, dict):
+            names.update(str(field_name) for field_name in fields)
+    return names
+
+
 def _assert_no_legacy_harness_metadata(raw: dict, source: str) -> None:
     if "domain" in raw:
         raise ValueError(
@@ -326,8 +510,10 @@ def _resolve_final_field(groups: dict, pointer: str, source: str) -> dict:
         segments = _json_pointer_segments(pointer)
     except ValueError as exc:
         raise ValueError(f"{source}: invalid pseudo-group path [{pointer}]") from exc
-    if len(segments) < 2:
-        raise ValueError(f"{source}: pseudo-group path [{pointer}] must target a final field")
+    if len(segments) != 2:
+        raise ValueError(
+            f"{source}: pseudo-group path [{pointer}] must target one flat final field"
+        )
 
     group_name = segments[0]
     group = groups.get(group_name)
@@ -335,12 +521,10 @@ def _resolve_final_field(groups: dict, pointer: str, source: str) -> dict:
         raise ValueError(f"{source}: pseudo-group path [{pointer}] targets unknown group")
 
     fields = group.get("fields")
-    field_data: typing.Any = None
-    for segment in (s for s in segments[1:] if s != "*"):
-        if not isinstance(fields, dict) or segment not in fields:
-            raise ValueError(f"{source}: pseudo-group path [{pointer}] targets unknown field")
-        field_data = fields[segment]
-        fields = field_data.get("fields") if isinstance(field_data, dict) else None
+    field_name = segments[1]
+    if not isinstance(fields, dict) or field_name not in fields:
+        raise ValueError(f"{source}: pseudo-group path [{pointer}] targets unknown field")
+    field_data: typing.Any = fields[field_name]
 
     if not isinstance(field_data, dict):
         raise ValueError(f"{source}: pseudo-group path [{pointer}] must target a field mapping")
@@ -444,7 +628,8 @@ def _assert_routed_raw_fields_name_output_keys(raw: dict, source: str) -> None:
         fields = group_data.get("fields")
         if not isinstance(fields, dict):
             continue
-        for field_name, field_data in fields.items():
+        for field_path, field_data in _walk_field_items(fields):
+            field_name = ".".join(field_path)
             if isinstance(field_data, dict) and "workflow_output_key" not in field_data:
                 raise ValueError(
                     f"{source}: routed field {group_name}.{field_name} must declare "
@@ -1112,6 +1297,8 @@ def _prepare_extraction_yaml_fallback(raw: dict, source: str) -> _PreparedExtrac
         "output_routes": routes,
         "leaf_fields": leaves,
     }
+    if workflow.get("section_strategy"):
+        workflow_metadata["section_strategy"] = workflow["section_strategy"]
     if workflow.get("template"):
         workflow_metadata["template"] = copy.deepcopy(workflow["template"])
     if field_counts:
@@ -1144,17 +1331,22 @@ def _prepare_schema(raw_yaml: str, source: str) -> typing.Any:
     raw = _safe_load_yaml(raw_yaml, source) or {}
     if not isinstance(raw, dict):
         raise ValueError(f"{source}: top-level YAML must be a mapping of groups")
-    _assert_no_legacy_harness_metadata(raw, source)
-    _assert_no_field_level_workflow_step(raw, source)
-    _assert_pseudo_groups_are_routable(raw, source)
-    _requires_custom_workflow_metadata(raw, source)
-    _assert_routed_raw_fields_name_output_keys(raw, source)
+    raw = _validated_source_yaml(raw, source)
 
-    if _sdk_prepare_extraction_yaml is None or "_pseudo_groups" in raw:
+    workflow_metadata = raw.get("workflow")
+    if (
+        _sdk_prepare_extraction_yaml is None
+        or "_pseudo_groups" in raw
+        or (
+            isinstance(workflow_metadata, dict)
+            and "section_strategy" in workflow_metadata
+        )
+    ):
         return _prepare_extraction_yaml_fallback(raw, source)
 
+    prepared_raw_yaml = yaml.safe_dump(raw, sort_keys=False)
     return _sdk_prepare_extraction_yaml(
-        raw_yaml,
+        prepared_raw_yaml,
         top_level_metadata_keys=_TOP_LEVEL_METADATA_KEYS,
         final_group_metadata_keys=_FINAL_GROUP_METADATA_KEYS,
         workflow_group_metadata_keys=_WORKFLOW_GROUP_METADATA_KEYS,
@@ -1270,12 +1462,13 @@ def _repeat_pointer_for_step(pointer: typing.Any, should_repeat: bool) -> typing
 
 
 def _repetition_scope(pointer: typing.Any) -> str:
+    # The live GroundX API only accepts the enum values "none", "field", or
+    # "item" for workflow.leafFields[].repetitionScope; it rejects path-format
+    # values like "/meters/*". A wildcard pointer is a repeated list-item leaf,
+    # which maps to "item" (the API expands it back to /meters/* on storage).
     if not isinstance(pointer, str):
         return "none"
-    parts = [part for part in pointer.split("/")[1:] if part]
-    if "*" not in parts:
-        return "none"
-    return "/" + "/".join(parts[: parts.index("*") + 1])
+    return "item" if "*" in pointer.split("/") else "none"
 
 
 def _normalized_custom_workflow_metadata(metadata: dict) -> dict:
@@ -1305,6 +1498,372 @@ def _normalized_custom_workflow_metadata(metadata: dict) -> dict:
     return normalized
 
 
+def _prompt_text(value: typing.Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, list):
+        return ", ".join(str(item) for item in value)
+    return str(value)
+
+
+def _field_prompt(field: dict) -> dict:
+    prompt = field.get("prompt")
+    if isinstance(prompt, dict):
+        return prompt
+    return {}
+
+
+def _field_description(field: dict) -> str:
+    return _prompt_text(_field_prompt(field).get("description")) or "No description provided."
+
+
+def _field_spec(output_key: str, field: dict) -> str:
+    prompt = _field_prompt(field)
+    identifiers = prompt.get("identifiers")
+    if isinstance(identifiers, list):
+        identifiers_text = ", ".join(str(item) for item in identifiers)
+    else:
+        identifiers_text = _prompt_text(identifiers)
+
+    lines = [
+        f"## {output_key}",
+        "",
+        f"Field: {output_key}",
+        f"Description: {_prompt_text(prompt.get('description'))}",
+        f"Type: {_prompt_text(prompt.get('type'))}",
+    ]
+    if prompt.get("format") is not None:
+        lines.append(f"Format: {_prompt_text(prompt.get('format'))}")
+    if identifiers_text:
+        lines.append(f"Example Identifiers: {identifiers_text}")
+    instructions = _prompt_text(prompt.get("instructions"))
+    if instructions:
+        lines.extend(["Special Instructions:", instructions])
+    return "\n".join(lines)
+
+
+def _field_description_bullet(output_key: str, field: dict) -> str:
+    return f"- **{output_key}** - {_field_description(field)}"
+
+
+def _group_instructions(workflow_group: dict) -> str:
+    prompt = workflow_group.get("prompt")
+    if isinstance(prompt, dict):
+        return _prompt_text(prompt.get("instructions"))
+    return ""
+
+
+def _response_contract(kind: str) -> str:
+    if kind == "instruct":
+        return "Return one JSON object whose keys exactly match the output keys."
+    return (
+        "Return a JSON array of objects. Each object must use only the configured "
+        "output keys."
+    )
+
+
+def _empty_response(kind: str) -> str:
+    if kind == "instruct":
+        return "{}"
+    return "[]"
+
+
+def _response_noun(kind: str) -> str:
+    if kind == "instruct":
+        return "JSON object"
+    return "JSON array"
+
+
+def _configured_output_key_list(output_keys: list[str]) -> str:
+    return "\n".join(f"- `{key}`" for key in output_keys)
+
+
+def _group_definition(group_name: str, instructions: str) -> str:
+    if not instructions:
+        return ""
+    return f"# {group_name} Definition\n\n{instructions.strip()}"
+
+
+def _custom_extract_request_prompt(
+    *,
+    step_name: str,
+    step_kind: str,
+    workflow_group: str,
+    field_specs: str,
+    group_definition: str,
+    output_keys: list[str],
+) -> str:
+    group_section = ""
+    if group_definition:
+        group_section = f"\n{group_definition.strip()}\n"
+
+    return """
+# Request
+
+I am going to provide you with content from a document. I want you to analyze this content, extract the relevant information for the configured workflow group, and return it as a {response_noun}.
+
+# Extraction Guidelines
+
+Below are the relevant fields that I want you to extract from the content, including the key to use in your JSON response, the format of the JSON value, and examples or instructions for how the information may be identified. These identifiers and examples are guidance, not an exhaustive list.
+
+- If page images are provided with extracted text excerpts, use the images as context for the extracted text. Focus your extraction on the provided document content.
+- If extracted text cuts off important surrounding context, use the page image context to repair that issue.
+- Extract only values supported by the document content. Do not infer values that are not supported by the source.
+- Follow field-specific null, enum, condition, and formatting instructions. If a field has no specific null rule and you cannot identify it with confidence, exclude that key from the response.
+
+{group_section}
+# Field Descriptions
+
+{field_specs}
+
+# Output Contract
+
+- Custom workflow step: `{step_name}`
+- Workflow group: `{workflow_group}`
+- Step kind: `{step_kind}`
+- {response_contract}
+- Use only these output keys:
+{output_keys}
+
+# Final Notes
+
+- Use the value in `Field` as the key in your JSON response for the given field.
+- If you cannot identify a field with confidence, exclude it unless that field's instructions explicitly require `null`.
+- If you cannot find any fields with confidence, return an empty {response_noun} like this: `{empty_response}`.
+- Do not add commentary, markdown fences, or explanation text.
+- Only return the {response_noun} in your response.
+""".format(
+        empty_response=_empty_response(step_kind),
+        field_specs=field_specs.strip(),
+        group_section=group_section,
+        output_keys=_configured_output_key_list(output_keys),
+        response_contract=_response_contract(step_kind),
+        response_noun=_response_noun(step_kind),
+        step_kind=step_kind,
+        step_name=step_name,
+        workflow_group=workflow_group,
+    )
+
+
+def _custom_extract_task_prompt(
+    *,
+    step_name: str,
+    step_kind: str,
+    workflow_group: str,
+    field_descriptions: str,
+) -> str:
+    return """
+# Identity
+
+You are a structured-data extraction assistant that extracts information from document content and returns the information in JSON format.
+
+# Process
+
+Your process for extracting structured information from document content is as follows:
+
+1. You are provided with document content as text, page images, or a combination of text and page images.
+  - If you are provided with text, you are provided with extracted text excerpts from the document.
+  - If you are provided with page images, you are provided with images for the same document scope.
+  - If you are provided with both, use the page images as context for the extracted text.
+2. Analyze page images only to provide context for the extracted text excerpts.
+  - If text excerpts cut off important surrounding context, use the page images to repair the cutoff.
+  - Do not use image-only guesses when the value is not supported by the document content.
+3. Carefully analyze the provided document content for the following configured fields:
+{field_descriptions}
+4. For each value you find, follow the formatting and condition instructions for that field.
+  - Use the configured `Field` value as the JSON key.
+  - If a value is absent or low confidence, follow the field-specific instruction. If there is no field-specific null rule, exclude that key.
+  - Do not invent placeholder values such as "Not Provided", "N/A", or similar filler.
+5. Construct the response for custom workflow step `{step_name}` in workflow group `{workflow_group}`.
+  - {response_contract}
+  - Return only keys from the configured output-key contract.
+6. Return the JSON response, and only the JSON response.
+  - It is critical that you respond with only JSON because I will parse your response as JSON and extraneous commentary or text will break the parser.
+
+# Examples
+
+<document_text>
+This excerpt does not contain any configured field values.
+</document_text>
+
+<assistant_response>
+{empty_response}
+</assistant_response>
+
+<document_content>
+The source contains a configured value for one of the requested fields.
+</document_content>
+
+<assistant_response>
+{positive_example}
+</assistant_response>
+""".format(
+        empty_response=_empty_response(step_kind),
+        field_descriptions=field_descriptions.strip(),
+        positive_example=(
+            '{"<configured_output_key>": "<source-supported value>"}'
+            if step_kind == "instruct"
+            else '[{"<configured_output_key>": "<source-supported value>"}]'
+        ),
+        response_contract=_response_contract(step_kind),
+        step_name=step_name,
+        workflow_group=workflow_group,
+    )
+
+
+def _routes_by_step(metadata: dict) -> dict[str, list[dict]]:
+    grouped: dict[str, list[dict]] = {}
+    for route in metadata.get("output_routes", []) or []:
+        if not isinstance(route, dict):
+            continue
+        step_name = route.get("step_name")
+        if isinstance(step_name, str):
+            grouped.setdefault(step_name, []).append(route)
+    return grouped
+
+
+def _step_by_name(metadata: dict) -> dict[str, dict]:
+    out: dict[str, dict] = {}
+    for step in metadata.get("custom_steps", []) or []:
+        if isinstance(step, dict) and isinstance(step.get("name"), str):
+            out[step["name"]] = step
+    return out
+
+
+def _workflow_group_for_step(
+    *,
+    step_name: str,
+    routes: list[dict],
+    workflow_groups: dict,
+) -> tuple[str, dict]:
+    group_names = sorted(
+        {
+            route.get("workflow_group")
+            for route in routes
+            if isinstance(route.get("workflow_group"), str)
+        }
+    )
+    if len(group_names) != 1:
+        raise ValueError(
+            f"custom workflow step [{step_name}] must route exactly one workflow "
+            f"group; got {group_names}. Use one workflow group per custom step."
+        )
+    group_name = group_names[0]
+    group = workflow_groups.get(group_name)
+    if not isinstance(group, dict):
+        raise ValueError(
+            f"custom workflow step [{step_name}] references unknown workflow group "
+            f"[{group_name}]"
+        )
+    return group_name, group
+
+
+def _workflow_field_for_route(workflow_group: dict, route: dict) -> dict:
+    fields = workflow_group.get("fields")
+    field_name = route.get("workflow_field")
+    if not isinstance(fields, dict) or not isinstance(field_name, str):
+        return {}
+    field = fields.get(field_name)
+    if isinstance(field, dict):
+        return field
+    return {}
+
+
+def _render_custom_step_prompt(
+    *,
+    step: dict,
+    group_name: str,
+    workflow_group: dict,
+    routes: list[dict],
+) -> dict:
+    kind = str(step.get("kind") or "")
+    step_name = str(step.get("name") or "")
+    output_keys = [str(route.get("output_key")) for route in routes if route.get("output_key")]
+    field_specs = []
+    field_bullets = []
+    for route in routes:
+        output_key = str(route.get("output_key") or route.get("workflow_field") or "")
+        field = _workflow_field_for_route(workflow_group, route)
+        field_specs.append(_field_spec(output_key, field))
+        field_bullets.append(_field_description_bullet(output_key, field))
+
+    instructions = _group_instructions(workflow_group)
+    request = _custom_extract_request_prompt(
+        step_name=step_name,
+        step_kind=kind,
+        workflow_group=group_name,
+        field_specs="\n\n".join(field_specs),
+        group_definition=_group_definition(group_name, instructions),
+        output_keys=output_keys,
+    )
+    task = _custom_extract_task_prompt(
+        step_name=step_name,
+        step_kind=kind,
+        workflow_group=group_name,
+        field_descriptions="\n".join(field_bullets),
+    )
+
+    return {"request": request, "task": task}
+
+
+def _merge_prompt_config(config: typing.Any, prompt: dict) -> dict:
+    if isinstance(config, dict):
+        merged = copy.deepcopy(config)
+    else:
+        merged = {}
+
+    for molecule_key in _CUSTOM_WORKFLOW_PROMPT_MOLECULE_KEYS:
+        molecule_config = merged.get(molecule_key)
+        if isinstance(molecule_config, dict):
+            molecule_config = copy.deepcopy(molecule_config)
+        else:
+            molecule_config = {}
+        prompt_config = molecule_config.get("prompt")
+        if isinstance(prompt_config, dict):
+            prompt_config = copy.deepcopy(prompt_config)
+        else:
+            prompt_config = {}
+        prompt_config.setdefault("request", prompt["request"])
+        prompt_config.setdefault("task", prompt["task"])
+        includes = molecule_config.get("includes")
+        if isinstance(includes, dict):
+            includes = copy.deepcopy(includes)
+        else:
+            includes = {}
+        includes.setdefault("pageImages", True)
+        molecule_config["includes"] = includes
+        molecule_config["prompt"] = prompt_config
+        merged[molecule_key] = molecule_config
+    return merged
+
+
+def _with_rendered_custom_step_prompts(metadata: dict, prepared: typing.Any) -> dict:
+    workflow_groups = getattr(prepared, "workflow_groups", None)
+    if not isinstance(workflow_groups, dict):
+        raise ValueError("prepared workflow groups must be a mapping")
+
+    normalized = copy.deepcopy(metadata)
+    routes_by_step = _routes_by_step(normalized)
+    steps_by_name = _step_by_name(normalized)
+    for step_name, routes in routes_by_step.items():
+        step = steps_by_name.get(step_name)
+        if step is None:
+            continue
+        group_name, workflow_group = _workflow_group_for_step(
+            step_name=step_name,
+            routes=routes,
+            workflow_groups=workflow_groups,
+        )
+        prompt = _render_custom_step_prompt(
+            step=step,
+            group_name=group_name,
+            workflow_group=workflow_group,
+            routes=routes,
+        )
+        step["config"] = _merge_prompt_config(step.get("config"), prompt)
+    return normalized
+
+
 def _with_normalized_workflow_metadata(persisted_extract: dict, metadata: dict) -> dict:
     persisted = copy.deepcopy(persisted_extract)
     persisted["workflow"] = copy.deepcopy(metadata)
@@ -1317,7 +1876,12 @@ def _with_normalized_workflow_metadata(persisted_extract: dict, metadata: dict) 
 def _empty_workflow_steps() -> dict:
     if WorkflowSteps is None:
         return {key: None for key in _EMPTY_WORKFLOW_STEP_KEYS}
-    return _to_dict(WorkflowSteps(**{attr: None for attr in _ALL_STAGE_ATTRS}))
+    steps = _to_dict(WorkflowSteps(**{attr: None for attr in _ALL_STAGE_ATTRS}))
+    for key in _EMPTY_WORKFLOW_STEP_KEYS:
+        steps.setdefault(key, None)
+    for key in _DISABLED_DEFAULT_EXTRACTION_STEPS:
+        steps[key] = None
+    return steps
 
 
 def _custom_step_body(step: dict) -> dict:
@@ -1377,6 +1941,7 @@ def workflow_sdk_kwargs(workflow: dict) -> dict:
     kwargs = {
         "name": workflow["name"],
         "chunk_strategy": workflow.get("chunk_strategy"),
+        "section_strategy": workflow.get("section_strategy"),
         "extract": workflow.get("extract"),
         "steps": workflow.get("steps"),
     }
@@ -1433,10 +1998,17 @@ def build_workflow_artifacts(
     custom_metadata = _custom_workflow_metadata(prepared)
     if custom_metadata is not None:
         custom_metadata = _normalized_custom_workflow_metadata(custom_metadata)
+        custom_metadata = _with_rendered_custom_step_prompts(custom_metadata, prepared)
+        # Recompute schema_hash over the normalized leaves so it matches what
+        # the SDK recomputes at update_prompts() time.  The hash was originally
+        # stored before normalization (pre-wildcard final_path, repetition_scope
+        # still "none") and would be stale for any repeated group.
+        custom_metadata["schema_hash"] = _custom_workflow_schema_hash(custom_metadata)
         persisted_extract = _with_normalized_workflow_metadata(persisted_extract, custom_metadata)
         workflow = {
             "name": resolved_name,
             "chunk_strategy": "element",
+            "section_strategy": custom_metadata.get("section_strategy"),
             "extract": _to_dict(persisted_extract),
             "steps": _empty_workflow_steps(),
             **_custom_workflow_body_fields(custom_metadata),

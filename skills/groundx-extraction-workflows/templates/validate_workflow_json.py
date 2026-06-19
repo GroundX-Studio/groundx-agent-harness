@@ -53,7 +53,7 @@ REQUIRED_SLOTS = [
 
 REQUIRED_VARIANTS = ["all", "figure", "paragraph", "json", "table", "table-figure"]
 CUSTOM_STEP_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
-CUSTOM_WORKFLOW_MAX_FIELDS = 20
+CUSTOM_WORKFLOW_MAX_FIELDS = 30
 CUSTOM_OUTPUT_MAPS = {
     "chunk": "customChunkOutputs",
     "section": "customSectionOutputs",
@@ -288,16 +288,19 @@ def _validate_custom_workflow(workflow: dict) -> typing.List[str]:
                     f"leaf field {leaf.get('finalPath')} for repeated custom step "
                     f"{step_name} must include a wildcard segment"
                 )
-            elif repetition_scope != "/" + "/".join(segments[: segments.index("*") + 1]):
+            elif repetition_scope != "item":
                 errors.append(
                     f"leaf field {leaf.get('finalPath')} for repeated custom step "
-                    f"{step_name} has invalid repetitionScope"
+                    f"{step_name} must set repetitionScope 'item'"
                 )
         if is_repeated is True:
             if "*" not in segments:
                 errors.append(f"leaf field {leaf.get('finalPath')} is repeated but has no wildcard segment")
-            elif repetition_scope != "/" + "/".join(segments[: segments.index("*") + 1]):
-                errors.append(f"leaf field {leaf.get('finalPath')} has invalid repeated-item wildcard scope")
+            elif repetition_scope != "item":
+                errors.append(
+                    f"leaf field {leaf.get('finalPath')} is repeated and must set "
+                    f"repetitionScope 'item' (got {repetition_scope!r})"
+                )
         elif is_repeated is False:
             if repetition_scope != "none":
                 errors.append(f"leaf field {leaf.get('finalPath')} is not repeated but sets repetitionScope")
@@ -338,7 +341,8 @@ def _validate_custom_workflow(workflow: dict) -> typing.List[str]:
     for step_name, count in field_counts.items():
         if count > CUSTOM_WORKFLOW_MAX_FIELDS:
             errors.append(
-                f"custom step {step_name} owns {count} fields; at most 20 fields "
+                f"custom step {step_name} owns {count} fields; "
+                f"at most {CUSTOM_WORKFLOW_MAX_FIELDS} fields "
                 "may route to one executable workflow step"
             )
 
