@@ -61,9 +61,10 @@ executes the following sequence when invoked as
    `extraction_policy_version: v1`, `workflow.custom_steps`,
    `workflow.agent_chain`, group-level `workflow_step:`, and field-level
    `workflow_output_key` where direct custom output routing is needed.
-4. **Build workflow settings.** The compiler emits `extract`, empty built-in
-   `steps`, plus `template`, `customSteps`, `outputRoutes`, and `leafFields`
-   from prepared metadata.
+4. **Build workflow settings.** The compiler emits `extract`, explicit `null`
+   built-in extraction `steps`, plus `template`, `customSteps`, `outputRoutes`,
+   and `leafFields` from prepared metadata. It also renders each custom step's
+   prompt text into the custom step config.
 5. **Assemble the final dict.** The output is a Python dict with workflow create
    or update settings. The deploy and run templates pass it through
    `workflow_sdk_kwargs(workflow)`.
@@ -74,11 +75,13 @@ The output is the exact body shape that POSTs to `/v1/workflow`.
 
 ### 2.2 Custom step templates
 
-The prompt text for custom workflow steps is prepared from the YAML. When the
-SDK is installed, `groundx.extract` owns that preparation. When the SDK is
-absent, `compile_workflow.py` uses the same harness-specific metadata contract
-for offline validation. It does not load a second prompt-wrapper module or
-re-parse the raw path through a high-level SDK helper after compilation.
+The prompt text for custom workflow steps is prepared from the compiled YAML
+metadata. When the SDK is installed, `groundx.extract` owns the YAML
+preparation. When the SDK is absent, `compile_workflow.py` uses the same
+harness-specific metadata contract for offline validation. In both paths, the
+harness compiler renders the final custom step prompt wrappers before emitting
+workflow JSON. It does not load a second prompt-wrapper module or re-parse the
+raw path through a high-level SDK helper after compilation.
 
 The custom workflow shapes the templates handle:
 
@@ -88,8 +91,22 @@ The custom workflow shapes the templates handle:
 - **meters-style** — array of physical-meter or metered-usage records through a
   custom step with `kind: summary`
 
-All three shapes use the same identity ("structured-data assistant"), the
-same process steps, and the same output contract (return only JSON).
+Each compiled custom step gets a `config` prompt for `figure`, `paragraph`, and
+`table-figure` molecules, with `includes.pageImages: true`. The compiler uses
+one reusable request template and one reusable task template, following the
+Arcadia manager shape without copying utility-bill wording. The rendered
+`request` message contains the document request, extraction guidelines, group
+definition, field specs, output contract, and JSON-only final notes. The
+rendered `task` message identifies the assistant, defines evidence and process
+rules, lists concise field bullets, and states the parser-safety contract. If a
+YAML authors a molecule-specific prompt in `custom_steps[].config`, the
+compiler preserves it for that molecule and fills only the missing molecule
+prompts.
+
+Compiled extraction workflows set `doc-summary`, `doc-keys`, `sect-summary`,
+`sect-instruct`, `chunk-summary`, and `chunk-instruct` to `null` in top-level
+`steps`. That intentionally disables stock extraction prompts so runtime output
+comes from the configured custom steps.
 
 If the document type does not fit one of these shapes, still prefer custom
 workflow metadata (`workflow.custom_steps`, `workflow_step`,
