@@ -13,6 +13,21 @@ a coherent iteration milestone informed by real customer use cases. The
 
 ## Unreleased
 
+- **Fixed: `repetitionScope` enum for repeated leaves.** `compile_workflow.py`
+  emitted path-format `repetitionScope` values (e.g. `/meters/*`) for repeated
+  `leafFields`, which the live GroundX API rejects (`unsupported
+  repetitionScope '/meters/*'`). It now emits the accepted enum value `"item"`;
+  `validate_workflow_json.py` validates repeated leaves against `"item"` instead
+  of the path format. The API expands `"item"` back to the `/meters/*` shape on
+  storage. Found during the AGE-150 live run.
+- **Fixed: stale `schema_hash` for repeated groups.** `build_workflow_artifacts`
+  computed and stored `schema_hash` before normalizing leaves (pre-wildcard
+  `final_path`, `repetition_scope: "none"`), so a deployed repeated-group
+  workflow shipped a hash that no longer matched its own leaves. The GroundX SDK
+  recomputes the hash at `update_prompts()` time and raised `caller schema_hash
+  does not match route metadata`, blocking the Arcadia deploy → prompts →
+  extract path. The hash is now recomputed after normalization so it matches the
+  shipped leaves. Found during the AGE-150 live run.
 - **Public extraction docs guidance.** Added `references/public-docs.md` and a
   gate so public docs stay customer-facing: use the SDK-level `client.ingest(...)`
   path, show the JSON result, and avoid exposing harness/compiler internals such

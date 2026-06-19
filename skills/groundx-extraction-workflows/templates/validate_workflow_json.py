@@ -288,16 +288,19 @@ def _validate_custom_workflow(workflow: dict) -> typing.List[str]:
                     f"leaf field {leaf.get('finalPath')} for repeated custom step "
                     f"{step_name} must include a wildcard segment"
                 )
-            elif repetition_scope != "/" + "/".join(segments[: segments.index("*") + 1]):
+            elif repetition_scope != "item":
                 errors.append(
                     f"leaf field {leaf.get('finalPath')} for repeated custom step "
-                    f"{step_name} has invalid repetitionScope"
+                    f"{step_name} must set repetitionScope 'item'"
                 )
         if is_repeated is True:
             if "*" not in segments:
                 errors.append(f"leaf field {leaf.get('finalPath')} is repeated but has no wildcard segment")
-            elif repetition_scope != "/" + "/".join(segments[: segments.index("*") + 1]):
-                errors.append(f"leaf field {leaf.get('finalPath')} has invalid repeated-item wildcard scope")
+            elif repetition_scope != "item":
+                errors.append(
+                    f"leaf field {leaf.get('finalPath')} is repeated and must set "
+                    f"repetitionScope 'item' (got {repetition_scope!r})"
+                )
         elif is_repeated is False:
             if repetition_scope != "none":
                 errors.append(f"leaf field {leaf.get('finalPath')} is not repeated but sets repetitionScope")
