@@ -211,6 +211,20 @@ def _validate_custom_workflow(workflow: dict) -> typing.List[str]:
         if level == "document" and kind == "instruct":
             errors.append(f"invalid custom step level/kind for {name}: {level}/{kind}")
             continue
+        config = step.get("config")
+        all_config = config.get("all") if isinstance(config, dict) else None
+        prompt = all_config.get("prompt") if isinstance(all_config, dict) else None
+        request = prompt.get("request") if isinstance(prompt, dict) else None
+        task = prompt.get("task") if isinstance(prompt, dict) else None
+        if (
+            not isinstance(request, str)
+            or not request.strip()
+            or not isinstance(task, str)
+            or not task.strip()
+        ):
+            errors.append(
+                f"custom step '{name}' must define config.all.prompt.request and task"
+            )
         steps_by_name[name] = step
 
     routes_by_key: typing.Dict[tuple, dict] = {}

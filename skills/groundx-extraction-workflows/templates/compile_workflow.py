@@ -144,7 +144,7 @@ _CUSTOM_WORKFLOW_AGENT_CHAIN_SUPPORTED_TASKS = (
     _CUSTOM_WORKFLOW_AGENT_CHAIN_AGENT_TASKS | _CUSTOM_WORKFLOW_AGENT_CHAIN_SAVE_TASKS
 )
 _CUSTOM_WORKFLOW_REPEATED_STEP_KINDS = {"keys", "summary"}
-_CUSTOM_WORKFLOW_PROMPT_MOLECULE_KEYS = ("figure", "paragraph", "table-figure")
+_CUSTOM_WORKFLOW_PROMPT_MOLECULE_KEYS = ("all", "figure", "paragraph", "table-figure")
 _DISABLED_DEFAULT_EXTRACTION_STEPS = (
     "chunk-instruct",
     "chunk-summary",
@@ -407,6 +407,7 @@ def _validated_source_yaml(raw: dict, source: str) -> dict:
     _assert_no_legacy_harness_metadata(raw, source)
     normalized = _normalize_source_yaml(raw, source)
     _assert_no_field_level_workflow_step(normalized, source)
+    _assert_str_json_prompts_are_encoded_strings(normalized, source)
     _assert_pseudo_groups_are_routable(normalized, source)
     _requires_custom_workflow_metadata(normalized, source)
     _assert_routed_raw_fields_name_output_keys(normalized, source)
@@ -492,6 +493,63 @@ def _assert_no_field_level_workflow_step(raw: dict, source: str) -> None:
                     f"{source}: pseudo field '{dotted_path}' uses field-level "
                     "`workflow_step`. Put `workflow_step:` on the pseudo group."
                 )
+
+
+def _prompt_text_for_validation(prompt: typing.Any) -> str:
+    if not isinstance(prompt, dict):
+        return ""
+    parts: list[str] = []
+    for key in ("description", "format", "instructions"):
+        value = prompt.get(key)
+        if isinstance(value, str):
+            parts.append(value)
+        elif isinstance(value, list):
+            parts.extend(str(item) for item in value)
+    return "\n".join(parts).lower()
+
+
+def _assert_str_json_prompts_are_encoded_strings(raw: dict, source: str) -> None:
+    encoded_markers = (
+        "json array string",
+        "json object string",
+        "json-encoded string",
+        "json encoded string",
+        "encoded as a string",
+        "encode the json",
+        "string containing json",
+    )
+    json_markers = ("json array", "json object")
+
+    def check_field(group_name: str, field_path: tuple[str, ...], field_data: dict) -> None:
+        prompt = field_data.get("prompt")
+        if not isinstance(prompt, dict):
+            return
+        if str(prompt.get("type", "")).lower() != "str":
+            return
+        prompt_text = _prompt_text_for_validation(prompt)
+        if not any(marker in prompt_text for marker in json_markers):
+            return
+        if any(marker in prompt_text for marker in encoded_markers):
+            return
+        dotted_path = ".".join((group_name, *field_path))
+        raise ValueError(
+            f"{source}: field '{dotted_path}' has type: str but asks for a "
+            "native JSON array/object. Ask for a JSON-encoded string, or change "
+            "the field type if the runtime should receive a structured value."
+        )
+
+    for group_name, group_data in _workflow_group_items(raw):
+        for field_path, field_data in _walk_field_items(group_data.get("fields")):
+            check_field(group_name, field_path, field_data)
+
+    pseudo_groups = raw.get("_pseudo_groups")
+    if not isinstance(pseudo_groups, dict):
+        return
+    for group_name, group_data in pseudo_groups.items():
+        if not isinstance(group_data, dict):
+            continue
+        for field_path, field_data in _walk_field_items(group_data.get("fields")):
+            check_field(str(group_name), field_path, field_data)
 
 
 def _json_pointer_segments(pointer: str) -> list[str]:
