@@ -17,6 +17,9 @@ workflow-scoped primitive is
 explicitly documented. None of this metadata reaches the GroundX workflow:
 `compile_workflow.py` reads it from `PreparedExtractionYaml.final_group_metadata`
 and strips it from workflow groups, so the keys never become extract fields.
+`run_extraction.py` persists that final-group metadata as
+`business_logic_metadata.json` in the run directory so `--resume` can apply the
+same local final-output logic without recompiling or re-reading source YAML.
 
 ## Final shape vs. workflow grouping
 

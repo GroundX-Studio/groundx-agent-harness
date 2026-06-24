@@ -14,8 +14,8 @@ that extraction delegates here.
 
 1. Read `../SKILL.md` to confirm this is customer-scoped GroundX platform work.
 2. Always read `01-auth.md` before writing code, tests, SDK wrappers, or tool-call
-   examples. Try GroundX MCP first; if tools are not visible, instruct the user to
-   connect the GroundX API connector before REST fallback.
+   examples. Try GroundX MCP first; if tools are not visible, use REST fallback
+   and see the `groundx-mcp` skill for client setup and connection guidance.
 3. Pick the operation-family reference below instead of reading every file.
 4. For end-to-end product behavior, read the matching guide in `../guides/`.
 5. Turn documented limits, async behavior, pagination, filters, auth headers, and URL
@@ -33,7 +33,7 @@ that extraction delegates here.
 
 | Need | Read |
 | --- | --- |
-| Auth, MCP headers, REST base URL, URL versioning | `01-auth.md` |
+| REST auth (`X-API-Key`), REST base URL, URL versioning, SDK setup | `01-auth.md` (for MCP client setup, see `groundx-mcp` skill) |
 | Remote/local/crawl ingest, document lookup, status polling, update, copy, delete, extract, X-Ray | `02-documents.md` |
 | Search by bucket/group/document set, filters, verbosity, pagination, source result shape | `03-search.md` |
 | Search response-shape or field-availability question | `../guides/00-api-surface-changelog.md`, then `03-search.md` |
