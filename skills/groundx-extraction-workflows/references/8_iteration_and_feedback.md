@@ -10,7 +10,7 @@ the basic loop in `1_extraction_loop.md`.
 A typical customer onboarding has three phases:
 
 1. **Author** — agent drafts an initial YAML from the customer's inputs
-   (document + ground truth) and the skill's references.
+   (document + expected answers) and the skill's references.
 2. **Iterate** — run compile → register workflow → ingest → extract →
    compare. Tighten the YAML based on failure modes. Repeat.
 3. **Finalize** — once accuracy meets the bar, the YAML is locked.
@@ -20,24 +20,28 @@ A typical customer onboarding has three phases:
 This document covers phase 2 (iteration journey) and the hand-off
 into phase 3 (compounding feedback).
 
-## 1.1 Answer-key uncertainty
+## 1.1 Expected-answer uncertainty
 
-Treat the answer key as evidence, not as unquestionable truth. If the extracted
-value is visible in the source document but the answer key has a normalized,
-blank, sentinel, or database-derived value, pause before changing YAML prompts.
+Treat expected answers as evidence, not as unquestionable truth. They may arrive
+as JSON, spreadsheets, documents, text files, PDFs, or human-review notes. If
+the extracted value is visible in the source document but the expected answer
+has a normalized, blank, sentinel, or database-derived value, pause before
+changing YAML prompts.
 
 Record the mismatch in the run notes with:
 
 - the source page or X-Ray chunk where the value appears
 - the extracted value
-- the answer-key value
+- the expected-answer value and source location
+- the source-support decision and scoreability decision
 - the question that needs human confirmation
 
-Do not tune prompts to reproduce a suspected answer-key artifact. After the
+Do not tune prompts to reproduce a suspected expected-answer artifact. After the
 expected value is confirmed, make the smallest change: comparison normalization
-when the customer's expected format is valid, YAML prompt wording when the model
-picked the wrong source value, or business logic when the output shape needs a
-dedupe/link/passthrough rule.
+or mapping when the customer's expected format is valid, YAML prompt wording
+when the model picked the wrong source value, or business logic when the output
+shape needs a dedupe/link/passthrough rule. Use `5_validation.md` §1.2 for the
+minimal mapping record.
 
 ## 2. Iteration budget
 
@@ -120,7 +124,7 @@ operational decision (privacy, retention, access control).
 ├── run.md                         summary, hypothesis, iteration log, verdict, lessons
 ├── inputs/
 │   ├── <document>.pdf             customer-supplied document (subject to customer permissions)
-│   └── <ground-truth>.csv         customer-supplied ground truth
+│   └── <expected-answers>.*       customer-supplied expected answers or reviewer notes
 ├── v1/
 │   ├── prompt.yaml                first-draft schema
 │   ├── workflow.json              compiled workflow JSON
@@ -128,6 +132,7 @@ operational decision (privacy, retention, access control).
 │   ├── xray.json                  raw X-Ray evidence
 │   ├── xray_diagnostic.json       local X-Ray reconstruction, when needed
 │   ├── final_output.json          local diagnostic/business-logic output, when needed
+│   ├── expected-answer-mapping.json  source-backed mapping/adjudication record, when needed
 │   ├── compare-report.txt         score_extraction.py output
 │   └── notes.md                   rationale for v1, observed failures
 └── v2/                            second iteration (same shape) — only if needed
@@ -141,7 +146,7 @@ The skill cares about the structure, not the location.
 
 A single durable record per run with these sections:
 
-- **Inputs** — customer name, document type, ground-truth shape, field
+- **Inputs** — customer name, document type, expected-answer format, field
   count, run date.
 - **Hypothesis** — what the agent expected before starting (schema
   shape, likely hard fields).
@@ -153,7 +158,7 @@ A single durable record per run with these sections:
 
 ### 3.3 Customer permissions
 
-Documents and ground truth are typically customer-confidential. Before
+Documents and expected answers are typically customer-confidential. Before
 storing inputs anywhere persistent:
 
 - Confirm the customer permits storage in the team's chosen location.
@@ -194,7 +199,7 @@ skills/groundx-extraction-workflows/examples/<customer>/
 ├── prompt.yaml                the finalized YAML
 ├── data/
 │   ├── <document>.pdf         (only if customer permits; otherwise reference an external location)
-│   └── <ground-truth>.csv     (same caveat)
+│   └── <expected-answers>.*   (same caveat; map to runner-shaped JSON before scoring)
 └── README.md                  one paragraph: domain, document shape, accuracy results
 ```
 
@@ -298,8 +303,7 @@ together:
 - `v1/compare-report.txt` — which fields passed/failed
 - `v1/output.json` — raw GroundX `get_extract`, when available
 - `v1/final_output.json` — local diagnostic/business-logic output, when used
-- `v1/xray.json` — what GroundX parsed per chunk (the diagnostic
-  ground truth)
+- `v1/xray.json` — what GroundX parsed per chunk (diagnostic source evidence)
 
 The combination lets the sub-agent diagnose at the right layer:
 
@@ -401,7 +405,7 @@ the next iteration — they may want to pause and re-plan.
 
 A condensed map for an agent invoking this skill on a new customer:
 
-1. **Inputs available?** Confirm document + ground truth in hand. If
+1. **Inputs available?** Confirm document + expected answers in hand. If
    not, surface to the user.
 2. **Storage location agreed?** Confirm where journey storage lives
    for this customer. Default to a team `notes/extractx-runs/`

@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """Batch verification: run an extraction workflow over a folder of documents and
-score every result against matching answer keys, producing one consolidated
-field-level accuracy report.
+score every result against matching mapped expected-answer JSON files, producing
+one consolidated field-level accuracy report.
 
 This is the harness's verification loop made batch: a customer hands over a
-folder of documents + answer keys (same base filename, `.json`), the agent has
-authored a `prompt.yaml`, and this command answers "how accurate is the
-extraction, field by field, across the set — and where does it miss?".
+folder of documents and expected answers, the agent maps those answers to
+runner-shaped JSON files with the same base filename, authors a `prompt.yaml`,
+and this command answers "how accurate is the extraction, field by field, across
+the set — and where does it miss?".
 
     python batch_extraction.py \\
         --yaml prompt.yaml \\
         --docs-dir docs/ \\
-        --keys-dir answer_keys/ \\
+        --keys-dir expected_answers/ \\
         --out run/ \\
         --bucket-name verify-customer-v1 \\
         --limit 5            # economical: score a representative subset first
@@ -30,7 +31,7 @@ Run artifacts (written to --out, a self-contained, reproducible set):
 Design notes:
   - ONE workflow + bucket for the whole batch (compiled/deployed once).
   - Per document: ingest → poll → X-Ray → get_extract → optional local
-    X-Ray diagnostic/final output → compare against its answer key.
+    X-Ray diagnostic/final output → compare against expected-answer JSON.
   - Raw `<doc>.extracted.json` is scored by default. Use `--score-final-output`
     to score local final output for runs where `get_extract` is unavailable.
   - `aggregate_reports()` is a pure function (unit-tested) so the scoring/rollup
@@ -41,7 +42,7 @@ Design notes:
     `vendor`/`service_type`) adds per-dimension accuracy breakdowns.
 
 Reads `.env` for `GROUNDX_API_KEY`. Real customer data must live outside the
-repo (or in a gitignored path) — never commit documents or answer keys.
+repo (or in a gitignored path) — never commit documents or expected answers.
 """
 
 import argparse
@@ -105,7 +106,7 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--yaml", required=True)
     p.add_argument("--docs-dir", required=True)
-    p.add_argument("--keys-dir", default=None, help="answer-key dir (default: --docs-dir)")
+    p.add_argument("--keys-dir", default=None, help="mapped expected-answer JSON dir (default: --docs-dir)")
     p.add_argument("--out", required=True)
     p.add_argument("--bucket-name", required=True)
     p.add_argument("--workflow-name", default=None)
@@ -119,7 +120,7 @@ def main() -> int:
     )
     p.add_argument("--poll-interval", type=int, default=15)
     p.add_argument("--max-polls", type=int, default=80)
-    p.add_argument("--keep", action="store_true", help="keep workflow/bucket after run")
+    p.add_argument("--keep", action="store_true", help="keep workflow after run")
     args = p.parse_args()
 
     keys_dir = args.keys_dir or args.docs_dir
@@ -171,7 +172,7 @@ def main() -> int:
                 base = os.path.splitext(os.path.basename(doc_path))[0]
                 key_path = cmp.find_answer_key(keys_dir, base)
                 if not key_path:
-                    rl.event("verify.doc.skip", doc=base, reason="no answer key")
+                    rl.event("verify.doc.skip", doc=base, reason="no expected-answer JSON")
                     continue
                 ingest = gx.ingest(documents=[Document(bucket_id=bucket_id, file_path=doc_path,
                                                        file_name=os.path.basename(doc_path), file_type="pdf")])
@@ -225,8 +226,12 @@ def main() -> int:
             if not args.keep:
                 try:
                     gx.workflows.delete(id=workflow_id)
-                    gx.buckets.delete(bucket_id=bucket_id)
-                    rl.event("verify.cleanup", workflow_id=workflow_id, bucket_id=bucket_id)
+                    rl.event("verify.cleanup", workflow_id=workflow_id)
+                    rl.event(
+                        "cleanup.bucket.preserved",
+                        bucket_id=bucket_id,
+                        reason="bucket deletion is not a supported harness cleanup path",
+                    )
                 except Exception as e:
                     rl.event("verify.cleanup.error", error=str(e)[:120])
 
