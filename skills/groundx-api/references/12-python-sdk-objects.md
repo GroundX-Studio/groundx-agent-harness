@@ -128,15 +128,16 @@ A single prompt sent to the LLM at a workflow step. Wire form documented at
 | Wire key | SDK attr | Type | Required | Notes |
 |---|---|---|---|---|
 | `abbreviated` | `abbreviated` | `Optional[str]` | no | Short version included in chat-history prompt context. |
+| `additionalContext` | `additional_context` | `Optional[str]` | no | Additive instructions appended to the default full request/task prompt. Limited to 4096 UTF-8 bytes. Prompt-member value overrides workflow-level `template.CUSTOM_INSTRUCTIONS` for that one prompt render. Not supported under `customSteps`, nested `useExtras`, or prompt members that replace the full prompt. |
 | `prompt` | `prompt` | `Optional[str]` | no | Full prompt sent to the LLM. |
 | `role` | `role` | `Optional[Literal["assistant", "developer", "system", "user"]]` | no | OpenAI chat-completion role. |
 
 ```python
 from groundx import WorkflowPrompt
+
 WorkflowPrompt(
     abbreviated="Classify this chunk",
-    prompt="Classify this chunk into one of: medical_event, injury_detail, or null.",
-    role="system",
+    additional_context="Use the customer-specific taxonomy names from this workflow.",
 )
 ```
 

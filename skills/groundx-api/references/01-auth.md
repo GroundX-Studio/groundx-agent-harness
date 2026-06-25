@@ -29,54 +29,28 @@ full rotation pattern.
 
 ## 2. MCP connection
 
-Use the first-party GroundX MCP server before direct REST. First check whether GroundX
-MCP tools are visible in the current agent runtime. If they are not visible, instruct the
-user to connect the GroundX MCP connector to GroundX and retry tool discovery before
-using REST fallback. When the connector is available, configure the MCP client with the
-server URL and let the client follow the OAuth metadata and authorization-code flow. The
-hosted GroundX authorization page asks the user for a GroundX API key, validates it
-inside the GroundX deployment, and returns short-lived MCP tokens to the client.
+GroundX is MCP-first: prefer the first-party GroundX MCP server before direct REST. Check
+whether GroundX MCP tools are visible in the current agent runtime; if they are not, instruct
+the user to connect the GroundX MCP connector to GroundX and retry tool discovery before using
+REST fallback. MCP auth is handled at the transport layer — never put the raw API key in
+MCP tool arguments, redirect URLs, logs, transcripts, generated examples, or frontend/browser code.
 
-For non-interactive API agents or MCP clients that cannot complete OAuth, authenticate
-the MCP HTTP transport with the standard `X-API-Key` header. That is transport
-authentication only; do not put the raw API key in MCP tool arguments, redirect URLs,
-logs, transcripts, generated examples, or frontend/browser code.
+For MCP client setup — per-client configuration (Claude Code CLI, Claude Desktop, Codex,
+Cursor, Replit), the OAuth metadata and authorization-code flow, the `X-API-Key` HTTP transport
+for non-interactive agents, and the MCP server URL — use the dedicated `groundx-mcp` skill. This
+skill does not duplicate that setup detail; it cross-links to `groundx-mcp` and owns REST/SDK.
 
-```json
-{
-  "url": "https://api.groundx.ai/mcp"
-}
-```
+Once connected, call `groundx_account_context` before choosing behavior. It returns the resolved
+account type, mode (`customer`, `partner`, or `admin`), granted scopes, base URL, and enabled
+tool groups. Customer accounts expose customer GroundX tools. Partner accounts also expose
+Partner and Workspace tools when enabled. Admin accounts expose all enabled tool groups. If
+connector attachment/auth fails, or a needed tool remains missing after discovery, use the REST
+references below as the fallback path and keep the API key server-side.
 
-MCP clients discover the protected resource and authorization server metadata at:
-
-```text
-GET https://api.groundx.ai/.well-known/oauth-protected-resource
-GET https://api.groundx.ai/.well-known/oauth-authorization-server
-```
-
-On on-prem deployments, use the deployer-controlled public GroundX API hostname instead
-of `https://api.groundx.ai`. The same endpoints are served by that deployment.
-
-Once connected, call `groundx_account_context` before choosing behavior. It returns the
-resolved account type, mode (`customer`, `partner`, or `admin`), granted scopes, base URL,
-and enabled tool groups. Customer accounts expose customer GroundX tools. Partner accounts
-also expose Partner and Workspace tools when enabled. Admin accounts expose all enabled
-tool groups. If connector attachment/auth fails, or a needed tool remains missing after
-discovery, use the REST references below as the fallback path and keep the API key
-server-side.
-
-For Partner MCP sessions, do not pass raw API keys as tool arguments. Partner resource
-tools use `customerUsername` as a per-call target-customer selector; the server maps it to
-the Partner API `X-Customer-Key` header. If the session is authorized with a regular user
-key, Partner tools should not be visible.
-
-`https://api.groundx.ai/mcp` and `https://api.groundx.ai/api/v1/mcp` are
-equivalent — either may be used.
-
-Interactive clients should use OAuth. Non-interactive agents may use `X-API-Key` MCP
-transport auth when they cannot complete the browser authorization flow. In both modes,
-never place the API key in MCP tool arguments or generated artifacts.
+For Partner MCP sessions, do not pass raw API keys as tool arguments. Partner resource tools use
+`customerUsername` as a per-call target-customer selector; the server maps it to the Partner API
+`X-Customer-Key` header. If the session is authorized with a regular user key, Partner tools
+should not be visible.
 
 ## 3. REST base URL and headers
 

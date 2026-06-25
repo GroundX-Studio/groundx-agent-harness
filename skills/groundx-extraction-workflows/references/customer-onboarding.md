@@ -1,6 +1,6 @@
 # Customer Extraction Onboarding
 
-Use this reference when a user asks for a new customer extraction pilot, schema kickoff, benchmark, answer-key comparison, or deployment path. This file does not replace the extraction loop; it defines the inputs and readiness checks before the loop starts.
+Use this reference when a user asks for a new customer extraction pilot, schema kickoff, benchmark, expected-answer comparison, or deployment path. This file does not replace the extraction loop; it defines the inputs and readiness checks before the loop starts.
 
 ## Intake packet
 
@@ -10,12 +10,13 @@ Collect or confirm:
 - target fields, preferably in the customer's spreadsheet or schema
 - the owner who can answer field-definition questions
 - representative sample documents
-- a ground-truth answer key when accuracy will be measured
+- expected answers when accuracy will be measured; they may arrive as JSON,
+  spreadsheets, documents, text files, PDFs, or human-review notes
 - the expected output handoff: JSON file, callback, API retrieval, report, or UI review
 - whether documents arrive as complete batches or gradually over time
-- whether the customer permits storing samples, answer keys, and iteration artifacts
+- whether the customer permits storing samples, expected answers, and iteration artifacts
 
-For a shape-only proof, one representative document can be enough. For a serious pilot, prefer 20-100 representative documents when practical. For benchmark-style claims, prefer about 100 clean labeled examples with a trusted answer key. Do not treat a customer-provided answer key as automatically correct; validate obvious mismatches before tightening prompts.
+For a shape-only proof, one representative document can be enough. For a serious pilot, prefer 20-100 representative documents when practical. For benchmark-style claims, prefer about 100 clean labeled examples with trusted expected answers. Do not treat customer-provided expected answers as automatically correct; validate obvious mismatches against the source document before tightening prompts.
 
 ## Desired output shape
 
@@ -61,7 +62,7 @@ Before iteration starts, define:
 - repeating-record accuracy bar, if applicable
 - allowed WARN conditions from `5_validation.md`
 - maximum iteration budget from `8_iteration_and_feedback.md`
-- what happens if the answer key is incomplete or ambiguous
+- what happens if the expected answers are incomplete or ambiguous
 - what artifact is delivered at the end: YAML, workflow JSON, extracted JSON, comparison report, or UI-ready output
 
 Default production-grade bar remains >=95% per-field PASS with WARN rows explicitly accepted. For charges-style repeating records, missing records are usually production blockers unless the customer accepts the exception.
@@ -81,6 +82,6 @@ If the customer wants push delivery, use the GroundX API callback pattern with `
 
 - Start schema work from a vague "extract everything" request.
 - Promise benchmark accuracy from one or two examples.
-- Assume the customer's answer key is correct when the extraction finds plausible extra records.
+- Assume the customer's expected answers are correct when the extraction finds plausible extra records.
 - Auto-finalize extraction for document sets that require human batch readiness.
-- Commit customer documents, answer keys, or private run artifacts unless storage permission is explicit.
+- Commit customer documents, expected answers, or private run artifacts unless storage permission is explicit.

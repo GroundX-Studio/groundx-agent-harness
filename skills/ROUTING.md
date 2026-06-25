@@ -8,11 +8,20 @@ human engineer, apply [`RESPONSE_STYLE.md`](./RESPONSE_STYLE.md): lead with the 
 keep it brief by default, use plain English, and omit internal harness logistics unless
 they are the work.
 
+## GroundX MCP Setup And Tools
+
+Start with `groundx-mcp` for connecting an AI assistant or MCP client to the GroundX MCP
+server: per-client setup (Claude Code CLI, Claude Desktop, Codex CLI, Codex Desktop,
+Cursor, Replit), the default tool reference, advanced operation discovery, auth and scope
+troubleshooting, and migration from old tool names. It is standalone; use `groundx-api`
+for REST endpoint semantics and SDK setup once MCP is connected.
+
 ## GroundX API Work
 
 Start with `groundx-api` for customer-scoped GroundX API behavior: authentication,
 document ingest, search, grounded answers, buckets, groups, workflows, status polling,
-source retrieval, extraction retrieval, and SDK or REST fallback.
+source retrieval, extraction retrieval, and SDK or REST fallback. For MCP client setup
+and the MCP tool reference, see `groundx-mcp`.
 
 ## Structured Extraction Work
 

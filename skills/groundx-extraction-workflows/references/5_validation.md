@@ -1,12 +1,13 @@
 # 5. Validation
 
-How the comparison harness scores extraction output against ground truth,
-and how to read its report.
+How the comparison harness scores extraction output against expected answers,
+how to map reviewer-provided expected answers before scoring, and how to read
+its report.
 
 ## 1. The compare loop
 
 The comparator (`skills/groundx-extraction-workflows/templates/score_extraction.py`) reads the
-extracted JSON and the ground-truth answer-key JSON and emits a
+extracted JSON and a runner-shaped JSON expected-answer file and emits a
 field-by-field report:
 
 ```
@@ -62,17 +63,17 @@ what to fix.
 
 | tool | scope | ingest? |
 |---|---|---|
-| `score_extraction.py output.json key.json` | one document, raw GroundX `get_extract` output | no (offline) |
-| `score_extraction.py final_output.json key.json` | one document, intentional local final output scoring | no (offline) |
+| `score_extraction.py output.json expected_answers.json` | one document, raw GroundX `get_extract` output | no (offline) |
+| `score_extraction.py final_output.json expected_answers.json` | one document, intentional local final output scoring | no (offline) |
 | `batch_extraction.py …` | a folder of documents | **yes** — live ingest + extract + score + aggregate |
-| `batch_score.py <run_dir> --keys-dir keys/` | a captured run (a `batch_extraction` `--out`) | **no** — re-scores raw `<doc>.extracted.json` offline |
-| `batch_score.py <run_dir> --keys-dir keys/ --artifact-kind final` | a captured run's local final output | **no** — re-scores `<doc>.final_output.json` offline |
+| `batch_score.py <run_dir> --keys-dir expected_answers/` | a captured run (a `batch_extraction` `--out`) | **no** — re-scores raw `<doc>.extracted.json` offline |
+| `batch_score.py <run_dir> --keys-dir expected_answers/ --artifact-kind final` | a captured run's local final output | **no** — re-scores `<doc>.final_output.json` offline |
 
 `batch_score.py` is the economical iteration loop: ingest **once** with
 `batch_extraction`, then re-score the captured set as many times as you like —
-after tweaking an answer key, comparison logic, or to score the same run on
-another machine — **without paying for ingest again**. It imports only the
-SDK-free `score_extraction` engine, so it runs anywhere with no GroundX
+after fixing an expected-answer mapping, comparison logic, or to score the same
+run on another machine — **without paying for ingest again**. It imports only
+the SDK-free `score_extraction` engine, so it runs anywhere with no GroundX
 credentials. `aggregate_reports` lives in `score_extraction` and is shared by
 both `batch_extraction` (live) and `batch_score.py` (offline).
 
@@ -85,6 +86,38 @@ Artifact names matter:
 - `final_output.json` and `<doc>.final_output.json` are local final outputs
   after diagnostic reconstruction and optional business logic. Score them only
   when that is the explicit goal.
+
+### 1.2 Expected-answer formats and mapping
+
+Expected answers may arrive as runner-shaped JSON, spreadsheets, documents,
+text files, PDFs, or human-review notes. Only runner-shaped JSON goes directly
+into `score_extraction.py`; every other format must be converted or mapped
+first.
+
+When expected answers and extraction output disagree:
+
+1. Ignore fields where both sides agree.
+2. Inspect the source document for each conflict.
+3. Decide whether the expected answer, extraction value, or neither value is
+   source-supported.
+4. Score only fields that can be mapped and adjudicated.
+5. Mark unsupported reviewer notes, schema mismatches, or ambiguous source
+   evidence as unscored or WARN with rationale.
+6. Count improvements and regressions against the same adjudicated field set.
+7. Do not claim final improvement unless a new live raw `output.json` exists,
+   or the report is explicitly labeled as diagnostic/local-final.
+
+Keep a minimal mapping record for each reviewed field:
+
+| field | meaning |
+|---|---|
+| `field_path` | JSON path in the runner output, such as `/claim/loss_date` |
+| `expected_source_location` | where the expected answer came from: sheet tab + cell, document page/section, PDF page, text line, or reviewer note |
+| `normalized_expected_value` | value after format normalization |
+| `extracted_value` | value from `output.json` or the explicitly chosen local-final artifact |
+| `source_support` | `expected_supported`, `extraction_supported`, `neither_supported`, or `ambiguous` |
+| `scoreability` | `score`, `warn`, or `unscored` |
+| `rationale` | one sentence explaining the decision |
 
 ## 2. Comparison rules
 
@@ -167,18 +200,18 @@ so genuine extraction failures separate from non-failures:
 | `miss_type` | Meaning | Counts toward accuracy? |
 |---|---|---|
 | `None` (clean pass) | exact or casing-only match | yes — pass |
-| `expected-null` | answer key has no value here | **no** — excluded from the denominator (informational only) |
-| `not-found` | key has a value; extraction produced nothing | yes — miss |
-| `field-mismatch` | key has a value; extraction produced a different one | yes — miss |
+| `expected-null` | expected-answer JSON has no value here | **no** — excluded from the denominator (informational only) |
+| `not-found` | expected answer has a value; extraction produced nothing | yes — miss |
+| `field-mismatch` | expected answer has a value; extraction produced a different one | yes — miss |
 
-Legitimately-null key fields (e.g. a meter's `supplier_name` on a
+Legitimately-null expected-answer fields (e.g. a meter's `supplier_name` on a
 direct-billed account) are **excluded** from the field-accuracy
 denominator — they are not extraction targets, so they neither pass nor
 fail. They are reported as `expected-null` counts separately.
 
 The split is the triage tool. A cluster of `field-mismatch` on one field
 across many records points at either a prompt problem (truncated /
-non-verbatim descriptions) or an answer-key artifact (DB-normalized
+non-verbatim descriptions) or an expected-answer artifact (DB-normalized
 values that diverge from the printed document). A cluster of `not-found`
 points at missed rows or a too-narrow prompt. `extra` records point at
 over-extraction (subtotals, recap boxes, cross-chunk duplicates). See
@@ -192,7 +225,7 @@ The `extra` verdict typically catches one of two patterns:
   the group-level `prompt.instructions` with explicit IS-NOT examples, or
   dedup cross-chunk duplicates with `unique_attrs` (see
   `12_business_logic.md`).
-- The ground truth is incomplete — confirm with the user before changing
+- The expected answers are incomplete — confirm with the user before changing
   the extraction.
 
 ## 4. What WARN means
@@ -202,7 +235,7 @@ worth flagging:
 
 - **WARN (casing)** — string matched case-insensitively. Acceptable if
   downstream code is also case-insensitive; tighten the prompt if not.
-- **WARN (value; key null)** — extraction produced a value the answer key
+- **WARN (value; key null)** — extraction produced a value the expected-answer JSON
   leaves null. Not a failure (extract the printed value anyway; the
   customer reconciles).
 
@@ -214,7 +247,7 @@ YAML. Do not let WARN rows accumulate silently across iterations.
 Meter groups score exactly like any other repeating group (§3): records
 pair by best field overlap (no hardcoded `meter_number` key), then every
 field scores individually with its miss type. Add expected meter records
-under a top-level `meters` array in a JSON answer key:
+under a top-level `meters` array in expected-answer JSON:
 
 ```json
 {
@@ -224,10 +257,10 @@ under a top-level `meters` array in a JSON answer key:
 }
 ```
 
-CSV answer keys do not have a general meter convention; use JSON answer
-keys for metered-usage validation.
-Use JSON answer keys for scoring. CSV remains supported only for the
-field-catalog coverage helper, not for `score_extraction.py`.
+Spreadsheet expected answers do not have a general meter convention. Map them
+into runner-shaped JSON before scoring. Spreadsheet and CSV files remain
+supported as field-catalog inputs for the coverage helper, not as direct
+`score_extraction.py` inputs.
 
 ## 6. Accuracy thresholds
 

@@ -25,7 +25,64 @@ Event records have this shape (one JSON object per line):
 import datetime
 import json
 import os
+import re
 import typing
+
+
+EMAIL_RE = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
+PRIVATE_KEY_RE = re.compile(
+    r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
+    re.DOTALL,
+)
+BEARER_RE = re.compile(r"\bBearer\s+[A-Za-z0-9._\-]+", re.IGNORECASE)
+KEY_SHAPED_RE = re.compile(r"\b(?:groundx|sk|gx)[-_][A-Za-z0-9._\-]{8,}\b")
+# Keys are lowercased before lookup; keep canonical header spellings visible so
+# scanner/tests cover common auth headers such as Authorization and X-API-Key.
+SENSITIVE_KEYS = {
+    "authorization",
+    "x-api-key",
+    "x_api_key",
+    "api_key",
+    "apikey",
+    "bearer",
+    "token",
+    "access_token",
+    "refresh_token",
+    "password",
+    "secret",
+    "private_key",
+}
+
+
+def _redact_string(value: str) -> str:
+    value = PRIVATE_KEY_RE.sub("[REDACTED]", value)
+    value = BEARER_RE.sub("Bearer [REDACTED]", value)
+    value = KEY_SHAPED_RE.sub("[REDACTED]", value)
+    value = EMAIL_RE.sub("[REDACTED]", value)
+    return value
+
+
+def _sanitize_for_log(value: typing.Any, key: typing.Optional[str] = None) -> typing.Any:
+    if key and key.lower() in SENSITIVE_KEYS:
+        return "[REDACTED]"
+    if isinstance(value, dict):
+        return {k: _sanitize_for_log(v, str(k)) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_for_log(item) for item in value]
+    if isinstance(value, tuple):
+        return [_sanitize_for_log(item) for item in value]
+    if isinstance(value, str):
+        return _redact_string(value)
+    return value
+
+
+def _quota_failure_reason(exc: Exception) -> str:
+    text = f"{type(exc).__name__}: {exc}".lower()
+    if "validation" in text or "parse" in text or "model" in text:
+        return "sdk_response_validation_failed"
+    if "request" in text or "http" in text or "timeout" in text:
+        return "request_failed"
+    return "unavailable"
 
 
 class RunLog:
@@ -46,7 +103,7 @@ class RunLog:
             "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "event": name,
         }
-        record.update(kwargs)
+        record.update(_sanitize_for_log(kwargs))
         self._file.write(json.dumps(record, default=str) + "\n")
 
     def quota_snapshot(self, gx_client: typing.Any, label: str = "") -> None:
@@ -60,7 +117,13 @@ class RunLog:
             c = gx_client.customer.get()
             meters = getattr(c.customer.subscription, "meters", None)
         except Exception as exc:
-            self.event("quota.snapshot.error", label=label, error=str(exc))
+            self.event(
+                "quota.snapshot.unavailable",
+                label=label,
+                blocking=False,
+                exception_type=type(exc).__name__,
+                reason=_quota_failure_reason(exc),
+            )
             return
 
         if meters is None:
