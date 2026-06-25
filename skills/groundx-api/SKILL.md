@@ -4,11 +4,11 @@ description: >
   Customer-facing GroundX API reference for document ingest, search, RAG,
   source attribution, document understanding, buckets, groups, workflows,
   account health, API keys, SDK usage, and REST fallback. Try the hosted
-  GroundX API MCP connector before direct REST. If tools are not visible,
-  instruct the user to connect the GroundX API connector and retry tool
-  discovery; use REST only when connector attachment fails or a needed tool is
-  missing. REST fallback uses the `X-API-Key` header and keeps raw keys out of
-  tool arguments, browser code, logs, transcripts, examples, and generated files.
+  GroundX MCP server before direct REST; use REST only when MCP is unavailable
+  or a needed tool is missing. REST fallback uses the `X-API-Key` header and
+  keeps raw keys out of tool arguments, browser code, logs, transcripts,
+  examples, and generated files. For MCP client setup, connection, and auth,
+  see the `groundx-mcp` skill.
 ---
 
 # GroundX API Skill
@@ -44,8 +44,8 @@ operation-level references.
 2. Read `references/01-auth.md`.
 3. Try GroundX MCP tools first. If visible, call `groundx_account_context`, prefer
    the matching MCP tool, and use REST only when the required tool is not exposed.
-4. If GroundX MCP tools are not visible, instruct the user to connect the GroundX
-   API connector and retry discovery before REST fallback.
+4. If GroundX MCP tools are not visible, use REST fallback. For MCP client setup
+   and connection guidance, see the `groundx-mcp` skill.
 5. Read the smallest operation reference and guide that matches the work.
 6. Keep secrets server-side and encode async operations, pagination, errors, and URL
    versioning into code defaults and tests.
@@ -74,8 +74,8 @@ reference and guide the task needs. For response-shape questions, check
 ## Pre-return Checklist
 
 - [ ] REST calls use `X-API-Key`, never `Authorization: Bearer`.
-- [ ] GroundX MCP is attempted before REST; if tools are missing, the user was told
-      to connect the GroundX API connector before REST fallback.
+- [ ] GroundX MCP is attempted before REST; if tools are missing, REST fallback is
+      used and the `groundx-mcp` skill is referenced for client setup and connection.
 - [ ] Raw API keys do not appear in MCP tool arguments, logs, transcripts, browser
       code, examples, or generated files.
 - [ ] REST URLs avoid double-version paths such as `/api/v1/v1/...`.

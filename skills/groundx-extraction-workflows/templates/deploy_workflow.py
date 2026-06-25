@@ -202,14 +202,6 @@ def _create_or_update_workflow(
     return _workflow_id(response), "created", response
 
 
-def _delete_created_bucket(gx: GroundX, bucket_id: int) -> str | None:
-    try:
-        gx.buckets.delete(bucket_id=bucket_id)
-    except Exception as exc:
-        return str(exc)
-    return None
-
-
 def _write_metadata(out: str, metadata: dict[str, typing.Any]) -> None:
     with open(_abs(out, "deploy.json"), "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2, default=str)
@@ -290,7 +282,6 @@ def main() -> int:
     created_bucket = False
     account_assigned = False
     attachment_error: str | None = None
-    cleanup_error: str | None = None
 
     try:
         if args.add_to_account:
@@ -307,8 +298,7 @@ def main() -> int:
 
     except Exception as exc:
         attachment_error = str(exc)
-        if created_bucket and bucket_id is not None:
-            cleanup_error = _delete_created_bucket(gx, bucket_id)
+        bucket_preserved = bucket_id is not None
         metadata = {
             "status": "failed",
             "workflowId": workflow_id,
@@ -316,9 +306,14 @@ def main() -> int:
             "workflowResponse": _to_plain_dict(workflow_response),
             "bucketId": bucket_id,
             "bucketCreated": created_bucket,
+            "bucketPreserved": bucket_preserved,
             "accountAssigned": account_assigned,
             "error": attachment_error,
-            "cleanupError": cleanup_error,
+            "cleanupNote": (
+                "bucket deletion is not a supported harness cleanup path"
+                if bucket_preserved
+                else None
+            ),
         }
         _write_metadata(args.out, metadata)
         raise SystemExit(f"workflow deploy failed after workflow {workflow_action}: {attachment_error}")

@@ -21,18 +21,18 @@ These names are not configurable. The runner and YAML must use them
 exactly. The YAML key for each becomes the JSON key in the extraction
 output.
 
-### 1.2 Aligning answer-key field names
+### 1.2 Aligning Expected-Answer Field Names
 
 Use the platform-required names (`charge_amount`,
-`charge_description_as_printed`) directly in the YAML, and make the answer key
-use the **same field names** as the extraction output (both derive from the
-YAML). The comparator (`templates/score_extraction.py`) matches by field name and does
-not bridge differing names — answer keys are JSON in the runner's output shape,
-so convert any other format (CSV, etc.) to that shape with matching field names
-first.
+`charge_description_as_printed`) directly in the YAML, and make mapped
+expected-answer JSON use the **same field names** as the extraction output
+(both derive from the YAML). The comparator (`templates/score_extraction.py`)
+matches by field name and does not bridge differing names, so map spreadsheets,
+documents, text files, PDFs, or human-review notes to the runner output shape
+with matching field names first.
 
 A documented platform constraint is not a failure mode; an undocumented
-divergence between the YAML field names and the answer-key field names is.
+divergence between the YAML field names and the expected-answer field names is.
 
 ## 2. Convention ambiguity (AGE-7-style)
 

@@ -10,7 +10,7 @@ and what to prove.
 |---|---|---|---|---|
 | **New field / concept** | add `delivery_point_id`; tighten a null rule | one field def in `prompt.yaml` | none | re-compile; re-compare the touched field |
 | **New use case in a domain** | utility bill → telecom invoice; add dedup/link rules | `prompt.yaml` fields + per-group business-logic metadata | none | re-compile; the metadata changes the post-extraction output |
-| **New domain** | invoice → insurance claim | new `examples/<domain>/` custom-step YAML + answer-key fixture + smoke eval | none unless a new primitive is needed | fixture compiles, validates routes, and scores its answer key |
+| **New domain** | invoice → insurance claim | new `examples/<domain>/` custom-step YAML + expected-answer fixture + smoke eval | none unless a new primitive is needed | fixture compiles, validates routes, and scores its expected-answer JSON |
 | **New primitive** | graph / sequencing linking the metadata can't express | a runner primitive in `templates/business_logic.py` | **yes — escalation signal** | a unit test for the primitive |
 
 The first three are declarative. Only the fourth — a genuinely new
@@ -23,8 +23,8 @@ fork.
 Add a field def under a group's `fields:`. Give it `description`, `identifiers`,
 `instructions`, and `type` (see `2_schema_design.md`). A field whose value is
 legitimately absent on some documents states that in `instructions` ("leave empty
-when …") and the answer key records it as `null`; the comparator treats a correct
-null as a PASS (`5_validation.md`).
+when …") and the expected-answer JSON records it as `null`; the comparator
+treats a correct null as a PASS (`5_validation.md`).
 
 ### Axis 2 — new use case in a domain
 
@@ -68,13 +68,13 @@ the signal that feeds the platform/SDK migration track.
 ## Fixture layout convention
 
 In-repo fixtures are synthetic or anonymized and CI-safe — **never real customer
-data**. Real customer documents and answer keys stay in ignored or out-of-repo
-paths; see `customer-onboarding.md`.
+data**. Real customer documents and expected answers stay in ignored or
+out-of-repo paths; see `customer-onboarding.md`.
 
 ```
 examples/<domain>/
   prompt.yaml            # custom-step workflow metadata + business metadata
-  data/answer_key.json   # runner output shape; include a legitimate null when the domain has one
+  data/answer_key.json   # synthetic expected-answer JSON in runner output shape
   business_logic.md      # the "from chat" rules mapped to the metadata vocabulary
   README.md              # the end-to-end loop for this fixture
 ```
@@ -90,8 +90,8 @@ non-invoice scorer drift:
 
 1. **Non-invoice compile + route shape** — a fixture whose group names are not
    invoice names (`examples/insurance-claim/`) must compile to valid workflow
-   JSON, and its answer key must contain every compiled final route.
-2. **Non-invoice score smoke** — the same fixture's answer key must be valid
+   JSON, and its expected-answer JSON must contain every compiled final route.
+2. **Non-invoice score smoke** — the same fixture's expected-answer JSON must be valid
    runner output shape for singleton and repeating groups.
 3. **Field-coverage gate** — a YAML's fields must cover the target catalog's
    fields (YAML fields ⊇ catalog fields).
