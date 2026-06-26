@@ -113,7 +113,7 @@ Runs every 5 minutes. Two probes per invocation:
 1. **Search probe** — submits a test search query against a fixed bucket; verifies the search path (groundx → OpenSearch → ranker pair → groundx → response) is functional end-to-end.
 2. **Summary probe** — checks the health status of the `summary-client` service.
 
-Output drives the `/v1/health` endpoint's `services` array. On-prem deployments need their own equivalent (or accept that `/v1/health` won't be populated). See `groundx-cloud-utilities.md`.
+Output drives the `/v1/health` endpoint's `services` array. On-prem deployments need their own equivalent (or accept that `/v1/health` won't be populated). See the private cloud-utilities reference.
 
 ### 5.7 Alerting
 
@@ -154,8 +154,8 @@ Deployment-level cost framing is owned by `groundx-on-prem`.
 
 - **The auth surfaces emitting the audit-log entries**: `identity-and-trust.md` § 5–6.
 - **The audit-log retention policy and right-to-be-forgotten interaction**: `data-residency.md` § 6.2.
-- **The `MonitorPipeline` Lambda's stuck-document recovery behavior + cutoffs**: `disaster-recovery.md` § 5.6 + `groundx-cloud-utilities.md`.
-- **The full Lambda inventory in the cloud service**: `groundx-cloud-utilities.md`.
+- **The `MonitorPipeline` Lambda's stuck-document recovery behavior + cutoffs**: `disaster-recovery.md` § 5.6 + the private cloud-utilities reference.
+- **The full Lambda inventory in the cloud service**: the private cloud-utilities reference.
 - **The customer-tier `/v1/health` response shape and pre-flight check pattern**: `groundx-api` § customer-and-keys.
 - **Per-pod HPA tuning, replica defaults, autoscaling specifics**: `groundx-on-prem`.
 - **What fails how + per-failure customer-impact lens**: `failure-modes.md`.

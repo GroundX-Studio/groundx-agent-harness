@@ -38,7 +38,7 @@ architecture questions (`groundx-architecture`).
   `tests/extract/` (post-AGE-67), public-API helpers in
   `src/groundx/extract/classes/testing.py` with `__test__ = False` →
   routes to repo `AGENTS.md` §4–§5
-- `references/maintenance.md` — source-of-truth boundary (repo wins; skill
+- private maintenance reference — source-of-truth boundary (repo wins; skill
   summarizes and routes), cross-skill refactor coordination notes, reusable
   template patterns for the runner-repo AGENTS.md ticket (AGE-63)
 - `evals/evals.json` — 6 routing tests: generic SDK-contribution trigger,

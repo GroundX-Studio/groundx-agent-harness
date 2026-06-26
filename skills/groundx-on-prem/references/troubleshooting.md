@@ -2,7 +2,7 @@
 
 This file documents **the failure modes a deployer hits during install, upgrade, and runtime**, organized by *where in the deployment lifecycle the failure surfaces*. Each entry has a symptom, the chart-side or cluster-side cause, and the fix.
 
-For the canonical install sequence, route to `install-flow.md`. For the per-subsystem ownership map (which file owns what), route to `references/README.md`. For the maintenance discipline used when this file's diagnoses go stale, route to `maintenance.md`.
+For the canonical install sequence, route to `install-flow.md`. For the per-subsystem ownership map (which file owns what), route to `references/README.md`. For the maintenance discipline used when this file's diagnoses go stale, route to the private maintenance reference.
 
 ## 1. `helm install` / `helm template` failures
 

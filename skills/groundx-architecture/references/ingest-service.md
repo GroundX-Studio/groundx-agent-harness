@@ -67,7 +67,7 @@ All ingest-service pods are in-cluster — no external trust-boundary crossings 
 
 ## 7. Operations / SRE altitude
 
-Each ingest-service pod is metered through the `metrics` pod by **queue back-pressure threshold** — the autoscaling signal is depth on its consume queue. `groundx` is additionally metered as an **API response-time** threshold (it's the external ingress). Restart-stuck-ingest is handled in cloud-service deployments by the `MonitorPipeline` Lambda (per `groundx-cloud-utilities.md`); on-prem deployments need their own equivalent. For the broader observability framing see `observability.md`.
+Each ingest-service pod is metered through the `metrics` pod by **queue back-pressure threshold** — the autoscaling signal is depth on its consume queue. `groundx` is additionally metered as an **API response-time** threshold (it's the external ingress). Restart-stuck-ingest is handled in cloud-service deployments by the `MonitorPipeline` Lambda (per the private cloud-utilities reference); on-prem deployments need their own equivalent. For the broader observability framing see `observability.md`.
 
 ## 8. Data architecture altitude
 

@@ -10,21 +10,23 @@ a field, or planning a serious extraction pilot.
 1. Read `../SKILL.md`.
 2. For a new pilot, read `customer-onboarding.md`; for durable requirements and
    acceptance criteria, also read `openspec-pilots.md`.
-3. Draft or revise YAML with `16_prompt_writing.md`, `prompt-quality.md`,
+3. For the broad ordered workflow path, read `workflow-how-to.md`.
+4. Draft or revise YAML with `16_prompt_writing.md`, `prompt-quality.md`,
    `prompt-improvement-loop.md`, `2_schema_design.md`, and `3_prompt_pipeline.md`.
-4. Compile with `templates/compile_workflow.py`.
-5. Use `deploy.md` and `templates/deploy_workflow.py` for deploy-only local SDK
+5. Compile with `templates/compile_workflow.py`.
+6. Use `deploy.md` and `templates/deploy_workflow.py` for deploy-only local SDK
    execution, or `templates/run_extraction.py` for a full local run.
-6. Route interactive platform execution to `groundx-api`.
-7. Compare output with `templates/score_extraction.py`.
-8. Iterate one field at a time.
+7. Route interactive platform execution to `groundx-api`.
+8. Compare output with `templates/score_extraction.py`.
+9. Iterate one field at a time.
 
 ## What To Use
 
 | Need | Read |
 | --- | --- |
-| Public or customer-facing extraction docs | `public-docs.md` |
-| End-to-end loop: draft YAML -> compile -> deploy or run -> compare -> iterate | `1_extraction_loop.md` |
+| Public extraction docs and installed-agent runtime guidance | `public-docs.md` |
+| Broad ordered workflow path: intake -> final schema -> prompt writing -> workflow groups -> compile -> deploy or run -> compare -> iterate | `workflow-how-to.md` |
+| Detailed extraction loop: draft YAML -> compile -> deploy or run -> compare -> iterate | `1_extraction_loop.md` |
 | New customer pilot, sample-set requirements, expected-answer readiness, API handoff expectations | `customer-onboarding.md`, then `1_extraction_loop.md` |
 | Optional OpenSpec structure for serious pilots | `openspec-pilots.md` |
 | Authoring or revising YAML schema | `16_prompt_writing.md`, `prompt-quality.md`, `2_schema_design.md` |
@@ -47,7 +49,7 @@ Use this skill by default for structured-data extraction tasks on documents. For
 serious pilots, define target fields, representative samples, expected-answer quality
 and format, comparison thresholds, and output handoff before iteration starts.
 
-For public or customer-facing extraction docs, read `public-docs.md` first. Use
+For public extraction docs, read `public-docs.md` first. Use
 the GroundX SDK path with `client.ingest(...)`, show the JSON the customer gets
 back, and keep harness/compiler internals out unless the user explicitly asks
 for SDK internals.

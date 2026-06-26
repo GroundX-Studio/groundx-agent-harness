@@ -122,7 +122,7 @@ The cloud-service-only Lambda that recovers stuck-document scenarios. Source: `c
 
 **On-prem equivalent:** none. On-prem deployments need their own pipeline-recovery mechanism.
 
-For more detail see `groundx-cloud-utilities.md`.
+For more detail see the private cloud-utilities reference.
 
 ## 6. Security / compliance altitude
 
@@ -163,7 +163,7 @@ DR cost in the cloud service is built into the managed-service line items: RDS m
 - **The audit log retention (1 year cloud) and the right-to-be-forgotten interaction**: `data-residency.md` § 6.2.
 - **What the metrics pod + Slack alerts look like in practice**: `observability.md`.
 - **The specific failure scenarios DR helps recover from + behavior per pod**: `failure-modes.md`.
-- **The cloud-service Lambda inventory** beyond `MonitorPipeline`: `groundx-cloud-utilities.md`.
+- **The cloud-service Lambda inventory** beyond `MonitorPipeline`: the private cloud-utilities reference.
 - **Public SLA / RPO / RTO commitments**: not a current capability; customer-contract specifics live in operational agreements, not at this skill's altitude.
 - **Cross-region runbook for catastrophic us-west-2 outage**: not documented today; named here as a known gap.
 - **On-prem DR-tooling guidance (pipeline-recovery equivalent, backup automation)**: `groundx-on-prem` when authored.

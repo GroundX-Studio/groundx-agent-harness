@@ -1,7 +1,7 @@
 # Product Brand GTM Reference Index
 
 Use this index when the public GroundX Agent Harness is installed and the work
-needs customer-facing GroundX product positioning, value propositions, proof points,
+needs public GroundX product positioning, value propositions, proof points,
 buyer framing, objections, or product descriptions.
 
 ## Fast Path
