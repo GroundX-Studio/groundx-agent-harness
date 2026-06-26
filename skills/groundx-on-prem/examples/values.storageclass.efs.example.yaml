@@ -1,0 +1,22 @@
+# Values for the groundx-storageclass prereq chart — EFS-backed, ReadWriteMany.
+#
+# Install BEFORE the main groundx chart:
+#   helm upgrade --install groundx-storageclass groundx/groundx-storageclass \
+#     -n eyelevel -f values.storageclass.efs.example.yaml
+#
+# The resulting StorageClass name must match the main chart's cluster.pvClass.
+# EFS supports ReadWriteMany — required for production workspace-runner PVCs and
+# preferred for backing-service operators (Percona, MinIO).
+
+storageClassName: eyelevel-pv
+isDefaultClass: false           # set true to make it the cluster default
+
+provisioner: efs.csi.aws.com
+
+reclaimPolicy: Retain           # PVs survive namespace deletion — reclaim manually
+
+parameters:
+  provisioningMode: efs-ap
+  fileSystemId: <fs-XXXXXXXXXXXXXXXXX>   # AWS EFS FileSystem ID
+  directoryPerms: "700"
+  basePath: /eyelevel

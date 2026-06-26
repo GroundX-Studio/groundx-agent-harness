@@ -83,11 +83,38 @@ RESERVED_TOP_LEVEL_KEYS = {
     "_groundx_persisted_extract",
     "_pseudo_groups",
 }
+_SOURCE_RESERVED_TOP_LEVEL_KEYS = {
+    "extraction_policy_version",
+    "workflow",
+    "_defs",
+    "_pseudo_groups",
+}
+_GENERATED_WORKFLOW_TOP_LEVEL_KEYS = {
+    "chunk_strategy",
+    "chunkStrategy",
+    "customSteps",
+    "extract",
+    "leafFields",
+    "name",
+    "outputRoutes",
+    "section_strategy",
+    "sectionStrategy",
+    "steps",
+    "workflowId",
+    "workflow_id",
+}
 _SOURCE_WORKFLOW_KEYS = {
     "agent_chain",
     "custom_steps",
     "section_strategy",
     "template",
+}
+_CUSTOM_STEP_KEYS = {
+    "config",
+    "kind",
+    "level",
+    "name",
+    "required_template_keys",
 }
 
 # Per-group keys consumed locally: custom workflow selectors plus client-side
@@ -119,6 +146,26 @@ _WORKFLOW_GROUP_METADATA_KEYS = {"workflow_step"}
 _FINAL_GROUP_METADATA_KEYS = _GROUP_METADATA_KEYS - _WORKFLOW_GROUP_METADATA_KEYS
 _PERSISTED_EXTRACT_REQUIRED_GROUP_KEYS = _GROUP_METADATA_KEYS
 _CUSTOM_WORKFLOW_FIELD_METADATA_KEY = "workflow_output_key"
+_DIRECT_FIELD_KEYS = {
+    _CUSTOM_WORKFLOW_FIELD_METADATA_KEY,
+    "fields",
+    "prompt",
+}
+_PSEUDO_FIELD_KEYS = {"path", "prompt"}
+_PROMPT_KEYS = {
+    "description",
+    "format",
+    "identifiers",
+    "instructions",
+    "type",
+}
+_REQUIRED_PROMPT_KEYS = {
+    "description",
+    "identifiers",
+    "instructions",
+    "type",
+}
+_CUSTOM_WORKFLOW_GROUP_FIELD_LIMIT = 30
 _CUSTOM_WORKFLOW_OUTPUT_MAPS = {
     "chunk": "customChunkOutputs",
     "section": "customSectionOutputs",
@@ -144,7 +191,7 @@ _CUSTOM_WORKFLOW_AGENT_CHAIN_SUPPORTED_TASKS = (
     _CUSTOM_WORKFLOW_AGENT_CHAIN_AGENT_TASKS | _CUSTOM_WORKFLOW_AGENT_CHAIN_SAVE_TASKS
 )
 _CUSTOM_WORKFLOW_REPEATED_STEP_KINDS = {"keys", "summary"}
-_CUSTOM_WORKFLOW_PROMPT_MOLECULE_KEYS = ("figure", "paragraph", "table-figure")
+_CUSTOM_WORKFLOW_PROMPT_MOLECULE_KEYS = ("all", "figure", "paragraph", "table-figure")
 _DISABLED_DEFAULT_EXTRACTION_STEPS = (
     "chunk-instruct",
     "chunk-summary",
@@ -301,6 +348,8 @@ def _compose_def_fields(defs: dict, name: str, stack: tuple[str, ...]) -> dict:
         raise ValueError(
             f"unsupported _defs keys at [_defs.{name}]: {sorted(unsupported)}"
         )
+    if "fields" not in fragment:
+        raise ValueError(f"_defs.{name} must declare fields")
 
     fields: dict = {}
     for include_name in _normalize_include(fragment.get("include"), f"_defs.{name}.include"):
@@ -356,6 +405,195 @@ def _assert_required_v1_source_metadata(raw: dict, source: str) -> None:
         raise ValueError(f"{source}: workflow.agent_chain must be a non-empty list")
 
 
+def _assert_source_top_level_shape(raw: dict, source: str) -> None:
+    if "_groundx_persisted_extract" in raw:
+        raise ValueError(
+            f"{source}: `_groundx_persisted_extract` is generated workflow "
+            "metadata. Compile from v1 source YAML, not from a persisted "
+            "workflow payload or workflow readback."
+        )
+
+    for key, value in raw.items():
+        if key in _SOURCE_RESERVED_TOP_LEVEL_KEYS:
+            continue
+        if key in _GENERATED_WORKFLOW_TOP_LEVEL_KEYS:
+            if isinstance(value, dict) and "fields" in value:
+                continue
+            raise ValueError(
+                f"{source}: top-level key '{key}' looks like generated workflow "
+                "metadata. Compile from v1 source YAML, not workflow readback."
+            )
+        if not isinstance(value, dict):
+            raise ValueError(
+                f"{source}: top-level key '{key}' must be a final group mapping "
+                "or one of extraction_policy_version, workflow, _defs, "
+                "or _pseudo_groups."
+            )
+
+
+def _assert_custom_steps_shape(workflow: dict, source: str) -> None:
+    custom_steps = workflow.get("custom_steps")
+    if not isinstance(custom_steps, list) or not custom_steps:
+        return
+
+    names: set[str] = set()
+    for index, step in enumerate(custom_steps):
+        path = f"workflow.custom_steps[{index}]"
+        if not isinstance(step, dict):
+            raise ValueError(f"{source}: {path} must be a mapping")
+        unsupported = set(step) - _CUSTOM_STEP_KEYS
+        if unsupported:
+            raise ValueError(
+                f"{source}: unsupported {path} keys: {sorted(unsupported)}"
+            )
+        name = step.get("name")
+        level = step.get("level")
+        kind = step.get("kind")
+        if not isinstance(name, str) or not name:
+            raise ValueError(f"{source}: {path}.name must be a non-empty string")
+        if name in names:
+            raise ValueError(f"{source}: duplicate custom step name [{name}]")
+        names.add(name)
+        if not isinstance(level, str) or level not in _CUSTOM_WORKFLOW_OUTPUT_MAPS:
+            raise ValueError(f"{source}: {path}.level is invalid")
+        if kind not in {"instruct", "keys", "summary"}:
+            raise ValueError(f"{source}: {path}.kind is invalid")
+        if "config" in step and not isinstance(step["config"], dict):
+            raise ValueError(f"{source}: {path}.config must be a mapping")
+        required_keys = step.get("required_template_keys")
+        if required_keys is not None and (
+            not isinstance(required_keys, list)
+            or not all(isinstance(item, str) for item in required_keys)
+        ):
+            raise ValueError(
+                f"{source}: {path}.required_template_keys must be a string list"
+            )
+
+
+def _assert_prompt_shape(prompt: typing.Any, path: str, source: str) -> None:
+    if not isinstance(prompt, dict):
+        raise ValueError(f"{source}: {path}.prompt must be a mapping")
+    unsupported = set(prompt) - _PROMPT_KEYS
+    if unsupported:
+        raise ValueError(f"{source}: unsupported {path}.prompt keys: {sorted(unsupported)}")
+    missing = sorted(_REQUIRED_PROMPT_KEYS - set(prompt))
+    if missing:
+        raise ValueError(f"{source}: {path}.prompt missing required keys: {missing}")
+
+
+def _assert_group_prompt_shape(prompt: typing.Any, path: str, source: str) -> None:
+    if prompt is not None and not isinstance(prompt, dict):
+        raise ValueError(f"{source}: {path}.prompt must be a mapping")
+
+
+def _assert_direct_field_shape(
+    field_data: dict,
+    path: str,
+    source: str,
+) -> None:
+    if "workflow_step" in field_data:
+        raise ValueError(
+            f"{source}: field '{path}' uses field-level `workflow_step`. Put "
+            "`workflow_step:` on a direct workflow group, or use "
+            "`_pseudo_groups` with `path` routes for split/recombine."
+        )
+    unsupported = set(field_data) - _DIRECT_FIELD_KEYS
+    if unsupported:
+        raise ValueError(f"{source}: unsupported {path} keys: {sorted(unsupported)}")
+    if "fields" in field_data:
+        return
+    _assert_prompt_shape(field_data.get("prompt"), path, source)
+
+
+def _assert_pseudo_field_shape(
+    field_data: dict,
+    path: str,
+    source: str,
+) -> None:
+    if "workflow_step" in field_data:
+        raise ValueError(
+            f"{source}: pseudo field '{path}' uses field-level "
+            "`workflow_step`. Put `workflow_step:` on the pseudo group."
+        )
+    unsupported = set(field_data) - _PSEUDO_FIELD_KEYS
+    if unsupported:
+        raise ValueError(f"{source}: unsupported {path} keys: {sorted(unsupported)}")
+    if "prompt" in field_data:
+        _assert_prompt_shape(field_data.get("prompt"), path, source)
+
+
+def _assert_source_group_shapes(raw: dict, source: str) -> None:
+    allowed_group_keys = {"fields", "include", "prompt", "workflow_step"} | _FINAL_GROUP_METADATA_KEYS
+    for group_name, group_data in _workflow_group_items(raw):
+        unsupported = set(group_data) - allowed_group_keys
+        if unsupported:
+            raise ValueError(
+                f"{source}: unsupported final group '{group_name}' keys: "
+                f"{sorted(unsupported)}"
+            )
+        _assert_group_prompt_shape(group_data.get("prompt"), group_name, source)
+        fields = group_data.get("fields")
+        if fields is not None and not isinstance(fields, dict):
+            raise ValueError(f"{source}: {group_name}.fields must be a mapping")
+        if isinstance(fields, dict):
+            for field_name, field_data in fields.items():
+                if not isinstance(field_data, dict):
+                    raise ValueError(
+                        f"{source}: {group_name}.{field_name} must be a field mapping"
+                    )
+        for field_path, field_data in _walk_field_items(fields):
+            _assert_direct_field_shape(
+                field_data,
+                ".".join((group_name, *field_path)),
+                source,
+            )
+
+    pseudo_groups = raw.get("_pseudo_groups")
+    if pseudo_groups is None:
+        return
+    if not isinstance(pseudo_groups, dict):
+        raise ValueError(f"{source}: `_pseudo_groups` must be a mapping")
+    for group_name, group_data in pseudo_groups.items():
+        path = f"_pseudo_groups.{group_name}"
+        if not isinstance(group_data, dict):
+            raise ValueError(f"{source}: {path} must be a mapping")
+        unsupported = set(group_data) - {"fields", "include", "prompt", "workflow_step"}
+        if unsupported:
+            raise ValueError(f"{source}: unsupported {path} keys: {sorted(unsupported)}")
+        _assert_group_prompt_shape(group_data.get("prompt"), path, source)
+        fields = group_data.get("fields")
+        if fields is not None and not isinstance(fields, dict):
+            raise ValueError(f"{source}: {path}.fields must be a mapping")
+        for field_path, field_data in _walk_field_items(fields):
+            _assert_pseudo_field_shape(
+                field_data,
+                ".".join((path, *field_path)),
+                source,
+            )
+
+
+def _assert_def_field_shapes(defs: dict, source: str) -> None:
+    for def_name, fragment in defs.items():
+        if not isinstance(fragment, dict):
+            continue
+        fields = fragment.get("fields")
+        if fields is None:
+            continue
+        if not isinstance(fields, dict):
+            raise ValueError(f"{source}: _defs.{def_name}.fields must be a mapping")
+        for field_name, field_data in fields.items():
+            if not isinstance(field_data, dict):
+                raise ValueError(
+                    f"{source}: _defs.{def_name}.{field_name} must be a field mapping"
+                )
+        for field_path, field_data in _walk_field_items(fields):
+            _assert_direct_field_shape(
+                field_data,
+                ".".join((f"_defs.{def_name}", *field_path)),
+                source,
+            )
+
+
 def _assert_no_pseudo_group_include(raw: dict, source: str) -> None:
     pseudo_groups = raw.get("_pseudo_groups")
     if not isinstance(pseudo_groups, dict):
@@ -387,6 +625,10 @@ def _assert_no_nested_final_fields(raw: dict, source: str) -> None:
 
 def _normalize_source_yaml(raw: dict, source: str) -> dict:
     _assert_required_v1_source_metadata(raw, source)
+    _assert_source_top_level_shape(raw, source)
+    workflow = typing.cast(dict, raw["workflow"])
+    _assert_custom_steps_shape(workflow, source)
+    _assert_source_group_shapes(raw, source)
     defs = raw.get("_defs")
     if defs is None:
         defs = {}
@@ -394,11 +636,13 @@ def _normalize_source_yaml(raw: dict, source: str) -> dict:
         defs = _ensure_mapping(defs, "_defs")
         for name in defs:
             _compose_def_fields(defs, str(name), ())
+        _assert_def_field_shapes(defs, source)
 
     normalized = copy.deepcopy(raw)
     _assert_no_pseudo_group_include(normalized, source)
     for group_name, group_data in list(_workflow_group_items(normalized)):
         normalized[group_name] = _compose_group_fields(group_name, group_data, defs)
+    _assert_source_group_shapes(normalized, source)
     _assert_no_nested_final_fields(normalized, source)
     return normalized
 
@@ -407,7 +651,9 @@ def _validated_source_yaml(raw: dict, source: str) -> dict:
     _assert_no_legacy_harness_metadata(raw, source)
     normalized = _normalize_source_yaml(raw, source)
     _assert_no_field_level_workflow_step(normalized, source)
+    _assert_str_json_prompts_are_encoded_strings(normalized, source)
     _assert_pseudo_groups_are_routable(normalized, source)
+    _assert_workflow_group_field_limit(normalized, source)
     _requires_custom_workflow_metadata(normalized, source)
     _assert_routed_raw_fields_name_output_keys(normalized, source)
     return normalized
@@ -492,6 +738,63 @@ def _assert_no_field_level_workflow_step(raw: dict, source: str) -> None:
                     f"{source}: pseudo field '{dotted_path}' uses field-level "
                     "`workflow_step`. Put `workflow_step:` on the pseudo group."
                 )
+
+
+def _prompt_text_for_validation(prompt: typing.Any) -> str:
+    if not isinstance(prompt, dict):
+        return ""
+    parts: list[str] = []
+    for key in ("description", "format", "instructions"):
+        value = prompt.get(key)
+        if isinstance(value, str):
+            parts.append(value)
+        elif isinstance(value, list):
+            parts.extend(str(item) for item in value)
+    return "\n".join(parts).lower()
+
+
+def _assert_str_json_prompts_are_encoded_strings(raw: dict, source: str) -> None:
+    encoded_markers = (
+        "json array string",
+        "json object string",
+        "json-encoded string",
+        "json encoded string",
+        "encoded as a string",
+        "encode the json",
+        "string containing json",
+    )
+    json_markers = ("json array", "json object")
+
+    def check_field(group_name: str, field_path: tuple[str, ...], field_data: dict) -> None:
+        prompt = field_data.get("prompt")
+        if not isinstance(prompt, dict):
+            return
+        if str(prompt.get("type", "")).lower() != "str":
+            return
+        prompt_text = _prompt_text_for_validation(prompt)
+        if not any(marker in prompt_text for marker in json_markers):
+            return
+        if any(marker in prompt_text for marker in encoded_markers):
+            return
+        dotted_path = ".".join((group_name, *field_path))
+        raise ValueError(
+            f"{source}: field '{dotted_path}' has type: str but asks for a "
+            "native JSON array/object. Ask for a JSON-encoded string, or change "
+            "the field type if the runtime should receive a structured value."
+        )
+
+    for group_name, group_data in _workflow_group_items(raw):
+        for field_path, field_data in _walk_field_items(group_data.get("fields")):
+            check_field(group_name, field_path, field_data)
+
+    pseudo_groups = raw.get("_pseudo_groups")
+    if not isinstance(pseudo_groups, dict):
+        return
+    for group_name, group_data in pseudo_groups.items():
+        if not isinstance(group_data, dict):
+            continue
+        for field_path, field_data in _walk_field_items(group_data.get("fields")):
+            check_field(str(group_name), field_path, field_data)
 
 
 def _json_pointer_segments(pointer: str) -> list[str]:
@@ -607,6 +910,34 @@ def _assert_pseudo_groups_are_routable(raw: dict, source: str) -> None:
                 f"{source}: final group '{group_name}' is routed by `_pseudo_groups` "
                 "and also declares direct `workflow_step:` metadata. Use one "
                 "routing model for that final group."
+            )
+
+
+def _assert_workflow_group_field_limit(raw: dict, source: str) -> None:
+    counts: dict[str, int] = {}
+
+    for group_name, group_data in _workflow_group_items(raw):
+        if "workflow_step" not in group_data:
+            continue
+        fields = group_data.get("fields")
+        if isinstance(fields, dict):
+            counts[group_name] = len(fields)
+
+    pseudo_groups = raw.get("_pseudo_groups")
+    if isinstance(pseudo_groups, dict):
+        for group_name, group_data in pseudo_groups.items():
+            if not isinstance(group_data, dict):
+                continue
+            fields = group_data.get("fields")
+            if isinstance(fields, dict):
+                counts[str(group_name)] = len(fields)
+
+    for group_name, field_count in sorted(counts.items()):
+        if field_count > _CUSTOM_WORKFLOW_GROUP_FIELD_LIMIT:
+            raise ValueError(
+                f"{source}: workflow group '{group_name}' has {field_count} "
+                f"fields; custom workflow groups support "
+                f"{_CUSTOM_WORKFLOW_GROUP_FIELD_LIMIT} fields or fewer."
             )
 
 

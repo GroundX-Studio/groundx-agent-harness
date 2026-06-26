@@ -8,7 +8,7 @@ comparison reports, or iteration notes that multiple agents or people will revis
 
 Use an OpenSpec pilot when:
 
-- the customer provides multiple sample documents or an answer key,
+- the customer provides multiple sample documents or expected answers,
 - target fields need field-owner confirmation,
 - table or repeating-record structure matters,
 - accuracy will be measured against a comparison report,
@@ -19,7 +19,7 @@ For quick one-document schema drafting, stay in the normal extraction loop.
 ## Folder Boundary
 
 Tracked OpenSpec artifacts may describe requirements, design decisions, and task status.
-Do not put customer documents, answer keys, comparison outputs, private pilot notes,
+Do not put customer documents, expected answers, comparison outputs, private pilot notes,
 credentials, or scratch run outputs under tracked `openspec/specs/` or
 `openspec/changes/` unless the customer has explicitly approved sharing them.
 
@@ -34,7 +34,7 @@ the repository.
   accepted formats, and comparison scenarios.
 - `design.md`: YAML group strategy, workflow registration strategy, on-prem or API
   constraints, expected X-Ray/debug loop.
-- `tasks.md`: sample intake, answer-key review, YAML draft, compile, register, ingest,
+- `tasks.md`: sample intake, expected-answer review, YAML draft, compile, register, ingest,
   compare, field iteration, acceptance, and handoff.
 
 ## Acceptance Criteria
@@ -49,5 +49,5 @@ Pilot specs should cover:
 - maximum iteration budget,
 - what artifact is delivered at the end.
 
-Do not promise benchmark accuracy from one or two examples. Validate obvious answer-key
-mismatches before tightening prompts.
+Do not promise benchmark accuracy from one or two examples. Validate obvious
+expected-answer mismatches before tightening prompts.

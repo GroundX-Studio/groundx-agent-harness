@@ -5,7 +5,7 @@ description: >
   Use this skill when an agent needs to extract structured data from a PDF
   or other document using GroundX. Triggers include drafting or iterating an
   extraction YAML schema, compiling workflow JSON, running an extraction,
-  comparing output to ground truth, debugging missing or wrong fields, and
+  comparing output to reviewer-provided expected answers, debugging missing or wrong fields, and
   planning a serious extraction pilot. Platform API operations delegate to
   `groundx-api`.
 ---
@@ -15,8 +15,9 @@ description: >
 This skill is schema-first: the durable artifact is a YAML schema;
 `compile_workflow.py` translates it into workflow JSON; `deploy_workflow.py`
 deploys a finished YAML through the GroundX Python SDK; `run_extraction.py`
-runs the full ingest/poll/X-Ray/extract loop. Interactive platform execution
-delegates to `groundx-api`.
+runs the full ingest/poll/X-Ray/extract loop and can resume a timed-out local
+poll with `--resume --out <run-dir>`. Interactive platform execution delegates
+to `groundx-api`.
 
 For public or customer-facing extraction documentation, read
 `references/public-docs.md` first. Public docs should use the GroundX SDK path,
@@ -28,7 +29,7 @@ the user explicitly asks for SDK internals.
 - **Role:** `artifact`.
 - **First-entry intents:** schema-first extraction, extraction YAML, extraction
   workflow authoring, compile-to-workflow JSON, field-accuracy iteration, pilot
-  acceptance criteria, or comparison to ground truth.
+  acceptance criteria, or comparison to expected answers.
 - **Deferrals:** interactive workflow registration, bucket attachment, document
   ingest, polling, and extraction retrieval route to `groundx-api`; on-prem
   deployment questions route to `groundx-on-prem`; architecture questions route to
@@ -57,10 +58,12 @@ the user explicitly asks for SDK internals.
    For a full local run, use
    `templates/run_extraction.py`. For interactive platform execution, route to
    `groundx-api`.
-8. Score against ground truth: `templates/score_extraction.py` for one document, or
+8. Score against expected answers: `templates/score_extraction.py` for one document, or
    `templates/batch_extraction.py` to ingest + score a folder live. To re-score a captured
-   run **offline (no re-ingest)** — after editing answer keys or to score on another
-   machine — use `templates/batch_score.py <run_dir> --keys-dir <keys>`.
+   run **offline (no re-ingest)** — after fixing expected-answer mappings or to score on
+   another machine — use `templates/batch_score.py <run_dir> --keys-dir <expected-answers>`.
+   If expected answers arrive as spreadsheets, documents, text files, PDFs, or
+   human-review notes, map them into runner-shaped JSON before scoring.
 9. Iterate one field at a time; inspect X-Ray before tightening prompts when accuracy
    stalls or a field is wrong.
 
@@ -68,7 +71,7 @@ the user explicitly asks for SDK internals.
 
 This skill produces `prompt.yaml`, compiled `workflow.json`, extracted JSON after
 `groundx-api` execution, deploy metadata from `templates/deploy_workflow.py`, an
-accuracy report when ground truth exists, and the minimal
+accuracy report when expected answers exist, and the minimal
 `templates/prompt_manager.py` manager shape when custom prompt wrappers are needed. A
 full deployable project scaffold is not part of the default deliverable.
 

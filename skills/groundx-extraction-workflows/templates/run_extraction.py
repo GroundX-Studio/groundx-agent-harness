@@ -27,6 +27,7 @@ Optional flags:
                            (some platform aggregations are gated on this).
     --require-raw-extract  Fail if GroundX get_extract is unavailable. The
                            runner still writes X-Ray diagnostic artifacts.
+    --resume               Resume polling from an existing run directory.
     --poll-interval <sec>  Seconds between status polls (default: 15).
     --max-polls <n>        Maximum number of polls before timeout (default: 120).
 """
@@ -34,6 +35,7 @@ Optional flags:
 import argparse
 import json
 import os
+import shlex
 import sys
 import time
 import typing
@@ -53,6 +55,10 @@ from validate_workflow_json import validate as validate_workflow
 from xray_to_extract import xray_to_extract
 
 
+TIMEOUT_HISTORY_LIMIT = 10
+BUSINESS_LOGIC_METADATA_FILENAME = "business_logic_metadata.json"
+
+
 def _load_business_logic_metadata(yaml_path: str) -> dict:
     """Extract per-group business-logic metadata from the extraction YAML.
 
@@ -69,8 +75,82 @@ def _load_business_logic_metadata(yaml_path: str) -> dict:
     return final_group_metadata if isinstance(final_group_metadata, dict) else {}
 
 
+def _write_business_logic_metadata_for_run(
+    out_dir: str,
+    metadata: dict,
+    rl: typing.Optional[RunLog] = None,
+) -> None:
+    path = _abs(out_dir, BUSINESS_LOGIC_METADATA_FILENAME)
+    payload = metadata if isinstance(metadata, dict) else {}
+    _write_json(path, payload)
+    if rl:
+        rl.event(
+            "business_logic.metadata_saved",
+            path=path,
+            groups=sorted(payload.keys()),
+        )
+
+
+def _load_business_logic_metadata_from_run(
+    out_dir: str,
+    rl: typing.Optional[RunLog] = None,
+) -> dict:
+    path = _abs(out_dir, BUSINESS_LOGIC_METADATA_FILENAME)
+    metadata = _read_json(path)
+    payload = metadata if isinstance(metadata, dict) else {}
+    if rl:
+        rl.event(
+            "business_logic.metadata_loaded",
+            path=path if isinstance(metadata, dict) else None,
+            groups=sorted(payload.keys()),
+        )
+    return payload
+
+
 def _abs(out: str, name: str) -> str:
     return os.path.join(out, name)
+
+
+def _read_text(path: str) -> typing.Optional[str]:
+    try:
+        with open(path, "r") as f:
+            value = f.read().strip()
+        return value or None
+    except FileNotFoundError:
+        return None
+
+
+def _read_json(path: str) -> typing.Any:
+    try:
+        with open(path, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+
+def _write_json(path: str, payload: typing.Any) -> None:
+    with open(path, "w") as f:
+        json.dump(payload, f, indent=2, default=str)
+
+
+def _load_workflow_extract_from_run(out_dir: str) -> typing.Optional[dict]:
+    workflow = _read_json(_abs(out_dir, "workflow.json"))
+    if not isinstance(workflow, dict):
+        return None
+    extract = workflow.get("extract")
+    return extract if isinstance(extract, dict) else None
+
+
+def _write_output_provenance(out_dir: str, *, process_id: str, document_id: str) -> None:
+    _write_json(
+        _abs(out_dir, "output_provenance.json"),
+        {
+            "artifact": "output.json",
+            "kind": "raw_get_extract",
+            "process_id": process_id,
+            "document_id": document_id,
+        },
+    )
 
 
 def _to_plain_dict(obj: typing.Any) -> dict:
@@ -145,6 +225,101 @@ def _progress_error_total(progress: typing.Any) -> int:
     return 0
 
 
+def _progress_group_count(progress: typing.Any, group_name: str) -> int:
+    group = _value(progress, group_name)
+    total = _value(group, "total")
+    if total not in (None, ""):
+        try:
+            return int(total)
+        except (TypeError, ValueError):
+            pass
+    return len(_documents_from_progress_group(progress, group_name))
+
+
+def _progress_counts(progress: typing.Any) -> dict[str, int]:
+    if not progress:
+        return {"complete": 0, "processing": 0, "errors": 0}
+    return {
+        "complete": _progress_group_count(progress, "complete"),
+        "processing": _progress_group_count(progress, "processing"),
+        "errors": _progress_group_count(progress, "errors")
+        or _progress_group_count(progress, "failed"),
+    }
+
+
+def _timeout_scoreability(
+    out_dir: str,
+    *,
+    process_id: str,
+    document_id: typing.Optional[str],
+) -> dict:
+    output_path = _abs(out_dir, "output.json")
+    provenance = _read_json(_abs(out_dir, "output_provenance.json"))
+    output_exists = os.path.exists(output_path)
+    result = {
+        "output_json_exists": output_exists,
+        "scoreable": False,
+        "scoreability_reason": "raw output missing",
+    }
+    if not output_exists:
+        return result
+    if not isinstance(provenance, dict):
+        result["scoreability_reason"] = "raw output provenance missing"
+        return result
+    if provenance.get("process_id") != process_id:
+        result["scoreability_reason"] = "raw output provenance does not match this process"
+        return result
+    if document_id and provenance.get("document_id") != document_id:
+        result["scoreability_reason"] = "raw output provenance does not match this document"
+        return result
+    if provenance.get("kind") not in (None, "raw_get_extract"):
+        result["scoreability_reason"] = "output.json is not labeled as raw get_extract"
+        return result
+    result["scoreable"] = True
+    result["scoreability_reason"] = "raw output provenance matches this process"
+    return result
+
+
+def _record_timeout_summary(
+    out_dir: str,
+    *,
+    process_id: str,
+    workflow_id: typing.Optional[str],
+    bucket_id: typing.Optional[typing.Union[int, str]],
+    elapsed_seconds: float,
+    poll_count: int,
+    poll_interval: int,
+    last_status: typing.Optional[str],
+    progress_counts: dict[str, int],
+    document_id: typing.Optional[str],
+) -> dict:
+    scoreability = _timeout_scoreability(
+        out_dir,
+        process_id=process_id,
+        document_id=document_id,
+    )
+    summary = {
+        "process_id": process_id,
+        "workflow_id": workflow_id,
+        "bucket_id": bucket_id,
+        "elapsed_seconds": round(elapsed_seconds, 3),
+        "poll_count": poll_count,
+        "poll_interval_seconds": poll_interval,
+        "last_status": last_status,
+        "progress_counts": progress_counts,
+        "resume_command": f"python run_extraction.py --resume --out {shlex.quote(out_dir)}",
+        **scoreability,
+    }
+    _write_json(_abs(out_dir, "timeout_summary.json"), summary)
+
+    history_path = _abs(out_dir, "timeout_history.json")
+    existing = _read_json(history_path)
+    history = existing if isinstance(existing, list) else []
+    history = history[-(TIMEOUT_HISTORY_LIMIT - 1):] + [summary]
+    _write_json(history_path, history)
+    return summary
+
+
 def _workflow_id(response: typing.Any) -> str:
     workflow_id = (
         _value(response, "workflow", "workflow_id")
@@ -200,14 +375,31 @@ def _safe_delete(rl: RunLog, kind: str, fn: typing.Callable[[], typing.Any], **i
         rl.event(f"cleanup.{kind}.error", error=str(e), **ids)
 
 
-def _poll(gx: GroundX, process_id: str, interval: int, max_polls: int, rl: RunLog) -> str:
+def _poll(
+    gx: GroundX,
+    process_id: str,
+    interval: int,
+    max_polls: int,
+    rl: RunLog,
+    *,
+    out_dir: typing.Optional[str] = None,
+    workflow_id: typing.Optional[str] = None,
+    bucket_id: typing.Optional[typing.Union[int, str]] = None,
+    started_at: typing.Optional[float] = None,
+    now_fn: typing.Callable[[], float] = time.time,
+) -> str:
     document_id: typing.Optional[str] = None
+    start = started_at if started_at is not None else now_fn()
+    last_status: typing.Optional[str] = None
+    last_progress_counts = {"complete": 0, "processing": 0, "errors": 0}
     for i in range(max_polls):
         st = gx.documents.get_processing_status_by_id(process_id=process_id)
         status = st.ingest.status
+        last_status = status
         rl.event("ingest.poll", poll=i + 1, status=status)
         progress = st.ingest.progress
         if progress:
+            last_progress_counts = _progress_counts(progress)
             error_documents = _progress_error_documents(progress)
             if error_documents:
                 details = [_document_error_message(document) for document in error_documents]
@@ -237,7 +429,33 @@ def _poll(gx: GroundX, process_id: str, interval: int, max_polls: int, rl: RunLo
             rl.event("ingest.failed", status=status, detail=str(st.ingest))
             raise SystemExit(f"ingest failed: {status}")
         time.sleep(interval)
-    rl.event("ingest.timeout", polls=max_polls, interval=interval)
+    summary = None
+    if out_dir:
+        summary = _record_timeout_summary(
+            out_dir,
+            process_id=process_id,
+            workflow_id=workflow_id,
+            bucket_id=bucket_id,
+            elapsed_seconds=now_fn() - start,
+            poll_count=max_polls,
+            poll_interval=interval,
+            last_status=last_status,
+            progress_counts=last_progress_counts,
+            document_id=document_id,
+        )
+    rl.event(
+        "ingest.timeout",
+        polls=max_polls,
+        interval=interval,
+        timeout_summary=_abs(out_dir, "timeout_summary.json") if out_dir else None,
+        scoreable=summary.get("scoreable") if summary else None,
+    )
+    if summary:
+        raise SystemExit(
+            "ingest timed out: local polling expired; the platform process may still be "
+            "running and is not scoreable until it completes with raw output. "
+            f"resume polling the same process with: {summary['resume_command']}"
+        )
     raise SystemExit("ingest timed out")
 
 
@@ -356,12 +574,66 @@ def _completion_message(
     )
 
 
+def _write_completed_artifacts(
+    *,
+    gx: GroundX,
+    out_dir: str,
+    process_id: str,
+    document_id: str,
+    bl_metadata: typing.Optional[dict],
+    rl: RunLog,
+    workflow_extract: typing.Optional[dict],
+) -> tuple[dict, dict[str, int]]:
+    xray_path = _abs(out_dir, "xray.json")
+    extract_path = _abs(out_dir, "output.json")
+    diagnostic_path = _abs(out_dir, "xray_diagnostic.json")
+    final_output_path = _abs(out_dir, "final_output.json")
+
+    artifacts = derive_extraction_artifacts(
+        gx,
+        document_id,
+        bl_metadata,
+        rl,
+        workflow_extract=workflow_extract,
+    )
+    xray_dict = artifacts["xray"]
+    _write_json(xray_path, xray_dict)
+    rl.event("xray.captured", path=xray_path, chunks=len(xray_dict.get("chunks") or []))
+
+    output_for_summary = None
+    raw_extract = artifacts["raw_extract"]
+    diagnostic_extract = artifacts["diagnostic_extract"]
+    final_output = artifacts["final_output"]
+
+    if raw_extract is not None:
+        _write_json(extract_path, raw_extract)
+        _write_output_provenance(out_dir, process_id=process_id, document_id=document_id)
+        output_for_summary = raw_extract
+        rl.event("extract.captured", path=extract_path, source="get_extract")
+    else:
+        rl.event("extract.raw_unavailable", output_json_written=False)
+
+    if diagnostic_extract is not None:
+        _write_json(diagnostic_path, diagnostic_extract)
+        output_for_summary = diagnostic_extract
+        rl.event("extract.diagnostic_captured", path=diagnostic_path)
+
+    if final_output is not None:
+        _write_json(final_output_path, final_output)
+        output_for_summary = final_output
+        rl.event("extract.final_output_captured", path=final_output_path)
+
+    group_counts = _extract_group_counts(output_for_summary or {})
+    rl.event("extract.summary", source=artifacts["source"], group_counts=group_counts)
+    return artifacts, group_counts
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--yaml", required=True, help="Path to extraction YAML")
-    parser.add_argument("--pdf", required=True, help="Path to PDF to ingest")
+    parser.add_argument("--yaml", default=None, help="Path to extraction YAML")
+    parser.add_argument("--pdf", default=None, help="Path to PDF to ingest")
     parser.add_argument("--out", required=True, help="Run output directory")
-    parser.add_argument("--bucket-name", required=True, help="Bucket name to create")
+    parser.add_argument("--bucket-name", default=None, help="Bucket name to create")
     parser.add_argument("--workflow-name", default=None, help="Workflow name (default: derived from YAML)")
     parser.add_argument("--reuse-workflow", default=None, help="Existing workflow_id to reuse")
     parser.add_argument("--reuse-bucket", type=int, default=None, help="Existing bucket_id to reuse")
@@ -372,15 +644,45 @@ def main() -> int:
         action="store_true",
         help="Return an error if GroundX get_extract is unavailable; still writes X-Ray diagnostics",
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume polling from --out/process_id.txt without compiling, deploying, attaching, or ingesting.",
+    )
     parser.add_argument("--poll-interval", type=int, default=15, help="Seconds between status polls")
     parser.add_argument("--max-polls", type=int, default=120, help="Max status polls before timeout")
     args = parser.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
-    workflow_name = args.workflow_name or os.path.splitext(os.path.basename(args.yaml))[0]
+    if args.resume:
+        process_path = _abs(args.out, "process_id.txt")
+        if not os.path.exists(process_path):
+            print(
+                f"ERROR: --resume requires saved process evidence at {process_path}; "
+                "standalone process ID fallback is not supported.",
+                file=sys.stderr,
+            )
+            return 2
+    else:
+        missing = [
+            flag
+            for flag, value in (
+                ("--yaml", args.yaml),
+                ("--pdf", args.pdf),
+                ("--bucket-name", args.bucket_name),
+            )
+            if not value
+        ]
+        if missing:
+            parser.error(
+                "the following arguments are required unless --resume is used: "
+                + ", ".join(missing)
+            )
+
+    workflow_name = args.workflow_name or (
+        os.path.splitext(os.path.basename(args.yaml))[0] if args.yaml else "resumed-workflow"
+    )
     workflow_json_path = _abs(args.out, "workflow.json")
-    xray_path = _abs(args.out, "xray.json")
-    extract_path = _abs(args.out, "output.json")
     diagnostic_path = _abs(args.out, "xray_diagnostic.json")
     final_output_path = _abs(args.out, "final_output.json")
 
@@ -395,15 +697,84 @@ def main() -> int:
     )
 
     with RunLog(_abs(args.out, "run.log")) as rl:
+        if args.resume:
+            process_id = typing.cast(str, _read_text(_abs(args.out, "process_id.txt")))
+            workflow_id = _read_text(_abs(args.out, "workflow_id.txt"))
+            bucket_id_text = _read_text(_abs(args.out, "bucket_id.txt"))
+            bucket_id: typing.Optional[typing.Union[int, str]]
+            if bucket_id_text and bucket_id_text.isdigit():
+                bucket_id = int(bucket_id_text)
+            else:
+                bucket_id = bucket_id_text
+            workflow_extract = _load_workflow_extract_from_run(args.out)
+            rl.event(
+                "run.resume_start",
+                out=args.out,
+                process_id=process_id,
+                workflow_id=workflow_id,
+                bucket_id=bucket_id,
+            )
+            bl_metadata = _load_business_logic_metadata_from_run(args.out, rl)
+            document_id = _poll(
+                gx,
+                process_id,
+                args.poll_interval,
+                args.max_polls,
+                rl,
+                out_dir=args.out,
+                workflow_id=workflow_id,
+                bucket_id=bucket_id,
+                started_at=time.time(),
+            )
+            rl.event("ingest.complete", document_id=document_id)
+            if document_id:
+                with open(_abs(args.out, "document_id.txt"), "w") as f:
+                    f.write(document_id)
+
+            artifacts, group_counts = _write_completed_artifacts(
+                gx=gx,
+                out_dir=args.out,
+                process_id=process_id,
+                document_id=document_id,
+                bl_metadata=bl_metadata,
+                rl=rl,
+                workflow_extract=workflow_extract,
+            )
+            raw_extract = artifacts["raw_extract"]
+            diagnostic_extract = artifacts["diagnostic_extract"]
+            final_output = artifacts["final_output"]
+            if args.require_raw_extract and raw_extract is None:
+                rl.event(
+                    "extract.required_raw_missing",
+                    diagnostic_json=diagnostic_path if diagnostic_extract is not None else None,
+                    final_output_json=final_output_path if final_output is not None else None,
+                )
+                print(
+                    "ERROR: GroundX get_extract was unavailable; wrote X-Ray diagnostics instead",
+                    file=sys.stderr,
+                )
+                return 1
+
+            rl.quota_snapshot(gx, label="run.end")
+            rl.event("run.done", group_counts=group_counts)
+            print(
+                _completion_message(
+                    out_dir=args.out,
+                    document_id=document_id,
+                    group_counts=group_counts,
+                    source=artifacts["source"],
+                    has_raw_extract=raw_extract is not None,
+                )
+            )
+            return 0
+
         rl.event("run.start", yaml=args.yaml, pdf=args.pdf, out=args.out, bucket_name=args.bucket_name)
         rl.quota_snapshot(gx, label="run.start")
 
         # Setup phase — workflow create + bucket create + attach.
-        # Anything we create here is rolled back on failure to prevent
-        # orphan resources on the platform. Once attach succeeds, the
-        # resources are "useful" (a workflow attached to a bucket) and
-        # we stop the rollback boundary; ingest/poll failures keep
-        # them around for inspection.
+        # A workflow created by this setup can be rolled back while it is still
+        # unattached. Buckets and post-ingest resources stay in place for
+        # review, resume, and explicit cleanup decisions.
         workflow_id: typing.Optional[str] = None
         bucket_id: typing.Optional[int] = None
         created_workflow_id: typing.Optional[str] = None
@@ -461,7 +832,11 @@ def main() -> int:
             if created_workflow_id:
                 _safe_delete(rl, "workflow", lambda: gx.workflows.delete(id=created_workflow_id), workflow_id=created_workflow_id)
             if created_bucket_id:
-                _safe_delete(rl, "bucket", lambda: gx.buckets.delete(bucket_id=created_bucket_id), bucket_id=created_bucket_id)
+                rl.event(
+                    "cleanup.bucket.preserved",
+                    bucket_id=created_bucket_id,
+                    reason="bucket deletion is not a supported harness cleanup path",
+                )
             raise
 
         ingest_resp = gx.ingest(
@@ -479,54 +854,36 @@ def main() -> int:
         with open(_abs(args.out, "process_id.txt"), "w") as f:
             f.write(process_id)
 
-        document_id = _poll(gx, process_id, args.poll_interval, args.max_polls, rl)
+        bl_metadata = _load_business_logic_metadata(args.yaml)
+        _write_business_logic_metadata_for_run(args.out, bl_metadata, rl)
+        document_id = _poll(
+            gx,
+            process_id,
+            args.poll_interval,
+            args.max_polls,
+            rl,
+            out_dir=args.out,
+            workflow_id=workflow_id,
+            bucket_id=bucket_id,
+            started_at=time.time(),
+        )
         rl.event("ingest.complete", document_id=document_id)
         if document_id:
             with open(_abs(args.out, "document_id.txt"), "w") as f:
                 f.write(document_id)
 
-        # Capture the raw GroundX extract separately from local X-Ray
-        # diagnostics. output.json is reserved for the true get_extract payload.
-        bl_metadata = _load_business_logic_metadata(args.yaml)
-        artifacts = derive_extraction_artifacts(
-            gx,
-            document_id,
-            bl_metadata,
-            rl,
+        artifacts, group_counts = _write_completed_artifacts(
+            gx=gx,
+            out_dir=args.out,
+            process_id=process_id,
+            document_id=document_id,
+            bl_metadata=bl_metadata,
+            rl=rl,
             workflow_extract=workflow_extract,
         )
-        xray_dict = artifacts["xray"]
-        with open(xray_path, "w") as f:
-            json.dump(xray_dict, f, indent=2, default=str)
-        rl.event("xray.captured", path=xray_path, chunks=len(xray_dict.get("chunks") or []))
-
-        output_for_summary = None
         raw_extract = artifacts["raw_extract"]
         diagnostic_extract = artifacts["diagnostic_extract"]
         final_output = artifacts["final_output"]
-
-        if raw_extract is not None:
-            with open(extract_path, "w") as f:
-                json.dump(raw_extract, f, indent=2, default=str)
-            output_for_summary = raw_extract
-            rl.event("extract.captured", path=extract_path, source="get_extract")
-        else:
-            rl.event("extract.raw_unavailable", output_json_written=False)
-
-        if diagnostic_extract is not None:
-            with open(diagnostic_path, "w") as f:
-                json.dump(diagnostic_extract, f, indent=2, default=str)
-            output_for_summary = diagnostic_extract
-            rl.event("extract.diagnostic_captured", path=diagnostic_path)
-
-        if final_output is not None:
-            with open(final_output_path, "w") as f:
-                json.dump(final_output, f, indent=2, default=str)
-            output_for_summary = final_output
-            rl.event("extract.final_output_captured", path=final_output_path)
-
-        group_counts = _extract_group_counts(output_for_summary or {})
-        rl.event("extract.summary", source=artifacts["source"], group_counts=group_counts)
 
         if args.require_raw_extract and raw_extract is None:
             rl.event(

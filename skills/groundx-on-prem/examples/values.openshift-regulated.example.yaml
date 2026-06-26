@@ -1,0 +1,172 @@
+# Red Hat OpenShift regulated / FedRAMP-style deployment.
+#
+# All backing services chart-deployed dedicated (Mode 2) — no cloud egress.
+# Chainguard images for SBOM / FedRAMP compliance.
+# Custom CA for in-cluster TLS.
+# Self-hosted summary stack (no external LLM calls — air-gapped-compatible).
+# OpenShift Route for ingress (not standard Ingress resource).
+# Bigger replica counts per microservice (high-throughput per-customer deployment).
+# Static credentials via Kubernetes Secret (no cloud workload identity).
+
+# ---------- Top-level ----------
+
+mode: all
+imageType: chainguard
+
+# ---------- Cluster shape ----------
+
+cluster:
+  pvClass: eyelevel-pv             # PVC class on OpenShift (e.g., OpenShift Container Storage CephFS)
+  pvAccessMode: ReadWriteMany
+  type: openshift
+  hpa: true
+  imagePullPolicy: Always
+
+  imagePullSecrets:
+    - <chainguard-pull-secret>     # Chainguard registry pull secret
+
+  secrets:
+    - eyelevel-secret-credentials
+
+  # Custom CA / in-cluster TLS — references a kubernetes.io/tls Secret.
+  tls:
+    existingSecret: <cluster-tls-secret>
+
+  # Optional: register an extract pre-processor when extract.enabled is true.
+  preProcessors:
+    - processorId: 13
+      type: extract
+
+  # Many regulated deployments collapse the 5 node-group labels onto fewer pools.
+  # Example: one GPU pool, one CPU pool.
+  nodeLabels:
+    cpuMemory: eyelevel-cpu
+    cpuOnly: eyelevel-cpu
+    gpuLayout: eyelevel-gpu
+    gpuRanker: eyelevel-gpu
+    gpuSummary: eyelevel-gpu
+
+# ---------- Engine defaults ----------
+
+engines:
+  default:
+    engineId: <default-model-id>
+    reasoningEffort: low
+    vision: true
+
+# ---------- Backing services (Mode 2 — chart-deployed dedicated) ----------
+
+db:
+  username: <db-username>
+  password: <db-password>
+  privilegedUsername: <db-priv-username>
+  privilegedPassword: <db-priv-password>
+  existing:
+    ro: mysql-cluster-pxc-db-haproxy-replicas.eyelevel.svc.cluster.local
+    rw: mysql-cluster-pxc-db-haproxy.eyelevel.svc.cluster.local
+
+file:
+  username: <minio-username>
+  password: <minio-password>
+
+search:
+  username: <search-username>
+  password: <search-password>
+  privilegedUsername: admin
+  privilegedPassword: <search-priv-password>
+
+stream:
+  enabled: true
+
+cache:
+  metrics:
+    enabled: false
+
+# ---------- groundx API exposure — OpenShift Route ----------
+
+groundx:
+  serviceName: groundx-service
+  serviceType: Route
+  replicas:
+    desired: 2
+
+# ---------- Per-microservice replicas (high-throughput per-customer profile) ----------
+
+layout:
+  api:
+    replicas:
+      desired: 2
+  correct:
+    replicas:
+      desired: 2
+  inference:
+    replicas:
+      desired: 2
+  map:
+    replicas:
+      desired: 2
+  ocr:
+    replicas:
+      desired: 2
+  process:
+    replicas:
+      desired: 2
+  save:
+    replicas:
+      desired: 2
+
+layoutWebhook:
+  replicas:
+    desired: 1
+
+preProcess:
+  replicas:
+    desired: 3
+
+process:
+  replicas:
+    desired: 2
+
+queue:
+  replicas:
+    desired: 2
+
+ranker:
+  api:
+    replicas:
+      desired: 2
+  inference:
+    replicas:
+      desired: 4
+
+summary:
+  api:
+    serviceType: Route
+    replicas:
+      desired: 4
+  inference:
+    deviceUtilize: 0.95            # max GPU utilization for high-throughput
+    replicas:
+      desired: 8
+    resources:
+      limits:
+        nvidia.com/gpu: 1
+      requests:
+        cpu: 500m
+        memory: 1Gi
+        nvidia.com/gpu: 1
+
+summaryClient:
+  replicas:
+    desired: 4
+
+upload:
+  replicas:
+    desired: 2
+
+# ---------- Observability ----------
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true                  # OpenShift's user-workload monitoring registers this

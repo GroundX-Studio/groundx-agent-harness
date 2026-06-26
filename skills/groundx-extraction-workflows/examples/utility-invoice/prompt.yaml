@@ -1,0 +1,224 @@
+# Synthetic utility-invoice fixture — custom-step invoice-shaped path.
+#
+# Each group uses custom workflow metadata. All content is SYNTHETIC: the
+# provider, customer, account numbers, and amounts are invented for CI and do
+# not describe any real customer document.
+#
+# The per-group business-logic keys (`unique_attrs`, `match_attrs`,
+# `conflict_attrs`, `passthrough`) are the declarative metadata vocabulary
+# consumed client-side AFTER extraction by templates/business_logic.py. They are
+# not workflow fields — the compiler drops them from the workflow JSON — so they
+# exercise the "new use case in a domain = YAML + metadata" extension axis
+# without any runner code change. The rules captured here are narrated in
+# business_logic.md.
+extraction_policy_version: v1
+
+workflow:
+  custom_steps:
+  - name: statement_fields
+    level: chunk
+    kind: instruct
+  - name: charge_lines
+    level: chunk
+    kind: keys
+  - name: meter_lines
+    level: chunk
+    kind: summary
+  agent_chain:
+  - parallel:
+    - group: statement
+      chain: [reconcile_statement, qa_statement, save_statement]
+    - group: charges
+      chain: [reconcile_charges, save_charges]
+    - group: meters
+      chain: [reconcile_meters, qa_meters, save_meters]
+
+statement:
+  # One statement per document. Dedup on the synthetic invoice number guards
+  # against the same statement being emitted from multiple chunks.
+  workflow_step: statement_fields
+  unique_attrs:
+  - sp_inv_num
+  fields:
+    sp_inv_num:
+      workflow_output_key: sp_inv_num
+      prompt:
+        description: a unique identifier for this billing statement
+        format: string
+        identifiers:
+        - Invoice Number
+        - Statement Number
+        instructions: "- Capture the labeled invoice or statement number exactly as printed\n- If no explicit number is printed, construct one by concatenating the account number (spaces removed) with the invoice date in YYYYMMDD format\n- This field must never be left empty\n"
+        type: str
+    acct_number:
+      workflow_output_key: acct_number
+      prompt:
+        description: the customer account identifier assigned by the utility
+        format: numeric string with all spaces removed
+        identifiers:
+        - Account Number
+        instructions: "- Capture the full account number and strip any spaces or dashes\n- Do not confuse with the meter number or the invoice number\n"
+        type: str
+    inv_date:
+      workflow_output_key: inv_date
+      prompt:
+        description: the date this statement was issued
+        format: YYYY-mm-dd date string
+        identifiers:
+        - Statement Date
+        - Bill Date
+        instructions: "- This is when the bill was generated, not when payment is due\n"
+        type: str
+    due_date:
+      workflow_output_key: due_date
+      prompt:
+        description: the deadline for the customer to submit payment
+        format: YYYY-mm-dd date string
+        identifiers:
+        - Due Date
+        - Pay By
+        instructions: "- Look for a labeled due date in the account summary; not the statement date\n"
+        type: str
+    service_address:
+      workflow_output_key: service_address
+      prompt:
+        description: the street address of the premises receiving utility service
+        identifiers:
+        - Service Address
+        - Service At
+        instructions: "- This is the metered premises, which may differ from the mailing address\n"
+        type: str
+    budget_plan_name:
+      workflow_output_key: budget_plan_name
+      prompt:
+        description: the name of the levelized / budget billing plan, if the account is enrolled
+        identifiers:
+        - Budget Plan
+        - Levelized Billing
+        instructions: "- Only populate when the bill explicitly names a budget or levelized billing plan\n- Leave empty (null) when the account is on standard billing — do not invent a plan name\n"
+        type: str
+    tot_amt_due:
+      workflow_output_key: tot_amt_due
+      prompt:
+        description: the final total the customer owes
+        identifiers:
+        - Total Due
+        - Amount Due
+        instructions: "- The bottom-line amount combining any balance forward and new charges\n"
+        type:
+        - int
+        - float
+
+charges:
+  # Repeating line items. Dedup on the natural key (description + period + amount);
+  # link each charge to its meter via match_attrs; pull the meter's service class
+  # onto the charge via passthrough; surface a disputed rate via conflict_attrs.
+  workflow_step: charge_lines
+  unique_attrs:
+  - charge_description_as_printed
+  - beg_chg_date
+  - charge_amount
+  match_attrs:
+  - meter_number
+  conflict_attrs:
+  - rate
+  passthrough:
+    from: meters
+    fields:
+    - service_class
+  fields:
+    charge_description_as_printed:
+      workflow_output_key: charge_description_as_printed
+      prompt:
+        description: the charge description exactly as printed on the statement
+        identifiers:
+        - Description
+        - Charge
+        instructions: "- Copy the description verbatim\n- Do not include the dollar amount in the description\n"
+        type: str
+    charge_amount:
+      workflow_output_key: charge_amount
+      prompt:
+        description: the dollar amount for this individual charge
+        identifiers:
+        - Amount
+        instructions: "- Extract only the numeric value, removing currency symbols\n- Can be zero or negative for credits\n"
+        type:
+        - int
+        - float
+    rate:
+      workflow_output_key: rate
+      prompt:
+        description: the unit rate applied for this charge, if printed
+        identifiers:
+        - Rate
+        - Unit Price
+        instructions: "- Extract the per-unit price when the line shows one\n- Leave empty (null) for flat fees with no unit rate\n"
+        type:
+        - int
+        - float
+    beg_chg_date:
+      workflow_output_key: beg_chg_date
+      prompt:
+        description: the start date of the period this charge covers
+        format: YYYY-mm-dd date string
+        identifiers:
+        - From
+        - Billed From
+        instructions: "- The service period start; look for date ranges near the charge\n"
+        type: str
+    end_chg_date:
+      workflow_output_key: end_chg_date
+      prompt:
+        description: the end date of the period this charge covers
+        format: YYYY-mm-dd date string
+        identifiers:
+        - To
+        - through
+        instructions: "- The service period end; may equal the start date for one-time fees\n"
+        type: str
+    meter_number:
+      workflow_output_key: meter_number
+      prompt:
+        description: the meter number this charge is billed against
+        identifiers:
+        - Meter Number
+        - Meter
+        instructions: "- The identifier of the meter that produced the usage for this charge\n- Leave empty (null) for account-level fees not tied to a meter\n"
+        type: str
+
+meters:
+  # A second repeating record type: physical meters and their read-derived usage.
+  workflow_step: meter_lines
+  unique_attrs:
+  - meter_number
+  fields:
+    meter_number:
+      workflow_output_key: meter_number
+      prompt:
+        description: the meter number
+        identifiers:
+        - Meter Number
+        - Meter
+        instructions: "- The unique identifier stamped on the physical meter\n"
+        type: str
+    service_class:
+      workflow_output_key: service_class
+      prompt:
+        description: the service class of the metered commodity
+        identifiers:
+        - Service Class
+        - Rate Class
+        instructions: "- The commodity / rate classification, e.g. \"Residential Electric\" or \"Gas\"\n"
+        type: str
+    usage:
+      workflow_output_key: usage
+      prompt:
+        description: the measured consumption for the billing period
+        identifiers:
+        - Usage
+        - Consumption
+        instructions: "- The numeric quantity consumed (kWh, therms, etc.)\n"
+        type:
+        - int
+        - float

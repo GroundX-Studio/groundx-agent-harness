@@ -155,6 +155,15 @@ should remain in effect, include those custom settings again in the update body.
 | `prompt.request: null` or `prompt.task: null` | Clear only that prompt member and default omitted members. |
 | `prompt.request` or `prompt.task` object | Use the supplied custom prompt member and default omitted members. |
 
+`prompt.request.additionalContext` and `prompt.task.additionalContext` are additive
+workflow prompt supplements. They append extra instructions to the default full
+request or task prompt without replacing that prompt. Each value is limited to
+4096 UTF-8 bytes. Workflow-level `template.CUSTOM_INSTRUCTIONS` remains a global
+fallback, but prompt-member `additionalContext` takes precedence for that one prompt
+render. Use it only on fixed GPT or EyeLevel workflow default request/task prompts.
+Do not put `additionalContext` under `customSteps`, nested `useExtras` prompt objects,
+or prompt members that replace the full prompt with `prompt`, `role`, `long`, or `val`.
+
 If you are working against a backend that predates default-overlay workflow
 updates, send explicit prompt objects for any step that must not become empty.
 

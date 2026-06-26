@@ -1,0 +1,74 @@
+# Minimum-viable GroundX deployment.
+#
+# Every backing service chart-deployed dedicated (Mode 2).
+# Self-hosted summary stack (requires a 24 GB GPU).
+# No extract, no workspace, no Chainguard, no air-gapped.
+#
+# Walk references/values-authoring.md § 3 first to confirm this archetype fits.
+# Credentials live in values.secret.example.yaml — install via the
+# groundx-secret prereq chart and reference here via cluster.secrets.
+
+# ---------- Top-level ----------
+
+mode: all                  # full platform; switch to "ingest" for ingest-only
+imageType: ""              # leave empty for default images; "chainguard" for FedRAMP
+
+# ---------- Cluster shape ----------
+
+cluster:
+  pvClass: eyelevel-pv     # must match storageclass prereq chart's storageClassName
+  pvAccessMode: ReadWriteOnce
+  type: ""                 # set to "eks", "aks", "gke", "openshift", or "minikube"
+  hpa: false               # enable later once metrics is wired
+
+  imagePullSecrets: []
+
+  secrets:
+    - eyelevel-secret-credentials   # name of the Secret produced by the groundx-secret prereq chart
+
+# ---------- Backing services (Mode 2 — operator-deployed dedicated) ----------
+
+cache:
+  enabled: true            # chart-managed in-cluster Redis
+
+db:
+  enabled: true            # chart-managed Percona MySQL via the Percona operator
+  dbName: eyelevel
+
+file:
+  enabled: true            # chart-managed MinIO via the MinIO operator
+  bucketName: eyelevel
+
+search:
+  enabled: true            # chart-managed OpenSearch via the OpenSearch operator
+  indexName: prod-1
+
+stream:
+  enabled: true            # chart-managed Kafka via Strimzi
+
+# ---------- Engine defaults ----------
+
+engines:
+  default:
+    engineId: <default-model-id>   # e.g. gpt-5-mini for the agent / extract paths
+    reasoningEffort: low
+    vision: true
+
+# ---------- Capability toggles (all opt-in features OFF) ----------
+
+extract:
+  enabled: false           # set true to enable schema-first extraction
+
+workspace:
+  enabled: false           # set true to enable the workspace runner subsystem
+
+metrics:
+  enabled: false           # set true (and cluster.hpa: true) to enable HPA
+
+# ---------- Self-hosted summary stack (requires 24 GB GPU) ----------
+
+summary:
+  api:
+    enabled: true
+  inference:
+    enabled: true          # set false to use an external LLM (and configure summary.existing.*)
