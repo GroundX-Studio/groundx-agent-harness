@@ -1,0 +1,84 @@
+# Synthetic insurance-claim fixture — the non-invoice smoke proof.
+#
+# This is the fitness gate that keeps the compiler honest: its group names
+# (`claim`, `line_items`) are not invoice names. Each group uses custom workflow
+# metadata. If the compiler had silently re-hardcoded invoice group names, this
+# fixture would fail to compile.
+#
+# This is the "new domain = new examples/<domain>/ + smoke eval, no runner code"
+# axis of the extension model (references/14_extension_model.md). All content is
+# SYNTHETIC.
+extraction_policy_version: v1
+
+workflow:
+  custom_steps:
+  - name: claim_fields
+    level: chunk
+    kind: instruct
+  - name: claim_line_items
+    level: chunk
+    kind: keys
+  agent_chain:
+  - parallel:
+    - group: claim
+      chain: [reconcile_statement, qa_statement, save_statement]
+    - group: line_items
+      chain: [reconcile_charges, save_charges]
+
+claim:
+  # Per-document singleton: one claim header per document.
+  workflow_step: claim_fields
+  fields:
+    claim_number:
+      workflow_output_key: claim_number
+      prompt:
+        description: the unique identifier assigned to this claim
+        identifiers:
+        - Claim Number
+        - Claim ID
+        instructions: "- Capture the labeled claim number exactly as printed\n"
+        type: str
+    date_of_loss:
+      workflow_output_key: date_of_loss
+      prompt:
+        description: the date the loss or incident occurred
+        format: YYYY-mm-dd date string
+        identifiers:
+        - Date of Loss
+        - Loss Date
+        instructions: "- The incident date, not the date the claim was filed\n"
+        type: str
+    claimant_name:
+      workflow_output_key: claimant_name
+      prompt:
+        description: the name of the person filing the claim
+        identifiers:
+        - Claimant
+        - Insured Name
+        instructions: "- The individual or entity submitting the claim\n"
+        type: str
+
+line_items:
+  # Repeating records: the itemized loss / service lines on the claim.
+  workflow_step: claim_line_items
+  fields:
+    item_description:
+      workflow_output_key: item_description
+      prompt:
+        description: the description of the claimed item or service
+        identifiers:
+        - Description
+        - Item
+        instructions: "- Copy the description verbatim from the claim line\n"
+        type: str
+    claimed_amount:
+      workflow_output_key: claimed_amount
+      prompt:
+        description: the dollar amount claimed for this line
+        identifiers:
+        - Amount
+        - Claimed
+        instructions: "- Extract only the numeric value, removing currency symbols\n"
+        type:
+        - int
+        - float

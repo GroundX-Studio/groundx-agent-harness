@@ -67,6 +67,36 @@ The `level` controls where the step runs:
 The harness intentionally does not load `domain:` or `slot:` YAML forms. Use the
 public GroundX Python SDK helper directly when you need SDK-level YAML loading
 outside the harness templates. Omit any final group a document does not have.
+Compile from authored v1 source YAML only; generated `workflow.json`, downloaded
+workflow readback, and `_groundx_persisted_extract` payloads are not source
+YAML.
+
+The compiler validates this source whitelist before SDK preparation or offline
+fallback compile:
+
+| Location | Allowed source shape |
+|---|---|
+| Top level | `extraction_policy_version`, `workflow`, `_defs`, `_pseudo_groups`, and real final group mappings |
+| `workflow` | `custom_steps`, `agent_chain`, optional `template`, optional `section_strategy` |
+| `workflow.custom_steps[]` | `name`, `level`, `kind`, optional `config`, optional `required_template_keys` |
+| Direct final group | `fields`, optional `include`, optional `prompt`, optional `workflow_step`, and supported final-group business-logic metadata |
+| `_defs.*` | required `fields`, optional `include`; no prompt or group metadata |
+| `_pseudo_groups.*` | `workflow_step`, `fields`, and optional group `prompt`; no `include` |
+| Direct leaf field | `prompt`, plus `workflow_output_key` when the final group has direct `workflow_step` |
+| Pseudo field | `path`, plus optional full `prompt` override; the pseudo field key is the workflow output key |
+| Field `prompt` | required `description`, `identifiers`, `instructions`, and `type`; optional `format` |
+
+Nested final fields are not supported yet. Model nested structures as flat
+fields or JSON-encoded string fields until route parsing supports paths deeper
+than `/group/field`.
+
+Supported final-group business-logic metadata keys are `always_check_attrs`,
+`conflict_attrs`, `deregulation_status_values`,
+`equivalent_service_types`, `exclude_dict_attrs`, `explanation_attrs`,
+`fill_rules`, `final_value_aliases`, `match_attrs`,
+`not_required_service_types`, `partial_pair_attrs`, `passthrough`,
+`passthrough_attrs`, `passthrough_pair_attrs`, `remaining_attrs`,
+`required_any_attrs`, `required_attrs`, and `unique_attrs`.
 
 ### Internal roles for internal-arcadia-agents
 
@@ -84,8 +114,8 @@ statement level. Current runtime constraints allow only one `meters` group and
 one `charges` group, including pseudo groups. All other groups are `statement`.
 This is current implementation behavior, not a permanent product rule.
 
-For ADP-style workflows routed through `internal-arcadia-agents`, all groups are
-`statement` role groups today. Plan one `reconcile_statement -> qa_statement`
+For workflows routed through `internal-arcadia-agents` where every workflow
+group uses the `statement` role, plan one `reconcile_statement -> qa_statement`
 branch per pseudo group, then save/reassemble once all branches complete.
 
 The public syntax walkthrough is
@@ -306,9 +336,10 @@ Use **final group** for a functional grouping of fields in the final output,
 such as `statement`, `charges`, or `meters`. Do not split the final data object
 only because an agent has too many fields.
 
-As a rule of thumb, keep each workflow group's extraction load to **30 fields
-or fewer**. Above that, LLM cognitive load starts to work against
-accuracy and consistency. If a final group grows beyond 30 fields, use
+Keep each workflow group's extraction load to **30 fields or fewer**. The
+compiler rejects executable workflow groups above that limit because LLM
+cognitive load starts to work against accuracy and consistency. If a final
+group grows beyond 30 fields, use
 `_pseudo_groups` to split execution while recombining into the same final
 group. Split into multiple real final groups only when that output shape is
 what the user wants. Do not design one pre-process extraction agent per field.
@@ -426,6 +457,11 @@ type:              # for "either int or float" (most numeric fields)
   - float
 ```
 
+If a `str` field needs to carry structured JSON, the prompt must say that the
+JSON is encoded as a string. For example, use "Return a JSON-encoded string
+representing an array of objects. Do not return an actual JSON array." Do not
+write `type: str` with instructions that ask for a native JSON array or object.
+
 ## 3. Group-level prompts
 
 The `charges` group accepts a top-level `prompt.instructions` block that
@@ -463,7 +499,7 @@ A group-level prompt is the single highest-leverage YAML edit when a
 
 The GroundX platform requires two hardcoded field names for charge-style
 extractions. Use these names exactly in the YAML even if the application
-or ground truth uses different names:
+or expected answers use different names:
 
 - `charge_amount` — numeric value
 - `charge_description_as_printed` — verbatim description

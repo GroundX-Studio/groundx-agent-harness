@@ -3,14 +3,18 @@
 
 The economical iteration loop: `batch_extraction.py` ingests once and writes a
 run dir of captured artifacts (`<doc>.extracted.json` + `<doc>.xray.json`);
-this scores that captured set against answer keys as many times as you like —
-after tweaking an answer key, the comparison/aliasing logic, or just to score
-the same run on another machine — without paying for ingest again.
+this scores that captured set against mapped expected-answer JSON files as many
+times as you like — after fixing an expected-answer mapping, the
+comparison/aliasing logic, or just to score the same run on another machine —
+without paying for ingest again.
 
-    python batch_score.py <run_dir> --keys-dir answer_keys/ [--manifest m.csv] [--out run_dir]
-    python batch_score.py <run_dir> --keys-dir answer_keys/ --artifact-kind final
+    python batch_score.py <run_dir> --keys-dir expected_answers/ [--manifest m.csv] [--out run_dir]
+    python batch_score.py <run_dir> --keys-dir expected_answers/ --artifact-kind final
 
-By default, reads each raw `<doc>.extracted.json` in <run_dir> + its answer key.
+By default, reads each raw `<doc>.extracted.json` in <run_dir> and its mapped
+expected-answer JSON file. Map spreadsheets, documents, text files, PDFs, or
+human-review notes to the runner-shaped JSON expected by `score_extraction.py`
+before scoring.
 Use `--artifact-kind final` only when you deliberately want to score
 `<doc>.final_output.json`, the local diagnostic/business-logic output. It does
 not silently score `<doc>.xray_diagnostic.json`.
@@ -171,7 +175,7 @@ def aggregate_reports(
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("run_dir", help="dir of captured artifacts (a batch_extraction --out)")
-    p.add_argument("--keys-dir", required=True, help="dir of answer keys (<doc>.json)")
+    p.add_argument("--keys-dir", required=True, help="dir of mapped expected-answer JSON files (<doc>.json)")
     p.add_argument("--manifest", default=None, help="csv with filename + dimension columns")
     p.add_argument("--out", default=None, help="output dir for reports (default: run_dir)")
     p.add_argument(
@@ -192,7 +196,7 @@ def main() -> int:
         base = os.path.basename(ext_path)[: -len(suffix)]
         key_path = score.find_answer_key(args.keys_dir, base)
         if not key_path:
-            print(f"skip {base}: no answer key", file=sys.stderr)
+            print(f"skip {base}: no expected-answer JSON", file=sys.stderr)
             continue
         with open(ext_path) as f:
             extracted = json.load(f)
@@ -203,7 +207,7 @@ def main() -> int:
             json.dump(aggregate_reports([{"doc": base, "report": report}]), f, indent=2, default=str)
 
     if not per_doc:
-        print(f"no <doc>{suffix} with answer keys under {args.run_dir}", file=sys.stderr)
+        print(f"no <doc>{suffix} with expected-answer JSON files under {args.run_dir}", file=sys.stderr)
         return 2
 
     agg = aggregate_reports(per_doc, manifest)

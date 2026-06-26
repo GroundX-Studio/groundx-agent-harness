@@ -1,30 +1,31 @@
 """
-score_extraction.py — compare an extraction JSON against a ground-truth answer key.
+score_extraction.py — compare extraction JSON against mapped expected-answer JSON.
 
 Usage:
-    python score_extraction.py output.json answer_key.json
-    python score_extraction.py final_output.json answer_key.json
+    python score_extraction.py output.json expected_answers.json
+    python score_extraction.py final_output.json expected_answers.json
 
 Domain-agnostic comparison
 --------------------------
 The comparator discovers structure from the data, not from hardcoded group
-names: scalar answer-key keys are compared as singleton (per-document) fields;
+names: scalar expected-answer fields are compared as singleton (per-document) fields;
 list-valued keys are compared as repeating record groups. Records are paired by
 best field overlap (no per-domain match key required). Group names are aligned
-across the answer key and the extraction, with a small alias map for known
-renames (e.g. answer-key `charges` ↔ runner `account_charges`).
+across the expected-answer JSON and the extraction, with a small alias map for
+known renames (e.g. expected-answer `charges` ↔ runner `account_charges`).
 
 Null-vs-miss
 ------------
-A field the answer key leaves null is distinguished from an extraction miss:
+A field the expected-answer JSON leaves null is distinguished from an extraction miss:
   - expected null + extracted null    → PASS (correct null)
   - expected null + extracted a value  → WARN (value present; key null) — NOT a
     failure (e.g. AGE-86 customer_account_id: extract the printed value anyway)
   - expected a value + extracted null  → FAIL (missing)
 
-Answer-key format: JSON in the runner's output shape — scalar keys → singleton
+Expected-answer format: JSON in the runner's output shape — scalar keys → singleton
 (per-document) fields (null kept, so null-vs-miss can be scored), list-valued
-keys → record groups. Convert other answer-key formats to this shape first.
+keys → record groups. Convert or map spreadsheets, documents, text files, PDFs,
+or human-review notes to this shape before scoring.
 
 Output is a structured pass/warn/fail report with per-group accuracy. Exit code
 is 0 if no field fails (warnings allowed), 1 otherwise.
@@ -39,7 +40,7 @@ import typing
 
 # ── normalization ──────────────────────────────────────────────────────────
 
-# Group-name aliases: answer-key group name → names it may appear under in the
+# Group-name aliases: expected-answer group name → names it may appear under in the
 # extraction. Mirrors the field-alias pattern; Component 5 (final_value renames)
 # will generalize this into the YAML.
 _GROUP_ALIASES: typing.Dict[str, typing.List[str]] = {
@@ -63,7 +64,7 @@ def normalize_value(val: typing.Any) -> str:
 
 
 def _get_aliased(d: typing.Dict[str, typing.Any], key: str) -> typing.Any:
-    # Field names in the answer key are expected to match the extraction's
+    # Field names in expected-answer JSON are expected to match the extraction's
     # field names (both derive from the YAML). No client-specific bridging.
     if key in d:
         return d.get(key, "")
@@ -78,7 +79,7 @@ def _get_aliased(d: typing.Dict[str, typing.Any], key: str) -> typing.Any:
 
 
 def _resolve_group(extracted: typing.Dict[str, typing.Any], group_name: str) -> typing.List[dict]:
-    """Find the extracted record list for an answer-key group, honoring aliases."""
+    """Find the extracted record list for an expected-answer group, honoring aliases."""
     for alias in _GROUP_ALIASES.get(group_name, [group_name]):
         value = extracted.get(alias)
         if isinstance(value, list):
@@ -86,11 +87,11 @@ def _resolve_group(extracted: typing.Dict[str, typing.Any], group_name: str) -> 
     return []
 
 
-# ── answer-key loader ───────────────────────────────────────────────────────
+# ── expected-answer loader ──────────────────────────────────────────────────
 
 
 def _empty_expected() -> typing.Dict[str, typing.Any]:
-    """Normalized answer-key structure: singleton fields + named record groups."""
+    """Normalized expected-answer structure: singleton fields + named record groups."""
     return {"singleton": {}, "groups": {}}
 
 
@@ -117,8 +118,9 @@ def load_answer_key(path: str) -> typing.Dict[str, typing.Any]:
     if ext == ".json":
         return load_answer_key_json(path)
     raise ValueError(
-        f"unsupported answer-key extension: {ext} (expected .json). "
-        f"Convert other formats (e.g. CSV) to the runner's JSON output shape first."
+        f"unsupported expected-answer extension: {ext} (expected .json). "
+        "Map spreadsheets, documents, text files, PDFs, or human-review notes "
+        "to the runner's JSON output shape first."
     )
 
 
@@ -138,7 +140,7 @@ def compare_field(exp_val: typing.Any, ext_val: typing.Any) -> str:
     ext_norm = normalize_value(ext_val)
 
     if exp_norm == "":
-        # Answer key has no value for this field.
+        # Expected-answer JSON has no value for this field.
         if ext_norm == "":
             return "PASS"  # correct null
         return "WARN (value; key null)"  # extracted a value the key leaves null
@@ -159,7 +161,7 @@ def classify_field(exp_val: typing.Any, ext_val: typing.Any) -> typing.Tuple[str
     """Return (status, miss_type) for one field within a record.
 
     miss_type classifies why a field is not a clean extraction hit:
-      - "expected-null":  the answer key has no value here (informational, NOT
+      - "expected-null":  the expected-answer JSON has no value here (informational, NOT
         an extraction target — excluded from the field-accuracy denominator).
       - "not-found":      key has a value; extraction produced nothing.
       - "field-mismatch": key has a value; extraction produced a different one.
@@ -310,7 +312,7 @@ def compare_records(
             records_out.append({
                 "label": _record_label(ext_record),
                 "match": "extra",
-                "details": "Not in answer key",
+                "details": "Not in expected-answer JSON",
             })
 
     passed = sum(c["pass"] for c in field_breakdown.values())
@@ -332,7 +334,7 @@ def compare_extraction(
     extracted: typing.Dict[str, typing.Any],
     expected: typing.Dict[str, typing.Any],
 ) -> typing.Dict[str, typing.Any]:
-    """Compare an extraction dict against a normalized answer-key structure.
+    """Compare an extraction dict against normalized expected-answer structure.
 
     Returns a report: per-field singleton results, per-group record results, a
     summary of (pass, total) per section, and an overall has_failure flag.
@@ -373,7 +375,7 @@ def compare_extraction(
     }
 
 
-# ── scoring-input helpers (answer-key + manifest resolution) ────────────────
+# ── scoring-input helpers (expected-answer JSON + manifest resolution) ──────
 
 
 def load_manifest(path: typing.Optional[str]) -> typing.Dict[str, typing.Dict[str, str]]:
@@ -393,7 +395,7 @@ def load_manifest(path: typing.Optional[str]) -> typing.Dict[str, typing.Dict[st
 
 
 def find_answer_key(keys_dir: str, doc_base: str) -> typing.Optional[str]:
-    """Resolve a document's answer key by base name (.json / .answer.json / .answer_key.json)."""
+    """Resolve a document's expected-answer JSON by base name."""
     for cand in (f"{doc_base}.json", f"{doc_base}.answer.json", f"{doc_base}.answer_key.json"):
         p = os.path.join(keys_dir, cand)
         if os.path.isfile(p):
@@ -414,7 +416,7 @@ def _icon(status: str) -> str:
 
 def main(argv: typing.List[str]) -> int:
     if len(argv) != 3:
-        print("usage: python score_extraction.py <extraction.json> <answer_key.json>", file=sys.stderr)
+        print("usage: python score_extraction.py <extraction.json> <expected_answers.json>", file=sys.stderr)
         return 2
 
     extract_path, key_path = argv[1], argv[2]
@@ -422,7 +424,7 @@ def main(argv: typing.List[str]) -> int:
         print(f"ERROR: extraction JSON not found: {extract_path}", file=sys.stderr)
         return 2
     if not os.path.isfile(key_path):
-        print(f"ERROR: answer key not found: {key_path}", file=sys.stderr)
+        print(f"ERROR: expected-answer JSON not found: {key_path}", file=sys.stderr)
         return 2
 
     with open(extract_path, "r") as f:
@@ -437,7 +439,7 @@ def main(argv: typing.List[str]) -> int:
     group_desc = ", ".join(
         f"{n}={len(v)}" for n, v in (expected.get("groups") or {}).items()
     ) or "(none)"
-    print(f"answer key: {len(expected['singleton'])} singleton fields, groups: {group_desc}")
+    print(f"expected-answer JSON: {len(expected['singleton'])} singleton fields, groups: {group_desc}")
 
     print("\n" + "-" * 60)
     print("SINGLETON FIELDS")
@@ -464,7 +466,7 @@ def main(argv: typing.List[str]) -> int:
             elif r["match"] == "not_found":
                 print(f"  [FAIL] {r['label']}: not found in extraction")
             else:
-                print(f"  [WARN] {r['label']}: extra (not in answer key)")
+                print(f"  [WARN] {r['label']}: extra (not in expected-answer JSON)")
 
         print(f"\n  per-field accuracy ({group_name}):")
         for fname, c in sorted(gr["field_breakdown"].items()):

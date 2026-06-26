@@ -1,0 +1,239 @@
+# Ingest-only deployment (mode: ingest).
+#
+# Upstream ingest pipeline + extraction; no retrieval / RAG.
+# Retrieval DB (OpenSearch) skipped entirely.
+# Many microservices disabled (no layout pipeline if just extract; no summary).
+# Typical use: benchmarking, sizing runs, or pipelines that hand off to a separate
+# retrieval cluster.
+# Mode-3 backing services on AWS (S3, RDS, ElastiCache, SQS).
+# Extract enabled with external LLM agent.
+# Workspace enabled with GitHub App for managed-scaffold publishing.
+
+# ---------- Top-level ----------
+
+mode: ingest                     # ingest-only — retrieval DB skipped
+
+# ---------- Cluster shape ----------
+
+cluster:
+  imagePullPolicy: Always
+  hpa: true
+  pvClass: eyelevel-pv
+  pvAccessMode: ReadWriteMany
+  type: eks
+
+  preProcessors:
+    - processorId: 13
+      type: extract
+
+  secrets:
+    - eyelevel-secret-credentials
+
+  validApiKeys:
+    - <internal-callback-api-key-uuid>
+
+# ---------- Service account (IRSA bound) ----------
+
+serviceAccount:
+  name: <eyelevel-irsa-service-account>
+
+# ---------- Engine defaults ----------
+
+engines:
+  default:
+    engineId: <default-model-id>
+    reasoningEffort: low
+    vision: true
+
+# ---------- Throughput tuning ----------
+
+throughput:
+  tpm:
+    document: 6000
+    page: 3000
+
+# ---------- Backing services ----------
+
+cache:
+  metrics:
+    enabled: false
+  existing:
+    addr: <elasticache-endpoint>.<region>.cache.amazonaws.com
+    isCluster: false
+    port: 6379
+    ssl: false
+
+db:
+  dbName: <db-name>
+  existing:
+    ro: <rds-read-endpoint>.<region>.rds.amazonaws.com
+    rw: <rds-write-endpoint>.<region>.rds.amazonaws.com
+    port: 3306
+
+# Ingest pipeline writes to S3; extract pipeline can optionally read from a different bucket.
+file:
+  enabled: false                 # disabled — extract.file.* configures its own S3 below
+
+stream:
+  enabled: false
+  topics:
+    preProcess:
+      type: sqs
+      url: https://sqs.<region>.amazonaws.com/<account>/file-pre-process
+    process:
+      type: sqs
+      url: https://sqs.<region>.amazonaws.com/<account>/file-process
+    summary:
+      type: sqs
+      url: https://sqs.<region>.amazonaws.com/<account>/file-summary
+    update:
+      type: sqs
+      url: https://sqs.<region>.amazonaws.com/<account>/file-update
+    upload:
+      type: sqs
+      url: https://sqs.<region>.amazonaws.com/<account>/file-upload
+
+# ---------- Disable the layout + summary pipelines (extract-only) ----------
+
+groundx:
+  serviceName: groundx
+  replicas:
+    desired: 1
+
+layout:
+  api:
+    enabled: false
+  correct:
+    enabled: false
+  inference:
+    enabled: false
+  map:
+    enabled: false
+  ocr:
+    enabled: false
+  process:
+    enabled: false
+  save:
+    enabled: false
+
+layoutWebhook:
+  enabled: false
+
+preProcess:
+  enabled: false
+
+process:
+  enabled: false
+
+queue:
+  enabled: false
+
+summary:
+  api:
+    enabled: false
+  inference:
+    enabled: false
+
+summaryClient:
+  enabled: false
+
+upload:
+  enabled: false
+
+# ---------- Workspace runner (managed-scaffold publish) ----------
+
+workspace:
+  enabled: true
+  existingSecret: eyelevel-secret-credentials   # carries WORKSPACE_RUNNER_TOKEN + GITHUB_APP_PRIVATE_KEY_PEM
+  publishDryRun: false
+  managedRepoOwner: <github-org>
+  pvc:
+    capacity: 50Gi
+    name: workspace-data
+
+  github:
+    appId: "<github-app-id>"
+    installationId: "<github-installation-id>"
+    privateKeySecret:
+      name: eyelevel-secret-credentials
+      key: GITHUB_APP_PRIVATE_KEY_PEM
+
+  api:
+    enabled: true
+    replicas:
+      desired: 1
+    isInternal: false
+    serviceType: LoadBalancer
+
+  provision:
+    enabled: true
+    replicas:
+      desired: 1
+
+  workspace:
+    enabled: true
+    replicas:
+      desired: 1
+
+  command:
+    enabled: true
+    replicas:
+      desired: 1
+
+  publish:
+    enabled: true
+    replicas:
+      desired: 1
+
+  cleanup:
+    enabled: true
+    replicas:
+      desired: 1
+
+# ---------- Extract pipeline ----------
+
+extract:
+  enabled: true
+  callbackApiKey: <internal-callback-api-key-uuid>
+  callbackUrl: https://<callback-host>/api
+
+  # Extract-side override for the upload bucket (separate from ingest's bucket).
+  file:
+    bucketName: <extract-upload-bucket>
+    region: <region>
+    serviceType: s3
+    url: https://<extract-upload-bucket>.s3.<region>.amazonaws.com
+    username: <aws-access-key-id>      # or use IRSA via serviceAccount.name
+    password: <aws-secret-access-key>
+
+  agent:
+    enabled: true
+    apiKey: <openai-api-key>           # move to secret companion in production
+    serviceType: openai
+    model:
+      reasoningEffort: medium
+    replicas:
+      gracePeriod: 900
+      threshold: 4
+
+  api:
+    enabled: true
+    isInternal: false
+    serviceType: LoadBalancer
+
+  download:
+    enabled: true
+
+  save:
+    enabled: true
+    # Optional Google Drive output:
+    # driveId: <google-drive-id>
+    # templateId: <google-template-id>
+    # gcpCredentials: <json>           # or use --set-file extract.save.gcpCredentials=/path/to/gcp.json
+
+# ---------- Observability ----------
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true

@@ -1,0 +1,20 @@
+# Values for the groundx-storageclass prereq chart — EBS-backed, ReadWriteOnce.
+#
+# Install BEFORE the main groundx chart:
+#   helm upgrade --install groundx-storageclass groundx/groundx-storageclass \
+#     -n eyelevel -f values.storageclass.ebs.example.yaml
+#
+# The resulting StorageClass name must match the main chart's cluster.pvClass.
+# EBS supports ReadWriteOnce only — fine for most backing services, but the
+# workspace runner subsystem prefers ReadWriteMany (use EFS instead when
+# workspace.enabled=true and multiple sub-microservices need shared access).
+
+storageClassName: eyelevel-pv
+isDefaultClass: true            # default StorageClass for the cluster
+
+provisioner: ebs.csi.aws.com
+
+reclaimPolicy: Delete           # PVs delete when their PVCs are deleted
+
+parameters:
+  type: gp3                     # gp2 is also supported but gp3 is the modern default

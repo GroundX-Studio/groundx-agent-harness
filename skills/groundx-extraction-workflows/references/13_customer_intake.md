@@ -11,6 +11,48 @@ This is methodology, not a platform-operation guide. Keep YAML the durable
 artifact; route workflow registration, ingest, polling, and extract retrieval to
 `groundx-api` (see `customer-onboarding.md` §API handoff).
 
+## Minimal schema-first request
+
+The user should not need to know the v1 YAML mechanics or the live-run
+checklist. If they provide source schema material, a sample document, and the
+report they want back, treat that as enough to start.
+
+Example user prompt:
+
+```text
+Create and test a GroundX extraction workflow from these files:
+- schema: path/to/schema.json
+- manifest: path/to/manifest.json
+- sample PDF: path/to/sample.pdf
+
+Preserve the schema's final JSON shape and report which top-level output groups
+or schema sections produced values.
+```
+
+The user may also provide an existing `prompt.yaml` to compare against, but they
+do not need to say `extraction_policy_version: v1`,
+`workflow.custom_steps`, group-level `workflow_step`, `_pseudo_groups`, or the
+compile/deploy/ingest/poll/retrieve steps.
+
+For that minimal request, infer the current harness path:
+
+- author v1 source YAML
+- preserve the final JSON shape from the source schema
+- choose `workflow.custom_steps`
+- use group-level `workflow_step`
+- split oversized workflow groups with `_pseudo_groups`
+- compile and validate before any live run
+- create or update the workflow
+- create or select a test bucket and attach the workflow
+- ingest the sample document through the supported runner or `groundx-api`
+  handoff
+- poll to completion and check `progress.errors`
+- retrieve X-Ray and raw extract when available
+- report whether each top-level output group or schema section produced at least
+  one populated field
+- compare against an existing YAML only when the user provides one as a
+  baseline
+
 ## 1. Ask for the right resources
 
 Request these before drafting anything. Note which are missing rather than
@@ -20,13 +62,14 @@ inventing substitutes.
 |---|---|---|
 | **Field catalog** (spreadsheet, schema, data dictionary, or PDF listing expected fields) | The authoritative set of output fields; drives the coverage gate in §5 | Reconstruct from sample docs + the owner's answers; flag that coverage cannot be verified |
 | **Sample documents** | Ground the field inventory in what actually appears on the page | Cannot ground identifiers/instructions; ask for at least one representative file |
-| **Answer keys** (ground-truth JSON in runner output shape) | Enables `score_extraction.py` scoring and the per-field accuracy bar | Defer accuracy claims; do shape-only proof |
+| **Expected answers** (runner-shaped JSON, spreadsheet, document, text file, PDF, or human-review notes) | Enables source-backed discrepancy review and, after mapping to runner-shaped JSON, `score_extraction.py` scoring | Defer accuracy claims; do shape-only proof |
 | **Naming constraints** | Required output key names, casing, downstream column names | Keep the customer-facing YAML/JSON key when possible; choose a safe `workflow_output_key` for custom outputs |
 | **Null semantics** | Which fields are legitimately blank vs. always present; how "not applicable" is encoded | Treat all fields as possibly-null; confirm before scoring |
 
 Also confirm, per `customer-onboarding.md`: document type and business outcome,
 the field owner, whether files arrive in batches or over time (manual
-batch-readiness trigger), and storage permission for samples and answer keys.
+batch-readiness trigger), and storage permission for samples and expected-answer
+artifacts.
 
 ## 2. Field catalog → field inventory
 
@@ -51,6 +94,12 @@ be locatable on a sample, and any field on the sample that the catalog omits is 
 question for the owner, not a silent addition. A field whose scope is ambiguous
 from the catalog (e.g. "could be one or many") is resolved by looking at the
 samples — see `3_prompt_pipeline.md` §6.3 decision rules.
+
+If expected answers are not already in runner-shaped JSON, create a mapping
+record before scoring. Each mapped field records the JSON field path,
+expected-answer source location, normalized expected value, extracted value,
+source-support decision, scoreability decision, and rationale. Use
+`5_validation.md` §1.2 for the exact shape.
 
 ## 3. Inventory → draft `prompt.yaml`
 
@@ -159,5 +208,5 @@ field (`6_known_limitations.md` §1).
 - Add fields seen on a sample but absent from the catalog without asking the owner.
 - Bake business logic into field `instructions`; record it as group metadata.
 - Skip the coverage check; a silently uncovered catalog field is the common pilot miss.
-- Commit customer catalogs, samples, or answer keys to tracked paths without
+- Commit customer catalogs, samples, or expected-answer artifacts to tracked paths without
   explicit permission (`customer-onboarding.md` §Do not).
