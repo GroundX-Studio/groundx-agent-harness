@@ -1,7 +1,7 @@
 ---
 name: groundx-api
 description: >
-  Customer-facing GroundX API reference for document ingest, search, RAG,
+  Installed-agent GroundX API reference for document ingest, search, RAG,
   source attribution, document understanding, buckets, groups, workflows,
   account health, API keys, SDK usage, and REST fallback. Try the hosted
   GroundX MCP server before direct REST; use REST only when MCP is unavailable
@@ -17,7 +17,7 @@ Use this skill for customer-scoped GroundX platform operations: ingest,
 processing status, search, document lookup, source retrieval, buckets, groups,
 workflows, extraction retrieval, SDK integration, and REST fallback.
 
-When writing public Python docs or customer-facing Python examples, use
+When writing public Python docs or agent-facing Python examples, use
 `client.ingest()` with `Document(...)`. Do not use
 `client.documents.ingest_remote()` or `client.documents.ingest_local()` in public
 Python docs; those lower-level generated names are for SDK-internals or

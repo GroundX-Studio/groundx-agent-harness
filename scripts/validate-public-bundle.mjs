@@ -17,30 +17,11 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
 const EXPECTED_NAME = "groundx-agent-harness";
+const PUBLIC_BUNDLE_RULES = "scripts/public-bundle-rules.json";
 const args = new Set(process.argv.slice(2));
 const ALLOW_MISSING_PROVENANCE = args.has("--allow-missing-provenance");
 const VALID_ARGS = new Set(["--allow-missing-provenance"]);
 
-const FORBIDDEN_TEXT = [
-  "harness-publish",
-  "harness-web-ui",
-  "harness-slides",
-  "groundx-partner-api",
-  "servers/groundx-studio",
-  "groundx-studio/server",
-  "WORKSPACE_API_KEY",
-  "PARTNER_API_KEY",
-  "git_session",
-  "project_create",
-  "customer-facing plugin bundle",
-  "public-safe guidance",
-  "intentionally excludes",
-  "managed-project lifecycle",
-  "Partner-only APIs",
-  "web UI scaffold production",
-  "slide production",
-  "Use this public repository target",
-];
 const SECRET_PATTERNS = [
   { label: "GitHub access token URL", pattern: /x-access-token:[^@\s]{8,}@/ },
   { label: "GitHub app token", pattern: /ghs_[A-Za-z0-9_]{20,}/ },
@@ -48,6 +29,7 @@ const SECRET_PATTERNS = [
   { label: "GitHub fine-grained personal access token", pattern: /github_pat_[A-Za-z0-9_]{20,}/ },
 ];
 const TEXT_SCAN_SKIP = new Set([
+  PUBLIC_BUNDLE_RULES,
   "scripts/validate-public-bundle.mjs",
 ]);
 const TEXT_EXTENSIONS = new Set([
@@ -124,6 +106,7 @@ for (const required of [
   "LICENSE",
   "README.md",
   "scripts/doctor.mjs",
+  PUBLIC_BUNDLE_RULES,
   "scripts/validate-public-bundle.mjs",
   "skills/ROUTING.md",
 ]) {
@@ -192,6 +175,14 @@ if (existsSync(readmePath)) {
   }
 }
 
+const publicBundleRules = readJson(join(ROOT, PUBLIC_BUNDLE_RULES));
+const forbiddenText = Array.isArray(publicBundleRules?.forbiddenText)
+  ? publicBundleRules.forbiddenText
+  : [];
+if (!Array.isArray(publicBundleRules?.forbiddenText) || publicBundleRules.forbiddenText.length === 0) {
+  flag(join(ROOT, PUBLIC_BUNDLE_RULES), "forbiddenText must be a non-empty array");
+}
+
 const provenance = existsSync(join(ROOT, ".groundx-generated.json"))
   ? readJson(join(ROOT, ".groundx-generated.json"))
   : null;
@@ -220,7 +211,7 @@ for (const file of walkFiles()) {
   if (TEXT_SCAN_SKIP.has(file)) continue;
   if (!TEXT_EXTENSIONS.has(extname(file))) continue;
   const content = readFileSync(join(ROOT, file), "utf8");
-  for (const forbidden of FORBIDDEN_TEXT) {
+  for (const forbidden of forbiddenText) {
     if (content.includes(forbidden)) {
       flag(join(ROOT, file), `public bundle references excluded internal surface "${forbidden}"`);
     }

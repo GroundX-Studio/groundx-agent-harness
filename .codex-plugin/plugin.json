@@ -1,7 +1,7 @@
 {
   "name": "groundx-agent-harness",
-  "version": "2.2.0",
-  "description": "Customer-facing GroundX agent harness for API use, schema-first extraction, on-prem deployment, architecture, and approved GTM guidance.",
+  "version": "2.2.1",
+  "description": "GroundX agent runtime harness for API use, schema-first extraction, on-prem deployment, architecture, and supported GTM guidance.",
   "author": {
     "name": "Ben Fletcher",
     "email": "benjamin.fletcher@eyelevel.ai"
@@ -19,8 +19,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "GroundX Agent Harness",
-    "shortDescription": "Customer-facing GroundX API, extraction, on-prem, architecture, and GTM skills.",
-    "longDescription": "Customer-facing GroundX agent harness for API use, schema-first extraction, on-prem deployment, architecture, and approved GTM guidance.",
+    "shortDescription": "GroundX API, extraction, on-prem, architecture, and GTM guidance for installed agents.",
+    "longDescription": "GroundX agent runtime harness for API use, schema-first extraction, on-prem deployment, architecture, and supported GTM guidance.",
     "developerName": "Ben Fletcher",
     "category": "Developer Tools",
     "capabilities": [

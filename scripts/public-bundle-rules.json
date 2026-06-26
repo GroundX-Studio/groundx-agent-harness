@@ -1,0 +1,23 @@
+{
+  "generatedFrom": "bundle-policy.json#public",
+  "forbiddenText": [
+    "harness-publish",
+    "harness-web-ui",
+    "harness-slides",
+    "groundx-partner-api",
+    "servers/groundx-studio",
+    "groundx-studio/server",
+    "git_session",
+    "project_create",
+    "customer-facing plugin bundle",
+    "public-safe guidance",
+    "intentionally excludes",
+    "managed-project lifecycle",
+    "Partner-only APIs",
+    "web UI scaffold production",
+    "slide production",
+    "Use this public repository target",
+    ".context/",
+    ".private.md"
+  ]
+}

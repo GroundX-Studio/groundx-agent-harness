@@ -1,7 +1,7 @@
 ---
 name: groundx-architecture
 description: >
-  Customer-facing source of truth for GroundX architecture facts: pipeline,
+  Installed-agent source of truth for GroundX architecture facts: pipeline,
   components, trust model, data flow, search, extraction architecture, observability,
   residency, and deployment-invariant system behavior.
 ---

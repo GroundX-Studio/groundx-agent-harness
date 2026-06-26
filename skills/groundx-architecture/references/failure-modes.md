@@ -134,7 +134,7 @@ The operational triage tree for a customer-reported failed document:
 4. Check `process` pod logs for terminal-write failures.
 5. Check the metrics pod for queue depth and inference TPM anomalies.
 
-For broader observability framing see `observability.md`. For the `MonitorPipeline` Lambda details see `disaster-recovery.md` § 5.6 + `groundx-cloud-utilities.md`.
+For broader observability framing see `observability.md`. For the `MonitorPipeline` Lambda details see `disaster-recovery.md` § 5.6 + the private cloud-utilities reference.
 
 ## 8. Data architecture altitude
 

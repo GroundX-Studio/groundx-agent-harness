@@ -1,7 +1,7 @@
 ---
 name: master-brand-gtm
 description: >
-  Customer-facing Valantor company and category messaging reference: Visual
+  Installed-agent Valantor company and category messaging reference: Visual
   Intelligence, AI plus humans accountability, company value props, category
   framing, and brand hierarchy.
 ---

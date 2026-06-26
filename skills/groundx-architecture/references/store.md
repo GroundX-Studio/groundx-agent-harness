@@ -50,7 +50,7 @@ For the full system topology see `overview.md` § 4.4. For the inter-pod store a
 | Writers | `upload` (source file, URL-shared path); layout pipeline (per-page images, OCR text, detection results, mapped layouts); `pre-process` (orchestration intermediate artifacts); `summary-client` (summary intermediate artifacts); `process` (terminal X-Ray); `extract-save` (extraction results, when enabled) |
 | Readers | `groundx` (serves X-Ray on `GET /v1/ingest/document/xray/{documentId}`); downstream pods reading intermediate artifacts produced earlier in the pipeline; Extract microservice reads the X-Ray when extraction is enabled |
 | Notable artifacts | Source file (input); per-page rendered images; layout intermediate artifacts; **X-Ray** (terminal customer-facing aggregate JSON); extraction output (when enabled) |
-| Presigned-URL utility | Cloud-service deployments have a `FileUpload` Lambda utility (per `groundx-cloud-utilities.md`); on-prem deployments need their own equivalent |
+| Presigned-URL utility | Cloud-service deployments have a `FileUpload` Lambda utility (per the private cloud-utilities reference); on-prem deployments need their own equivalent |
 
 ### 5.2 Process Metadata DB
 
@@ -126,4 +126,4 @@ The store tier sits behind the three GPU services (`summary-inference`, `ranker-
 - **Backup posture, RPO/RTO, regional failover:** `disaster-recovery.md`.
 - **Data residency posture (GDPR / HIPAA / FedRAMP region selection):** `data-residency.md`.
 - **Per-deployment store sizing and `values.yaml` selector specifics:** `groundx-on-prem`.
-- **The presigned-URL upload utility in cloud-service deployments:** `groundx-cloud-utilities.md`.
+- **The presigned-URL upload utility in cloud-service deployments:** the private cloud-utilities reference.

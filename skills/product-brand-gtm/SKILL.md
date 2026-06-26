@@ -1,7 +1,7 @@
 ---
 name: product-brand-gtm
 description: >
-  Customer-facing GroundX product messaging reference: value propositions,
+  Installed-agent GroundX product messaging reference: value propositions,
   differentiators, proof points, buyer framing, objections, product surfaces,
   and the GroundX by Valantor relationship.
 ---
@@ -9,7 +9,7 @@ description: >
 # Product Brand GTM
 
 Use this skill for GroundX product positioning, value propositions, proof points,
-buyer framing, objections, concise product copy, RFP/message review, and customer-facing
+buyer framing, objections, concise product copy, RFP/message review, and public
 product/company questions.
 
 ## Routing Contract

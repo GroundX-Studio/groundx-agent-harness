@@ -19,7 +19,7 @@ runs the full ingest/poll/X-Ray/extract loop and can resume a timed-out local
 poll with `--resume --out <run-dir>`. Interactive platform execution delegates
 to `groundx-api`.
 
-For public or customer-facing extraction documentation, read
+For public extraction documentation and installed-agent runtime guidance, read
 `references/public-docs.md` first. Public docs should use the GroundX SDK path,
 including `client.ingest(...)`, and keep harness/compiler internals out unless
 the user explicitly asks for SDK internals.
@@ -44,28 +44,29 @@ the user explicitly asks for SDK internals.
 ## Fast Path
 
 1. Read `references/README.md`.
-2. For public or customer-facing docs, read `references/public-docs.md`.
-3. For a new customer or serious pilot, read `references/customer-onboarding.md` and
+2. For the broad ordered workflow path, read `references/workflow-how-to.md`.
+3. For public extraction docs, read `references/public-docs.md`.
+4. For a new customer or serious pilot, read `references/customer-onboarding.md` and
    optionally `references/openspec-pilots.md`.
-4. Draft or revise `prompt.yaml` using `references/16_prompt_writing.md`,
+5. Draft or revise `prompt.yaml` using `references/16_prompt_writing.md`,
    `references/prompt-quality.md`, `references/prompt-improvement-loop.md`,
    `references/2_schema_design.md`, and `references/3_prompt_pipeline.md`.
-5. If the domain needs custom extract/reconcile/QA prompt wrappers, read
+6. If the domain needs custom extract/reconcile/QA prompt wrappers, read
    `references/prompt-manager.md` and use `templates/prompt_manager.py` as the
    minimal today-path manager.
-6. Compile the YAML into `workflow.json` with `templates/compile_workflow.py`.
-7. For a finished YAML, read `references/deploy.md`, then use
+7. Compile the YAML into `workflow.json` with `templates/compile_workflow.py`.
+8. For a finished YAML, read `references/deploy.md`, then use
    `templates/deploy_workflow.py` to deploy the workflow through the GroundX Python SDK.
    For a full local run, use
    `templates/run_extraction.py`. For interactive platform execution, route to
    `groundx-api`.
-8. Score against expected answers: `templates/score_extraction.py` for one document, or
+9. Score against expected answers: `templates/score_extraction.py` for one document, or
    `templates/batch_extraction.py` to ingest + score a folder live. To re-score a captured
    run **offline (no re-ingest)** — after fixing expected-answer mappings or to score on
    another machine — use `templates/batch_score.py <run_dir> --keys-dir <expected-answers>`.
    If expected answers arrive as spreadsheets, documents, text files, PDFs, or
    human-review notes, map them into runner-shaped JSON before scoring.
-9. Iterate one field at a time with `references/prompt-improvement-loop.md`; inspect
+10. Iterate one field at a time with `references/prompt-improvement-loop.md`; inspect
    X-Ray before tightening prompts when accuracy stalls or a field is wrong.
 
 ## What This Skill Produces

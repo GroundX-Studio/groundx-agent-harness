@@ -5,13 +5,13 @@
     "email": "benjamin.fletcher@eyelevel.ai"
   },
   "metadata": {
-    "description": "Customer-facing GroundX agent harness for API use, schema-first extraction, on-prem deployment, architecture, and approved GTM guidance.",
-    "version": "2.2.0"
+    "description": "GroundX agent runtime harness for API use, schema-first extraction, on-prem deployment, architecture, and supported GTM guidance.",
+    "version": "2.2.1"
   },
   "plugins": [
     {
       "name": "groundx-agent-harness",
-      "description": "Customer-facing GroundX agent harness for API use, schema-first extraction, on-prem deployment, architecture, and approved GTM guidance.",
+      "description": "GroundX agent runtime harness for API use, schema-first extraction, on-prem deployment, architecture, and supported GTM guidance.",
       "source": "./",
       "strict": false,
       "skills": [
