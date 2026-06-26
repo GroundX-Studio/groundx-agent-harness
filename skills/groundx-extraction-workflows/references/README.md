@@ -10,7 +10,8 @@ a field, or planning a serious extraction pilot.
 1. Read `../SKILL.md`.
 2. For a new pilot, read `customer-onboarding.md`; for durable requirements and
    acceptance criteria, also read `openspec-pilots.md`.
-3. Draft or revise YAML with `2_schema_design.md` and `3_prompt_pipeline.md`.
+3. Draft or revise YAML with `16_prompt_writing.md`, `prompt-quality.md`,
+   `prompt-improvement-loop.md`, `2_schema_design.md`, and `3_prompt_pipeline.md`.
 4. Compile with `templates/compile_workflow.py`.
 5. Use `deploy.md` and `templates/deploy_workflow.py` for deploy-only local SDK
    execution, or `templates/run_extraction.py` for a full local run.
@@ -26,7 +27,8 @@ a field, or planning a serious extraction pilot.
 | End-to-end loop: draft YAML -> compile -> deploy or run -> compare -> iterate | `1_extraction_loop.md` |
 | New customer pilot, sample-set requirements, expected-answer readiness, API handoff expectations | `customer-onboarding.md`, then `1_extraction_loop.md` |
 | Optional OpenSpec structure for serious pilots | `openspec-pilots.md` |
-| Authoring or revising YAML schema | `2_schema_design.md` |
+| Authoring or revising YAML schema | `16_prompt_writing.md`, `prompt-quality.md`, `2_schema_design.md` |
+| Improving prompts after misses or reviewer feedback | `prompt-improvement-loop.md`, then `16_prompt_writing.md` |
 | Choosing custom workflow steps and preserving RAG while extracting | `3_prompt_pipeline.md` |
 | Wrapping YAML with custom extract/reconcile/QA prompt modules and managing prompt iterations today | `prompt-manager.md` |
 | Finished-YAML deployment decision: MCP vs deploy-only local script vs full local run | `deploy.md` |
@@ -52,6 +54,11 @@ for SDK internals.
 
 Keep customer documents, expected answers, private notes, and run outputs out of committed
 artifacts unless the customer explicitly approves sharing.
+
+Use `16_prompt_writing.md`, `prompt-quality.md`, and `prompt-improvement-loop.md`
+before drafting or tightening prompts. The skill should teach the full process first:
+source evidence, final shape, prompt writing, compile, run, source-adjudicated scoring,
+one-change prompt loops, and regression checks.
 
 When a customer or sample repo already has a `manager.py`, `simple.yaml`, and separate
 extract/reconcile/QA prompt modules, use `prompt-manager.md` instead of forcing those

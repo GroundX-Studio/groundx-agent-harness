@@ -118,12 +118,13 @@ and custom steps that match the extraction shape; see `2_schema_design.md` §1.
 
 ### 3.2 Write field prompts
 
-For each inventory field, write the field anatomy from `2_schema_design.md` §2:
-`description`, `identifiers` (1–3 labels seen on the samples), `instructions`
-(one concrete rule per line, grounded in the samples), `type`, and `format` for
-dates/codes. For repeating groups, add the group-level `prompt.instructions`
-that distinguishes a real record from a subtotal/header (`2_schema_design.md`
-§3). Keep each group ≤ 30 fields (`2_schema_design.md` §1.5).
+For each inventory field, read `16_prompt_writing.md` and `prompt-quality.md`,
+then write the field anatomy from `2_schema_design.md` §2: `description`,
+`identifiers` (representative labels seen on the samples), `instructions` (one
+concrete source-grounded rule per line), `type`, and `format` for dates/codes.
+For repeating groups, add the group-level `prompt.instructions` that distinguishes
+a real record from a subtotal/header (`2_schema_design.md` §3). Keep each group
+≤ 30 fields (`2_schema_design.md` §1.5).
 
 ## 4. The chat step — capturing business logic
 

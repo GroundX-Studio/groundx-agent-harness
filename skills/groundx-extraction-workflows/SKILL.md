@@ -47,8 +47,9 @@ the user explicitly asks for SDK internals.
 2. For public or customer-facing docs, read `references/public-docs.md`.
 3. For a new customer or serious pilot, read `references/customer-onboarding.md` and
    optionally `references/openspec-pilots.md`.
-4. Draft or revise `prompt.yaml` using `references/2_schema_design.md` and
-   `references/3_prompt_pipeline.md`.
+4. Draft or revise `prompt.yaml` using `references/16_prompt_writing.md`,
+   `references/prompt-quality.md`, `references/prompt-improvement-loop.md`,
+   `references/2_schema_design.md`, and `references/3_prompt_pipeline.md`.
 5. If the domain needs custom extract/reconcile/QA prompt wrappers, read
    `references/prompt-manager.md` and use `templates/prompt_manager.py` as the
    minimal today-path manager.
@@ -64,8 +65,8 @@ the user explicitly asks for SDK internals.
    another machine — use `templates/batch_score.py <run_dir> --keys-dir <expected-answers>`.
    If expected answers arrive as spreadsheets, documents, text files, PDFs, or
    human-review notes, map them into runner-shaped JSON before scoring.
-9. Iterate one field at a time; inspect X-Ray before tightening prompts when accuracy
-   stalls or a field is wrong.
+9. Iterate one field at a time with `references/prompt-improvement-loop.md`; inspect
+   X-Ray before tightening prompts when accuracy stalls or a field is wrong.
 
 ## What This Skill Produces
 
@@ -84,4 +85,6 @@ full deployable project scaffold is not part of the default deliverable.
 - [ ] No real GroundX API key appears in any artifact.
 - [ ] Group decomposition is explicit.
 - [ ] Field fixes identify the specific YAML line or field to change.
+- [ ] Prompt edits follow `references/16_prompt_writing.md`,
+      `references/prompt-quality.md`, and `references/prompt-improvement-loop.md`.
 - [ ] X-Ray was inspected before tightening prompts when accuracy stalls.

@@ -131,7 +131,8 @@ forward-compatibility.
 
 For configuring **custom prompts** using GroundX's built-in LLM, use the
 `WorkflowStepConfig` / `WorkflowPromptGroup` SDK objects described in
-`guides/09-workflows.md` §6.
+`guides/09-workflows.md` §6. For prompt wording, use
+`guides/10-prompt-writing.md`.
 
 All `steps` and `extract` fields are optional — omit them to use GroundX defaults.
 

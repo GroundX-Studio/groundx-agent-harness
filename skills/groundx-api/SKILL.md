@@ -61,6 +61,7 @@ operation-level references.
 | Source viewer or page-level citation UI | `guides/08-source-view-ui.md`, then `references/03-search.md` |
 | Content organized by tenant, project, folder, or access policy | `guides/06-content-organization.md`, `guides/07-filter-field.md`, then bucket/group references |
 | Workflow CRUD or workflow-backed document processing | `references/06-workflows.md`, `guides/09-workflows.md`, then `references/02-documents.md` |
+| Workflow prompt writing, prompt overrides, or `additionalContext` wording | `guides/10-prompt-writing.md`, then `guides/09-workflows.md` and `references/06-workflows.md` |
 | Python SDK code | `references/12-python-sdk-objects.md` before writing objects or attributes |
 
 ## Reference Map
