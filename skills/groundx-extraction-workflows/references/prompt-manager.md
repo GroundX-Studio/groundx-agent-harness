@@ -9,6 +9,8 @@ customer code small and migration-friendly.
 
 Keep `prompt.yaml` as the source of truth. Add thin Python wrappers only where
 the domain needs prompt wording that the default compiler cannot express.
+Use `references/16_prompt_writing.md` for the wording standard before changing
+field prompts, group prompts, or wrapper prompts.
 
 ```
 prompt.yaml

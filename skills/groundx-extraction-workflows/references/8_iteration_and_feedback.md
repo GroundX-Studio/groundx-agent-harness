@@ -12,7 +12,8 @@ A typical customer onboarding has three phases:
 1. **Author** — agent drafts an initial YAML from the customer's inputs
    (document + expected answers) and the skill's references.
 2. **Iterate** — run compile → register workflow → ingest → extract →
-   compare. Tighten the YAML based on failure modes. Repeat.
+   compare. Use `prompt-improvement-loop.md` to source-adjudicate, classify the
+   miss, change one prompt or group rule, and check for regressions. Repeat.
 3. **Finalize** — once accuracy meets the bar, the YAML is locked.
    Decide what feeds back into the skill so the next customer's run
    starts from a stronger position.

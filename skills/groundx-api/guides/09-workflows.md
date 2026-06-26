@@ -165,6 +165,10 @@ section-level context from bleeding across page boundaries.
 Workflow steps are configured using a hierarchy of SDK objects. Python names are
 used below; TypeScript equivalents use camelCase.
 
+Before writing custom prompt text, read `guides/10-prompt-writing.md`. Use that
+guide for full prompt overrides, `additionalContext`, search-query rewrites, and
+document-processing prompts.
+
 ### 6.1 WorkflowPrompt
 
 A single message in the LLM call:

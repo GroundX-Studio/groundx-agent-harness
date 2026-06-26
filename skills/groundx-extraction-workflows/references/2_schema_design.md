@@ -350,6 +350,8 @@ Every field in the YAML has the same shape. The field key under its group
 becomes the JSON key inside that final group. In direct groups, routed fields
 also declare `workflow_output_key`. In pseudo groups, the final field does not
 need `workflow_output_key`; the pseudo field key is the workflow output key.
+Use `16_prompt_writing.md` and `prompt-quality.md` when writing the
+`description`, `identifiers`, `instructions`, and `format` text.
 
 ```yaml
 field_key:
@@ -468,6 +470,8 @@ The `charges` group accepts a top-level `prompt.instructions` block that
 provides extraction rules for the group as a whole — not per-field, but
 about how to identify what counts as one record. This is critical for
 distinguishing individual records from subtotal or section-header lines.
+Use `16_prompt_writing.md` and `prompt-quality.md` for the checklist before
+editing group-level prompt text.
 
 ```yaml
 charges:

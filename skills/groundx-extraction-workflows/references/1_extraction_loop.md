@@ -79,8 +79,9 @@ pip install -r requirements.txt
 
 ### 3.1 Draft the YAML
 
-Read §2 in `2_schema_design.md` for group decomposition and field
-anatomy. Author the YAML based on:
+Read `16_prompt_writing.md`, `prompt-quality.md`, and §2 in
+`2_schema_design.md` for the full prompt-writing path, prompt quality checklist,
+group decomposition, and field anatomy. Author the YAML based on:
 
 - The fields the user wants to extract (or, if expected answers are
   provided, the fields in the expected answers)
@@ -219,22 +220,21 @@ Do not claim a final accuracy improvement unless the run produced a new raw
 
 ### 3.5 Iterate
 
-For every FAIL or WARN, identify the YAML field that produced it. The
-map is direct: each field's YAML key becomes the JSON key in the
-output. Tighten the field's `instructions` block, save the YAML, run
-§3.2 again to produce a new `workflow.json`, then re-run §3.3 (with
-`workflow_update` instead of `workflow_create`) and §3.4.
+For every FAIL or WARN, identify the YAML field or group rule that produced it.
+Use `prompt-improvement-loop.md`: source-adjudicate the disagreement, classify
+the miss, make one prompt or group-rule change, run §3.2 again to produce a new
+`workflow.json`, then re-run §3.3 (with `workflow_update` instead of
+`workflow_create`) and §3.4.
 
 The most common iteration patterns:
 
 - Field extracted as wrong value → tighten `identifiers` and add a
-  negative example in `instructions` ("do not confuse with X")
+  reusable exclusion in `instructions` ("do not confuse with X")
 - Field missing entirely → confirm the value is in the document at
   all via X-Ray (see §3 in `6_known_limitations.md`); if so, broaden
   `identifiers`
 - Repeating record over-extracts subtotals → tighten the group-level
-  `prompt.instructions` block on the `charges` group with explicit
-  IS-NOT examples
+  `prompt.instructions` block with explicit IS-NOT examples
 - Casing mismatch → add an explicit casing instruction to the field
   ("preserve original casing as printed")
 
