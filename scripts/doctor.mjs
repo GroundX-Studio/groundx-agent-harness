@@ -14,9 +14,10 @@
  *   node scripts/doctor.mjs codex-cli
  *   node scripts/doctor.mjs claude-code
  *   node scripts/doctor.mjs mcp
+ *   node scripts/doctor.mjs skills
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -38,6 +39,7 @@ const validClients = new Set([
   "codex-desktop",
   "vscode-claude",
   "mcp",
+  "skills",
 ]);
 
 if (!validClients.has(client)) {
@@ -74,6 +76,30 @@ function validateLocalBundle() {
     console.log("Local public bundle validation failed:");
     console.log(result.stdout.trim());
     console.log(result.stderr.trim());
+  }
+}
+
+function readPublicPolicyMetadata() {
+  const rulesPath = join(ROOT, "scripts/public-bundle-rules.json");
+  if (!existsSync(rulesPath)) return null;
+  try {
+    return JSON.parse(readFileSync(rulesPath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function skillsAndRuntime() {
+  section("Skills And Runtime");
+  const metadata = readPublicPolicyMetadata();
+  if (!metadata?.skills) {
+    console.log("Missing generated public policy metadata. Run scripts/validate-public-bundle.mjs.");
+    return;
+  }
+  for (const [skillName, skillPolicy] of Object.entries(metadata.skills)) {
+    const runtime = metadata.runtimeFamilies?.[skillPolicy.runtimeFamily];
+    const tools = runtime?.tools?.length ? runtime.tools.join(", ") : "none";
+    console.log(`- ${skillName}: runtime=${skillPolicy.runtimeFamily}; tools=${tools}`);
   }
 }
 
@@ -210,4 +236,5 @@ if (client === "all" || client === "codex-desktop") codexDesktop();
 if (client === "all" || client === "codex-cli") codexCli();
 if (client === "all" || client === "claude-code") claudeCode();
 if (client === "all" || client === "mcp") mcp();
+if (client === "skills") skillsAndRuntime();
 verify();

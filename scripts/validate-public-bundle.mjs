@@ -74,6 +74,28 @@ function requireFile(path, message = "required file is missing") {
   if (!existsSync(path)) flag(path, message);
 }
 
+const publicBundleRules = readJson(join(ROOT, PUBLIC_BUNDLE_RULES));
+const fallbackRequiredFiles = [
+  ".agents/plugins/marketplace.json",
+  ".claude-plugin/marketplace.json",
+  ".codex-plugin/plugin.json",
+  ".github/workflows/validate.yml",
+  ".gitignore",
+  "LICENSE",
+  "README.md",
+  "scripts/doctor.mjs",
+  PUBLIC_BUNDLE_RULES,
+  "scripts/validate-public-bundle.mjs",
+  "skills/ROUTING.md",
+];
+const metadataRequiredFiles = [
+  ...(publicBundleRules?.publicArtifacts?.static ?? []),
+  ...(publicBundleRules?.publicArtifacts?.generated ?? []),
+]
+  .map((entry) => entry.dest)
+  .filter((dest) => typeof dest === "string");
+const requiredFiles = metadataRequiredFiles.length > 0 ? metadataRequiredFiles : fallbackRequiredFiles;
+
 function walkFiles(root = ROOT) {
   const files = [];
   function walk(dir) {
@@ -97,19 +119,7 @@ function ensureNoPath(prefixOrFile, message) {
   }
 }
 
-for (const required of [
-  ".agents/plugins/marketplace.json",
-  ".claude-plugin/marketplace.json",
-  ".codex-plugin/plugin.json",
-  ".github/workflows/validate.yml",
-  ".gitignore",
-  "LICENSE",
-  "README.md",
-  "scripts/doctor.mjs",
-  PUBLIC_BUNDLE_RULES,
-  "scripts/validate-public-bundle.mjs",
-  "skills/ROUTING.md",
-]) {
+for (const required of requiredFiles) {
   requireFile(join(ROOT, required));
 }
 
@@ -175,7 +185,6 @@ if (existsSync(readmePath)) {
   }
 }
 
-const publicBundleRules = readJson(join(ROOT, PUBLIC_BUNDLE_RULES));
 const forbiddenText = Array.isArray(publicBundleRules?.forbiddenText)
   ? publicBundleRules.forbiddenText
   : [];
@@ -187,7 +196,7 @@ const provenance = existsSync(join(ROOT, ".groundx-generated.json"))
   ? readJson(join(ROOT, ".groundx-generated.json"))
   : null;
 if (provenance) {
-  for (const field of ["sourceRepository", "sourceCommit", "generatedBundlePath", "generator", "bundlePolicy", "generatedAt"]) {
+  for (const field of ["sourceRepository", "sourceCommit", "generatedBundlePath", "generator", "harnessPolicy", "generatedAt"]) {
     if (typeof provenance[field] !== "string" || provenance[field].length === 0) {
       flag(join(ROOT, ".groundx-generated.json"), `${field} must be present`);
     }
