@@ -1,5 +1,16 @@
 {
-  "generatedFrom": "bundle-policy.json#public",
+  "generatedFrom": "harness-policy.json#public",
+  "availabilitySuffixes": {
+    "public": ".public",
+    "private": ".private"
+  },
+  "dispositions": {
+    "included": "Source file emits to the public bundle, with .public suffix stripped when present.",
+    "blocked": "Source file is intentionally never emitted to the public bundle because it matches a reusable safety class or .private suffix.",
+    "ignored": "Source file is a source-only implementation detail such as the internal SKILL.md or reference index replaced by a public wrapper.",
+    "excluded": "Deprecated transitional bucket. Public-enabled source files should not remain here.",
+    "unclassified": "Validation failure. Add a suffix, wrapper, include, or reusable block rule before release."
+  },
   "forbiddenText": [
     "harness-publish",
     "harness-web-ui",
@@ -19,5 +30,391 @@
     "Use this public repository target",
     ".context/",
     ".private.md"
-  ]
+  ],
+  "publicArtifacts": {
+    "static": [
+      {
+        "source": "docs/public-harness/README.md",
+        "dest": "README.md"
+      },
+      {
+        "source": "docs/public-harness/gitignore",
+        "dest": ".gitignore"
+      },
+      {
+        "source": "skills/ROUTING.public.md",
+        "dest": "skills/ROUTING.md"
+      },
+      {
+        "source": "scripts/public-harness/doctor.mjs",
+        "dest": "scripts/doctor.mjs"
+      },
+      {
+        "source": "scripts/public-harness/validate-public-bundle.mjs",
+        "dest": "scripts/validate-public-bundle.mjs"
+      },
+      {
+        "source": "scripts/public-harness/validate.yml",
+        "dest": ".github/workflows/validate.yml"
+      },
+      {
+        "source": "LICENSE",
+        "dest": "LICENSE"
+      }
+    ],
+    "generated": [
+      {
+        "kind": "codex-manifest",
+        "dest": ".codex-plugin/plugin.json"
+      },
+      {
+        "kind": "claude-manifest",
+        "dest": ".claude-plugin/marketplace.json"
+      },
+      {
+        "kind": "agent-marketplace",
+        "dest": ".agents/plugins/marketplace.json"
+      },
+      {
+        "kind": "filtered-policy-metadata",
+        "dest": "scripts/public-bundle-rules.json"
+      }
+    ]
+  },
+  "runtimeFamilies": {
+    "reference": {
+      "tools": [],
+      "commandPrefixes": [],
+      "osSupport": {
+        "macos": "supported",
+        "linux": "supported",
+        "windows": "supported"
+      },
+      "notes": "Reference-only installed-agent guidance with no local command requirement."
+    },
+    "hosted-mcp": {
+      "tools": [
+        "supported MCP client",
+        "curl for advanced checks",
+        "shell env export"
+      ],
+      "commandPrefixes": [
+        "claude",
+        "codex",
+        "curl",
+        "export"
+      ],
+      "osSupport": {
+        "macos": "supported",
+        "linux": "supported",
+        "windows": "supported"
+      },
+      "notes": "Hosted MCP client setup. Prefer hosted OAuth/client flows before local REST fallback."
+    },
+    "python": {
+      "tools": [
+        "python",
+        "venv",
+        "pip",
+        "basic shell file copy"
+      ],
+      "commandPrefixes": [
+        "python",
+        "python3",
+        "pip",
+        "pytest",
+        "cp"
+      ],
+      "osSupport": {
+        "macos": "supported",
+        "linux": "supported",
+        "windows": "supported"
+      },
+      "notes": "Python examples or runnable extraction templates. Windows support assumes normal Python and venv tooling."
+    },
+    "deployment-tools": {
+      "tools": [
+        "helm",
+        "kubectl",
+        "cloud CLI when documented",
+        "curl",
+        "basic shell file copy"
+      ],
+      "commandPrefixes": [
+        "helm",
+        "kubectl",
+        "oc",
+        "aws",
+        "az",
+        "gcloud",
+        "terraform",
+        "curl",
+        "cp"
+      ],
+      "osSupport": {
+        "macos": "supported",
+        "linux": "supported",
+        "windows": "wsl-or-git-bash"
+      },
+      "notes": "Kubernetes deployment workflows. Native Windows shells are not guaranteed unless the specific command is proven there."
+    },
+    "sdk-contributor": {
+      "tools": [
+        "git",
+        "python",
+        "pip",
+        "poetry"
+      ],
+      "commandPrefixes": [
+        "git",
+        "python",
+        "python3",
+        "pip",
+        "pytest",
+        "poetry"
+      ],
+      "osSupport": {
+        "macos": "supported",
+        "linux": "supported",
+        "windows": "supported"
+      },
+      "notes": "Guidance for contributing to the public GroundX Python SDK repo."
+    }
+  },
+  "skills": {
+    "groundx-api": {
+      "mode": "public-profile",
+      "reason": "GroundX API runtime guidance for installed agents; public wrapper omits internal managed workspace and partner-skill routing.",
+      "runtimeFamily": "python",
+      "runtimeAddOns": [
+        "hosted-mcp-first",
+        "python-examples",
+        "node-examples"
+      ],
+      "commandPrefixes": [
+        "node",
+        "npm"
+      ],
+      "requiredGates": [
+        "node scripts/validate.mjs",
+        "node scripts/tests/test-groundx-api.mjs"
+      ],
+      "entrypoint": {
+        "source": "SKILL.public.md",
+        "dest": "SKILL.md"
+      },
+      "readme": {
+        "source": "references/README.public.md",
+        "dest": "references/README.md"
+      },
+      "includeGlobs": [
+        "references/*.md",
+        "guides/*.md",
+        "examples/*.py"
+      ],
+      "requiredFiles": [
+        "SKILL.md",
+        "references/README.md"
+      ]
+    },
+    "groundx-mcp": {
+      "mode": "public-profile",
+      "reason": "GroundX MCP client setup and tool reference for installed agents; public wrapper omits contributor maintenance and internal eval files.",
+      "runtimeFamily": "hosted-mcp",
+      "runtimeAddOns": [
+        "supported-clients",
+        "rest-fallback"
+      ],
+      "commandPrefixes": [],
+      "requiredGates": [
+        "node scripts/validate.mjs",
+        "node scripts/tests/test-groundx-mcp.mjs"
+      ],
+      "entrypoint": {
+        "source": "SKILL.public.md",
+        "dest": "SKILL.md"
+      },
+      "readme": {
+        "source": "references/README.public.md",
+        "dest": "references/README.md"
+      },
+      "includeGlobs": [
+        "references/*.md"
+      ],
+      "requiredFiles": [
+        "SKILL.md",
+        "references/README.md"
+      ]
+    },
+    "groundx-extraction-workflows": {
+      "mode": "public-profile",
+      "reason": "Schema-first extraction workflow guidance for installed agents; public wrapper omits managed UI and partner-skill routing.",
+      "runtimeFamily": "python",
+      "runtimeAddOns": [
+        "requirements:skills/groundx-extraction-workflows/templates/requirements.txt"
+      ],
+      "commandPrefixes": [],
+      "requiredGates": [
+        "node scripts/validate.mjs",
+        "node scripts/tests/test-groundx-extraction-workflows.mjs"
+      ],
+      "entrypoint": {
+        "source": "SKILL.public.md",
+        "dest": "SKILL.md"
+      },
+      "readme": {
+        "source": "references/README.public.md",
+        "dest": "references/README.md"
+      },
+      "includeGlobs": [
+        "CHANGELOG.md",
+        "examples/*/README.md",
+        "examples/*/business_logic.md",
+        "examples/*/prompt.yaml",
+        "references/*.md",
+        "templates/*"
+      ],
+      "requiredFiles": [
+        "SKILL.md",
+        "references/README.md"
+      ]
+    },
+    "groundx-on-prem": {
+      "mode": "public-profile",
+      "reason": "Deployment operator reference for installed agents; public wrapper blocks secret examples and internal maintenance/source surfaces.",
+      "runtimeFamily": "deployment-tools",
+      "runtimeAddOns": [
+        "helm",
+        "kubectl",
+        "cloud-cli-when-documented"
+      ],
+      "commandPrefixes": [
+        "bin/environment"
+      ],
+      "requiredGates": [
+        "node scripts/validate.mjs",
+        "node scripts/scans/scan-on-prem.mjs"
+      ],
+      "entrypoint": {
+        "source": "SKILL.public.md",
+        "dest": "SKILL.md"
+      },
+      "readme": {
+        "source": "references/README.public.md",
+        "dest": "references/README.md"
+      },
+      "includeGlobs": [
+        "references/*.md",
+        "examples/*.md",
+        "examples/*.yaml"
+      ],
+      "requiredFiles": [
+        "SKILL.md",
+        "references/README.md"
+      ]
+    },
+    "groundx-architecture": {
+      "mode": "public-profile",
+      "reason": "Approved architecture facts for installed agents; public wrapper blocks internal frontend/workspace implementation surfaces.",
+      "runtimeFamily": "reference",
+      "runtimeAddOns": [],
+      "commandPrefixes": [],
+      "requiredGates": [
+        "node scripts/validate.mjs"
+      ],
+      "entrypoint": {
+        "source": "SKILL.public.md",
+        "dest": "SKILL.md"
+      },
+      "readme": {
+        "source": "references/README.public.md",
+        "dest": "references/README.md"
+      },
+      "includeGlobs": [
+        "references/*.md"
+      ],
+      "requiredFiles": [
+        "SKILL.md",
+        "references/README.md"
+      ]
+    },
+    "product-brand-gtm": {
+      "mode": "public-profile",
+      "reason": "Approved GroundX product/company value props for installed-agent guidance.",
+      "runtimeFamily": "reference",
+      "runtimeAddOns": [],
+      "commandPrefixes": [],
+      "requiredGates": [
+        "node scripts/validate.mjs"
+      ],
+      "entrypoint": {
+        "source": "SKILL.public.md",
+        "dest": "SKILL.md"
+      },
+      "readme": {
+        "source": "references/README.public.md",
+        "dest": "references/README.md"
+      },
+      "includeGlobs": [
+        "references/*.md"
+      ],
+      "requiredFiles": [
+        "SKILL.md",
+        "references/README.md"
+      ]
+    },
+    "master-brand-gtm": {
+      "mode": "public-profile",
+      "reason": "Approved Valantor company value props and category framing for installed-agent guidance.",
+      "runtimeFamily": "reference",
+      "runtimeAddOns": [],
+      "commandPrefixes": [],
+      "requiredGates": [
+        "node scripts/validate.mjs"
+      ],
+      "entrypoint": {
+        "source": "SKILL.public.md",
+        "dest": "SKILL.md"
+      },
+      "readme": {
+        "source": "references/README.public.md",
+        "dest": "references/README.md"
+      },
+      "includeGlobs": [
+        "references/*.md"
+      ],
+      "requiredFiles": [
+        "SKILL.md",
+        "references/README.md"
+      ]
+    },
+    "groundx-python": {
+      "mode": "public-profile",
+      "reason": "Runtime and contributor guidance for the public GroundX Python SDK repo; routes SDK usage back to groundx-api and SDK-repo contribution work to the repo AGENTS.md.",
+      "runtimeFamily": "sdk-contributor",
+      "runtimeAddOns": [
+        "public-sdk-repo"
+      ],
+      "commandPrefixes": [],
+      "requiredGates": [
+        "node scripts/validate.mjs"
+      ],
+      "entrypoint": {
+        "source": "SKILL.public.md",
+        "dest": "SKILL.md"
+      },
+      "readme": {
+        "source": "references/README.public.md",
+        "dest": "references/README.md"
+      },
+      "includeGlobs": [
+        "CHANGELOG.md",
+        "references/*.md"
+      ],
+      "requiredFiles": [
+        "SKILL.md",
+        "references/README.md"
+      ]
+    }
+  }
 }
