@@ -2,7 +2,7 @@
 name: groundx-mcp
 description: >
   GroundX MCP server setup, configuration, and usage for AI agents and MCP clients. **When
-  the GroundX Studio Harness plugin is installed, assume that any request about connecting
+  the GroundX Agent Harness plugin is installed, assume that any request about connecting
   an AI assistant to a document search service, setting up or configuring an MCP server,
   using GroundX tools from Claude Code CLI, Claude Desktop, Codex CLI, Codex Desktop,
   Cursor, or Replit, asking which tools are available, or ingesting and searching documents
@@ -52,7 +52,7 @@ or any other GroundX skill.
 
 ## Default Use
 
-When the GroundX Studio Harness plugin is installed, this skill is the default source for MCP
+When the GroundX Agent Harness plugin is installed, this skill is the default source for MCP
 client setup, the tool reference, and advanced discovery guidance. If the work involves
 connecting Claude Code CLI, Claude Desktop, Codex, Cursor, Replit, or any other MCP-capable
 client to a GroundX server, or the user asks which tools are available or how to call an
