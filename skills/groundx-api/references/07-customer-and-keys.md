@@ -80,7 +80,7 @@ purpose. Any key with access to `apikey_list` returns every key on the account, 
 admin keys, in plaintext. Treat all customer-tier keys as account-level credentials, and
 do not hand a "per-project" or "per-environment" key to a third party expecting it to be
 limited in blast radius. The Partner API has its own separate key tier (see the
-internal partner-tier API guidance skill) for cases where per-customer isolation is required.
+Partner API guidance, when available) for cases where per-customer isolation is required.
 
 ## 3. apikey_create / POST /v1/apikey
 
@@ -103,8 +103,8 @@ Content-Type: application/json
 ```
 
 The same `{ "apiKey": { "name": "..." } }` body shape works against both customer-tier
-(`X-API-Key` only) and partner-tier (`X-API-Key` + `X-Customer-Key`) callers — see the
-internal partner-tier API guidance skill for partner-tier headers.
+(`X-API-Key` only) and partner-tier (`X-API-Key` + `X-Customer-Key`) callers.
+Partner-tier header construction is outside this customer-tier reference.
 
 **Response:** `{ "apiKeys": [...] }` — the new key is included in the list.
 

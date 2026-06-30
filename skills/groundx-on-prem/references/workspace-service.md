@@ -4,7 +4,7 @@ This file documents **the optional `workspace` service family** the GroundX Helm
 
 For the Workspace API endpoints that drive the workspace runner from outside the cluster,
 route to the `groundx-api` skill's Workspace endpoint reference. For Partner account or
-customer/resource lifecycle behavior, route to internal partner-tier API guidance. For the
+customer/resource lifecycle behavior, route to Partner API guidance when available. For the
 architectural picture of where workspace sits, route to
 `groundx-architecture/references/workspace-architecture.md`. For the credential mechanics
 around `workspace.token`, route to `credentials.md` § 9. For the schema field-by-field,
@@ -19,7 +19,7 @@ The runner is **disabled by default**. The chart's `groundx.workspace.create` he
 Enable the runner when:
 
 - The deployment exposes the Workspace API to agents that need to materialize, edit, build, or publish managed code projects.
-- Studio Harness's internal managed-project publish workflow workflow (create UI / clone repo / publish) is in use.
+- Studio Harness managed-project publishing (create UI / clone repo / publish) is in use.
 
 Skip it when:
 
@@ -283,8 +283,8 @@ All 6 deployments should have `READY 1/1` (or higher under HPA). For end-to-end 
 
 ## 12. What this file does not cover
 
-- **Workspace API endpoints driving the runner** → the private Workspace endpoint reference in the GroundX API skill.
-- **Studio Harness publish workflow that consumes the runner** → internal managed-project publish workflow skill.
+- **Workspace API endpoints driving the runner** → the GroundX API skill's Workspace endpoint guidance.
+- **Studio Harness publish workflow that consumes the runner** → Studio Harness publish guidance.
 - **Architectural picture of the workspace runner** → `groundx-architecture/references/workspace-architecture.md`.
 - **`workspace.token` / `WORKSPACE_RUNNER_TOKEN` credential mechanics** → `credentials.md` § 9.
 - **Field-by-field schema for `workspace.*`** → `values-yaml.md`.

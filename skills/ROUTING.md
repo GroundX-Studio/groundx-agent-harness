@@ -8,6 +8,27 @@ human engineer, apply [`RESPONSE_STYLE.md`](./RESPONSE_STYLE.md): lead with the 
 keep it brief by default, use plain English, and omit internal harness logistics unless
 they are the work.
 
+## Debugging And Triage
+
+Start with the skill that owns the broken surface. Collect identifiers, current status,
+error text, and the smallest evidence bundle before proposing a fix, rerun, repair, or
+handoff.
+
+| Symptom | Start with | Collect first |
+| --- | --- | --- |
+| Stuck document, ingest status, missing process progress, document lookup | `groundx-api` | process ID, document ID, bucket/group ID, callback or status response, visible errors |
+| Empty search, bad citations, unexpected source page, RAG answer issue | `groundx-api` | bucket/group/search target, query, result IDs, source citation payload, response shape |
+| Missing extract output, wrong field, X-Ray/raw extract mismatch | `groundx-extraction-workflows` | run directory, process ID, document ID, workflow ID, output JSON, X-Ray, expected answer |
+| MCP auth failure, missing tool, scope mismatch, operation not exposed | `groundx-mcp` | client name, MCP URL, auth mode, visible tools, scope, exact error |
+| SDK usage from another repo | `groundx-api` | SDK language, operation, request/response shape, auth path |
+| SDK contribution inside `eyelevelai/groundx-python` | `groundx-python` | repo path, generated vs handwritten boundary, failing test, SDK version |
+| GroundX backend pod, Helm, values.yaml, Kubernetes runtime failure | `groundx-on-prem` | deployment mode, values file, namespace, pod/log/status evidence, cluster constraints |
+| Architecture-layer ambiguity or "where in the system is this failing?" | `groundx-architecture` | symptom, user-visible surface, known component/status IDs, deployment mode |
+
+When the next step requires hosted-service operator access, stop at a sanitized evidence
+bundle and ask the user to involve GroundX operations. Do not invent private cloud
+commands, database checks, queue repairs, or production repair steps from public docs.
+
 ## GroundX MCP Setup And Tools
 
 Start with `groundx-mcp` for connecting an AI assistant or MCP client to the GroundX MCP

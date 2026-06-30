@@ -185,11 +185,18 @@ if (existsSync(readmePath)) {
   }
 }
 
-const forbiddenText = Array.isArray(publicBundleRules?.forbiddenText)
-  ? publicBundleRules.forbiddenText
-  : [];
-if (!Array.isArray(publicBundleRules?.forbiddenText) || publicBundleRules.forbiddenText.length === 0) {
-  flag(join(ROOT, PUBLIC_BUNDLE_RULES), "forbiddenText must be a non-empty array");
+const forbiddenText = [];
+if (publicBundleRules?.forbiddenText !== undefined) {
+  flag(join(ROOT, PUBLIC_BUNDLE_RULES), "public bundle rules must not expose raw forbiddenText values");
+}
+if (publicBundleRules?.forbiddenTextPolicy?.enforcedBy !== "source-harness") {
+  flag(join(ROOT, PUBLIC_BUNDLE_RULES), "forbiddenTextPolicy.enforcedBy must be source-harness");
+}
+if (
+  !Number.isInteger(publicBundleRules?.forbiddenTextPolicy?.count) ||
+  publicBundleRules.forbiddenTextPolicy.count <= 0
+) {
+  flag(join(ROOT, PUBLIC_BUNDLE_RULES), "forbiddenTextPolicy.count must be a positive integer");
 }
 
 const provenance = existsSync(join(ROOT, ".groundx-generated.json"))

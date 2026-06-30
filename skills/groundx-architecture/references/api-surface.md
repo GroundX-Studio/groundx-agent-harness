@@ -1,6 +1,6 @@
 # API Surface: SDKs, REST, Docs
 
-The external API surface to GroundX consists of three things: two language SDKs (`groundx-python` and `groundx-typescript`), the direct REST API, and a public documentation site. SDK baselines and the docs site are generated from a single OpenAPI specification; both SDKs add hand-maintained ergonomic methods on top. This file describes the *shape* of the surface, not the installed-agent execution order. For call patterns and semantics see `groundx-api` (customer-tier and Workspace facade) and internal partner-tier API guidance (partner-tier). Installed agents should follow the owning API skill's MCP-first guidance before using REST.
+The external API surface to GroundX consists of three things: two language SDKs (`groundx-python` and `groundx-typescript`), the direct REST API, and a public documentation site. SDK baselines and the docs site are generated from a single OpenAPI specification; both SDKs add hand-maintained ergonomic methods on top. This file describes the *shape* of the surface, not the installed-agent execution order. For call patterns and semantics see `groundx-api` for customer-tier and Workspace facade behavior. Partner-tier lifecycle behavior is separate from this public SDK surface. Installed agents should follow the owning API skill's MCP-first guidance before using REST.
 
 ## 1. Marketing altitude
 
@@ -8,7 +8,7 @@ GroundX ships first-class Python and TypeScript SDKs plus a direct REST API. SDK
 
 ## 2. Product altitude
 
-Three external surfaces today: the **`groundx-python`** SDK, the **`groundx-typescript`** SDK, and the direct **REST API**. Both SDKs cover customer-tier operations. The Python SDK additionally ships a hand-maintained `extract` submodule, high-level extraction workflow helpers (`load_extraction_definition`, `load_extraction_definition_from_yaml`, `load_extraction_definition_from_workflow`, `create_extraction_workflow`, `update_extraction_workflow`), and convenience methods `ingest` and `ingest_directories`; the TypeScript SDK ships a hand-maintained `ingest` method. Workspace facade operations (managed projects, git sessions, deploy config, diagnostics, publish, cleanup) and Partner-tier operations (customer lifecycle, project / bucket / group setup) are reachable outside the SDKs. Public docs are at **`docs.eyelevel.ai`**. For call semantics and authentication details see `groundx-api` for customer and Workspace facade behavior, and internal partner-tier API guidance for Partner lifecycle/resource behavior.
+Three external surfaces today: the **`groundx-python`** SDK, the **`groundx-typescript`** SDK, and the direct **REST API**. Both SDKs cover customer-tier operations. The Python SDK additionally ships a hand-maintained `extract` submodule, high-level extraction workflow helpers (`load_extraction_definition`, `load_extraction_definition_from_yaml`, `load_extraction_definition_from_workflow`, `create_extraction_workflow`, `update_extraction_workflow`), and convenience methods `ingest` and `ingest_directories`; the TypeScript SDK ships a hand-maintained `ingest` method. Workspace facade operations (managed projects, git sessions, deploy config, diagnostics, publish, cleanup) and Partner-tier operations (customer lifecycle, project / bucket / group setup) are reachable outside the SDKs. Public docs are at **`docs.eyelevel.ai`**. For call semantics and authentication details see `groundx-api` for customer and Workspace facade behavior; Partner lifecycle/resource behavior is outside this public SDK-surface topic.
 
 ## 3. Conceptual / algorithmic altitude
 
@@ -34,8 +34,8 @@ Not the canonical place for this content — see `overview.md` § 4.4 and the `g
 **SDK coverage:**
 
 - Both SDKs cover **customer-tier** operations only.
-- **Workspace facade** operations (managed projects, git sessions, deploy config, diagnostics, publish, cleanup) are outside SDK coverage. See the private Workspace endpoint reference in the GroundX API skill for route semantics.
-- **Partner-tier** operations (customer lifecycle, project / bucket / group setup) are outside SDK coverage. See internal partner-tier API guidance for Partner call patterns.
+- **Workspace facade** operations (managed projects, git sessions, deploy config, diagnostics, publish, cleanup) are outside SDK coverage. See the GroundX API skill's Workspace endpoint guidance for route semantics.
+- **Partner-tier** operations (customer lifecycle, project / bucket / group setup) are outside SDK coverage and outside this public SDK-surface topic.
 
 **Adding or extending a surface:** changes to the API surface start with the OpenAPI spec, not the SDKs or docs — Fern regenerates the rest. Hand-maintained extras live in the SDK repos and aren't touched by Fern regen.
 
@@ -57,7 +57,7 @@ The SDKs themselves carry no runtime cost. Per-call cost lives at the deployment
 
 ## 10. What this topic does not cover
 
-- **Call semantics, endpoint behavior, auth header format, error codes, retry behavior:** `groundx-api` (customer-tier and Workspace facade) and internal partner-tier API guidance (partner-tier).
+- **Call semantics, endpoint behavior, auth header format, error codes, retry behavior:** `groundx-api` for customer-tier and Workspace facade behavior; Partner-tier details are outside this public SDK-surface topic.
 - **The `groundx` pod itself** (the API Handler that all external surfaces hit): `overview.md` § 4.5, `ingest-service.md`, and `search-service.md`.
-- **Frontends that consume the API:** the private frontend inventory and the per-frontend topic files.
-- **The Studio Harness as a development surface above the API:** see internal managed-project publish workflow and internal scaffold UI workflow; the private Studio Harness frontend-pattern reference describes the architectural shape.
+- **Frontends that consume the API:** `integration-architecture.md` covers the pattern; per-frontend repo inventories are outside this public architecture topic.
+- **The Studio Harness as a development surface above the API:** Harness publishing and UI-building skills own the workflow details; this file covers only API-surface shape.

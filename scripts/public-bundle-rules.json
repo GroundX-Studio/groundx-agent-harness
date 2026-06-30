@@ -11,26 +11,10 @@
     "excluded": "Deprecated transitional bucket. Public-enabled source files should not remain here.",
     "unclassified": "Validation failure. Add a suffix, wrapper, include, or reusable block rule before release."
   },
-  "forbiddenText": [
-    "harness-publish",
-    "harness-web-ui",
-    "harness-slides",
-    "groundx-partner-api",
-    "servers/groundx-studio",
-    "groundx-studio/server",
-    "git_session",
-    "project_create",
-    "customer-facing plugin bundle",
-    "public-safe guidance",
-    "intentionally excludes",
-    "managed-project lifecycle",
-    "Partner-only APIs",
-    "web UI scaffold production",
-    "slide production",
-    "Use this public repository target",
-    ".context/",
-    ".private.md"
-  ],
+  "forbiddenTextPolicy": {
+    "enforcedBy": "source-harness",
+    "count": 37
+  },
   "publicArtifacts": {
     "static": [
       {

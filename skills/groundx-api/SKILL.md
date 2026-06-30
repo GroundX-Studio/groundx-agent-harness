@@ -3,12 +3,14 @@ name: groundx-api
 description: >
   Installed-agent GroundX API reference for document ingest, search, RAG,
   source attribution, document understanding, buckets, groups, workflows,
-  account health, API keys, SDK usage, and REST fallback. Try the hosted
-  GroundX MCP server before direct REST; use REST only when MCP is unavailable
-  or a needed tool is missing. REST fallback uses the `X-API-Key` header and
-  keeps raw keys out of tool arguments, browser code, logs, transcripts,
-  examples, and generated files. For MCP client setup, connection, and auth,
-  see the `groundx-mcp` skill.
+  account health, API keys, SDK usage, stuck ingest/status, empty search, bad
+  citations, and REST fallback. Try the hosted GroundX MCP server before direct
+  REST; ask the user to connect the GroundX MCP connector when tools are
+  missing, then use REST only when MCP cannot attach or a needed tool is still
+  missing. REST fallback uses the `X-API-Key` header and keeps raw keys out of
+  tool arguments, browser code, logs, transcripts, examples, and generated
+  files. For MCP client setup, connection, and auth, see the `groundx-mcp`
+  skill.
 ---
 
 # GroundX API Skill
@@ -16,6 +18,8 @@ description: >
 Use this skill for customer-scoped GroundX platform operations: ingest,
 processing status, search, document lookup, source retrieval, buckets, groups,
 workflows, extraction retrieval, SDK integration, and REST fallback.
+Use `references/debugging.md` for stuck ingest/status, empty search, bad
+citations, and API-visible incident triage.
 
 When writing public Python docs or agent-facing Python examples, use
 `client.ingest()` with `Document(...)`. Do not use
@@ -28,12 +32,14 @@ operation-level references.
 - **Role:** `reference`.
 - **First-entry intents:** GroundX customer API behavior, document ingest, semantic
   search, RAG with citations, workflows, buckets, groups, documents, account health,
-  and API keys.
+  API keys, stuck ingest/status, empty search, and bad citations.
 - **Deferrals:** schema-first extraction YAML and field-accuracy iteration start in
   `groundx-extraction-workflows`; deployment and values.yaml work starts in
   `groundx-on-prem`; architecture-shaped questions start in `groundx-architecture`.
-- **Before producing output:** read `references/01-auth.md`, then the operation
-  reference or guide matching the endpoint being used.
+- **Before producing output:** read `references/01-auth.md`. For stuck ingest/status,
+  empty search, or bad citations, read `references/debugging.md` before the operation
+  reference. Otherwise read the operation reference or guide matching the endpoint
+  being used.
 - **Misuse cases:** do not put secret keys in browser code, examples, docs, logs, or
   generated artifacts; do not invent endpoint shapes from memory.
 
@@ -44,10 +50,14 @@ operation-level references.
 2. Read `references/01-auth.md`.
 3. Try GroundX MCP tools first. If visible, call `groundx_account_context`, prefer
    the matching MCP tool, and use REST only when the required tool is not exposed.
-4. If GroundX MCP tools are not visible, use REST fallback. For MCP client setup
-   and connection guidance, see the `groundx-mcp` skill.
-5. Read the smallest operation reference and guide that matches the work.
-6. Keep secrets server-side and encode async operations, pagination, errors, and URL
+4. If GroundX MCP tools are not visible, ask the user to connect the GroundX MCP
+   connector and use REST fallback only when the connector cannot be attached now or
+   the needed MCP tool is still unavailable. For MCP client setup and connection
+   guidance, see the `groundx-mcp` skill.
+5. For stuck ingest/status, empty search, or bad citations, read
+   `references/debugging.md` before the operation reference.
+6. Read the smallest operation reference and guide that matches the work.
+7. Keep secrets server-side and encode async operations, pagination, errors, and URL
    versioning into code defaults and tests.
 
 ## Common Implementation Paths
@@ -55,6 +65,7 @@ operation-level references.
 | User needs... | Read after auth |
 | --- | --- |
 | Upload files and make them searchable | `references/02-documents.md`, `references/08-errors-and-limits.md`, `guides/02-ingest-patterns.md` |
+| Debug stuck ingest/status, document lookup, empty search, or bad citations | `references/debugging.md`, then `references/02-documents.md`, `references/03-search.md`, or `references/08-errors-and-limits.md` as needed |
 | Grounded chat or RAG with citations | `references/03-search.md`, `guides/03-search.md`, `guides/04-rag-integration-patterns.md` |
 | Search response-shape or field-availability question | `guides/00-api-surface-changelog.md`, then `references/03-search.md` |
 | Dashboard "where do I see/download X-Ray?" question | `guides/dashboard-affordances.md`, then `references/02-documents.md` |
@@ -75,10 +86,13 @@ reference and guide the task needs. For response-shape questions, check
 ## Pre-return Checklist
 
 - [ ] REST calls use `X-API-Key`, never `Authorization: Bearer`.
-- [ ] GroundX MCP is attempted before REST; if tools are missing, REST fallback is
-      used and the `groundx-mcp` skill is referenced for client setup and connection.
+- [ ] GroundX MCP is attempted before REST; if tools are missing, the user is asked to
+      connect the GroundX MCP connector before REST fallback and the `groundx-mcp`
+      skill is referenced for client setup and connection.
 - [ ] Raw API keys do not appear in MCP tool arguments, logs, transcripts, browser
       code, examples, or generated files.
 - [ ] REST URLs avoid double-version paths such as `/api/v1/v1/...`.
 - [ ] Async operations that return a `processId` include polling guidance.
 - [ ] Pagination uses `nextToken` where list results may be truncated.
+- [ ] Debugging answers collect current identifiers/status/output evidence before
+      proposing retry, rerun, cancellation, repair, or escalation.

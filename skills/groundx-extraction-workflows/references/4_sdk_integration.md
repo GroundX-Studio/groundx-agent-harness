@@ -94,7 +94,7 @@ The custom workflow shapes the templates handle:
 Each compiled custom step gets a `config` prompt for `figure`, `paragraph`, and
 `table-figure` molecules, with `includes.pageImages: true`. The compiler uses
 one reusable request template and one reusable task template, following the
-Arcadia manager shape without copying utility-bill wording. The rendered
+shared custom-manager shape without copying utility-bill wording. The rendered
 `request` message contains the document request, extraction guidelines, group
 definition, field specs, output contract, and JSON-only final notes. The
 rendered `task` message identifies the assistant, defines evidence and process

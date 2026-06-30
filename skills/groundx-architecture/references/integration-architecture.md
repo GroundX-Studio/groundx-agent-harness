@@ -1,6 +1,6 @@
 # Integration Architecture
 
-This file is a **thin inventory of integration surfaces** — the shapes through which customer systems, partner middleware, and end-user applications connect to GroundX. The architecture skill documents what surfaces exist and at what altitude; the depth (request/response shapes, exact endpoint paths, parameter schemas) lives in the harness skills (`groundx-api`, internal partner-tier API guidance, internal managed-project publish workflow, internal scaffold UI workflow). When the harness has the answer, this file routes there.
+This file is a **thin inventory of integration surfaces** — the shapes through which customer systems, partner middleware, and end-user applications connect to GroundX. The architecture skill documents what surfaces exist and at what altitude; the depth (request/response shapes, exact endpoint paths, parameter schemas) lives in the owning API and Harness workflow skills. When the harness has the answer, this file routes there.
 
 ## 1. Marketing altitude
 
@@ -12,7 +12,7 @@ GroundX exposes a small set of integration surfaces:
 
 - **Customer-tier REST API** — the primary surface customer applications use.
 - **Customer-tier SDKs** — Python and TypeScript, both Fern-generated.
-- **Workspace facade endpoints** — GroundX API control-plane routes for Studio Harness managed projects: create, git-session, deploy-config, diagnostics, publish, cleanup, and fallback file operations. Endpoint semantics live in `groundx-api`; the agent workflow lives in internal managed-project publish workflow.
+- **Workspace facade endpoints** — GroundX API control-plane routes for Studio Harness managed projects: create, git-session, deploy-config, diagnostics, publish, cleanup, and fallback file operations. Endpoint semantics live in `groundx-api`; the agent workflow lives in Studio Harness managed-project guidance.
 - **Partner-tier REST API** — for partners managing customer accounts and provisioning customer resources.
 - **Callbacks** — outbound HTTP POST notifications GroundX sends to customer-supplied URLs on ingest progress.
 - **X-Ray retrieval** — the customer-facing aggregate JSON for each ingested document; usable as a per-document bulk-export pattern.
@@ -60,13 +60,13 @@ The single external ingress is `groundx`. The single external egress (for outbou
 | --- | --- | --- | --- | --- |
 | Customer-tier REST API | Customer | Inbound | HTTPS request/response | `groundx-api` |
 | Customer-tier SDKs (`groundx-python`, `groundx-typescript`) | Customer | Inbound | Fern-generated client over REST | `api-surface.md` (this skill) + `groundx-api` |
-| Workspace facade endpoints | Workspace | Inbound | HTTPS request/response + polling | `groundx-api` § Workspace endpoints + internal managed-project publish workflow |
-| Partner-tier REST API | Partner | Inbound | HTTPS request/response | internal partner-tier API guidance |
+| Workspace facade endpoints | Workspace | Inbound | HTTPS request/response + polling | `groundx-api` § Workspace endpoints + Studio Harness managed-project guidance |
+| Partner-tier REST API | Partner | Inbound | HTTPS request/response | Partner API guidance, when available |
 | Callbacks (per-request, on `callbackUrl`) | Customer | Outbound | HTTP POST | `groundx-api` § documents |
 | X-Ray retrieval | Customer | Inbound (pull) | `GET /v1/ingest/document/xray/{documentId}` + `xrayUrl` capability URL | `groundx-api` § documents + `agentic-pipeline.md` § 5 |
-| `ws.eyelevel.ai` websocket | Partner | Bidirectional | WebSocket | the private EyeLevel SSP frontend reference + the private GroundX Dashboard frontend reference |
-| Customer-built frontends (pattern, not a surface) | Customer | Inbound | Per-customer paired-app shape | the private frontend inventory + the private Studio Harness frontend-pattern reference |
-| Studio Harness scaffold (paired React/MUI + TS middleware) | Customer-tier + Partner-tier; Workspace facade for managed-project workflow | Inbound | Generated app shape | internal managed-project publish workflow + internal scaffold UI workflow + `groundx-api` Workspace reference |
+| `ws.eyelevel.ai` websocket | Partner | Bidirectional | WebSocket | EyeLevel SSP and GroundX Dashboard frontend behavior |
+| Customer-built frontends (pattern, not a surface) | Customer | Inbound | Per-customer paired-app shape | Frontend/scaffold architecture guidance |
+| Studio Harness scaffold (paired React/MUI + TS middleware) | Customer-tier + Partner-tier; Workspace facade for managed-project workflow | Inbound | Generated app shape | Studio Harness publish/build guidance + `groundx-api` Workspace reference |
 
 ### 5.2 Callbacks — what they cover
 
@@ -87,15 +87,15 @@ Customers wanting bulk export of their GroundX-understood content typically pagi
 
 ### 5.4 `ws.eyelevel.ai` websocket
 
-`ws.eyelevel.ai` is the partner-tier-gated websocket server used for chat-style request/response. It is consumed by EyeLevel SSP and GroundX Dashboard (per the private EyeLevel SSP frontend reference + the private GroundX Dashboard frontend reference) and is **limited to web-chat-style request/response** — not a general-purpose streaming surface for search, ingest, or other API operations.
+`ws.eyelevel.ai` is the partner-tier-gated websocket server used for chat-style request/response. It is consumed by EyeLevel SSP and GroundX Dashboard and is **limited to web-chat-style request/response** — not a general-purpose streaming surface for search, ingest, or other API operations.
 
 At the integration-surface altitude, `ws.eyelevel.ai` is conceptually a sibling of `api.groundx.ai`: another callable surface from external clients, scoped to its purpose. Frontend depth lives in the frontend-* files.
 
 ### 5.5 Customer-built frontends as an integration pattern
 
-The dozens of customer-built frontends in production (per the private frontend inventory) are themselves an integration pattern: each customer builds an application on top of the customer-tier API. The pattern is typically **frontend + middleware proxy + customer-tier API**, where the middleware holds the customer's `X-API-Key` so the frontend never sees it. The Studio Harness scaffold formalizes this pattern; older customer frontends predate the scaffold and are ad-hoc.
+The dozens of customer-built frontends in production are themselves an integration pattern: each customer builds an application on top of the customer-tier API. The pattern is typically **frontend + middleware proxy + customer-tier API**, where the middleware holds the customer's `X-API-Key` so the frontend never sees it. The Studio Harness scaffold formalizes this pattern; older customer frontends predate the scaffold and are ad-hoc.
 
-For the scaffold pattern see the private Studio Harness frontend-pattern reference and internal scaffold UI workflow. For the inventory of company-owned and customer-built frontends see the private frontend inventory.
+For the scaffold pattern, use Harness web UI and publish guidance. This public architecture file does not enumerate individual frontend repositories.
 
 ### 5.6 Customer SSO — not natively supported
 
@@ -103,7 +103,7 @@ GroundX does not natively support SSO / OIDC / SAML at the customer-tier (per `i
 
 ### 5.7 Legacy / unsupported integration surfaces
 
-Several integration surfaces from the EyeLevel SSP era (WordPress plugin, Zapier integration, Marketo integration) may still exist in production deployments but are **considered legacy and unsupported**. The current architecture does not depend on them; new customer integrations should not target them. The WordPress plugin specifically continues to be supported through the legacy Lambda pipeline (per the private legacy Lambda pipeline reference). The others are out of scope for this skill — treat as historical context rather than current integration shape.
+Several integration surfaces from the EyeLevel SSP era (WordPress plugin, Zapier integration, Marketo integration) may still exist in production deployments but are **considered legacy and unsupported**. The current architecture does not depend on them; new customer integrations should not target them. The WordPress plugin specifically continues to be supported through the legacy Lambda pipeline. The others are out of scope for this skill — treat as historical context rather than current integration shape.
 
 ## 6. Security / compliance altitude
 
@@ -125,13 +125,13 @@ Integration surfaces themselves are not significant cost drivers — the SDKs ar
 
 ## 10. What this topic does not cover
 
-- **The exact REST endpoints, request/response shapes, parameter schemas** for the customer-tier API, Workspace facade, and partner-tier API: `groundx-api`, internal partner-tier API guidance.
+- **The exact REST endpoints, request/response shapes, parameter schemas** for the customer-tier API and Workspace facade: `groundx-api`; Partner API details live in Partner API guidance when available.
 - **The SDK call patterns, hand-maintained extras, Fern generation**: `api-surface.md`.
 - **The callback event types and payload shape**: `groundx-api` § documents.
 - **The X-Ray field-by-field schema**: `agentic-pipeline.md` § 5 + `groundx-api/guides/05-document-understanding.md` § 5.
-- **The Studio Harness scaffold pattern** for customer-built frontends: the private Studio Harness frontend-pattern reference, internal scaffold UI workflow, internal managed-project publish workflow.
-- **The inventory of company-owned and customer-built frontends**: the private frontend inventory.
-- **The legacy WordPress / Zapier / Marketo plugins**: the private legacy Lambda pipeline reference for WordPress; others are out of scope.
+- **The Studio Harness scaffold pattern** for customer-built frontends: Harness web UI and publish guidance.
+- **The inventory of company-owned and customer-built frontends**: outside this public architecture topic.
+- **The legacy WordPress / Zapier / Marketo plugins**: WordPress is still served by the legacy Lambda pipeline; others are out of scope.
 - **The auth model (X-API-Key, X-Customer-Key, Basic Auth login flow)**: `identity-and-trust.md`.
 - **The per-tenant isolation enforcement at the API and store layers**: `multi-tenancy.md`.
 - **Partner-built customer SSO patterns (partner middleware, IdP integration)**: out of scope for this skill — partner-specific.

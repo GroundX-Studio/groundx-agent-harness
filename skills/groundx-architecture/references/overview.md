@@ -181,7 +181,7 @@ The arrow labels in the diagram are intentionally specific. This matrix is the c
 
 **Search path.** `groundx` handles search requests entirely — it queries OpenSearch directly for the keyword + vector candidate set, calls **`ranker-api`** → **`ranker-inference`** for re-ranking (which returns log probabilities), aggregates the semantic relevance score from the log probs with the OpenSearch score into a final aggregated score, and returns the search response.
 
-**Workspace runner (Workspace facade; separate from ingest).** The workspace runner is reached through the GroundX API Workspace facade, which - like the customer and Partner APIs - enters through **`groundx`**. Workspace-capable callers (internal managed-project publish workflow and other agent surfaces) make Workspace facade requests to `groundx`; `groundx` validates the account credentials and routes workspace operations internally to **`workspace-api`**. From there, the 6 workspace runner pods (`workspace-api`, `workspace-workspace`, `workspace-provision`, `workspace-command`, `workspace-publish`, `workspace-cleanup`) coordinate via Celery. The workspace runner is not part of the ingest pipeline. See `workspace-architecture.md` for depth.
+**Workspace runner (Workspace facade; separate from ingest).** The workspace runner is reached through the GroundX API Workspace facade, which - like the customer and Partner APIs - enters through **`groundx`**. Workspace-capable agent surfaces make Workspace facade requests to `groundx`; `groundx` validates the account credentials and routes workspace operations internally to **`workspace-api`**. From there, the 6 workspace runner pods (`workspace-api`, `workspace-workspace`, `workspace-provision`, `workspace-command`, `workspace-publish`, `workspace-cleanup`) coordinate via Celery. The workspace runner is not part of the ingest pipeline. See `workspace-architecture.md` for depth.
 
 **Observability.** The **`metrics`** pod publishes custom metrics for Horizontal Pod Autoscaling and exposes a Prometheus-compatible endpoint for dashboard reporting (Grafana). The metric categories: **API response-time thresholds** (`groundx`, `layout-api`, `layout-webhook`, `extract-api`, `workspace-api`), **queue back-pressure thresholds** (`pre-process`, `process`, `queue`, `upload`, plus `summary-client` in external-LLM mode), **Celery task back-pressure thresholds** (every Celery worker — layout sub-pods, extract sub-pods, workspace sub-pods), **inference tokens-per-minute** (`layout-inference`, `summary-inference`, `summary-api`), and a **system-overall estimated-throughput metric** (`document.tokensPerMinute`, `page.tokensPerMinute`, `extractRequest.tokensPerMinute`, `summaryRequest.tokensPerMinute`) that all pods scale against. The system-overall metric is computed from files queued for processing — every pod's HPA references it as the load signal.
 
@@ -207,7 +207,7 @@ The diagram makes the **CPU-orchestrated, GPU-served** pattern visible: CPU serv
 
 Topology summary:
 
-- **Three deployment topologies in production:** Helm/K8s (the canonical chart, deployable on customer clusters including AWS, Azure, Red Hat OpenShift, generic on-prem, minikube, air-gapped); a GroundX cloud-service AWS Lambda mirror (the same core components deployed as Lambdas plus four cloud-only utility Lambdas — billing, monitor, health, presigned-URL — see the private cloud-utilities reference); and a legacy Lambda pipeline that remains in maintenance for WordPress plugin support (see the private legacy Lambda pipeline reference). The **core component graph is consistent across the Helm and cloud-service-Lambda topologies**; the cloud service adds the utility Lambdas.
+- **Three deployment topologies in production:** Helm/K8s (the canonical chart, deployable on customer clusters including AWS, Azure, Red Hat OpenShift, generic on-prem, minikube, air-gapped); a GroundX cloud-service AWS Lambda mirror (the same core components deployed as Lambdas plus four cloud-only utility Lambdas: billing, monitor, health, presigned-URL); and a legacy Lambda pipeline that remains in maintenance for WordPress plugin support. The **core component graph is consistent across the Helm and cloud-service-Lambda topologies**; the cloud service adds the utility Lambdas.
 - **Central orchestrator:** `pre-process` is the post-ingest workflow handler — it calls layout (API), summary (queue; only when `processLevel != None`), extraction (API, opt-in), and finally process (queue). The workspace runner is **not** orchestrated from `pre-process` — it's a separate agent-facing API.
 - **CPU services on the main path:** `groundx`, `upload`, `queue`, `pre-process`, `process`, `summary-client`, `ranker-api`, `extract-api` (when enabled), `metrics`, plus the layout pipeline's CPU pods. `workspace-api` is reachable but not on the main path.
 - **GPU services:** `layout-inference`, `summary-inference` (when self-hosted), `ranker-inference`.
@@ -234,7 +234,7 @@ Canonical pod names (source of truth: `groundx-on-prem/src/groundx/templates/_he
 | EyeLevel SSP, GroundX Dashboard, FraudX | Company-owned frontends (customer + partner API access) | EyeLevel / GroundX |
 | Customer-built frontends | Dozens, customer API only; each customer is one customer account to GroundX | All ad-hoc per-customer builds; Studio Harness is the aspirational default going forward |
 
-All surfaces converge on `groundx` (the API Handler) as the single ingress. `groundx-api` is the canonical skill for SDK semantics; internal partner-tier API guidance is the canonical skill for partner-tier surfaces.
+All surfaces converge on `groundx` (the API Handler) as the single ingress. `groundx-api` is the canonical skill for SDK semantics; Partner API guidance, when available, owns partner-tier surfaces.
 
 **Statelessness.** Every pod listed below is stateless — state lives in the data-store tier. This enables horizontal scaling under the metrics-driven HPA.
 
@@ -304,7 +304,7 @@ Example sequence for the invoice schema: `extract-api → extract-download → [
 | --- | --- |
 | `metrics` | Custom metrics for HPA + Prometheus/Grafana dashboard reporting. Exposes API, Queue, Task, and Inference metric categories plus a system-overall estimated-throughput metric. |
 
-**Workspace runner subsystem (separate agent-facing API; consumed by internal managed-project publish workflow and other agent surfaces):**
+**Workspace runner subsystem (separate agent-facing API; consumed by workspace-capable agent surfaces):**
 
 | Pod | Role |
 | --- | --- |
@@ -363,6 +363,6 @@ See `altitudes.md` § 9 for the canonical paragraph. Deployment-level cost frami
 
 ## 6. Maintenance
 
-When the topology changes (new pod, retired pod, renamed pod, new backing-service supported, new connection pattern), update both this file and `altitudes.md` § 4 / § 5 / § 9 — and verify the Mermaid diagram still renders correctly. See the private maintenance reference for the broader contributor discipline.
+When the topology changes (new pod, retired pod, renamed pod, new backing-service supported, new connection pattern), update both this file and `altitudes.md` § 4 / § 5 / § 9 — and verify the Mermaid diagram still renders correctly. Contributors should follow the repo's skill-maintenance workflow before changing topology facts.
 
 **Diagram source:** the Helm template helpers at `groundx-on-prem/src/groundx/templates/_helpers/app/` are the canonical source of pod definitions; `groundx-on-prem/src/groundx/templates/resources/config-yaml.yaml` is the canonical source of metric categories. The kubernetes diagrams maintained alongside the Helm chart in that repo are the canonical visual source. This Mermaid diagram is a re-authored equivalent — when they diverge, the upstream artifacts win and this one gets refreshed.
