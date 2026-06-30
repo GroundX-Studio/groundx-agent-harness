@@ -4,8 +4,8 @@
 Test-first: these encode the harness compile contract from the OpenSpec change
 `extraction-runner-e2e`. Harness-authored YAML uses `workflow.custom_steps` plus
 per-workflow-group `workflow_step:` metadata. Legacy `slot:` and `domain:` YAMLs
-belong to internal Arcadia/runtime compatibility and SDK compatibility helpers,
-not the Studio Harness templates.
+belong to runtime compatibility and SDK compatibility helpers, not the Studio
+Harness templates.
 
 Run (needs the groundx SDK + pytest installed; offline, no API calls):
     python -m pytest templates/test_compile_workflow.py -q

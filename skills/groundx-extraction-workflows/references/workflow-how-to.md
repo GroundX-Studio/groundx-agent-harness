@@ -168,7 +168,7 @@ gaps:
 - Platform workflow execution issue: record the compiler/platform constraint.
 - Server-side Extract availability issue: use X-Ray fallback and record the
   environment limitation.
-- Reassembly issue: route to Arcadia with `extraction_workflow_metadata_v1.json`
-  and the raw workflow output.
+- Reassembly issue: preserve `extraction_workflow_metadata_v1.json` and the raw
+  workflow output for the downstream reassembly handoff.
 - New final business primitive: record the general primitive, not a
   one-customer fork.

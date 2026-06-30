@@ -56,7 +56,7 @@ The ingest flow crosses trust boundaries when `summary-client` is configured to 
 
 ## 7. Operations / SRE altitude
 
-The pipeline is **stateless at every stage** — all state lives in the shared data stores. The **`MonitorPipeline`** Lambda in cloud-service deployments restarts stuck ingest processes (per the private cloud-utilities reference); on-prem deployments need their own equivalent of this restart-stuck-ingest pattern. The `metrics` pod meters queue back-pressure on every pipeline-orchestrating pod (`pre-process`, `process`, `queue`, `upload`, `summary-client` in external-LLM mode) and inference TPM on every GPU pod (`layout-inference`, `summary-inference`, `ranker-inference`). For the broader observability framing see `observability.md`.
+The pipeline is **stateless at every stage** — all state lives in the shared data stores. The hosted cloud service has a stuck-document monitor for restarting stuck ingest processes; on-prem deployments need their own equivalent of this restart-stuck-ingest pattern. The `metrics` pod meters queue back-pressure on every pipeline-orchestrating pod (`pre-process`, `process`, `queue`, `upload`, `summary-client` in external-LLM mode) and inference TPM on every GPU pod (`layout-inference`, `summary-inference`, `ranker-inference`). For the broader observability framing see `observability.md`.
 
 ## 8. Data architecture altitude
 

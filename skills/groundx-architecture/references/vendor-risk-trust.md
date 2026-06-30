@@ -47,8 +47,8 @@ the platform fact but external use requires owner confirmation.
 2. `observability.md` for logs, metrics, traces, health checks, alerts, and SLO posture.
 3. `data-residency.md` for region, deletion, audit retention, and compliance status.
 4. `multi-tenancy.md` for tenant isolation and partner blast radius.
-5. `disaster-recovery.md` and the private cloud-utilities reference for cloud-service recovery
-   utilities and what on-prem deployers must provide themselves.
+5. `disaster-recovery.md` for cloud-service recovery utilities and what on-prem deployers
+   must provide themselves.
 
 ## 4. Hosted-Service Operator Facts
 
@@ -74,8 +74,8 @@ or operations owner before external use."
 | Metrics | Held | Pods write metric data to Redis; the `metrics` pod exposes Prometheus-compatible metrics. Cloud consumes that surface through Prometheus/Grafana; on-prem uses deployer wiring. Source: `observability.md`. |
 | Traces | In progress | OpenTelemetry is the chosen tracing stack, but coverage is partial and migration is in progress. Source: `observability.md`. |
 | Health checks | Held | `GET /v1/health` reports search and ingest status, refreshed every 5 minutes by `UpdateHealthStatus` in the cloud service. Source: `observability.md`. |
-| Alerts | Held, limited | Cloud alerts route to Slack, including `MonitorPipeline` critical errors. Source: `observability.md` and `disaster-recovery.md`. |
-| Pipeline self-healing | Held for cloud service | `MonitorPipeline` requeues stuck ingest documents past layout/extract cutoffs. On-prem deployers need an equivalent. Source: `disaster-recovery.md` and the private cloud-utilities reference. |
+| Alerts | Held, limited | Cloud alerts route to Slack, including stuck-document monitor critical errors. Source: `observability.md` and `disaster-recovery.md`. |
+| Pipeline self-healing | Held for cloud service | A cloud stuck-document monitor re-routes stuck ingest documents past layout/extract cutoffs. On-prem deployers need an equivalent. Source: `disaster-recovery.md`. |
 | Paging / on-call tool | Source-pending | Do not name PagerDuty, Opsgenie, Slack-only paging, or an on-call process without an approved source. |
 | SIEM / threat detection | Source-pending | Do not claim a SIEM, EDR, or threat-detection stack without an approved source. |
 | Public SLOs | Not held | No public SLOs are committed in this skill; customer-contract specifics live in operational agreements. Source: `observability.md`. |

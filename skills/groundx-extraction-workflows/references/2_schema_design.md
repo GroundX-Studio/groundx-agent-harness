@@ -98,11 +98,11 @@ Supported final-group business-logic metadata keys are `always_check_attrs`,
 `passthrough_attrs`, `passthrough_pair_attrs`, `remaining_attrs`,
 `required_any_attrs`, `required_attrs`, and `unique_attrs`.
 
-### Internal roles for internal-arcadia-agents
+### Runtime role labels
 
-When a workflow will run through `internal-arcadia-agents`, final groups and
-pseudo groups also need an internal processing role. These names are internal
-roles, not customer names:
+When a workflow needs runner-side structured-output reassembly, final groups
+and pseudo groups also need a processing role. These names are runtime role
+labels, not customer names:
 
 - `statement`: fields at the top level of the final structured object.
 - `meters`: one top-level array of meter objects.
@@ -114,9 +114,9 @@ statement level. Current runtime constraints allow only one `meters` group and
 one `charges` group, including pseudo groups. All other groups are `statement`.
 This is current implementation behavior, not a permanent product rule.
 
-For workflows routed through `internal-arcadia-agents` where every workflow
-group uses the `statement` role, plan one `reconcile_statement -> qa_statement`
-branch per pseudo group, then save/reassemble once all branches complete.
+For workflows where every workflow group uses the `statement` role, plan one
+`reconcile_statement -> qa_statement` branch per pseudo group, then
+save/reassemble once all branches complete.
 
 The public syntax walkthrough is
 [Structured Extraction Workflow](https://docs.groundx.ai/documentation/structured-extraction-workflow).

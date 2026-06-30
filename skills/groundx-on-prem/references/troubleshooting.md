@@ -2,7 +2,17 @@
 
 This file documents **the failure modes a deployer hits during install, upgrade, and runtime**, organized by *where in the deployment lifecycle the failure surfaces*. Each entry has a symptom, the chart-side or cluster-side cause, and the fix.
 
-For the canonical install sequence, route to `install-flow.md`. For the per-subsystem ownership map (which file owns what), route to `references/README.md`. For the maintenance discipline used when this file's diagnoses go stale, route to the private maintenance reference.
+For the canonical install sequence, route to `install-flow.md`. For the per-subsystem ownership map (which file owns what), route to `references/README.md`. Contributors should follow the skill maintenance workflow when this file's diagnoses go stale.
+
+## 0. Access preflight
+
+Before running Kubernetes or Helm commands:
+
+- Ask for access by capability, not secret values: Kubernetes read access to the target cluster/namespace and Helm release visibility.
+- Prefer existing local auth: current kube context, cloud CLI/SSO/VPN, or a mounted/read-only kubeconfig. Do not ask the user to paste raw kubeconfig, tokens, certs, passwords, or Secret values into chat.
+- Verify the current kube context and namespace before reading cluster state: `kubectl config current-context` and either an explicit `-n <namespace>` on each command or `kubectl config view --minify --output 'jsonpath={..namespace}'`.
+- Start read-only: `kubectl get`, `kubectl describe`, `kubectl logs`, `helm status`, and `helm get values`.
+- Require explicit approval before mutation: rollout restart, pod delete, `helm upgrade`, `helm uninstall`, values changes, secret rotation, or repair jobs.
 
 ## 1. `helm install` / `helm template` failures
 
@@ -107,7 +117,7 @@ Or override the chart's expected values via `cluster.nodeLabels.*` (`node-groups
 
 **Cause.** NVIDIA GPU Operator isn't installed (or isn't running). The pods request `nvidia.com/gpu: 1` and the cluster has no device plugin registering that resource.
 
-**Fix.** Install the NVIDIA GPU Operator before GroundX (`services-operators.md` § 2). On AKS, use the `runtimeClass: nvidia-container-runtime` variant. See `gpu-operator.md` (planned) for deep-dive.
+**Fix.** Install the NVIDIA GPU Operator before GroundX (`services-operators.md` § 2). On AKS, use the `runtimeClass: nvidia-container-runtime` variant. See `gpu-operator.md` for deep-dive.
 
 ### 2.3 PVC stuck in `Pending`
 
@@ -172,7 +182,7 @@ The chart's app pods (`api.yaml`, `golang.yaml`, `celery.yaml`, etc.) ship init 
 
 **Cause.** Chart-side schema strictening — new `additionalProperties: false` or `required` constraints, or a renamed field.
 
-**Fix.** Diff `helm/values.schema.json` between the old and new chart versions. Update values.yaml to match. The chart's CHANGELOG (when present) flags breaking changes. See `upgrades.md` (planned) for the canonical upgrade flow.
+**Fix.** Diff `helm/values.schema.json` between the old and new chart versions. Update values.yaml to match. The chart's CHANGELOG (when present) flags breaking changes. See `upgrades.md` for the canonical upgrade flow.
 
 ### 5.2 ConfigMap roll-out didn't restart pods
 
@@ -201,8 +211,8 @@ When the failure doesn't match a category above:
 - **Chart-rendered config.yaml structure** → `groundx-architecture/references/data-flow.md`.
 - **Application-layer errors** (specific API response codes, RAG quality issues, embedding errors) → application docs; out of chart scope.
 - **Kubernetes / Helm fundamentals** (RBAC, pod disruption budgets, taints/tolerations) → upstream Kubernetes docs.
-- **Per-cloud provider tuning** → `deployment-options.md` (planned) and `terraform-aws.md` (planned).
-- **GPU Operator deep-dive** → `gpu-operator.md` (planned).
-- **OpenShift-specific issues** → `openshift.md` (planned).
-- **Air-gapped failures** → `air-gapped.md` (planned).
-- **Upgrade-specific procedures** → `upgrades.md` (planned).
+- **Per-cloud provider tuning** → `deployment-options.md` and `terraform-aws.md`.
+- **GPU Operator deep-dive** → `gpu-operator.md`.
+- **OpenShift-specific issues** → `openshift.md`.
+- **Air-gapped failures** → `air-gapped.md`.
+- **Upgrade-specific procedures** → `upgrades.md`.

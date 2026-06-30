@@ -25,8 +25,8 @@ a coherent iteration milestone informed by real customer use cases. The
   `final_path`, `repetition_scope: "none"`), so a deployed repeated-group
   workflow shipped a hash that no longer matched its own leaves. The GroundX SDK
   recomputes the hash at `update_prompts()` time and raised `caller schema_hash
-  does not match route metadata`, blocking the Arcadia deploy → prompts →
-  extract path. The hash is now recomputed after normalization so it matches the
+  does not match route metadata`, blocking the deploy → prompts → extract path.
+  The hash is now recomputed after normalization so it matches the
   shipped leaves. Found during the AGE-150 live run.
 - **Public extraction docs guidance.** Added `references/public-docs.md` and a
   gate so public docs stay customer-facing: use the SDK-level `client.ingest(...)`

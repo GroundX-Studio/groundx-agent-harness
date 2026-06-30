@@ -1,6 +1,6 @@
 # Disaster Recovery
 
-GroundX's disaster-recovery posture is **inherited from the chosen backing services** — RDS, OpenSearch, S3 in the cloud service, or whichever equivalents `values.yaml` selects on-prem — plus a single in-cluster recovery mechanism (`MonitorPipeline` Lambda) for restarting ingest documents that get stuck at a pipeline step. There are **no documented RPO / RTO targets** beyond what's committed in customer contracts; **no cross-region replication** in the cloud service today; **no restore drills**; and DR responsibility on-prem is the deployer's. This file documents the actual posture, names the known gaps explicitly, and routes to the harness skills + `data-residency.md` for adjacent depth.
+GroundX's disaster-recovery posture is **inherited from the chosen backing services** — RDS, OpenSearch, S3 in the cloud service, or whichever equivalents `values.yaml` selects on-prem — plus a cloud stuck-document monitor for restarting ingest documents that get stuck at a pipeline step. There are **no documented RPO / RTO targets** beyond what's committed in customer contracts; **no cross-region replication** in the cloud service today; **no restore drills**; and DR responsibility on-prem is the deployer's. This file documents the actual posture, names the known gaps explicitly, and routes to the harness skills + `data-residency.md` for adjacent depth.
 
 ## 1. Marketing altitude
 
@@ -10,7 +10,7 @@ DR posture stays out of marketing content. The high-reliability story for market
 
 The cloud service relies on managed AWS services (RDS, OpenSearch, S3) for backup and durability — whatever AWS provides as the default for each service is what GroundX has. Within-region (multi-AZ) failover is transparent for the managed services; pods reschedule via Kubernetes when an AZ fails. **Cross-region failover is not a current capability** — the production cloud service runs in us-west-2 with no replica anywhere else.
 
-A `MonitorPipeline` Lambda detects documents stuck at a pipeline step (layout or extract) past a cutoff and re-queues them. This is the in-cluster recovery mechanism for the most common operational failure: a document that started processing but stalled.
+A cloud stuck-document monitor detects documents stuck at a pipeline step (layout or extract) past a cutoff and re-routes them. This is the recovery mechanism for the most common operational failure: a document that started processing but stalled.
 
 On-prem deployments inherit whatever the chosen backings provide; backup posture, cross-region recovery, and restore drilling are the deployer's responsibility.
 
@@ -22,7 +22,7 @@ Three architectural ideas shape DR:
 
 **No replication beyond what backings provide.** The cloud service does not maintain its own backup layer on top of the managed services. RDS automated snapshots, OpenSearch automated snapshots, and S3's default durability are the entire backup posture. This is honest and operationally lean; the trade-off is that the recovery story matches AWS-managed-service defaults exactly, no better and no worse.
 
-**Pipeline-level recovery via `MonitorPipeline`.** A Lambda runs on a CloudWatch schedule (cloud-service only), checks the process-metadata DB for documents whose `updated` timestamp is older than the cutoff for their current processor stage, and re-queues those documents to `pre-process` for retry. This recovers from a specific failure mode (a pod crashing mid-step or a Celery task silently dropping) without requiring per-document operator intervention.
+**Pipeline-level recovery via the cloud stuck-document monitor.** A scheduled cloud invocation checks process metadata for documents whose `updated` timestamp is older than the cutoff for their current processor stage, then routes those documents back through the normal processing path. This recovers from a specific failure mode (a pod crashing mid-step or a Celery task silently dropping) without requiring per-document operator intervention.
 
 ## 4. System altitude
 
@@ -35,17 +35,17 @@ Cloud service (us-west-2):
   Cross-region     None (no replica in another region)
 
 In-cluster recovery:
-  MonitorPipeline (CloudWatch-triggered Lambda; cloud-service only)
-    Scans process metadata DB for documents stuck past cutoff
+  Cloud stuck-document monitor (hosted cloud service)
+    Scans process metadata for documents stuck past cutoff
       - extractCutoff = 30 minutes
       - layoutCutoff  = 60 minutes
     Resets processor status to Queued; bumps document's updated timestamp
-    Re-enqueues to pre-process queue (file-pre-process)
+    Routes the document through the normal processing path
     Repair limit: 10 documents per invocation
     Critical errors → Slack
 
 On-prem:
-  Backup posture, multi-AZ, restore drills, equivalent of MonitorPipeline:
+  Backup posture, multi-AZ, restore drills, equivalent stuck-document recovery:
   all deployer's responsibility
 ```
 
@@ -93,36 +93,38 @@ The cloud service has **no replica in any other region**. In the event of a cata
 
 GroundX does **not run periodic restore drills** today. Backup integrity is assumed from the managed-service contracts; restore success is not exercised on a documented cadence. This is a known gap in the operational posture.
 
-### 5.6 `MonitorPipeline` Lambda
+### 5.6 Cloud stuck-document monitor
 
-The cloud-service-only Lambda that recovers stuck-document scenarios. Source: `cashbot-go/lambda/MonitorPipeline/main.go`.
+The hosted cloud service has an internal monitor that recovers some stuck-document
+scenarios. This is an operator-owned cloud path, not a public repair runbook.
 
-**Trigger:** CloudWatch scheduled event (Lambda invocation on a fixed interval).
+**Trigger:** scheduled cloud invocation on a fixed interval.
 
-**Detection:** queries the process-metadata DB for documents whose `updated` timestamp is older than the cutoff for their current processor stage:
+**Detection:** checks process metadata for documents whose `updated` timestamp is older
+than the cutoff for their current processor stage:
 
 | Processor stage | Cutoff | Effect on detection |
 | --- | --- | --- |
 | Layout | 60 minutes | Documents stuck in layout past 60 min are candidates for restart |
 | Extract | 30 minutes | Documents stuck in extract past 30 min are candidates for restart |
 
-(Other processor stages — convert, map, summarize — are diagnostic-only in the current Lambda; recovery is implemented for layout and extract.)
+(Other processor stages — convert, map, summarize — are diagnostic-only in the current monitor; recovery is implemented for layout and extract.)
 
 **Recovery action per stuck document:**
 
 1. Reset the document's processor status (Layout or Extract) to `Queued`.
 2. Bump the document's `updated` timestamp to NOW().
-3. Re-enqueue to the pre-process queue (`file-pre-process`) with an `AIFilePreProcessRequest` stream message.
+3. Re-route the document through the normal processing pipeline.
 
 **Safety:**
 
-- Repair limit: **10 documents per invocation** — prevents the Lambda from overwhelming the queue if many documents are stuck.
+- Repair limit: **10 documents per invocation** — prevents the monitor from overwhelming processing if many documents are stuck.
 - Hardcoded ignore lists (model IDs, customer usernames) skip known-broken cases.
 - Critical errors emit to the configured Slack webhook.
 
 **On-prem equivalent:** none. On-prem deployments need their own pipeline-recovery mechanism.
 
-For more detail see the private cloud-utilities reference.
+Implementation ownership lives in the internal operator reference, not in public repair guidance.
 
 ## 6. Security / compliance altitude
 
@@ -134,8 +136,8 @@ Customer data deletion (per `data-residency.md` § 5.4) does not roll back acros
 
 DR operational responsibilities split clearly:
 
-- **Cloud service** — GroundX SRE owns the cloud deployment's DR posture, including snapshot review, AZ-failover monitoring, and Slack-alerted `MonitorPipeline` outputs. No customer action is needed; customers experience whatever the posture provides.
-- **On-prem** — deployer owns everything: backup configuration on the chosen backings, multi-AZ / multi-region decisions, restore testing, an equivalent of `MonitorPipeline` for pipeline-level recovery, and any RPO / RTO commitments.
+- **Cloud service** — GroundX SRE owns the cloud deployment's DR posture, including snapshot review, AZ-failover monitoring, and Slack-alerted stuck-document monitor outputs. No customer action is needed; customers experience whatever the posture provides.
+- **On-prem** — deployer owns everything: backup configuration on the chosen backings, multi-AZ / multi-region decisions, restore testing, an equivalent stuck-document monitor for pipeline-level recovery, and any RPO / RTO commitments.
 
 For broader observability framing see `observability.md`. For the failure scenarios DR helps recover from see `failure-modes.md`. For the runbook depth on-prem deployers need to build see `groundx-on-prem`.
 
@@ -146,8 +148,8 @@ What gets recovered varies by failure:
 | Failure | Recovery |
 | --- | --- |
 | AZ outage | RDS, OpenSearch, S3 fail over automatically; pods reschedule via Kubernetes; service resumes |
-| Pod crash | Kubernetes restarts the pod; in-flight work may be lost (see `failure-modes.md`); `MonitorPipeline` recovers stuck documents on the next invocation |
-| Stuck document at layout / extract step | `MonitorPipeline` resets state, re-enqueues to `pre-process`; document re-processes from its current step |
+| Pod crash | Kubernetes restarts the pod; in-flight work may be lost (see `failure-modes.md`); the cloud stuck-document monitor recovers stuck documents on the next invocation |
+| Stuck document at layout / extract step | The cloud stuck-document monitor resets state and routes the document through the normal processing path; document re-processes from its current step |
 | Regional outage | No automatic recovery; manual restore from snapshots into another region required; no documented runbook |
 | Backing-service data corruption | Restore from snapshot (RDS / OpenSearch); S3 has no versioning so prior versions of artifacts aren't recoverable |
 
@@ -163,7 +165,7 @@ DR cost in the cloud service is built into the managed-service line items: RDS m
 - **The audit log retention (1 year cloud) and the right-to-be-forgotten interaction**: `data-residency.md` § 6.2.
 - **What the metrics pod + Slack alerts look like in practice**: `observability.md`.
 - **The specific failure scenarios DR helps recover from + behavior per pod**: `failure-modes.md`.
-- **The cloud-service Lambda inventory** beyond `MonitorPipeline`: the private cloud-utilities reference.
+- **The cloud-service function inventory**: cloud-service operator guidance.
 - **Public SLA / RPO / RTO commitments**: not a current capability; customer-contract specifics live in operational agreements, not at this skill's altitude.
 - **Cross-region runbook for catastrophic us-west-2 outage**: not documented today; named here as a known gap.
 - **On-prem DR-tooling guidance (pipeline-recovery equivalent, backup automation)**: `groundx-on-prem` when authored.

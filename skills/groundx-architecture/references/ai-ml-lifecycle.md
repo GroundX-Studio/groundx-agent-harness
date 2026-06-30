@@ -93,7 +93,7 @@ Lives in the **`ml-models-training`** repo, separate from the harness. The pipel
 | --- | --- | --- |
 | Pre-release eval (internal) | Fine-tuning train/test split, ~90/10, random with exception list pinning certain documents to train or test | `ml-models-training` repo |
 | Customer-facing eval (how-to + sample code) | Documentation + code samples teaching customers how to evaluate retrieval against their own corpus | `groundx-api` skill (sample projects) |
-| Customer-facing eval (interactive) | Per-bucket Chat + SEARCH buttons in the GroundX Dashboard for superficial bucket-level inspection (Chat opens chat-with-files; SEARCH shows API retrievals) | the private GroundX Dashboard frontend reference |
+| Customer-facing eval (interactive) | Per-bucket Chat + SEARCH buttons in the GroundX Dashboard for superficial bucket-level inspection (Chat opens chat-with-files; SEARCH shows API retrievals) | GroundX Dashboard widgets |
 
 No live-traffic A/B testing of model versions exists. All comparison work is against the held-out test set pre-release.
 
@@ -140,7 +140,7 @@ Deployment-level cost framing is owned by `groundx-on-prem`.
 - **The fine-tuned vision model itself** (what it detects, training data scale): `vision-model.md`.
 - **The fine-tuned re-ranker model itself** (what it scores, why it can't be replaced by a 3rd-party): `hybrid-search.md`.
 - **The exact training pipeline implementation** (Label Studio project structure, annotation schema, fine-tuning hyperparameters, train/test split mechanics): `ml-models-training` repo (out of scope for this skill).
-- **The customer-facing eval tooling** (how-to guides, sample code, chat / SEARCH buttons): `groundx-api` (samples) + the private GroundX Dashboard frontend reference (Dashboard widgets).
+- **The customer-facing eval tooling** (how-to guides, sample code, chat / SEARCH buttons): `groundx-api` samples + GroundX Dashboard widgets.
 - **The opt-in API parameter for pause-for-annotation**: implementation lives in EyeLevel SSP today; documented at the architectural altitude here, not at the API-call altitude.
 - **Compliance posture for training-data handling**: `data-residency.md`.
 - **Concurrent-download hardening for the model-pull-on-miss pattern**: known gap; `observability.md` may pick it up as a future fitness-gate target.
