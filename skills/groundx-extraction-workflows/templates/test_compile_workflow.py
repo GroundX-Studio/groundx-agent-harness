@@ -1979,7 +1979,7 @@ statement:
 
 
 def test_fallback_agent_chain_does_not_change_schema_hash(monkeypatch):
-    """agent_chain is runtime metadata; cashbot validates the route schema hash."""
+    """agent_chain is runtime metadata; the service validates the route schema hash."""
     monkeypatch.setattr(
         compile_workflow,
         "_sdk_prepare_extraction_yaml",

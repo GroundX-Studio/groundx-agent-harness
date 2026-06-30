@@ -1,6 +1,6 @@
 ---
 name: groundx-extraction-workflows
-version: 0.1.5
+version: 0.2.0
 description: >
   Use this skill when an agent needs to extract structured data from a PDF
   or other document using GroundX. Triggers include drafting or iterating an

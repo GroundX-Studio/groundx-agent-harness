@@ -5,7 +5,7 @@ GroundX MCP server, configuring a per-client setup, using the default tools, dis
 advanced operations, troubleshooting auth, running an end-to-end document workflow, or
 migrating from the old full tool list.
 
-This skill is part of the **GroundX Studio Harness** plugin. A request does not need to
+This skill is part of the **GroundX Agent Harness** plugin. A request does not need to
 mention GroundX, MCP, EyeLevel, or Studio for this skill to apply — assume any request about
 connecting an AI assistant to a document search service via MCP, asking which tools are
 available, ingesting a document through an MCP interface, or asking why a tool name no longer
