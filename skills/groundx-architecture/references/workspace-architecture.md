@@ -72,7 +72,7 @@ The workspace runner has **no external trust-boundary crossings** beyond the Wor
 
 ## 7. Operations / SRE altitude
 
-`workspace-api` is metered as **API response time** in the `metrics` pod; the 5 worker pods are metered as **Celery task back-pressure** thresholds (per `overview.md` § 4.7). Workspace operations are independent of ingest pipeline load — the workspace runner has its own scaling profile driven by managed-project session count rather than document throughput. For the broader observability framing see `observability.md`.
+`workspace-api` is metered as **API response time** in the `metrics` pod; the 5 worker pods are metered as **Celery task back-pressure** thresholds (per `overview.md` § 4.7). Workspace operations are independent of ingest pipeline load — the workspace runner has its own scaling profile driven by managed-project session count rather than document throughput. No hosted workspace pod alert route is sourced here; do not claim one unless the GroundX partner/workspace route proves it, and do not claim the `layoutWebhook` path for workspace alerts. For the broader observability framing see `observability.md`.
 
 ## 8. Data architecture altitude
 

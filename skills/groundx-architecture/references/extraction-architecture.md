@@ -76,7 +76,7 @@ The extraction microservice is **entirely in-cluster** — no external LLM provi
 
 ## 7. Operations / SRE altitude
 
-`extract-api` is metered as **API response time** in the `metrics` pod; the extract sub-pods (download / agent / save) are metered as **Celery task back-pressure** thresholds (per `overview.md` § 4.7). `extract-agent` replica count is the meaningful throughput lever — the pod runs multiple times per document per schema, and high-volume extraction workflows can require significant CPU. For the broader observability framing see `observability.md`.
+`extract-api` is metered as **API response time** in the `metrics` pod; the extract sub-pods (download / agent / save) are metered as **Celery task back-pressure** thresholds (per `overview.md` § 4.7). `extract-agent` replica count is the meaningful throughput lever — the pod runs multiple times per document per schema, and high-volume extraction workflows can require significant CPU. The final `extract-save` callback returns through `layoutWebhook`; callback handling failures surface through the GroundX-side hosted-cloud critical alert path. For the broader observability framing see `observability.md`.
 
 ## 8. Data architecture altitude
 

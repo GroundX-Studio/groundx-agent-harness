@@ -1,6 +1,6 @@
 # Observability
 
-GroundX's observability surface has four layers: **metrics** (via the `metrics` pod, with each pod reporting to Redis and the `metrics` pod producing the exposed Prometheus output), **logs** (CloudWatch in the cloud service; stdout on-prem; partially-migrated JSON structured format), **traces** (OpenTelemetry, partially implemented), and **customer-facing health surfaces** (`GET /v1/health` exposing two services — search and ingest — with a status that updates every 5 minutes from active pre-flight probes). In cloud, the customer-facing health endpoint is service-level availability monitoring, not a root-cause diagnostic surface; on-prem operators use Prometheus / Grafana metrics for deeper application-health diagnosis. There are **no published SLOs** and cloud alerts route to **Slack**. This file documents the observability shape; depth on individual signals lives with the producing subsystem.
+GroundX's observability surface has four layers: **metrics** (via the `metrics` pod, with each pod reporting to Redis and the `metrics` pod producing the exposed Prometheus output), **logs** (CloudWatch in the cloud service; stdout on-prem; partially-migrated JSON structured format), **traces** (OpenTelemetry, partially implemented), and **customer-facing health surfaces** (`GET /v1/health` exposing two services — search and ingest — with a status that updates every 5 minutes from active pre-flight probes). In cloud, the customer-facing health endpoint is service-level availability monitoring, not a root-cause diagnostic surface; on-prem operators use Prometheus / Grafana metrics for deeper application-health diagnosis. There are **no published SLOs** and hosted-cloud alerts route through internal operator alerting. This file documents the observability shape; depth on individual signals lives with the producing subsystem.
 
 ## 1. Marketing altitude
 
@@ -8,7 +8,7 @@ Observability is an operator concern, not a marketing surface. Customer-facing o
 
 ## 2. Product altitude
 
-Customers see observability in two places: the `GET /v1/health` endpoint (service-level status of `search` and `ingest`, refreshed every 5 minutes by active probes) and the per-customer quota meters exposed on `GET /v1/customer` (token usage, search counts; per `multi-tenancy.md`). Operators see the rest — pod-level metrics on the `metrics` pod's Prometheus surface, logs in CloudWatch (cloud) or whatever the deployer wires (on-prem), partial OpenTelemetry traces, and Slack alerts wired to the cloud service. In cloud, `/v1/health` should be treated as available / unavailable service health; in on-prem deployments, Prometheus and Grafana are the application-health diagnostic surface.
+Customers see observability in two places: the `GET /v1/health` endpoint (service-level status of `search` and `ingest`, refreshed every 5 minutes by active probes) and the per-customer quota meters exposed on `GET /v1/customer` (token usage, search counts; per `multi-tenancy.md`). Operators see the rest — pod-level metrics on the `metrics` pod's Prometheus surface, logs in CloudWatch (cloud) or whatever the deployer wires (on-prem), partial OpenTelemetry traces, and internal alerting wired to the cloud service. In cloud, `/v1/health` should be treated as available / unavailable service health; in on-prem deployments, Prometheus and Grafana are the application-health diagnostic surface.
 
 ## 3. Conceptual / algorithmic altitude
 
@@ -47,7 +47,9 @@ Health (customer-facing):
   Services surfaced: search, ingest
 
 Alerts:
-  Cloud: Slack (stuck-document monitor critical errors; alert webhooks)
+  Cloud: internal operator alerting (CloudWatch alarms;
+  stuck-document monitor critical errors; layout/extract callback-handler
+  critical errors)
   On-prem: deployer's choice (AlertManager via Prometheus Operator typical)
 
 Audit log:
@@ -119,7 +121,7 @@ Output drives the `/v1/health` endpoint's `services` array. On-prem deployments 
 
 | Surface | Mechanism |
 | --- | --- |
-| Cloud service | Slack — stuck-document monitor critical errors (per `disaster-recovery.md` § 5.6) emit to a configured Slack webhook; other cloud-side alerting flows through Slack |
+| Cloud service | Internal operator alerting — CloudWatch alarms, stuck-document monitor critical errors (per `disaster-recovery.md` § 5.6), and layout/extract callback-handler critical errors emit to the hosted-cloud alerting path |
 | On-prem | Deployer's choice — Prometheus Operator's AlertManager is a common path with the optional ServiceMonitor integration |
 
 ### 5.8 SLOs
@@ -132,13 +134,13 @@ The audit log is the only authoritative record of customer-tier and partner-tier
 
 ## 7. Operations / SRE altitude
 
-The metric signals + the cloud stuck-document monitor + Slack alerting form the in-production operability surface today. Tracing coverage is partial and growing. Logging is structurally complete (every pod logs) but format-wise transitional (JSON migration in progress).
+The metric signals + the cloud stuck-document monitor + internal alerting form the in-production operability surface today. Layout and extract callback failures can surface through the GroundX-side `layoutWebhook` callback handler's critical alert path. No workspace pod alert route is sourced here; do not claim one unless the GroundX partner/workspace route proves it. Tracing coverage is partial and growing. Logging is structurally complete (every pod logs) but format-wise transitional (JSON migration in progress).
 
 **Known operational gaps:**
 
 - The `metrics` pod is a single point of metric-availability failure; if it's down, HPA loses its signal and autoscaling stalls.
 - No published SLOs; customer expectations of latency / uptime live in customer contracts only.
-- On-prem deployments don't get `UpdateHealthStatus` or the Slack alerts wired by default.
+- On-prem deployments don't get `UpdateHealthStatus` or the hosted-cloud alerting wired by default.
 
 ## 8. Data architecture altitude
 

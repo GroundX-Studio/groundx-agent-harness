@@ -142,7 +142,7 @@ A typical production layout:
 └─────────────────────────────────────┘
 ```
 
-Prometheus lives in `monitoring`, scrapes the GroundX `metrics` service in `eyelevel` via the ServiceMonitor. Grafana queries Prometheus. Alertmanager handles alert routing (PagerDuty, Slack, etc. — configured per-deployer).
+Prometheus lives in `monitoring`, scrapes the GroundX `metrics` service in `eyelevel` via the ServiceMonitor. Grafana queries Prometheus. Alertmanager handles alert routing to the deployer's chosen incident tooling.
 
 ## 8. Dashboards
 

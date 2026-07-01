@@ -42,7 +42,7 @@ In-cluster recovery:
     Resets processor status to Queued; bumps document's updated timestamp
     Routes the document through the normal processing path
     Repair limit: 10 documents per invocation
-    Critical errors → Slack
+    Critical errors → hosted-cloud operator alerting
 
 On-prem:
   Backup posture, multi-AZ, restore drills, equivalent stuck-document recovery:
@@ -120,7 +120,7 @@ than the cutoff for their current processor stage:
 
 - Repair limit: **10 documents per invocation** — prevents the monitor from overwhelming processing if many documents are stuck.
 - Hardcoded ignore lists (model IDs, customer usernames) skip known-broken cases.
-- Critical errors emit to the configured Slack webhook.
+- Critical errors emit to the hosted-cloud operator alerting path.
 
 **On-prem equivalent:** none. On-prem deployments need their own pipeline-recovery mechanism.
 
@@ -136,7 +136,7 @@ Customer data deletion (per `data-residency.md` § 5.4) does not roll back acros
 
 DR operational responsibilities split clearly:
 
-- **Cloud service** — GroundX SRE owns the cloud deployment's DR posture, including snapshot review, AZ-failover monitoring, and Slack-alerted stuck-document monitor outputs. No customer action is needed; customers experience whatever the posture provides.
+- **Cloud service** — GroundX SRE owns the cloud deployment's DR posture, including snapshot review, AZ-failover monitoring, and operator-alerted stuck-document monitor outputs. No customer action is needed; customers experience whatever the posture provides.
 - **On-prem** — deployer owns everything: backup configuration on the chosen backings, multi-AZ / multi-region decisions, restore testing, an equivalent stuck-document monitor for pipeline-level recovery, and any RPO / RTO commitments.
 
 For broader observability framing see `observability.md`. For the failure scenarios DR helps recover from see `failure-modes.md`. For the runbook depth on-prem deployers need to build see `groundx-on-prem`.
@@ -163,7 +163,7 @@ DR cost in the cloud service is built into the managed-service line items: RDS m
 
 - **The compliance posture (SOC2 Type 1 + HIPAA + SOC2 Type 2 in progress)** that constrains DR retention: `data-residency.md` § 5.3.
 - **The audit log retention (1 year cloud) and the right-to-be-forgotten interaction**: `data-residency.md` § 6.2.
-- **What the metrics pod + Slack alerts look like in practice**: `observability.md`.
+- **What the metrics pod + hosted-cloud alerting look like in practice**: `observability.md`.
 - **The specific failure scenarios DR helps recover from + behavior per pod**: `failure-modes.md`.
 - **The cloud-service function inventory**: cloud-service operator guidance.
 - **Public SLA / RPO / RTO commitments**: not a current capability; customer-contract specifics live in operational agreements, not at this skill's altitude.
