@@ -113,7 +113,9 @@ When the search path fails (OpenSearch read or ranker), the customer sees an err
 
 | Failure shape | Where operators see it |
 | --- | --- |
-| Stuck-document detection + re-route | Slack (via cloud stuck-document monitor critical-error path) |
+| Stuck-document detection + re-route | Hosted-cloud operator alerting via the stuck-document monitor critical-error path |
+| Layout or extract callback-handler failure | Hosted-cloud operator alerting via the GroundX-side `layoutWebhook` critical alert path, plus callback-handler logs |
+| Hosted workspace pod alert | No sourced route in this reference; do not claim one unless the GroundX partner/workspace route proves it |
 | Pod CrashLoopBackOff | Kubernetes events; metrics pod via queue back-pressure (eventually) |
 | 3rd-party LLM failure | Logs in CloudWatch (cloud) / stdout (on-prem) on the `summary-client` pod |
 | Queue back-pressure exceeding threshold | The metrics pod's queue-back-pressure signal — drives HPA scale-out |
@@ -129,7 +131,7 @@ Failures that lose data (queue overflow with presumed message loss; regional out
 The operational triage tree for a customer-reported failed document:
 
 1. Check `GET /v1/ingest/{processId}` for the error status message.
-2. Check stuck-document monitor Slack notifications — was the document detected as stuck and re-routed?
+2. Check stuck-document monitor operator notifications — was the document detected as stuck and re-routed?
 3. Check `summary-client` logs for 3rd-party LLM errors.
 4. Check `process` pod logs for terminal-write failures.
 5. Check the metrics pod for queue depth and inference TPM anomalies.

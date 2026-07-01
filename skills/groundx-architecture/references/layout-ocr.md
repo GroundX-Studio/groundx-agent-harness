@@ -64,7 +64,7 @@ The layout microservice is **in-cluster** in the default (Tesseract) configurati
 
 ## 7. Operations / SRE altitude
 
-`layout-api` and `layoutWebhook` are metered as **API response time** thresholds in the `metrics` pod; the layout sub-pods are metered as **Celery task back-pressure** thresholds; `layout-inference` is additionally metered as **inference-class** TPM (per `overview.md` § 4.7). The per-page parallelism means HPA scaling on layout sub-pods is the dominant lever for layout throughput at high ingest volume. For the broader observability framing see `observability.md`.
+`layout-api` and `layoutWebhook` are metered as **API response time** thresholds in the `metrics` pod; the layout sub-pods are metered as **Celery task back-pressure** thresholds; `layout-inference` is additionally metered as **inference-class** TPM (per `overview.md` § 4.7). The per-page parallelism means HPA scaling on layout sub-pods is the dominant lever for layout throughput at high ingest volume. Layout callback failures report back through `layoutWebhook`; the GroundX-side callback handler owns the hosted-cloud critical alert path for callback handling failures. For the broader observability framing see `observability.md`.
 
 ## 8. Data architecture altitude
 

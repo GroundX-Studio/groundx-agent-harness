@@ -74,9 +74,9 @@ or operations owner before external use."
 | Metrics | Held | Pods write metric data to Redis; the `metrics` pod exposes Prometheus-compatible metrics. Cloud consumes that surface through Prometheus/Grafana; on-prem uses deployer wiring. Source: `observability.md`. |
 | Traces | In progress | OpenTelemetry is the chosen tracing stack, but coverage is partial and migration is in progress. Source: `observability.md`. |
 | Health checks | Held | `GET /v1/health` reports search and ingest status, refreshed every 5 minutes by `UpdateHealthStatus` in the cloud service. Source: `observability.md`. |
-| Alerts | Held, limited | Cloud alerts route to Slack, including stuck-document monitor critical errors. Source: `observability.md` and `disaster-recovery.md`. |
+| Alerts | Held, limited | Hosted-cloud alerts route through internal operator alerting, including stuck-document monitor critical errors. Source: `observability.md` and `disaster-recovery.md`. |
 | Pipeline self-healing | Held for cloud service | A cloud stuck-document monitor re-routes stuck ingest documents past layout/extract cutoffs. On-prem deployers need an equivalent. Source: `disaster-recovery.md`. |
-| Paging / on-call tool | Source-pending | Do not name PagerDuty, Opsgenie, Slack-only paging, or an on-call process without an approved source. |
+| Paging / on-call tool | Source-pending | Do not name PagerDuty, Opsgenie, chat-only paging, or an on-call process without an approved source. |
 | SIEM / threat detection | Source-pending | Do not claim a SIEM, EDR, or threat-detection stack without an approved source. |
 | Public SLOs | Not held | No public SLOs are committed in this skill; customer-contract specifics live in operational agreements. Source: `observability.md`. |
 
@@ -102,7 +102,7 @@ outside an architecture review.
 | Third-party LLM | Yes, only when configured | Optional | Document content leaves the deployment when `summary.serviceType` points to a hosted engine such as OpenAI, Azure, DeepInfra, or another hosted endpoint. Bundled self-hosted and customer-hosted modes keep content inside the deployment. Source: `identity-and-trust.md` and `summary-service.md`. |
 | Google Cloud Vision OCR | Yes, only when configured | Optional | Page images leave the deployment only when `gcv.json` is configured. Tesseract is the default OCR path. Source: `identity-and-trust.md` and `layout-ocr.md`. |
 | On-prem backing services and monitoring | Deployer-owned | Deployer-attested | In on-prem deployments, the customer/deployer chooses and operates the backing stores, monitoring, alerting, and region. |
-| Slack alerting | Source-pending customer-data status | Held as alert channel, not approved as subprocessor table entry | The architecture references source Slack as a cloud alert channel, but they do not approve alert-payload contents for customer-data processing classification. |
+| Internal alerting channel | Source-pending customer-data status | Held as an internal alert channel, not approved as subprocessor table entry | The architecture references source hosted-cloud operator alerting, but does not approve alert-payload contents for customer-data processing classification. |
 | Engineering SaaS such as issue tracker, source control, CI, docs, or chat | Source-pending | Unknown | Do not list as non-customer-data engineering SaaS without an approved source and data-processing classification. |
 
 Keep optional trust-boundary crossings optional. Do not describe third-party LLM or
