@@ -63,8 +63,10 @@ executes the following sequence when invoked as
    `workflow_output_key` where direct custom output routing is needed.
 4. **Build workflow settings.** The compiler emits `extract`, explicit `null`
    built-in extraction `steps`, plus `template`, `customSteps`, `outputRoutes`,
-   and `leafFields` from prepared metadata. It also renders each custom step's
-   prompt text into the custom step config.
+   and `leafFields` from prepared metadata. For custom extraction workflows,
+   `extract.workflow` must carry the persisted `custom_steps`, `output_routes`,
+   and `leaf_fields` metadata that matches those top-level fields. It also
+   renders each custom step's prompt text into the custom step config.
 5. **Assemble the final dict.** The output is a Python dict with workflow create
    or update settings. The deploy and run templates pass it through
    `workflow_sdk_kwargs(workflow)`.

@@ -125,6 +125,8 @@ Use this path when GroundX MCP tools are visible in the agent session:
    `workflow_create` or `workflow_update` arguments. Pass the compiled workflow
    fields from `workflow.json`; do not hand-build a different schema. Use
    `workflow_update` only when you already have the existing workflow ID.
+   For custom extraction workflows, keep `customSteps`, `outputRoutes`,
+   `leafFields`, and `extract.workflow` together from the compiled payload.
 4. Save the returned workflow ID.
 5. Attach it with `workflow_add_to_id` for a bucket/group or
    `workflow_add_to_account` for the account default.
@@ -133,7 +135,7 @@ Minimal field mapping:
 
 | Artifact or target | MCP tool | What to pass |
 | --- | --- | --- |
-| New compiled workflow | `workflow_create` | Top-level fields from `workflow.json`: `name`, `chunkStrategy`, `sectionStrategy`, `steps`, and `extract` when present. |
+| New compiled workflow | `workflow_create` | Top-level fields from `workflow.json`: `name`, `chunkStrategy`, `sectionStrategy`, `steps`, and `extract` when present. For custom extraction workflows, include `customSteps`, `outputRoutes`, `leafFields`, and the persisted `extract.workflow` metadata. |
 | Existing workflow | `workflow_update` | `id` set to the existing workflow ID, plus the desired custom overlay relative to defaults. |
 | Bucket or group attachment | `workflow_add_to_id` | `id` set to the bucket/group ID, and `workflowId` set to the created or updated workflow ID. |
 | Account default | `workflow_add_to_account` | `workflowId` set to the created or updated workflow ID. |
