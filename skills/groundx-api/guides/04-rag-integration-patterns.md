@@ -234,10 +234,8 @@ authorize page, and receives short-lived bearer tokens after the user enters a G
 API key there. Non-interactive API agents may authenticate MCP transport with
 `X-API-Key`. Do not put `X-API-Key` or a raw API key in MCP tool arguments, generated
 artifacts, browser code, logs, or transcripts. Tool discovery is automatic after
-connection; the client receives the GroundX tool schemas. If GroundX MCP tools are not
-visible, instruct the user to connect the GroundX MCP connector to GroundX before using
-REST fallback. See §1 in 01-auth.md for full connection details and the complete tool
-inventory.
+connection; the client receives the GroundX tool schemas. MCP is optional and prod-only;
+when MCP is missing or the target is dev, use the SDK/REST path in `01-auth.md`.
 
 ## 8. Error handling
 

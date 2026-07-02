@@ -7,9 +7,9 @@ attaching the workflow.
 
 | Situation | Use |
 | --- | --- |
-| Agent has GroundX MCP tools and is doing live workflow create/update/attach | `groundx-api` MCP tools |
 | User wants one local deploy command for a finished YAML | `templates/deploy_workflow.py` |
-| User wants deploy + ingest + poll + X-Ray + extract | `templates/run_extraction.py` |
+| User wants prod deploy + ingest + poll + X-Ray + extract | `templates/run_extraction.py` |
+| Agent has prod GroundX MCP tools already connected | `groundx-api` MCP tools are optional |
 
 ## Template Setup
 
@@ -35,8 +35,12 @@ cp "$SKILL_DIR/templates/.env.sample" .env
 python -m pip install -r requirements.txt
 ```
 
-Set `GROUNDX_API_KEY` in `.env` or in the shell environment. Leave API keys out
-of prompts and command-line arguments.
+Set `GROUNDX_API_KEY` in `.env` or in the shell environment. Use a prod API key
+for live structured extraction. Dev extraction does not currently work; only use
+dev for deploy/run/extract if an operator explicitly confirms it is available.
+For dev non-extraction API/debug calls, also set
+`GROUNDX_BASE_URL=https://devapi.groundx.ai/api`. For prod, leave
+`GROUNDX_BASE_URL` unset. Leave API keys out of prompts and command-line arguments.
 
 ## Local Deploy Commands
 
@@ -115,9 +119,13 @@ audit logs, backups, or source YAML. If the workflow should use GroundX default
 prompts, resubmit the desired overlay after the backend fix or recreate the
 workflow from a clean source definition.
 
-## Interactive MCP Recipe
+## Optional Prod MCP Recipe
 
-Use this path when GroundX MCP tools are visible in the agent session:
+Use this path only when GroundX MCP tools are already visible in the agent
+session and the target environment is prod. GroundX MCP is optional and prod-only.
+For dev API/debug work, use the local Python SDK with
+`GROUNDX_BASE_URL=https://devapi.groundx.ai/api`; do not run live structured
+extraction in dev unless an operator explicitly confirms it is available.
 
 1. Compile the YAML to `workflow.json`.
 2. Validate it with `python validate_workflow_json.py workflow.json`.
@@ -204,6 +212,11 @@ For exact remove/detach arguments, use `groundx-api/references/06-workflows.md`.
 The script reads `GROUNDX_API_KEY` and optional `GROUNDX_BASE_URL` from the
 process environment, `.env` in the current directory, or `.env` beside the YAML
 file. Do not pass API keys as command-line arguments.
+
+Use a different `GROUNDX_API_KEY` per environment. Prod live extraction leaves
+`GROUNDX_BASE_URL` unset or sets `https://api.groundx.ai/api`. Dev API/debug
+calls use `GROUNDX_BASE_URL=https://devapi.groundx.ai/api`, but dev structured
+extraction is unavailable unless an operator confirms otherwise.
 
 ## Outputs
 

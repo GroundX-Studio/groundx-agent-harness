@@ -20,9 +20,10 @@ Collect the smallest useful evidence bundle before proposing a retry, repair, or
 If any required identifier is missing, ask for it. Do not invent IDs, buckets, groups,
 callbacks, filters, or status values.
 
-Try GroundX MCP tools first. If the tools are not visible, say that the connector is not
-attached and ask the user to connect the GroundX MCP connector. Use REST fallback only
-when the connector cannot be attached now or the needed MCP tool is still unavailable.
+Use the Python SDK or REST with `GROUNDX_API_KEY` for the selected environment. For
+prod, leave `GROUNDX_BASE_URL` unset. For dev, set
+`GROUNDX_BASE_URL=https://devapi.groundx.ai/api`. GroundX MCP is optional and
+production-only; do not block dev debugging on connector setup.
 
 ## 2. Stuck Ingest Or Status
 

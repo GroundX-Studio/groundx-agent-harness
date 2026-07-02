@@ -9,7 +9,12 @@ with:
 - GroundX on-prem planning
 - GroundX product, company, and architecture questions
 
-For authenticated GroundX API calls, connect the hosted MCP server:
+For authenticated GroundX API calls, set `GROUNDX_API_KEY` in the shell that starts
+your agent. Use a regular GroundX user API key unless GroundX has issued you
+Partner-tier access.
+
+The hosted MCP server is optional and currently production-only. Connect it only when
+your client supports MCP and the target environment is prod:
 
 ```text
 https://api.groundx.ai/mcp
@@ -20,15 +25,20 @@ https://api.groundx.ai/mcp
 - A GroundX API key.
 - One of: VS Code + Claude, Claude Code Desktop, Claude Desktop, Codex Desktop,
   Codex CLI, or Claude Code CLI.
-- Enter API keys only in the GroundX OAuth screen. Do not paste keys into prompts.
-
-Use a regular GroundX user API key unless GroundX has issued you Partner-tier access.
+- Put API keys in environment variables or approved local secret stores. Do not paste
+  keys into prompts.
+- Dev and prod use different API keys. For prod, leave `GROUNDX_BASE_URL` unset. For
+  dev, set `GROUNDX_BASE_URL=https://devapi.groundx.ai/api`.
+- Prod keys are created in `https://dashboard.groundx.ai`; dev keys are created in
+  `https://devdashboard.groundx.ai`. The dashboards use the same Cognito
+  email/password, but buckets, API keys, documents, and account data are separate.
 
 The harness plugin and the MCP server are separate pieces:
 
 - The plugin gives the agent GroundX instructions and workflows.
-- MCP gives the agent authenticated GroundX API tools.
-- Install both where the client supports both.
+- `GROUNDX_API_KEY` gives SDK/REST access.
+- MCP gives the agent authenticated GroundX API tools for prod when supported.
+- Install the plugin first. Add MCP only when you need prod MCP tools.
 
 Client support:
 
@@ -56,7 +66,7 @@ claude plugin install groundx-agent-harness@groundx-agent-harness
 If `claude plugin --help` does not work, update Claude Code first. The `/plugin`
 slash command is not available in every VS Code chat surface.
 
-Connect MCP:
+Connect MCP, optional prod-only:
 
 1. Add the hosted GroundX MCP server:
 
@@ -106,7 +116,7 @@ Install the plugin with either method.
    install it.
 6. Run `/reload-plugins`, or start a new Claude Code session.
 
-Connect MCP:
+Connect MCP, optional prod-only:
 
 ```sh
 claude mcp add --transport http groundx https://api.groundx.ai/mcp
@@ -117,7 +127,7 @@ session.
 
 ### Claude Desktop
 
-Connect MCP:
+Connect MCP, optional prod-only:
 
 1. Open **Claude Desktop -> Settings -> Connectors**.
 2. Click **Add custom connector**.
@@ -152,7 +162,7 @@ Install the plugin:
 6. Install **GroundX Agent Harness**.
 7. Start a new Codex session.
 
-Connect MCP:
+Connect MCP, optional prod-only:
 
 8. Open **Settings -> MCP servers**.
 9. Toggle the server type to **Streamable HTTP**.
@@ -176,7 +186,7 @@ codex plugin marketplace add GroundX-Studio/groundx-agent-harness --ref main
 codex plugin add groundx-agent-harness@groundx-agent-harness
 ```
 
-Connect MCP:
+Connect MCP, optional prod-only:
 
 ```sh
 codex mcp add groundx --url https://api.groundx.ai/mcp
@@ -205,7 +215,7 @@ claude plugin install groundx-agent-harness@groundx-agent-harness
 
 Then run `/reload-plugins` inside Claude Code, or start a new session.
 
-Connect MCP:
+Connect MCP, optional prod-only:
 
 ```sh
 claude mcp add --transport http groundx https://api.groundx.ai/mcp

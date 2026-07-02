@@ -7,7 +7,8 @@ credentials. This file is the canonical credential policy for installed agents.
 
 | Credential | Environment variable | Used for |
 | --- | --- | --- |
-| GroundX API key | `GROUNDX_API_KEY` | Customer-scoped REST fallback and the hosted GroundX MCP authorization page |
+| GroundX API key | `GROUNDX_API_KEY` | Customer-scoped SDK/REST requests and the optional hosted GroundX MCP authorization page |
+| GroundX API base URL | `GROUNDX_BASE_URL` | Non-secret environment selector; unset or `https://api.groundx.ai/api` for prod, `https://devapi.groundx.ai/api` for dev |
 | Workspace API key | `WORKSPACE_API_KEY` | Managed workspace projects; `PARTNER_API_KEY` and `GROUNDX_API_KEY` are accepted aliases by the harness/scaffold |
 | Partner API key | `PARTNER_API_KEY` | Partner-only customer lifecycle, key minting, and cross-customer provisioning requests |
 | LLM API key | `LLM_API_KEY` | Server-side middleware completions in scaffolded web UI projects |
@@ -79,12 +80,18 @@ keys:
 
 ## API Header Reminders
 
-- GroundX REST fallback requests use `X-API-Key: $GROUNDX_API_KEY`.
-- GroundX MCP is tried before REST. If GroundX MCP tools are not visible, instruct the
-  user to connect the GroundX MCP connector to GroundX and retry discovery before REST
-  fallback. Connected interactive clients use the first-party OAuth flow and
-  `groundx_account_context`; non-interactive API agents may authenticate MCP transport
-  with `X-API-Key`.
+- GroundX SDK/REST requests use `X-API-Key: $GROUNDX_API_KEY` under the hood.
+- `GROUNDX_API_KEY` is environment-specific. Dev and prod need different keys.
+- Prod keys are created in `https://dashboard.groundx.ai`; dev keys are created in
+  `https://devdashboard.groundx.ai`. The dashboards share Cognito email/password
+  login, but not backend data. Buckets, API keys, documents, and account resources are
+  environment-specific.
+- `GROUNDX_BASE_URL` is non-secret. For prod, leave it unset or set
+  `https://api.groundx.ai/api`; for dev, set `https://devapi.groundx.ai/api`.
+- GroundX MCP is optional and currently production-only. If prod MCP tools are already
+  visible, call `groundx_account_context` before partner, workspace, or admin behavior.
+  If MCP tools are missing, continue with SDK/REST unless the user specifically wants
+  MCP setup help. Dev work should use SDK/REST.
 - Managed workspace project requests use `X-API-Key: $WORKSPACE_API_KEY`; regular
   workspace-capable GroundX keys work for these endpoints, and `PARTNER_API_KEY` /
   `GROUNDX_API_KEY` are compatibility aliases in the harness/scaffold.

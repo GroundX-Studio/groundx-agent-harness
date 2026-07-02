@@ -4,13 +4,12 @@ description: >
   Installed-agent GroundX API reference for document ingest, search, RAG,
   source attribution, document understanding, buckets, groups, workflows,
   account health, API keys, SDK usage, stuck ingest/status, empty search, bad
-  citations, and REST fallback. Try the hosted GroundX MCP server before direct
-  REST; ask the user to connect the GroundX MCP connector when tools are
-  missing, then use REST only when MCP cannot attach or a needed tool is still
-  missing. REST fallback uses the `X-API-Key` header and keeps raw keys out of
-  tool arguments, browser code, logs, transcripts, examples, and generated
-  files. For MCP client setup, connection, and auth, see the `groundx-mcp`
-  skill.
+  citations, SDK usage, and REST calls. Use `GROUNDX_API_KEY` with the Python
+  SDK or REST for direct API work. The hosted GroundX MCP server is optional and
+  production-only; use it when already connected and the target is prod. Keep raw
+  keys out of tool arguments, browser code, logs, transcripts, examples, and
+  generated files. For MCP client setup, connection, and auth, see the
+  `groundx-mcp` skill.
 ---
 
 # GroundX API Skill
@@ -39,7 +38,8 @@ operation-level references.
 - **Before producing output:** read `references/01-auth.md`. For stuck ingest/status,
   empty search, or bad citations, read `references/debugging.md` before the operation
   reference. Otherwise read the operation reference or guide matching the endpoint
-  being used.
+  being used. For dev, set `GROUNDX_BASE_URL=https://devapi.groundx.ai/api`; for
+  prod, leave `GROUNDX_BASE_URL` unset.
 - **Misuse cases:** do not put secret keys in browser code, examples, docs, logs, or
   generated artifacts; do not invent endpoint shapes from memory.
 
@@ -48,12 +48,12 @@ operation-level references.
 1. Classify the request: API operation, schema-first extraction, deployment, or
    architecture.
 2. Read `references/01-auth.md`.
-3. Try GroundX MCP tools first. If visible, call `groundx_account_context`, prefer
-   the matching MCP tool, and use REST only when the required tool is not exposed.
-4. If GroundX MCP tools are not visible, ask the user to connect the GroundX MCP
-   connector and use REST fallback only when the connector cannot be attached now or
-   the needed MCP tool is still unavailable. For MCP client setup and connection
-   guidance, see the `groundx-mcp` skill.
+3. Identify the target environment. For dev, set
+   `GROUNDX_BASE_URL=https://devapi.groundx.ai/api` and use the dev
+   `GROUNDX_API_KEY`. For prod, leave `GROUNDX_BASE_URL` unset and use the prod
+   `GROUNDX_API_KEY`.
+4. Use the Python SDK or REST by default. If GroundX MCP tools are visible and the
+   target is prod, call `groundx_account_context` and use MCP when convenient.
 5. For stuck ingest/status, empty search, or bad citations, read
    `references/debugging.md` before the operation reference.
 6. Read the smallest operation reference and guide that matches the work.
@@ -86,9 +86,11 @@ reference and guide the task needs. For response-shape questions, check
 ## Pre-return Checklist
 
 - [ ] REST calls use `X-API-Key`, never `Authorization: Bearer`.
-- [ ] GroundX MCP is attempted before REST; if tools are missing, the user is asked to
-      connect the GroundX MCP connector before REST fallback and the `groundx-mcp`
-      skill is referenced for client setup and connection.
+- [ ] Dev uses `GROUNDX_BASE_URL=https://devapi.groundx.ai/api`; prod leaves
+      `GROUNDX_BASE_URL` unset.
+- [ ] `GROUNDX_API_KEY` is for the selected environment.
+- [ ] GroundX MCP is optional and prod-only; if used, `groundx_account_context` is
+      called before partner, workspace, or admin behavior.
 - [ ] Raw API keys do not appear in MCP tool arguments, logs, transcripts, browser
       code, examples, or generated files.
 - [ ] REST URLs avoid double-version paths such as `/api/v1/v1/...`.
