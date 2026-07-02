@@ -107,6 +107,57 @@ def test_validate_accepts_custom_steps_routes_and_leaf_fields():
     assert validate(_custom_workflow()) == []
 
 
+def test_validate_rejects_custom_workflow_without_persisted_workflow_metadata():
+    workflow = _custom_workflow()
+    del workflow["extract"]["workflow"]
+
+    assert any("extract.workflow" in error for error in validate(workflow))
+
+
+def test_validate_rejects_custom_workflow_without_persisted_custom_steps():
+    workflow = _custom_workflow()
+    del workflow["extract"]["workflow"]["custom_steps"]
+
+    assert any("extract.workflow.custom_steps" in error for error in validate(workflow))
+
+
+def test_validate_rejects_custom_workflow_without_persisted_output_routes():
+    workflow = _custom_workflow()
+    del workflow["extract"]["workflow"]["output_routes"]
+
+    assert any("extract.workflow.output_routes" in error for error in validate(workflow))
+
+
+def test_validate_rejects_custom_workflow_without_persisted_leaf_fields():
+    workflow = _custom_workflow()
+    del workflow["extract"]["workflow"]["leaf_fields"]
+
+    assert any("extract.workflow.leaf_fields" in error for error in validate(workflow))
+
+
+def test_validate_rejects_persisted_output_route_contract_drift():
+    workflow = _custom_workflow()
+    workflow["extract"]["workflow"]["output_routes"][0]["readback_path"] = (
+        "/chunks/*/customChunkOutputs/line_item_labels/wrong"
+    )
+
+    assert any("extract.workflow.output_routes" in error for error in validate(workflow))
+
+
+def test_validate_rejects_persisted_leaf_field_contract_drift():
+    workflow = _custom_workflow()
+    workflow["extract"]["workflow"]["leaf_fields"][0]["repetition_scope"] = "none"
+
+    assert any("extract.workflow.leaf_fields" in error for error in validate(workflow))
+
+
+def test_validate_rejects_missing_persisted_leaf_field_contract_field():
+    workflow = _custom_workflow()
+    del workflow["extract"]["workflow"]["leaf_fields"][0]["is_repeated"]
+
+    assert any("extract.workflow.leaf_fields" in error for error in validate(workflow))
+
+
 def test_validate_accepts_pseudo_group_routes_to_final_fields():
     workflow = _custom_workflow()
     workflow["extract"] = {
@@ -198,6 +249,43 @@ def test_validate_accepts_pseudo_group_routes_to_final_fields():
             "repetitionScope": "none",
         }
     ]
+    workflow["extract"]["workflow"] = {
+        "metadata_version": 1,
+        "custom_steps": [
+            {
+                "name": "statement_labels",
+                "level": "chunk",
+                "kind": "instruct",
+            }
+        ],
+        "output_routes": [
+            {
+                "workflow_group": "statement_identity",
+                "workflow_field": "account_number",
+                "final_path": "/statement/account_number",
+                "step_name": "statement_labels",
+                "level": "chunk",
+                "output_map": "customChunkOutputs",
+                "output_key": "account_number",
+                "readback_path": (
+                    "/chunks/*/customChunkOutputs/statement_labels/account_number"
+                ),
+            }
+        ],
+        "leaf_fields": [
+            {
+                "final_path": "/statement/account_number",
+                "workflow_group": "statement_identity",
+                "workflow_field": "account_number",
+                "step_name": "statement_labels",
+                "level": "chunk",
+                "output_key": "account_number",
+                "field_type": "str",
+                "is_repeated": False,
+                "repetition_scope": "none",
+            }
+        ],
+    }
 
     assert validate(workflow) == []
 

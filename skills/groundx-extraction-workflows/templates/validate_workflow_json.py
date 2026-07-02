@@ -127,6 +127,144 @@ def _custom_match_key(item: dict) -> tuple:
     )
 
 
+STEP_CONTRACT_FIELDS = (
+    ("name", "name"),
+    ("level", "level"),
+    ("kind", "kind"),
+)
+
+ROUTE_CONTRACT_FIELDS = (
+    ("finalPath", "final_path"),
+    ("workflowGroup", "workflow_group"),
+    ("workflowField", "workflow_field"),
+    ("stepName", "step_name"),
+    ("level", "level"),
+    ("outputKey", "output_key"),
+    ("outputMap", "output_map"),
+    ("readbackPath", "readback_path"),
+)
+
+LEAF_CONTRACT_FIELDS = (
+    ("finalPath", "final_path"),
+    ("workflowGroup", "workflow_group"),
+    ("workflowField", "workflow_field"),
+    ("stepName", "step_name"),
+    ("level", "level"),
+    ("outputKey", "output_key"),
+    ("fieldType", "field_type"),
+    ("isRepeated", "is_repeated"),
+    ("repetitionScope", "repetition_scope"),
+)
+
+
+def _persisted_objects(
+    value: typing.Any, path: str, errors: typing.List[str]
+) -> typing.List[dict]:
+    if not isinstance(value, list):
+        errors.append(f"{path} must be a non-empty array for custom workflow metadata")
+        return []
+    if not value:
+        errors.append(f"{path} must be a non-empty array for custom workflow metadata")
+        return []
+    objects = []
+    for index, item in enumerate(value):
+        if not isinstance(item, dict):
+            errors.append(f"{path}[{index}] must be an object")
+            continue
+        objects.append(item)
+    return objects
+
+
+def _contract_set(
+    items: typing.Iterable[dict],
+    field_pairs: typing.Iterable[tuple[str, str]],
+    *,
+    persisted: bool,
+) -> typing.Set[tuple]:
+    field_index = 1 if persisted else 0
+    return {
+        tuple(item.get(pair[field_index]) for pair in field_pairs)
+        for item in items
+    }
+
+
+def _validate_contract_parity(
+    top_level: typing.List[dict],
+    persisted: typing.List[dict],
+    field_pairs: typing.Iterable[tuple[str, str]],
+    path: str,
+    top_level_name: str,
+    errors: typing.List[str],
+) -> None:
+    top_level_contract = _contract_set(top_level, field_pairs, persisted=False)
+    persisted_contract = _contract_set(persisted, field_pairs, persisted=True)
+    if len(persisted_contract) != len(persisted):
+        errors.append(f"{path} contains duplicate persisted contract records")
+    if persisted_contract != top_level_contract:
+        errors.append(f"{path} must match top-level {top_level_name} contract fields")
+
+
+def _validate_persisted_custom_workflow(
+    workflow: dict,
+    custom_steps: typing.List[dict],
+    output_routes: typing.List[dict],
+    leaf_fields: typing.List[dict],
+) -> typing.List[str]:
+    errors: typing.List[str] = []
+    extract = workflow.get("extract")
+    if not isinstance(extract, dict):
+        errors.append("extract must be an object for custom workflow metadata")
+        return errors
+    persisted_workflow = extract.get("workflow")
+    if not isinstance(persisted_workflow, dict):
+        errors.append("extract.workflow must include custom workflow metadata")
+        return errors
+
+    persisted_steps = _persisted_objects(
+        persisted_workflow.get("custom_steps"),
+        "extract.workflow.custom_steps",
+        errors,
+    )
+    persisted_routes = _persisted_objects(
+        persisted_workflow.get("output_routes"),
+        "extract.workflow.output_routes",
+        errors,
+    )
+    persisted_leaves = _persisted_objects(
+        persisted_workflow.get("leaf_fields"),
+        "extract.workflow.leaf_fields",
+        errors,
+    )
+    if errors:
+        return errors
+
+    _validate_contract_parity(
+        custom_steps,
+        persisted_steps,
+        STEP_CONTRACT_FIELDS,
+        "extract.workflow.custom_steps",
+        "customSteps",
+        errors,
+    )
+    _validate_contract_parity(
+        output_routes,
+        persisted_routes,
+        ROUTE_CONTRACT_FIELDS,
+        "extract.workflow.output_routes",
+        "outputRoutes",
+        errors,
+    )
+    _validate_contract_parity(
+        leaf_fields,
+        persisted_leaves,
+        LEAF_CONTRACT_FIELDS,
+        "extract.workflow.leaf_fields",
+        "leafFields",
+        errors,
+    )
+    return errors
+
+
 def _final_field_pointer(group_name: str, field_name: str) -> str:
     return f"/{group_name}/{field_name}"
 
@@ -359,6 +497,15 @@ def _validate_custom_workflow(workflow: dict) -> typing.List[str]:
                 f"at most {CUSTOM_WORKFLOW_MAX_FIELDS} fields "
                 "may route to one executable workflow step"
             )
+
+    errors.extend(
+        _validate_persisted_custom_workflow(
+            workflow,
+            typing.cast(typing.List[dict], custom_steps),
+            typing.cast(typing.List[dict], output_routes),
+            typing.cast(typing.List[dict], leaf_fields),
+        )
+    )
 
     return errors
 
