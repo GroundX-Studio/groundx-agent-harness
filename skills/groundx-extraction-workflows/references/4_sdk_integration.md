@@ -21,7 +21,7 @@ non-default cases.
 │   WorkflowSteps                                 │
 │   Used by: groundx-api skill (workflow CRUD,   │
 │            ingest, polling, get_extract)        │
-│   Installed via: pip install groundx           │
+│   Installed via: pip install "groundx[extract]" │
 └────────────────────────────────────────────────┘
 ```
 
@@ -34,11 +34,13 @@ CI and plugin validation do not depend on the published SDK being installed.
 For local deploy and run commands, this skill uses the GroundX Python
 SDK. For interactive agent API calls (workflow create/update/attach,
 ingest, poll, get_extract), this skill delegates operation semantics to
-the `groundx-api` skill. Follow its MCP-first execution rule: try
-GroundX MCP tools, ask the user to connect the GroundX MCP connector to
-GroundX when tools are missing, call `groundx_account_context` when
-connected, and use the Python SDK when local script execution is the
-right path.
+the `groundx-api` skill. Use the selected environment's `GROUNDX_API_KEY`
+with the Python SDK by default. Live structured extraction currently runs in
+prod; do not use dev for deploy + ingest + poll + get_extract unless an
+operator explicitly confirms dev extraction is available. For dev
+non-extraction API/debug calls, set
+`GROUNDX_BASE_URL=https://devapi.groundx.ai/api`; for prod, leave it unset.
+GroundX MCP is optional and prod-only.
 
 ## 2. The compile script
 
@@ -182,9 +184,10 @@ There are three execution paths:
   to a bucket or account default through the GroundX Python SDK.
 - **Full local runner:** `templates/run_extraction.py` performs deploy,
   ingest, status polling, X-Ray capture, and extract retrieval through
-  the GroundX Python SDK.
-- **Interactive agent operation:** use `groundx-api` and prefer MCP
-  tools when available.
+  the GroundX Python SDK. Use it against prod unless an operator confirms dev
+  extraction is available.
+- **Interactive agent operation:** use `groundx-api`; use MCP tools only when
+  they are already connected in prod, otherwise use the Python SDK/API path.
 
 For first-run deploy guidance, use `deploy.md`. It has the short decision table
 for MCP vs `deploy_workflow.py` vs `run_extraction.py`.
@@ -195,7 +198,7 @@ GroundX workflow and document operations. The full set of operations:
 | Step | Operation | Where documented |
 |---|---|---|
 | Load reusable workflow settings | `client.load_extraction_definition(path=...)` / `client.load_extraction_definition(workflow_id=...)` | public Python SDK docs |
-| Create workflow | `client.create_extraction_workflow(...)` (preferred SDK helper) / `workflow_create` (MCP first) / `workflows.create()` fallback | `skills/groundx-api/references/06-workflows.md` |
+| Create workflow | `client.create_extraction_workflow(...)` (preferred SDK helper) / `workflows.create()` fallback / `workflow_create` when prod MCP is already connected | `skills/groundx-api/references/06-workflows.md` |
 | Update workflow | `client.update_extraction_workflow(...)` (preferred SDK helper) / `workflows.update()` fallback | same |
 | Attach workflow to bucket | `workflow_add_to_id` / `workflows.add_to_id()` | same |
 | Ingest a local PDF | `gx.ingest()` SDK helper or pre-signed upload, then `document_ingestremote` for the hosted URL | `skills/groundx-api/references/02-documents.md` |

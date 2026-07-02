@@ -1,6 +1,6 @@
 # API Surface: SDKs, REST, Docs
 
-The external API surface to GroundX consists of three things: two language SDKs (`groundx-python` and `groundx-typescript`), the direct REST API, and a public documentation site. SDK baselines and the docs site are generated from a single OpenAPI specification; both SDKs add hand-maintained ergonomic methods on top. This file describes the *shape* of the surface, not the installed-agent execution order. For call patterns and semantics see `groundx-api` for customer-tier and Workspace facade behavior. Partner-tier lifecycle behavior is separate from this public SDK surface. Installed agents should follow the owning API skill's MCP-first guidance before using REST.
+The external API surface to GroundX consists of three things: two language SDKs (`groundx-python` and `groundx-typescript`), the direct REST API, and a public documentation site. SDK baselines and the docs site are generated from a single OpenAPI specification; both SDKs add hand-maintained ergonomic methods on top. This file describes the *shape* of the surface, not the installed-agent execution order. For call patterns, dev/prod base URLs, and semantics see `groundx-api` for customer-tier and Workspace facade behavior. Partner-tier lifecycle behavior is separate from this public SDK surface. Installed agents should follow the owning API skill's SDK/REST guidance; MCP is optional for prod only.
 
 ## 1. Marketing altitude
 

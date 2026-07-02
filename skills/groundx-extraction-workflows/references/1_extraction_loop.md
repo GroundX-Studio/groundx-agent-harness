@@ -143,8 +143,10 @@ lookup, and `--create-bucket-name` when the command should create a new bucket.
 Use `--dry-run` first when you want compile/validation and planned actions
 without a live API call.
 
-**Full local run:** when you need deploy + ingest + poll + X-Ray +
-extract output, use `run_extraction.py`. It writes `output.json` only for the
+**Full local run:** when you need prod deploy + ingest + poll + X-Ray +
+extract output, use `run_extraction.py`. Dev structured extraction does not
+currently work; do not run this path against dev unless an operator explicitly
+confirms it is available. The runner writes `output.json` only for the
 raw GroundX `get_extract` payload. If raw extract is unavailable, it writes
 `xray_diagnostic.json` and `final_output.json` instead. Add
 `--require-raw-extract` when missing `output.json` should fail the run. If local
@@ -164,22 +166,22 @@ again just because local polling timed out. A timeout means the local wait
 expired; the platform process may still complete.
 
 **Interactive agent path:** when an agent is operating inside Claude or
-Codex and GroundX MCP tools are visible, follow the `groundx-api`
-MCP-first flow: check for GroundX MCP tools, tell the user to connect
-the GroundX MCP connector to GroundX if they are missing, call
-`groundx_account_context` when connected, and use the GroundX Python SDK
-for local script execution. The extraction skill remains the schema
-authoring reference; `groundx-api` remains the operation-semantics
-reference.
+Codex, follow `groundx-api` operation semantics with the selected
+environment's `GROUNDX_API_KEY`. Use the GroundX Python SDK by default.
+Full live extraction should target prod unless an operator confirms dev
+extraction is available. For dev non-extraction API/debug calls, set
+`GROUNDX_BASE_URL=https://devapi.groundx.ai/api`; for prod, leave it unset.
+GroundX MCP is optional and prod-only. The extraction skill remains the schema
+authoring reference; `groundx-api` remains the operation-semantics reference.
 
 The manual operation loop is:
 
 1. **Create or update the workflow.** POST `workflow.json` via the
-   `workflow_create` MCP tool or the `workflows.create()` SDK call. The
-   response includes the `workflowId`.
+   `workflows.create()` SDK call. In prod sessions where MCP is already
+   connected, `workflow_create` is also acceptable. The response includes the
+   `workflowId`.
 2. **Attach the workflow to a bucket.** Either an existing bucket or a
-   new one. Use `workflow_add_to_id` MCP tool or the equivalent SDK
-   call.
+   new one. Use the SDK call, or `workflow_add_to_id` when using prod MCP.
 3. **Ingest the PDF.** For local PDFs, prefer the Python SDK ingest
    helper or the pre-signed upload flow from `groundx-api`, then submit
    the hosted URL through `document_ingestremote`. When the PDF is

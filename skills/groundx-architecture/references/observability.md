@@ -86,10 +86,15 @@ For the metrics signals' canonical categories see `overview.md` § 4.7. For heal
 
 | Aspect | Cloud service | On-prem |
 | --- | --- | --- |
-| Destination | CloudWatch | stdout (collected by whatever the deployer wires) |
+| Destination | CloudWatch for Lambda/Kubernetes paths; dedicated EC2 hosts keep local service logs | stdout (collected by whatever the deployer wires) |
 | Format | Partial JSON structured (migration in progress); plain text where unmigrated | Same migration state |
 | Log levels | In use (debug / info / warn / error etc.) | Same |
 | Retention | Per the CloudWatch log-group retention policy + SOC2 (1 year for audit) | Deployer's choice |
+
+Hosted cloud also has dedicated EC2 runtime surfaces for file processing,
+layout, and search/ranker. Internal operators route through the private
+operator references and producing repo runbooks for SSH, bastion, hostnames, and
+log commands.
 
 ### 5.3 Audit log
 

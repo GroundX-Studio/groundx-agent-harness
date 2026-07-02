@@ -105,8 +105,10 @@ extract retrieval. Do not copy API operation semantics into this skill.
 
 ## 6. Run Extraction And Inspect Evidence
 
-Use `run_extraction.py` for one document or `batch_extraction.py` for a live
-batch. Retrieve:
+Use `run_extraction.py` for one prod document or `batch_extraction.py` for a
+live prod batch. Dev structured extraction does not currently work; use dev only
+for non-extraction API/debug calls unless an operator explicitly confirms dev
+extraction is available. Retrieve:
 
 - `workflow.json`
 - `extraction_workflow_metadata_v1.json`
