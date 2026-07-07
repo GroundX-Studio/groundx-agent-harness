@@ -13,6 +13,11 @@ For authenticated GroundX API calls, set `GROUNDX_API_KEY` in the shell that sta
 your agent. Use a regular GroundX user API key unless GroundX has issued you
 Partner-tier access.
 
+This repository installs **GroundX Agent Harness**, the public runtime bundle for
+agents. The internal **GroundX Studio Harness** is separate and includes Studio-only
+web UI, publish, slides, and partner-admin production skills. Those internal skills
+are intentionally not included in the public agent harness.
+
 The hosted MCP server is optional and currently production-only. Connect it only when
 your client supports MCP and the target environment is prod:
 
@@ -22,7 +27,9 @@ https://api.groundx.ai/mcp
 
 ## Requirements
 
-- A GroundX API key.
+- A GroundX API key. For prod, sign in or create an account at
+  `https://dashboard.groundx.ai`, create or copy a prod API key, and keep it in
+  local secret storage or the GroundX OAuth page. Never paste API keys into chat.
 - One of: VS Code + Claude, Claude Code Desktop, Claude Desktop, Codex Desktop,
   Codex CLI, or Claude Code CLI.
 - Put API keys in environment variables or approved local secret stores. Do not paste
@@ -39,6 +46,8 @@ The harness plugin and the MCP server are separate pieces:
 - `GROUNDX_API_KEY` gives SDK/REST access.
 - MCP gives the agent authenticated GroundX API tools for prod when supported.
 - Install the plugin first. Add MCP only when you need prod MCP tools.
+- Connector tool calls may default to per-tool approval prompts. That is expected.
+  You may choose **Always allow** after accepting the broader security tradeoff.
 
 Client support:
 
@@ -46,7 +55,8 @@ Client support:
 | --- | --- | --- |
 | VS Code + Claude | Yes | Yes |
 | Claude Code Desktop | Yes | Yes |
-| Claude Desktop | Connector only | Yes |
+| Claude app with Plugins/Cowork | Yes | Yes |
+| Claude Desktop with Connectors only | No plugin skills; use hosted connector for MCP tools | Yes |
 | Codex Desktop | Yes | Yes |
 | Codex CLI | Yes | Yes |
 | Claude Code CLI | Yes | Yes |
@@ -74,8 +84,8 @@ Connect MCP, optional prod-only:
    claude mcp add --transport http groundx https://api.groundx.ai/mcp
    ```
 
-2. Run `/mcp`, connect `groundx`, complete OAuth,
-   and start a new Claude Code session.
+2. Run `/mcp`, connect `groundx`, enter the prod API key on the GroundX OAuth
+   page, and start a new Claude Code session.
 
 ### Claude Code Desktop
 
@@ -86,35 +96,100 @@ Install the plugin with either method.
 
 **Method 1 — Organization plugin sync**
 
-1. An organization admin opens **Claude**.
-2. Go to **Organization settings -> Plugins**.
-3. Click **Add plugins**.
-4. Choose **Sync from GitHub**.
-5. Select:
+Use this when a Team or Enterprise admin wants org-wide distribution. Claude
+organization GitHub sync uses a private or internal marketplace repository; the
+public repo is not supported as the direct organization marketplace sync target.
+
+1. Create or choose a private/internal organization marketplace repository.
+2. Vendor/copy this public bundle into that repository at:
+
+   ```text
+   plugins/groundx-agent-harness/
+   ```
+
+   The private marketplace repository should include:
+
+   ```text
+   .claude-plugin/marketplace.json
+   plugins/groundx-agent-harness/.claude-plugin/marketplace.json
+   plugins/groundx-agent-harness/README.md
+   plugins/groundx-agent-harness/scripts/
+   plugins/groundx-agent-harness/skills/
+   ```
+
+3. Create the private marketplace root `.claude-plugin/marketplace.json` with a
+   complete marketplace manifest. Use your organization for the root `owner`,
+   keep the public bundle plugin entry's `description`, `strict`, and `skills`
+   fields, and change only the plugin `source` to this repo-relative path. You
+   may replace `author` with your approved organization publisher value:
+
+   ```json
+   {
+     "name": "groundx-agent-harness-marketplace",
+     "owner": {
+       "name": "Your Organization"
+     },
+     "plugins": [
+       {
+         "name": "groundx-agent-harness",
+         "description": "GroundX agent runtime harness for API use, schema-first extraction, on-prem deployment, architecture, and supported GTM guidance.",
+         "author": {
+           "name": "GroundX"
+         },
+         "source": "./plugins/groundx-agent-harness",
+         "strict": false,
+         "skills": [
+           "./skills/groundx-api",
+           "./skills/groundx-mcp",
+           "./skills/groundx-extraction-workflows",
+           "./skills/groundx-on-prem",
+           "./skills/groundx-architecture",
+           "./skills/product-brand-gtm",
+           "./skills/master-brand-gtm",
+           "./skills/groundx-python"
+         ]
+       }
+     ]
+   }
+   ```
+
+4. In **Claude**, go to **Organization settings -> Plugins**.
+5. Click **Add plugin** and select **GitHub** as the source.
+6. Enter the private/internal organization marketplace repository, not:
 
    ```text
    GroundX-Studio/groundx-agent-harness
    ```
 
-6. Complete the sync flow so **GroundX Agent Harness** appears in the organization's
+7. Complete the sync flow so **GroundX Agent Harness** appears in the organization's
    plugin list.
-7. Individual users can then install it from Claude **Cowork** or **Code**:
+8. Individual users can then install it from Claude **Cowork** or **Code**:
    - Click the **+** symbol.
    - Choose **Add plugin**.
    - Select **GroundX Agent Harness** from the organization plugins.
-8. Run `/reload-plugins`, or start a new Claude Code session.
+9. Run `/reload-plugins`, or start a new Claude Code session.
 
 **Method 2 — Personal marketplace**
 
-1. Click **Customize** in the left sidebar.
-2. Next to **Personal plugins**, click **+**, then select
-   **Create plugin -> Add marketplace**.
-3. In **Add marketplace**, enter `GroundX-Studio/groundx-agent-harness` and click
-   **Sync**.
-4. Click **+** next to **Personal plugins** again, then select **Browse plugins**.
-5. Open the **Personal** tab, find **GroundX Agent Harness**, and click **+** to
-   install it.
-6. Run `/reload-plugins`, or start a new Claude Code session.
+Route: **Customize -> Plugins -> Personal plugins + -> Add marketplace -> Add
+from a repository**.
+
+1. In a Claude app build that shows the Plugins/Cowork surface, open
+   **Customize -> Plugins -> Personal plugins + -> Add marketplace**.
+2. Choose **Add from a repository**.
+3. When prompted for a repository, enter:
+
+   ```text
+   GroundX-Studio/groundx-agent-harness
+   ```
+
+4. A GitHub account is not required for this public repository. If the repository
+   list cannot load, type `GroundX-Studio/groundx-agent-harness` directly and
+   continue.
+5. Click **Sync**.
+6. Open the personal directory or **GroundX Agent Harness** card and click
+   **Install**.
+7. Run `/reload-plugins`, or start a new Claude Code session.
 
 Connect MCP, optional prod-only:
 
@@ -122,25 +197,33 @@ Connect MCP, optional prod-only:
 claude mcp add --transport http groundx https://api.groundx.ai/mcp
 ```
 
-Run `/mcp`, connect `groundx`, complete OAuth, and start a new Claude Code
-session.
+Run `/mcp`, connect `groundx`, enter the prod API key on the GroundX OAuth page,
+and start a new Claude Code session.
 
 ### Claude Desktop
 
+Some Claude app builds expose the Plugins/Cowork surface and can use the personal
+marketplace plugin path above. Claude Desktop builds that only expose Connectors use
+the hosted MCP connector path below.
+
 Connect MCP, optional prod-only:
 
-1. Open **Claude Desktop -> Settings -> Connectors**.
-2. Click **Add custom connector**.
+1. Open **Claude Desktop -> Customize -> Connectors**.
+2. Click **+**, then click **Add custom connector**.
 3. Enter:
 
    ```text
-   Name: GroundX Studio
+   Name: GroundX API
    Remote MCP Server URL: https://api.groundx.ai/mcp
    ```
 
 4. Leave advanced OAuth fields empty unless Claude asks you to review discovered
    settings.
-5. Click **Connect**, complete OAuth, and enable the connector in a conversation.
+5. Click **Add first**, then click **Connect on the next screen**.
+6. Enter the prod API key on the **GroundX OAuth page**.
+7. Enable the connector in a conversation.
+8. Expect per-tool approval prompts by default. Choose **Always allow** only after
+   accepting the broader connector permission.
 
 ### Codex Desktop
 
@@ -173,9 +256,10 @@ Connect MCP, optional prod-only:
     ```
 
 11. Click **Save**.
-12. The MCP server should appear in the **From plugins** list with an
+12. The saved MCP server entry in the MCP server list should show an
     **Authenticate** button.
-13. Click **Authenticate** and complete OAuth.
+13. Click **Authenticate** and enter the prod API key on the **GroundX OAuth
+    page**.
 
 ### Codex CLI
 
@@ -221,7 +305,8 @@ Connect MCP, optional prod-only:
 claude mcp add --transport http groundx https://api.groundx.ai/mcp
 ```
 
-Then run `/mcp`, connect `groundx`, complete OAuth, and start a new session.
+Then run `/mcp`, connect `groundx`, enter the prod API key on the GroundX OAuth
+page, and start a new session.
 
 ## Verification
 
