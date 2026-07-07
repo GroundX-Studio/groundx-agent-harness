@@ -83,6 +83,9 @@ Artifact names matter:
   responses.
 - `xray_diagnostic.json` and `<doc>.xray_diagnostic.json` are local X-Ray
   reconstructions for debugging. Do not score them as clean raw extraction.
+- `xray_reassembly_diagnostic.json` stores the full SDK readback envelope when
+  X-Ray reconstruction runs. SDK `final_output` is the default output; use
+  `workflow_output` to inspect the pre-relationship debug view.
 - `final_output.json` and `<doc>.final_output.json` are local final outputs
   after diagnostic reconstruction and optional business logic. Score them only
   when that is the explicit goal.

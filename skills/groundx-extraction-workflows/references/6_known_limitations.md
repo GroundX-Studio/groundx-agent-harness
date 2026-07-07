@@ -150,7 +150,8 @@ return server-side extractions; the X-Ray fallback is the working path.
 **Resolution (in this skill):** `run_extraction.py` tries `get_extract` first.
 When raw extract is available, it writes that payload to `output.json`. When
 `get_extract` is empty or 404s, it writes `xray_diagnostic.json` from
-`xray_to_extract.py` and writes `final_output.json` for local
+`xray_to_extract.py`, writes `xray_reassembly_diagnostic.json` for the full SDK
+readback envelope when available, and writes `final_output.json` for local
 diagnostic/business-logic output. Add `--require-raw-extract` when the absence
 of `output.json` should fail the run. `xray_to_extract.py` remains the
 canonical local aggregator for X-Ray-first diagnostics (see `references/README.md`

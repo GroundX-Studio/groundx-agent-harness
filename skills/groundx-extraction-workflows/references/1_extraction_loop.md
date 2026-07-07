@@ -268,6 +268,9 @@ with a note.
 - `xray.json` — the raw X-Ray evidence captured by the runner.
 - `xray_diagnostic.json` — local reconstruction from X-Ray, written only when
   raw extract is unavailable.
+- `xray_reassembly_diagnostic.json` — full SDK readback envelope, including
+  final output, workflow debug output, relationship output when present, and
+  diagnostics, written with X-Ray reconstruction when available.
 - `final_output.json` — local diagnostic/business-logic output, written only
   when produced.
 - `business_logic_metadata.json` — run-local final-group metadata used so

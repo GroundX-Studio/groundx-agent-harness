@@ -80,7 +80,8 @@ record:
   inside the final group when it is valid for the desired output contract
 - **scope** — `singleton` (appears once per document) or `repeating` (one value per
   record in a list). Scope decides the custom step kind: singletons use
-  `kind: instruct`; repeating records use `kind: keys` or `kind: summary`
+  `kind: instruct`; repeating records use `kind: keys` or `kind: summary`.
+  `summary` is also a repeated-record shape, not a singleton summary object.
 - **null rule** — always present, sometimes null, or never null. Records the
   null-vs-miss expectation `score_extraction.py` uses (legitimate null = PASS, not a miss)
 - **required output name** — the exact key the downstream system expects, if it

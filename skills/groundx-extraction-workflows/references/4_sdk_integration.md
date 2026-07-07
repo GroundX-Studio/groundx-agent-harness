@@ -95,6 +95,9 @@ The custom workflow shapes the templates handle:
 - **meters-style** — array of physical-meter or metered-usage records through a
   custom step with `kind: summary`
 
+`kind: summary` is still an array-of-records shape. It is the summary step
+family, not a request for one document summary object.
+
 Each compiled custom step gets a `config` prompt for `figure`, `paragraph`, and
 `table-figure` molecules, with `includes.pageImages: true`. The compiler uses
 one reusable request template and one reusable task template, following the
@@ -147,7 +150,8 @@ and consumes prepared workflow metadata.
 For non-invoice documents (forms, receipts, contracts, reports), the
 schema-first runner shape is still applicable: per-document fields usually use
 custom `kind: instruct` steps, repeating records use `kind: keys`, and
-physical-meter or metered-usage records use `kind: summary`.
+physical-meter or metered-usage records use `kind: summary`. Both `keys` and
+`summary` produce repeated record arrays.
 The `workflow.agent_chain` branches still reference the workflow group names,
 while task names stay internal runtime roles.
 

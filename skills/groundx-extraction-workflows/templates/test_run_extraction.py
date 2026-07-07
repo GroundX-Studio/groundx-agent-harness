@@ -15,11 +15,17 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-if "groundx" not in sys.modules:
+try:
+    import groundx as groundx_module  # noqa: F401
+    import groundx.extract  # noqa: F401
+except Exception:
     groundx_stub = types.ModuleType("groundx")
     groundx_stub.Document = object
     groundx_stub.GroundX = object
     sys.modules["groundx"] = groundx_stub
+else:
+    groundx_module.Document = getattr(groundx_module, "Document", object)
+    groundx_module.GroundX = getattr(groundx_module, "GroundX", object)
 
 import run_extraction  # noqa: E402
 
@@ -650,6 +656,125 @@ def test_extract_artifacts_treats_empty_get_extract_dict_as_raw_unavailable():
     assert artifacts["final_output"]["fallback"] == "value"
     assert artifacts["source"] == "xray_to_extract"
     assert any(event["event"] == "extract.get_extract_empty" for event in rl.events)
+
+
+def test_extract_artifacts_uses_relationship_reassembly_as_final_output():
+    rl = RecordingLog()
+    workflow_extract = {
+        "workflow": {
+            "custom_steps": [
+                {"name": "account_rows", "level": "chunk", "kind": "summary"},
+                {"name": "charge_rows", "level": "chunk", "kind": "keys"},
+            ],
+            "output_routes": [
+                {
+                    "workflow_group": "accounts",
+                    "workflow_field": "account_id",
+                    "final_path": "/accounts/account_id",
+                    "step_name": "account_rows",
+                    "level": "chunk",
+                    "output_map": "customChunkOutputs",
+                    "output_key": "account_id",
+                },
+                {
+                    "workflow_group": "charges",
+                    "workflow_field": "account_id",
+                    "final_path": "/charges/account_id",
+                    "step_name": "charge_rows",
+                    "level": "chunk",
+                    "output_map": "customChunkOutputs",
+                    "output_key": "account_id",
+                },
+                {
+                    "workflow_group": "charges",
+                    "workflow_field": "amount",
+                    "final_path": "/charges/amount",
+                    "step_name": "charge_rows",
+                    "level": "chunk",
+                    "output_map": "customChunkOutputs",
+                    "output_key": "amount",
+                },
+            ],
+            "output_relationships": [
+                {
+                    "parent_group": "accounts",
+                    "child_group": "charges",
+                    "parent_output_field": "charges",
+                    "match_attrs": ["account_id"],
+                    "unmatched_child_group": "charges",
+                }
+            ],
+        }
+    }
+    gx = ns(
+        documents=ns(
+            get_xray=lambda document_id: {
+                "chunks": [
+                    {
+                        "pageNumbers": [2],
+                        "customChunkOutputs": {
+                            "account_rows": {"_records": [{"account_id": "A-1"}]},
+                            "charge_rows": {
+                                "_records": [{"account_id": "a-1", "amount": "10.00"}]
+                            },
+                        }
+                    }
+                ]
+            },
+            get_extract=lambda document_id: {},
+        )
+    )
+
+    artifacts = run_extraction.derive_extraction_artifacts(
+        gx,
+        "doc-1",
+        rl=rl,
+        workflow_extract=workflow_extract,
+    )
+
+    assert artifacts["diagnostic_extract"] == {
+        "accounts": [
+            {
+                "account_id": "A-1",
+                "charges": [{"account_id": "a-1", "amount": "10.00"}],
+            }
+        ],
+        "charges": [],
+    }
+    assert artifacts["final_output"] == artifacts["diagnostic_extract"]
+    assert artifacts["reassembly_diagnostic"]["relationship_output"] == artifacts[
+        "diagnostic_extract"
+    ]
+    assert artifacts["reassembly_diagnostic"]["workflow_output"] == {
+        "accounts": [{"account_id": "A-1"}],
+        "charges": [{"account_id": "a-1", "amount": "10.00"}],
+    }
+    assert artifacts["reassembly_diagnostic"]["source_provenance"] == [
+        {
+            "output_source": "customChunkOutputs",
+            "workflow_group": "accounts",
+            "workflow_field": "account_id",
+            "final_path": "/accounts/account_id",
+            "record_index": 0,
+            "page_numbers": (2,),
+        },
+        {
+            "output_source": "customChunkOutputs",
+            "workflow_group": "charges",
+            "workflow_field": "account_id",
+            "final_path": "/charges/account_id",
+            "record_index": 0,
+            "page_numbers": (2,),
+        },
+        {
+            "output_source": "customChunkOutputs",
+            "workflow_group": "charges",
+            "workflow_field": "amount",
+            "final_path": "/charges/amount",
+            "record_index": 0,
+            "page_numbers": (2,),
+        },
+    ]
 
 
 def test_extract_artifacts_keeps_non_empty_raw_extract_even_when_values_are_empty():

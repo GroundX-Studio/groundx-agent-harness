@@ -52,7 +52,7 @@ from business_logic import apply_business_logic
 from compile_workflow import build_workflow_artifacts, workflow_sdk_kwargs
 from run_log import RunLog
 from validate_workflow_json import validate as validate_workflow
-from xray_to_extract import xray_to_extract
+from xray_to_extract import xray_reassembly_artifacts
 
 
 TIMEOUT_HISTORY_LIMIT = 10
@@ -470,6 +470,7 @@ def derive_extraction_artifacts(
     xray = _to_plain_dict(gx.documents.get_xray(document_id=document_id))
     raw_extract = None
     diagnostic_extract = None
+    reassembly_diagnostic = None
     final_output = None
     source = "get_extract"
 
@@ -489,7 +490,11 @@ def derive_extraction_artifacts(
     else:
         if isinstance(fetched, dict) and rl:
             rl.event("extract.get_extract_empty")
-        diagnostic_extract = xray_to_extract(xray, workflow_extract=workflow_extract)
+        reassembly_diagnostic = xray_reassembly_artifacts(
+            xray,
+            workflow_extract=workflow_extract,
+        )
+        diagnostic_extract = reassembly_diagnostic["final_output"]
         final_output = diagnostic_extract
         source = "xray_to_extract"
         if bl_metadata:
@@ -501,6 +506,7 @@ def derive_extraction_artifacts(
         "raw_extract": raw_extract,
         "xray": xray,
         "diagnostic_extract": diagnostic_extract,
+        "reassembly_diagnostic": reassembly_diagnostic,
         "final_output": final_output,
         "source": source,
     }
@@ -587,6 +593,7 @@ def _write_completed_artifacts(
     xray_path = _abs(out_dir, "xray.json")
     extract_path = _abs(out_dir, "output.json")
     diagnostic_path = _abs(out_dir, "xray_diagnostic.json")
+    reassembly_diagnostic_path = _abs(out_dir, "xray_reassembly_diagnostic.json")
     final_output_path = _abs(out_dir, "final_output.json")
 
     artifacts = derive_extraction_artifacts(
@@ -603,6 +610,7 @@ def _write_completed_artifacts(
     output_for_summary = None
     raw_extract = artifacts["raw_extract"]
     diagnostic_extract = artifacts["diagnostic_extract"]
+    reassembly_diagnostic = artifacts["reassembly_diagnostic"]
     final_output = artifacts["final_output"]
 
     if raw_extract is not None:
@@ -617,6 +625,13 @@ def _write_completed_artifacts(
         _write_json(diagnostic_path, diagnostic_extract)
         output_for_summary = diagnostic_extract
         rl.event("extract.diagnostic_captured", path=diagnostic_path)
+
+    if reassembly_diagnostic is not None:
+        _write_json(reassembly_diagnostic_path, reassembly_diagnostic)
+        rl.event(
+            "extract.reassembly_diagnostic_captured",
+            path=reassembly_diagnostic_path,
+        )
 
     if final_output is not None:
         _write_json(final_output_path, final_output)
