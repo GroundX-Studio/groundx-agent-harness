@@ -19,12 +19,21 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(HERE, "..");
+const SOURCE_REPO_ROOT = basename(HERE) === "public-harness" && basename(dirname(HERE)) === "scripts"
+  ? resolve(HERE, "../..")
+  : null;
+const GENERATED_PUBLIC_ROOT = SOURCE_REPO_ROOT
+  ? join(SOURCE_REPO_ROOT, "plugins/groundx-agent-harness")
+  : null;
+const ROOT = GENERATED_PUBLIC_ROOT && existsSync(join(GENERATED_PUBLIC_ROOT, "scripts/validate-public-bundle.mjs"))
+  ? GENERATED_PUBLIC_ROOT
+  : resolve(HERE, "..");
 const requestedClient = process.argv[2] ?? "all";
+const skipLocalBundleCheck = process.env.GROUNDX_DOCTOR_SKIP_LOCAL_BUNDLE_CHECK === "1";
 const clientAliases = new Map([
   ["claude", "claude-code"],
   ["codex", "codex-desktop"],
@@ -57,6 +66,7 @@ function code(value) {
 }
 
 function validateLocalBundle() {
+  if (skipLocalBundleCheck) return;
   section("Local Bundle Check");
   const validator = join(ROOT, "scripts/validate-public-bundle.mjs");
   if (!existsSync(validator)) {
@@ -116,41 +126,81 @@ claude plugin install groundx-agent-harness@groundx-agent-harness
   code(`
 claude mcp add --transport http groundx https://api.groundx.ai/mcp
 `);
-  console.log("Run /mcp, connect groundx, complete OAuth with a GroundX API key, then start a new Claude Code session in VS Code.");
+  console.log("Run /mcp, connect groundx, enter the prod API key on the GroundX OAuth page, then start a new Claude Code session in VS Code.");
 }
 
 function claudeCodeDesktop() {
   section("Claude Code Desktop");
   console.log("Claude Code Desktop supports plugins for local and SSH sessions, but not remote sessions.");
-  console.log("Method 1 — organization plugin sync:");
+  console.log("Method 1 — organization-managed marketplace:");
   code(`
-Organization settings -> Plugins -> Add plugins -> Sync from GitHub
-Repository: GroundX-Studio/groundx-agent-harness
+Claude organization GitHub sync uses a private or internal marketplace repository.
+The public repo is not supported as the direct organization marketplace sync target.
+Create or choose a private/internal organization marketplace repository.
+Vendor/copy the GroundX Agent Harness plugin bundle to plugins/groundx-agent-harness/.
+Private marketplace repo layout:
+.claude-plugin/marketplace.json
+plugins/groundx-agent-harness/.claude-plugin/marketplace.json
+plugins/groundx-agent-harness/README.md
+plugins/groundx-agent-harness/scripts/
+plugins/groundx-agent-harness/skills/
+In the private marketplace root .claude-plugin/marketplace.json, use a complete marketplace manifest. Use your organization for the root owner, keep the public bundle plugin entry's description/strict/skills fields, change only source, and replace author with your approved organization publisher value:
+{
+  "name": "groundx-agent-harness-marketplace",
+  "owner": {
+    "name": "Your Organization"
+  },
+  "plugins": [
+    {
+      "name": "groundx-agent-harness",
+      "description": "GroundX agent runtime harness for API use, schema-first extraction, on-prem deployment, architecture, and supported GTM guidance.",
+      "author": {
+        "name": "GroundX"
+      },
+      "source": "./plugins/groundx-agent-harness",
+      "strict": false,
+      "skills": [
+        "./skills/groundx-api",
+        "./skills/groundx-mcp",
+        "./skills/groundx-extraction-workflows",
+        "./skills/groundx-on-prem",
+        "./skills/groundx-architecture",
+        "./skills/product-brand-gtm",
+        "./skills/master-brand-gtm",
+        "./skills/groundx-python"
+      ]
+    }
+  ]
+}
+Organization settings -> Plugins -> Add plugin -> GitHub
+Repository: <your private/internal organization marketplace repository>
 `);
   console.log("After the organization sync completes, users can install GroundX Agent Harness from Claude Cowork or Code with + -> Add plugin. Then run /reload-plugins or start a new session.");
   console.log("Method 2 — personal marketplace:");
   code(`
-Customize -> Personal plugins + -> Create plugin -> Add marketplace
+Customize -> Plugins -> Personal plugins + -> Add marketplace -> Add from a repository
 Repository: GroundX-Studio/groundx-agent-harness
-Sync -> Personal -> GroundX Agent Harness -> + install
+Sync -> Personal directory/card -> GroundX Agent Harness -> Install
 `);
+  console.log("A GitHub account is not required for this public repository. If the repository list cannot load, type GroundX-Studio/groundx-agent-harness directly and continue.");
   console.log("Then run /reload-plugins or start a new session.");
   console.log("Add the hosted GroundX MCP server:");
   code(`
 claude mcp add --transport http groundx https://api.groundx.ai/mcp
 `);
-  console.log("Run /mcp, connect groundx, complete OAuth with a GroundX API key, then start a new Claude Code session.");
+  console.log("Run /mcp, connect groundx, enter the prod API key on the GroundX OAuth page, then start a new Claude Code session.");
 }
 
 function claudeDesktop() {
   section("Claude Desktop");
-  console.log("Connect the hosted MCP connector:");
+  console.log("If your Claude app shows Customize -> Plugins and Cowork, use the plugin path. If your Claude Desktop build only exposes Connectors, use the hosted MCP connector:");
   code(`
-Settings -> Connectors -> Add custom connector
-Name: GroundX Studio
+Customize -> Connectors -> + -> Add custom connector
+Name: GroundX API
 Remote MCP Server URL: https://api.groundx.ai/mcp
 `);
-  console.log("Leave advanced OAuth fields empty unless Claude asks you to review discovered settings. Add the connector, click Connect, authorize with a GroundX API key, then enable the connector in a conversation.");
+  console.log("Leave advanced OAuth fields empty unless Claude asks you to review discovered settings. Click Add first, then click Connect on the next screen. Enter the prod API key on the GroundX OAuth page, then enable the connector in a conversation.");
+  console.log("Connector tool calls may default to per-tool approval prompts. That is expected. Choose Always allow only after accepting the broader connector permission.");
 }
 
 function codexDesktop() {
@@ -169,7 +219,7 @@ Toggle to Streamable HTTP
 URL: https://api.groundx.ai/mcp
 Save
 `);
-  console.log("The server should appear in the From plugins list with an Authenticate button. Click Authenticate and complete OAuth.");
+  console.log("The saved MCP server entry in the MCP server list should show an Authenticate button. Click Authenticate and enter the prod API key on the GroundX OAuth page.");
 }
 
 function codexCli() {
@@ -203,14 +253,14 @@ claude plugin install groundx-agent-harness@groundx-agent-harness
   code(`
 claude mcp add --transport http groundx https://api.groundx.ai/mcp
 `);
-  console.log("Run /mcp, connect groundx, complete OAuth, then start a new session.");
+  console.log("Run /mcp, connect groundx, enter the prod API key on the GroundX OAuth page, then start a new session.");
 }
 
 function mcp() {
   section("Hosted GroundX API MCP");
   console.log("For clients that support remote MCP/connectors, connect the hosted GroundX API MCP endpoint:");
   code("https://api.groundx.ai/mcp");
-  console.log("Do not paste API keys into prompts. Use the deployment-managed OAuth flow or connector install flow.");
+  console.log("Do not paste API keys into prompts. Use the deployment-managed OAuth flow or connector install flow. In Claude Desktop, open Customize -> Connectors, click Add, then Connect on the next screen. Enter the prod API key on the GroundX OAuth page. Connector tool calls may default to per-tool approval prompts; choose Always allow only after accepting the broader connector permission.");
 }
 
 function verify() {

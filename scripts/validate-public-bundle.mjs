@@ -11,6 +11,7 @@
  */
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -72,6 +73,44 @@ function readJson(path) {
 
 function requireFile(path, message = "required file is missing") {
   if (!existsSync(path)) flag(path, message);
+}
+
+function requireText(file, text, expected, label = expected) {
+  if (!text.includes(expected)) {
+    flag(file, `install guide must include ${label}`);
+  }
+}
+
+function forbidText(file, text, forbidden, label = forbidden) {
+  if (text.includes(forbidden)) {
+    flag(file, `install guide must not include ${label}`);
+  }
+}
+
+function forbidPattern(file, text, pattern, label) {
+  const normalized = text.replace(/\s+/g, " ");
+  if (pattern.test(text) || pattern.test(normalized)) {
+    flag(file, `install guide must not include ${label}`);
+  }
+}
+
+function runDoctor(client = null) {
+  const doctor = join(ROOT, "scripts/doctor.mjs");
+  if (!existsSync(doctor)) return "";
+  const args = client ? [doctor, client] : [doctor];
+  const result = spawnSync(process.execPath, args, {
+    cwd: ROOT,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      GROUNDX_DOCTOR_SKIP_LOCAL_BUNDLE_CHECK: "1",
+    },
+  });
+  if (result.status !== 0) {
+    flag(doctor, `doctor helper failed: ${(result.stderr || result.stdout).trim()}`);
+    return "";
+  }
+  return result.stdout;
 }
 
 const publicBundleRules = readJson(join(ROOT, PUBLIC_BUNDLE_RULES));
@@ -147,10 +186,16 @@ const claude = readJson(join(ROOT, ".claude-plugin/marketplace.json"));
 if (claude) {
   if (claude.name !== EXPECTED_NAME) flag(join(ROOT, ".claude-plugin/marketplace.json"), `expected name ${EXPECTED_NAME}`);
   const bundle = Array.isArray(claude.plugins) ? claude.plugins[0] : null;
+  if (!claude.owner?.name) {
+    flag(join(ROOT, ".claude-plugin/marketplace.json"), "marketplace owner.name is required");
+  }
   if (!bundle) {
     flag(join(ROOT, ".claude-plugin/marketplace.json"), "plugins[0] is required");
   } else {
     if (bundle.name !== EXPECTED_NAME) flag(join(ROOT, ".claude-plugin/marketplace.json"), `expected plugin name ${EXPECTED_NAME}`);
+    if (!bundle.author?.name) {
+      flag(join(ROOT, ".claude-plugin/marketplace.json"), "plugin author.name is required");
+    }
     if (bundle.mcpServers !== undefined) flag(join(ROOT, ".claude-plugin/marketplace.json"), "public Claude manifest must not expose mcpServers");
     for (const skillPath of bundle.skills ?? []) {
       const normalized = String(skillPath).replace(/^\.\//, "");
@@ -175,14 +220,102 @@ if (existsSync(readmePath)) {
   for (const expected of [
     "/reload-plugins",
     "### Claude Code Desktop",
-    "Organization plugin sync",
-    "Personal plugins",
+    "private/internal organization marketplace repository",
+    "public repo is not supported as the direct organization marketplace sync target",
+    ".claude-plugin/marketplace.json",
+    "plugins/groundx-agent-harness",
+    "\"source\": \"./plugins/groundx-agent-harness\"",
+    "\"owner\"",
+    "\"author\"",
+    "replace `author`",
+    "\"strict\": false",
+    "\"skills\"",
+    "\"./skills/groundx-api\"",
+    "Customize -> Plugins -> Personal plugins + -> Add marketplace",
+    "Add from a repository",
+    "GitHub account is not required",
     "GroundX-Studio/groundx-agent-harness",
+    "GroundX OAuth page",
+    "Always allow",
+    "Name: GroundX API",
   ]) {
     if (!readme.includes(expected)) {
       flag(readmePath, `README install guide must include ${expected}`);
     }
   }
+  requireText(
+    readmePath,
+    readme,
+    "No plugin skills; use hosted connector for MCP tools",
+    "connector-only Claude Desktop plugin-scope clarification",
+  );
+  for (const forbidden of [
+    "Settings -> Plugins -> Add -> Add marketplace",
+    "Create plugin -> Add marketplace",
+    "Name: GroundX Studio",
+    "From plugins list",
+  ]) {
+    forbidText(readmePath, readme, forbidden);
+  }
+  forbidPattern(
+    readmePath,
+    readme,
+    /Organization settings\s*->\s*Plugins\s*->\s*Add plugins\s*->\s*Sync from GitHub\s*Repository:\s*GroundX-Studio\/groundx-agent-harness/i,
+    "direct public-repo organization sync",
+  );
+}
+
+const doctorPath = join(ROOT, "scripts/doctor.mjs");
+if (existsSync(doctorPath)) {
+  const doctorOutput = runDoctor();
+  for (const expected of [
+    "private/internal organization marketplace repository",
+    "public repo is not supported as the direct organization marketplace sync target",
+    ".claude-plugin/marketplace.json",
+    "plugins/groundx-agent-harness",
+    "\"source\": \"./plugins/groundx-agent-harness\"",
+    "\"owner\"",
+    "\"author\"",
+    "replace author",
+    "\"strict\": false",
+    "\"skills\"",
+    "\"./skills/groundx-api\"",
+    "Customize -> Plugins -> Personal plugins + -> Add marketplace -> Add from a repository",
+    "GitHub account is not required",
+    "GroundX-Studio/groundx-agent-harness",
+    "GroundX OAuth page",
+    "Always allow",
+    "Name: GroundX API",
+  ]) {
+    requireText(doctorPath, doctorOutput, expected);
+  }
+  for (const forbidden of [
+    "Settings -> Plugins -> Add -> Add marketplace",
+    "Create plugin -> Add marketplace",
+    "Name: GroundX Studio",
+    "From plugins list",
+  ]) {
+    forbidText(doctorPath, doctorOutput, forbidden);
+  }
+  forbidPattern(
+    doctorPath,
+    doctorOutput,
+    /Organization settings\s*->\s*Plugins\s*->\s*Add plugins\s*->\s*Sync from GitHub\s*Repository:\s*GroundX-Studio\/groundx-agent-harness/i,
+    "direct public-repo organization sync",
+  );
+  for (const client of ["vscode-claude", "claude-code", "claude-code-desktop"]) {
+    const clientOutput = runDoctor(client);
+    requireText(doctorPath, clientOutput, "GroundX OAuth page", `${client} OAuth API-key placement`);
+    forbidText(doctorPath, clientOutput, "complete OAuth", `${client} vague complete OAuth wording`);
+  }
+  const codexDesktopOutput = runDoctor("codex-desktop");
+  requireText(doctorPath, codexDesktopOutput, "GroundX OAuth page", "codex-desktop OAuth API-key placement");
+  requireText(doctorPath, codexDesktopOutput, "MCP server entry", "codex-desktop manual MCP server entry wording");
+  forbidText(doctorPath, codexDesktopOutput, "complete OAuth", "codex-desktop vague complete OAuth wording");
+  forbidText(doctorPath, codexDesktopOutput, "From plugins list", "codex-desktop generated plugin-list wording");
+  const claudeDesktopOutput = runDoctor("claude-desktop");
+  requireText(doctorPath, claudeDesktopOutput, "Customize -> Connectors", "Claude Desktop connector route");
+  requireText(doctorPath, claudeDesktopOutput, "Name: GroundX API", "Claude Desktop connector label");
 }
 
 const forbiddenText = [];
