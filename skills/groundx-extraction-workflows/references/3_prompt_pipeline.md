@@ -184,12 +184,35 @@ means "run a chunk-level prompt that returns zero or more charge-line objects
 from each chunk." It does not mean "extract key-value pairs for a single final
 object." If the output should be one final object, use `kind: instruct`.
 
-### 6.3 Decision rules
+### 6.3 `kind: summary`
+
+- **Output shape:** array of objects
+- **Cross-chunk behavior:** aggregate (each chunk contributes complete
+  records)
+- **Used for:** a second repeating workflow group, often physical meters or
+  metered-usage records
+- **Mental model:** same repeated-record shape as `keys`, but through the
+  summary step family
+
+`kind: summary` does not mean "return one document summary object." A step like:
+
+```yaml
+- name: meter_records
+  level: chunk
+  kind: summary
+```
+
+means "run a chunk-level prompt that returns zero or more meter-record objects
+from each chunk." If the output should be one final object, use
+`kind: instruct`.
+
+### 6.4 Decision rules
 
 | Question | If yes |
 |---|---|
 | Does the field appear at most once per document? | custom step with `kind: instruct` |
 | Are there many of these, each with the same shape? | custom step with `kind: keys` |
+| Is this a second repeating record stream, such as meters beside charges? | custom step with `kind: summary` |
 | Will the same field appear in two chunks with different values? | custom step with `kind: keys` because the values are different records, not a reconciliation conflict |
 
 If a field is conceptually one-per-document but accidentally appears in

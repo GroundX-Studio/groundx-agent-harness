@@ -35,11 +35,17 @@ of taking the earliest confident extraction).
 """
 
 import argparse
+import dataclasses
 import json
 import sys
 import typing
 
 _REPEATED_STEP_KINDS = {"keys", "summary"}
+
+try:
+    from groundx.extract import reassemble_custom_outputs_from_xray
+except Exception:  # pragma: no cover - fallback keeps the template usable pre-upgrade.
+    reassemble_custom_outputs_from_xray = None
 
 
 def _parse_json_field(raw: typing.Any) -> typing.Optional[dict]:
@@ -280,7 +286,47 @@ def _merge_fallback_records(result: dict, key: str, records: list) -> None:
         existing.append(record)
 
 
-def xray_to_extract(xray: dict, workflow_extract: typing.Optional[dict] = None) -> dict:
+def _sdk_reassembly_artifacts(
+    xray: dict,
+    workflow_extract: typing.Optional[dict],
+) -> typing.Optional[dict]:
+    if not _has_custom_output_routes(workflow_extract):
+        return None
+    if reassemble_custom_outputs_from_xray is None:
+        raise RuntimeError(
+            "workflow.output_routes require groundx[extract] with "
+            "reassemble_custom_outputs support"
+        )
+
+    result = reassemble_custom_outputs_from_xray(
+        xray,
+        workflow_extract=workflow_extract,
+    )
+    diagnostics = []
+    for diagnostic in getattr(result, "diagnostics", []) or []:
+        if dataclasses.is_dataclass(diagnostic):
+            diagnostics.append(dataclasses.asdict(diagnostic))
+        else:
+            diagnostics.append(diagnostic)
+    source_provenance = []
+    for provenance in getattr(result, "source_provenance", []) or []:
+        if dataclasses.is_dataclass(provenance):
+            source_provenance.append(dataclasses.asdict(provenance))
+        else:
+            source_provenance.append(provenance)
+    return {
+        "final_output": result.final_output,
+        "relationship_output": result.relationship_output,
+        "workflow_output": getattr(result, "workflow_output", None),
+        "source_provenance": source_provenance,
+        "diagnostics": diagnostics,
+    }
+
+
+def _fallback_xray_to_extract(
+    xray: dict,
+    workflow_extract: typing.Optional[dict] = None,
+) -> dict:
     """Convert an X-Ray dict to a `get_extract()`-shaped dict."""
     has_custom_routes = _has_custom_output_routes(workflow_extract)
     chunks = xray.get("chunks") or []
@@ -338,6 +384,38 @@ def xray_to_extract(xray: dict, workflow_extract: typing.Optional[dict] = None) 
     _merge_fallback_records(result, "account_charges", charges)
     _merge_fallback_records(result, "meters", meters)
     return result
+
+
+def xray_reassembly_artifacts(
+    xray: dict,
+    workflow_extract: typing.Optional[dict] = None,
+) -> dict:
+    """Return the SDK readback envelope for local X-Ray reconstruction."""
+    sdk_artifacts = _sdk_reassembly_artifacts(xray, workflow_extract)
+    if sdk_artifacts is not None:
+        return sdk_artifacts
+
+    final_output = _fallback_xray_to_extract(xray, workflow_extract=workflow_extract)
+    return {
+        "final_output": final_output,
+        "relationship_output": None,
+        "workflow_output": None,
+        "source_provenance": [],
+        "diagnostics": [],
+    }
+
+
+def xray_to_extract(
+    xray: dict,
+    workflow_extract: typing.Optional[dict] = None,
+    *,
+    use_relationship_output: bool = False,
+) -> dict:
+    """Convert an X-Ray dict to the SDK final output shape."""
+    artifacts = xray_reassembly_artifacts(xray, workflow_extract=workflow_extract)
+    if use_relationship_output and artifacts.get("relationship_output") is not None:
+        return typing.cast(dict, artifacts["relationship_output"])
+    return typing.cast(dict, artifacts["final_output"])
 
 
 def main() -> int:

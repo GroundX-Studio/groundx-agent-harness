@@ -3,8 +3,36 @@
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from xray_to_extract import xray_to_extract  # noqa: E402
+import xray_to_extract as xray_module  # noqa: E402
+from xray_to_extract import xray_reassembly_artifacts, xray_to_extract  # noqa: E402
+
+
+def test_xray_reassembly_requires_sdk_helper_for_custom_routes(monkeypatch):
+    monkeypatch.setattr(xray_module, "reassemble_custom_outputs_from_xray", None)
+    workflow_extract = {
+        "workflow": {
+            "output_routes": [
+                {
+                    "workflow_group": "line_items",
+                    "workflow_field": "description",
+                    "final_path": "/line_items/description",
+                    "step_name": "line_item_labels",
+                    "level": "chunk",
+                    "output_map": "customChunkOutputs",
+                    "output_key": "label",
+                }
+            ]
+        }
+    }
+
+    with pytest.raises(RuntimeError, match=r"groundx\[extract\].*reassemble"):
+        xray_module.xray_reassembly_artifacts(
+            {"chunks": []},
+            workflow_extract=workflow_extract,
+        )
 
 
 def test_xray_to_extract_maps_custom_outputs_to_final_paths():
@@ -276,6 +304,190 @@ def test_xray_to_extract_expands_repeated_custom_record_lists_from_one_chunk():
         {"description": "Generation charge", "amount": "10.00"},
         {"description": "Distribution charge", "amount": "4.00"},
     ]
+
+
+def test_xray_to_extract_expands_records_wrapped_custom_outputs():
+    workflow_extract = {
+        "workflow": {
+            "custom_steps": [
+                {"name": "charge_lines", "level": "chunk", "kind": "keys"},
+            ],
+            "output_routes": [
+                {
+                    "workflow_group": "charges",
+                    "workflow_field": "description",
+                    "final_path": "/charges/description",
+                    "step_name": "charge_lines",
+                    "level": "chunk",
+                    "output_map": "customChunkOutputs",
+                    "output_key": "description",
+                },
+                {
+                    "workflow_group": "charges",
+                    "workflow_field": "amount",
+                    "final_path": "/charges/amount",
+                    "step_name": "charge_lines",
+                    "level": "chunk",
+                    "output_map": "customChunkOutputs",
+                    "output_key": "amount",
+                },
+            ],
+        }
+    }
+    xray = {
+        "chunks": [
+            {
+                "customChunkOutputs": {
+                    "charge_lines": {
+                        "_records": [
+                            {"description": "Generation charge", "amount": "10.00"},
+                            {"description": "Distribution charge", "amount": "4.00"},
+                        ]
+                    }
+                }
+            }
+        ]
+    }
+
+    assert xray_to_extract(xray, workflow_extract=workflow_extract)["charges"] == [
+        {"description": "Generation charge", "amount": "10.00"},
+        {"description": "Distribution charge", "amount": "4.00"},
+    ]
+
+
+def test_xray_reassembly_artifacts_use_relationships_as_final_output():
+    workflow_extract = {
+        "workflow": {
+            "custom_steps": [
+                {"name": "account_rows", "level": "chunk", "kind": "summary"},
+                {"name": "charge_lines", "level": "chunk", "kind": "keys"},
+            ],
+            "output_routes": [
+                {
+                    "workflow_group": "accounts",
+                    "workflow_field": "account_id",
+                    "final_path": "/accounts/account_id",
+                    "step_name": "account_rows",
+                    "level": "chunk",
+                    "output_map": "customChunkOutputs",
+                    "output_key": "account_id",
+                },
+                {
+                    "workflow_group": "charges",
+                    "workflow_field": "account_id",
+                    "final_path": "/charges/account_id",
+                    "step_name": "charge_lines",
+                    "level": "chunk",
+                    "output_map": "customChunkOutputs",
+                    "output_key": "account_id",
+                },
+                {
+                    "workflow_group": "charges",
+                    "workflow_field": "amount",
+                    "final_path": "/charges/amount",
+                    "step_name": "charge_lines",
+                    "level": "chunk",
+                    "output_map": "customChunkOutputs",
+                    "output_key": "amount",
+                },
+            ],
+            "output_relationships": [
+                {
+                    "parent_group": "accounts",
+                    "child_group": "charges",
+                    "parent_output_field": "charges",
+                    "match_attrs": ["account_id"],
+                    "unmatched_child_group": "charges",
+                }
+            ],
+        }
+    }
+    xray = {
+        "chunks": [
+            {
+                "pageNumbers": [3],
+                "customChunkOutputs": {
+                    "account_rows": {"_records": [{"account_id": "A-1"}]},
+                    "charge_lines": {
+                        "_records": [
+                            {"account_id": "a-1", "amount": "10.00"},
+                            {"account_id": "A-2", "amount": "4.00"},
+                        ]
+                    },
+                }
+            }
+        ]
+    }
+
+    artifacts = xray_reassembly_artifacts(xray, workflow_extract=workflow_extract)
+
+    assert artifacts["final_output"] == {
+        "accounts": [
+            {
+                "account_id": "A-1",
+                "charges": [{"account_id": "a-1", "amount": "10.00"}],
+            }
+        ],
+        "charges": [{"account_id": "A-2", "amount": "4.00"}],
+    }
+    assert artifacts["relationship_output"] == artifacts["final_output"]
+    assert artifacts["workflow_output"] == {
+        "accounts": [{"account_id": "A-1"}],
+        "charges": [
+            {"account_id": "a-1", "amount": "10.00"},
+            {"account_id": "A-2", "amount": "4.00"},
+        ],
+    }
+    assert artifacts["source_provenance"] == [
+        {
+            "output_source": "customChunkOutputs",
+            "workflow_group": "accounts",
+            "workflow_field": "account_id",
+            "final_path": "/accounts/account_id",
+            "record_index": 0,
+            "page_numbers": (3,),
+        },
+        {
+            "output_source": "customChunkOutputs",
+            "workflow_group": "charges",
+            "workflow_field": "account_id",
+            "final_path": "/charges/account_id",
+            "record_index": 0,
+            "page_numbers": (3,),
+        },
+        {
+            "output_source": "customChunkOutputs",
+            "workflow_group": "charges",
+            "workflow_field": "account_id",
+            "final_path": "/charges/account_id",
+            "record_index": 1,
+            "page_numbers": (3,),
+        },
+        {
+            "output_source": "customChunkOutputs",
+            "workflow_group": "charges",
+            "workflow_field": "amount",
+            "final_path": "/charges/amount",
+            "record_index": 0,
+            "page_numbers": (3,),
+        },
+        {
+            "output_source": "customChunkOutputs",
+            "workflow_group": "charges",
+            "workflow_field": "amount",
+            "final_path": "/charges/amount",
+            "record_index": 1,
+            "page_numbers": (3,),
+        },
+    ]
+    assert xray_to_extract(xray, workflow_extract=workflow_extract) == artifacts[
+        "final_output"
+    ]
+    assert xray_to_extract(
+        xray,
+        workflow_extract=workflow_extract,
+        use_relationship_output=True,
+    ) == artifacts["final_output"]
 
 
 def test_xray_to_extract_dedupes_repeated_custom_fields_from_mirrored_chunks():

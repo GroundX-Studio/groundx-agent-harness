@@ -48,6 +48,10 @@ Use step kinds to describe the extraction shape:
 | `keys` | Array of objects | Repeating records such as charge lines, line items, transactions, or service rows |
 | `summary` | Array of objects | A second repeating record type such as physical meters or usage records |
 
+Both `keys` and `summary` are repeated-output kinds. They both produce arrays
+of objects when routed to a direct final group. Do not read `summary` as "one
+document summary object"; use `kind: instruct` for one object.
+
 For example, a custom step named `charge_lines` uses `kind: keys` because it
 extracts many records with the same shape. Each chunk returns zero or more
 complete charge objects, and GroundX aggregates those objects into an array.
@@ -269,7 +273,8 @@ period (kWh used, gallons consumed, demand readings). The intended
 output shape is an array of meter objects, one per physical meter. In harness
 YAML, meters are just another workflow group assigned to a custom step. Use
 `kind: summary` when the meter extraction should produce a second repeating
-record stream distinct from `kind: keys` charge lines.
+record stream distinct from `kind: keys` charge lines. It still produces an
+array of meter records.
 
 For documents that contain metered services, define the concrete meter
 fields in the group:
