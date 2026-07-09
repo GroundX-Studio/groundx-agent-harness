@@ -33,12 +33,12 @@ For the differentiator pillars these anchors live in, see `differentiation.md`. 
 
 ### 2.1 "We can't send our data to a vendor."
 
-- **Reframe:** Then deploy on-prem. GroundX runs on Kubernetes via Helm charts with no external dependencies — fully air-gapped if required. Red Hat shipped an OpenShift AI quickstart for it.
+- **Reframe:** Then deploy GroundX inside your own environment. For buyer and trust conversations, lead with on-prem, private cloud, residency control, or fully air-gapped operation. For platform engineers, the implementation path is Kubernetes via Helm charts with no external runtime dependencies. Red Hat shipped an OpenShift AI quickstart for it.
 - **Proof:** GroundX On-Prem Helm chart repo at `registry.groundx.ai/helm`. The Red Hat AI quickstart `rh-ai-quickstart/Billing-extraction-with-GroundX`. See `proof-points.md` § 4.
 
 ### 2.2 "We need full data sovereignty."
 
-- **Reframe:** Same answer — air-gapped Helm deployment, no external dependencies at runtime. Optional Terraform path on AWS, or run on any pre-existing Kubernetes cluster. Use AWS SQS or Kafka, S3 or MinIO, existing OpenSearch or a dedicated cluster — your choice of services.
+- **Reframe:** Same answer — air-gapped or private deployment with no external runtime dependency. When the audience is technical, name the Helm deployment, optional AWS Terraform path, and backing-service choices: AWS SQS or Kafka, S3 or MinIO, existing OpenSearch or a dedicated cluster.
 - **Proof:** Helm chart README documents air-gapped operation explicitly.
 
 ### 2.3 "Our security team won't allow another vendor."
@@ -50,7 +50,7 @@ For the differentiator pillars these anchors live in, see `differentiation.md`. 
 
 ### 3.1 "This is expensive vs free open-source tools."
 
-- **Reframe:** Free open-source tools become expensive at scale — vendor stitching, accuracy degradation, hallucination cleanup, multiple tools to maintain. GroundX's agentic pipeline was designed to use older, cheaper, easier-to-self-host models, which reduces operating cost over time. The premium pays back on accuracy that doesn't require manual review and on a deployment that doesn't require a multi-vendor integration project.
+- **Reframe:** Free open-source tools become expensive at scale — vendor stitching, accuracy degradation, hallucination cleanup, multiple tools to maintain. GroundX's agentic pipeline was designed around focused element-level tasks, so many steps can use smaller, easier-to-self-host models instead of sending whole documents to one frontier model. The premium pays back on accuracy that reduces manual review and on an integrated deployment that avoids a multi-vendor stitching project. Do not promise total cost stops scaling; deployment-level cost still depends on volume, storage, retained artifacts, and model choices.
 - **Proof:** AskVet's 40% → 80% gross margin shift; the architecture-level cost argument in `technical-architecture.md` § 3.
 
 ### 3.2 "We need to deploy across hundreds of use cases — how do we afford the integration cost?"

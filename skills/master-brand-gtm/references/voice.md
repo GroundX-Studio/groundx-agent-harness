@@ -17,8 +17,8 @@ Adjectives that do not describe the voice: *playful*, *cheeky*, *casual*, *aspir
 ## 2. Sentence shape
 
 - **Short declarative sentences for headlines.** *"Valantor is the Visual Intelligence Company."* No qualifiers, no hedges.
-- **Long compound-complex sentences for explanatory paragraphs.** Master-brand prose is allowed to be dense. *"Valantor is the infrastructure layer that lets AI-native enterprises close the data comprehension gap — making their unstructured visual data readable, trustworthy, and actionable for the agents and workflows that run the business."* — single sentence, three claims, lands.
-- **Em dashes preferred over parentheses** for inline asides. Matches the EyeLevel pack and editorial writing.
+- **Long compound-complex sentences for explanatory paragraphs.** Master-brand prose is allowed to be dense, but external prose still avoids em dashes. If the aside is doing real work, rewrite it into a second sentence or introduce it with a colon.
+- **No mechanical punctuation swaps.** Removing an em dash should not create a comma splice, dangling modifier, or awkward appositive. Rewrite the sentence until it sounds composed again.
 - **Title case for h1, h2, h3.** Section eyebrows are uppercase (per `../../master-brand-design-standards/references/voice.md` § 2); body sentences are sentence case.
 
 ## 3. Vocabulary anchors
@@ -79,7 +79,9 @@ Within the master-brand register, the voice shifts by audience:
 
 ## 8. Compared to the EyeLevel-GTM voice
 
-The two GTM packs share editorial discipline (em dashes, title case headers, no exclamation marks). They differ in altitude:
+The two GTM packs share editorial discipline: no em dashes in external body prose,
+title case headers where the medium calls for them, no exclamation marks, no hype. They
+differ in altitude:
 
 | Dimension | `product-brand-gtm` (product) | `master-brand-gtm` (master-brand) |
 | --- | --- | --- |

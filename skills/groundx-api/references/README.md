@@ -14,9 +14,11 @@ that extraction delegates here.
 
 1. Read `../SKILL.md` to confirm this is customer-scoped GroundX platform work.
 2. Always read `01-auth.md` before writing code, tests, SDK wrappers, or tool-call
-   examples. Use SDK/REST with `GROUNDX_API_KEY` by default. For dev, set
-   `GROUNDX_BASE_URL=https://devapi.groundx.ai/api`. GroundX MCP is optional and
-   prod-only; see `groundx-mcp` only when the user specifically wants connector setup.
+   examples. Use SDK/REST with `GROUNDX_API_KEY` for direct integration, dev, and
+   fallback. For dev, set `GROUNDX_BASE_URL=https://devapi.groundx.ai/api`. GroundX
+   MCP is optional and prod-only from this API skill's perspective, but it is the
+   preferred execution path for connected agent-operated prod work; see `groundx-mcp`
+   for connector setup and tool-use details.
 3. For stuck ingest/status, empty search, bad citations, or API-visible incident
    triage, read `debugging.md` before the operation reference.
 4. Pick the operation-family reference below instead of reading every file.
@@ -36,7 +38,7 @@ that extraction delegates here.
 
 | Need | Read |
 | --- | --- |
-| SDK/REST auth (`X-API-Key`), dev/prod base URLs, URL versioning, SDK setup, optional MCP | `01-auth.md` (for MCP client setup, see `groundx-mcp` skill) |
+| SDK/REST auth (`X-API-Key`), dev/prod base URLs, URL versioning, SDK setup, connected prod MCP vs SDK/REST fallback | `01-auth.md` (for MCP client setup, see `groundx-mcp` skill) |
 | Remote/local/crawl ingest, document lookup, status polling, update, copy, delete, extract, X-Ray | `02-documents.md` |
 | Debug stuck ingest/status, process ID, document ID, `document_getprocessingstatusbyid`, `document_lookup`, `statusMessage`, `progress.errors.total`, empty search, bad citations, result IDs, source citation payload, sanitized evidence bundle, operator escalation, and do not re-ingest stop rules | `debugging.md`, then `02-documents.md`, `03-search.md`, or `08-errors-and-limits.md` as needed |
 | Search by bucket/group/document set, filters, verbosity, pagination, source result shape | `03-search.md` |

@@ -6,11 +6,11 @@ Every claim carries `Source:` and `Last verified:` lines. If a claim is not in t
 
 ## 1. Accuracy claims (master-brand framing)
 
-### 1.1 Up to 100% accuracy + 96.2% Air France/KLM
+### 1.1 Up to 99% accuracy + 96.2% Air France/KLM
 
-> *Production deployment in a regulated, document-heavy enterprise vertical demonstrating the accuracy bar that lets AI replace human-trained workflows. Up to 100% accuracy on documents that defeat general-purpose AI; 96.2% accuracy on visually complex policy documents at Air France/KLM, beating a 60% target.*
+> *Production deployment in a regulated, document-heavy enterprise vertical demonstrating the accuracy bar that lets AI replace human-trained workflows. Up to 99% accuracy on documents that defeat general-purpose AI; 96.2% accuracy on visually complex policy documents at Air France/KLM, beating a 60% target.*
 
-- **Master-brand framing:** position as *the accuracy bar that justifies enterprise AI standardization on Visual Intelligence*. The number is the same as in `../../product-brand-gtm/references/proof-points.md` § 1.2; the framing here emphasizes *enterprise-grade reliability* rather than *product-feature accuracy*.
+- **Master-brand framing:** position as *the accuracy bar that justifies enterprise AI standardization on Visual Intelligence*. The numbers are the same as in `../../product-brand-gtm/references/proof-points.md` § 1.1 and § 1.2; the framing here emphasizes *enterprise-grade reliability* rather than *product-feature accuracy*.
 - **Source:** EyeLevel/GroundX 2026 sales deck; valantor.com Air France/KLM customer story.
 - **Last verified:** 2026-05-14.
 
@@ -154,6 +154,11 @@ Pull directly when customer voice is needed at master-brand altitude.
 - Customer numbers for the Operational Layer. **Concept-only, no shipping customer product.** No customer outcomes exist; do not invent. See `product.md` § 9.
 - Pricing or contract-value figures. Master-brand work does not quote prices.
 - Speculative metrics. *"Up to 10x faster", "saves N FTEs"* — if not in this file, do not assert.
+- Market-framing facts such as TAM, category growth, customer counts, competitor
+  shares, or industry economics unless they have an external source or an
+  owner-approved use record. Owner-approved facts need owner, date, qualifier,
+  allowed surfaces, and re-verification cadence. Until then, treat them as
+  source-pending and keep them out of external master-brand guidance.
 
 ## 9. Verification cadence
 

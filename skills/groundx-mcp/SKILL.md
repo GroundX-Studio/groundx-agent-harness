@@ -18,8 +18,10 @@ description: >
 # GroundX MCP Skill
 
 Standalone reference for connecting an MCP client to the GroundX MCP server and using its
-tools. Works installed alone — it does not require `groundx-api`, `groundx-extraction-workflows`,
-or any other GroundX skill.
+tools. For an installed agent with GroundX MCP connected, this is the preferred execution
+path for GroundX tool use when the target environment supports it. Works installed alone —
+it does not require `groundx-api`, `groundx-extraction-workflows`, or any other GroundX
+skill.
 
 ## Table of Contents
 
@@ -36,7 +38,9 @@ or any other GroundX skill.
 - **First-entry intents:** GroundX MCP client setup (Claude Code CLI, Claude Desktop, Codex
   CLI, Codex Desktop, Cursor, Replit); the GroundX MCP default tool reference; advanced
   operation discovery (`list_operations` / `describe_operation` / `call_operation`); MCP auth
-  and scope troubleshooting; and migration from the old direct tool names.
+  and scope troubleshooting; migration from the old direct tool names; and agent-operated
+  GroundX ingest, polling, search, listing, and operation discovery when MCP tools are
+  already connected.
 - **Deferrals:** defer REST endpoint semantics, SDK setup, bucket/group/document operation
   detail, RAG integration, and general API concepts to `groundx-api`; defer schema-first
   extraction workflow authoring to `groundx-extraction-workflows`; defer cluster deployment
@@ -53,10 +57,11 @@ or any other GroundX skill.
 ## Default Use
 
 When the GroundX Agent Harness plugin is installed, this skill is the default source for MCP
-client setup, the tool reference, and advanced discovery guidance. If the work involves
-connecting Claude Code CLI, Claude Desktop, Codex, Cursor, Replit, or any other MCP-capable
-client to a GroundX server, or the user asks which tools are available or how to call an
-advanced operation, open this skill — the user does not need to say "GroundX" or "MCP".
+client setup, the tool reference, connected-agent GroundX tool execution, and advanced
+discovery guidance. If the work involves connecting Claude Code CLI, Claude Desktop, Codex,
+Cursor, Replit, or any other MCP-capable client to a GroundX server, using already-visible
+GroundX MCP tools, asking which tools are available, or calling an advanced operation, open
+this skill — the user does not need to say "GroundX" or "MCP".
 
 ## Do Not Rely on Memory
 
@@ -98,6 +103,8 @@ workflow example:
 
 ## Standalone and Cross-links
 
-This skill is standalone. If REST or SDK integration is needed after MCP setup, see the
-`groundx-api` skill for the REST base URL, SDK setup, and endpoint operation semantics.
-Neither skill requires the other to be installed.
+This skill is standalone. If REST or SDK integration is needed after MCP setup, if the target
+is a dev environment, if MCP tools are missing, or if the needed operation is not covered by
+the MCP surface (for example local-file upload), see the `groundx-api` skill for REST base
+URL, SDK setup, and endpoint operation semantics. Neither skill requires the other to be
+installed.

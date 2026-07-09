@@ -8,6 +8,21 @@ For visual logo and lockup rules, see `../product-brand-design-standards/referen
 
 > **Valantor** (the company) → **GroundX** (the platform) → **GroundX Studio** (the extensibility platform) → **Outcome Plug-ins** (the productized verticals) → **Operational Layer** (Valantor agents + human orchestration).
 
+## 1.1 Plain-English mental model for agents
+
+Use this when a user is trying to make sense of the names or decide which
+GroundX path an agent should use:
+
+| Name | Plain meaning | Use it when... | Do not confuse it with... |
+| --- | --- | --- | --- |
+| **Valantor** | The company and master brand. | The topic is company, category, investor, Visual Intelligence, AI + humans, or Outcome Plug-in strategy. | GroundX the platform, or EyeLevel the heritage brand. |
+| **GroundX** | The platform layer. | The topic is document understanding, ingest, search, RAG, workflows, extraction substrate, buckets, groups, API, SDK, MCP, or on-prem deployment. | The company. Say "GroundX by Valantor" externally. |
+| **EyeLevel** | The acquired-company / heritage brand that built GroundX before Valantor acquired the work. | The topic is the team's history, origin story, logo lockup, or EyeLevel-pack product surfaces. | The platform. Never say "EyeLevel by Valantor." |
+| **GroundX MCP** | The preferred connected-agent path for using GroundX tools. | An installed agent has MCP tools connected and needs to ingest, poll, search, list, or discover operations. | REST/SDK endpoint semantics, which belong to `groundx-api`. |
+| **REST APIs / SDKs** | Direct integration surfaces for application code and fallback. | The topic is backend integration, dev environment behavior, endpoint shapes, SDK objects, local-file upload gaps, or MCP fallback. | MCP setup and tool-use instructions. |
+| **GroundX Studio Harness** | The agent knowledge and workflow layer. | The topic is helping agents build GroundX-backed work, UI, decks, extraction specs, or integrations correctly. | The only way to integrate GroundX. |
+| **GroundX On-Prem** | A deployment distribution of GroundX for customer-controlled infrastructure. | The topic is deployment mode, Kubernetes, Helm, values.yaml, private cloud, air-gapped, residency, or operations. | Runtime workflow model assignment, which belongs to `groundx-api`. |
+
 ## 2. Valantor (master brand)
 
 - **Role:** the enterprise Visual Intelligence operating company. The master brand. What investors value and what enterprises sign multi-year contracts with.

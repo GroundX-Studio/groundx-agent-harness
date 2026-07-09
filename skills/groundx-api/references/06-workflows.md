@@ -33,6 +33,12 @@ Workflows can be assigned at three levels. More specific assignments override br
 3. **Document processing depth** — `processLevel` can opt an individual document out of
    the agentic workflow pipeline by using `none` (§1.2 in 02-documents.md)
 
+This is the documented runtime configuration surface for choosing workflow behavior by
+scope. Do not describe it as a separate account-level or bucket-level "model config" API.
+The account/group/bucket surface assigns a workflow; model endpoint changes happen inside
+workflow steps through `engine` configuration (§1.3). Install-time summary-engine choices in
+Helm values live in `groundx-on-prem/references/engines.md` and are a different surface.
+
 ### 1.2 Workflow fields
 
 | Field | Description |
@@ -102,6 +108,11 @@ supply an `engine` object. The same field exists on the wire and on the
 
 See `references/12-python-sdk-objects.md` §3 for the `WorkflowEngine` constructor
 example.
+
+Use "per-agent model configuration" only when the agent maps to a specific workflow step
+that carries an `engine` object. If the request asks for a broader per-agent model switch,
+or a separate account/bucket model-config endpoint, treat that scope as source-pending
+until a source documents it.
 
 ### 1.3.1 service vocabulary
 

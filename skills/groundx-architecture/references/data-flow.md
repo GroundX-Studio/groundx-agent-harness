@@ -78,7 +78,7 @@ The pipeline is **stateless at every stage** — all state lives in the shared d
 
 ## 9. Cost / FinOps altitude
 
-The pipeline's compute concentrates in **three GPU services**: `summary-inference` (largest cost driver), `ranker-inference` (second), and `layout-inference` (third). Everything else is CPU orchestration and I/O — comparatively cheap. Deployment-level cost framing and per-driver levers are owned by `groundx-on-prem`.
+The pipeline's compute concentrates in **three GPU services**: `summary-inference` (largest cost driver), `ranker-inference` (second), and `layout-inference` (third). Everything else is CPU orchestration and I/O — comparatively cheap. The top-level stages are sequential, while specific stages can parallelize per page, section, or chunk. Do not use that parallelism to claim total cost or storage scales sublinearly; OpenSearch, file storage, retained artifacts, and many processing costs still scale with pages, elements, chunks, and volume. Deployment-level cost framing and per-driver levers are owned by `groundx-on-prem`.
 
 ## 10. What this topic does not cover
 
