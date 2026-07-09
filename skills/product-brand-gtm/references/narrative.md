@@ -15,7 +15,7 @@ GroundX is the most accurate document intelligence platform for complex enterpri
 ## 3. The three-line pitch
 
 - **The problem.** Most enterprise value is locked in visually complex documents — contracts, claims, policies, technical diagrams, scanned forms, decision trees, tables. General-purpose AI tools fail on this material at scale.
-- **The system.** GroundX turns those documents into reliable, structured intelligence — clean extracted data, grounded answers, source-backed reports, and RAG systems when the buyer is explicitly building that pattern. A fine-tuned vision model identifies tables, paragraphs, and figures on every page; a stack of focused agents reasons about each element; a proprietary hybrid search returns the right context with unrivaled accuracy.
+- **The system.** GroundX turns those documents into reliable, structured intelligence — clean extracted data, grounded answers, source-backed reports, and RAG systems when the buyer is explicitly building that pattern. A fine-tuned vision model identifies tables, paragraphs, and figures on every page; a stack of focused agents reasons about each element; a proprietary hybrid search is designed to return strong context for grounded answers.
 - **The deployment.** Cloud, on-prem, or fully air-gapped via Helm charts. Shipped Red Hat OpenShift AI partner quickstart. The only viable path for regulated industries and data-sovereignty buyers.
 
 ## 3.1 RAG vocabulary

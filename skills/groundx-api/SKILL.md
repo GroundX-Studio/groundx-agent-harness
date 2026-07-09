@@ -5,10 +5,11 @@ description: >
   source attribution, document understanding, buckets, groups, workflows,
   account health, API keys, SDK usage, stuck ingest/status, empty search, bad
   citations, SDK usage, and REST calls. Use `GROUNDX_API_KEY` with the Python
-  SDK or REST for direct API work. The hosted GroundX MCP server is optional and
-  production-only; use it when already connected and the target is prod. Keep raw
-  keys out of tool arguments, browser code, logs, transcripts, examples, and
-  generated files. For MCP client setup, connection, and auth, see the
+  SDK or REST for direct API work. The hosted GroundX MCP server is the preferred
+  execution path for connected agent-operated prod tasks, but it remains optional and
+  production-only from this API skill's perspective; use SDK/REST for dev, direct
+  backend integration, and fallback. Keep raw keys out of tool arguments, browser code,
+  logs, transcripts, examples, and generated files. For MCP client setup, connection, and auth, see the
   `groundx-mcp` skill.
 ---
 
@@ -52,8 +53,9 @@ operation-level references.
    `GROUNDX_BASE_URL=https://devapi.groundx.ai/api` and use the dev
    `GROUNDX_API_KEY`. For prod, leave `GROUNDX_BASE_URL` unset and use the prod
    `GROUNDX_API_KEY`.
-4. Use the Python SDK or REST by default. If GroundX MCP tools are visible and the
-   target is prod, call `groundx_account_context` and use MCP when convenient.
+4. Use the Python SDK or REST for direct integration, dev, and fallback. If GroundX MCP
+   tools are visible and the target is prod, call `groundx_account_context` and prefer
+   MCP for agent-operated GroundX work.
 5. For stuck ingest/status, empty search, or bad citations, read
    `references/debugging.md` before the operation reference.
 6. Read the smallest operation reference and guide that matches the work.
@@ -89,8 +91,9 @@ reference and guide the task needs. For response-shape questions, check
 - [ ] Dev uses `GROUNDX_BASE_URL=https://devapi.groundx.ai/api`; prod leaves
       `GROUNDX_BASE_URL` unset.
 - [ ] `GROUNDX_API_KEY` is for the selected environment.
-- [ ] GroundX MCP is optional and prod-only; if used, `groundx_account_context` is
-      called before partner, workspace, or admin behavior.
+- [ ] GroundX MCP is optional and prod-only from the API skill's perspective, but
+      preferred for connected agent-operated prod work; if used,
+      `groundx_account_context` is called before partner, workspace, or admin behavior.
 - [ ] Raw API keys do not appear in MCP tool arguments, logs, transcripts, browser
       code, examples, or generated files.
 - [ ] REST URLs avoid double-version paths such as `/api/v1/v1/...`.

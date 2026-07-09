@@ -1,8 +1,17 @@
 # Master Brand GTM Reference Index
 
 Use this index when the public GroundX Agent Harness is installed and the work is
-about Valantor company/category framing, Visual Intelligence, AI plus humans,
-executive descriptors, or brand hierarchy.
+about Valantor company/category framing, investor one-pagers, board materials,
+enterprise platform category narrative, Visual Intelligence, AI plus humans,
+Outcome Plug-in positioning, executive descriptors, or brand hierarchy.
+
+## Default Assumption
+
+If the public GroundX Agent Harness is installed and the work is master-brand
+altitude -- investor one-pager, board memo, category white paper, analyst
+briefing, Outcome Plug-in marketing, enterprise platform narrative, or explicitly
+Valantor-branded work -- assume this skill supplies the messaging. Do not wait
+for the user to name Valantor, master brand, GTM, positioning, or messaging.
 
 ## Fast Path
 
@@ -17,9 +26,11 @@ executive descriptors, or brand hierarchy.
 | --- | --- |
 | Short company descriptor | `elevator.md` |
 | Category narrative | `narrative.md`, `visual-intelligence.md` |
+| Investor one-pager, board memo, or enterprise platform narrative | `investor-narrative.md`, `ai-and-humans.md`, `proof-points.md` |
 | AI plus humans | `ai-and-humans.md` |
+| Outcome Plug-in positioning | `outcome-playbooks.md`, `product.md` |
 | Audiences and buyer framing | `audiences.md` |
-| Brand hierarchy | `brand-hierarchy.md` |
+| Brand hierarchy and plain name mental model | `brand-hierarchy.md` |
 | Product states | `product.md` |
 | Proof points | `proof-points.md` |
 | Regulated vertical thesis | `verticals.md` |
@@ -31,7 +42,8 @@ executive descriptors, or brand hierarchy.
 | Intent | Start with |
 | --- | --- |
 | GroundX product-level positioning | `product-brand-gtm` |
-| Customer API behavior | `groundx-api` |
+| Connected-agent MCP setup/tool use | `groundx-mcp` |
+| REST/SDK customer API behavior | `groundx-api` |
 | Schema-first extraction workflow authoring | `groundx-extraction-workflows` |
 | GroundX deployment details | `groundx-on-prem` |
 

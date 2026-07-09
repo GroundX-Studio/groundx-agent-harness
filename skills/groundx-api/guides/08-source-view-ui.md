@@ -53,11 +53,12 @@ There are two approaches, used independently or together.
 
 Show all `n` result chunks as source cards alongside the chat response. The user
 sees the top-ranked evidence the LLM drew on without needing the LLM to cite
-anything. This is the most robust approach — the reranker guarantees relevance,
-and there is no risk of the LLM hallucinating citation numbers.
+anything. This is the most robust approach — the reranker orders the strongest
+available evidence ahead of weaker matches, and there is no risk of the LLM
+hallucinating citation numbers.
 
 The cards are ordered by `score` descending (the array is already sorted), so the
-most relevant source is always first.
+highest-scored source appears first.
 
 ### 3.2 Inline citation markers
 
