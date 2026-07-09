@@ -24,6 +24,25 @@ A recurring buyer voice frames why every differentiator matters at enterprise sc
 
 At hundreds of use cases, anything less than enterprise-grade accuracy, on-prem deployability, integrated architecture, and a productive implementation pattern fails the math. The GroundX Studio Harness specifically answers the implementation-velocity dimension; the other pillars answer per-use-case bar requirements. This pain is master context for every pitch — every pillar gets stronger when framed against it.
 
+### 2.1 The two volume problems
+
+Do not flatten every buyer pain into "too many documents." GroundX answers two
+related but different volume problems:
+
+- **Knowledge volume:** the enterprise has too much visually complex knowledge
+  for people or general-purpose AI to reliably find, understand, and cite. This
+  maps to grounded answers, source-backed reports, RAG, technical support,
+  policy lookup, and customer-service assistants.
+- **Transactional document volume:** the enterprise has too many recurring
+  document-driven tasks to review one by one. This maps to extraction,
+  classification, claim-file review, evidence packages, and operational
+  workflows where consistency and throughput matter.
+
+For short copy, pick the one the buyer is actually describing. For broader
+strategy or investor context, show both: GroundX turns visually complex knowledge
+into reliable intelligence and turns high-volume document transactions into
+repeatable operational workflows.
+
 ## 3. The ideal-customer profile
 
 The ICP is teams that have already tried RAG or LLM use cases on unstructured documents and run into the limits. They tend to have:

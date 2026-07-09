@@ -19,6 +19,13 @@ Workflows are defined once and then assigned to a bucket, a group, or the accoun
 as a whole. Every document ingested into that scope is processed by the assigned
 workflow. See `references/06-workflows.md` for CRUD operations and scope assignment.
 
+Runtime model configuration lives at the workflow surface documented here:
+assignment selects which workflow applies at account, group, or bucket scope; a
+workflow step's `engine` object selects a custom OpenAI-compatible endpoint for
+that step. This is separate from install-time Helm summary-engine selection in
+`groundx-on-prem/references/engines.md`. Do not imply a separate account-level,
+bucket-level, or broad per-agent model-config API unless a source documents it.
+
 ## 2. The default pipeline
 
 The core challenge in document RAG is context. Large documents must be divided into

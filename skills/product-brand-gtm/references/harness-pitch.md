@@ -6,6 +6,11 @@ Use this reference when copy needs to explain GroundX Studio Harness, especially
 
 GroundX Studio Harness is an **AI Agent Harness**: a plugin of skills, connectors, and design patterns that gives AI agents fluency in the GroundX platform. Load it into Claude, ChatGPT Codex, Replit, Cursor, openclaw, or any plugin-supporting agent runtime, and agents can implement RAG, extraction, smart reports, classification, Studio UIs, portals, review workflows, and integrations directly against GroundX.
 
+For connected agent execution, GroundX MCP is the preferred path when available.
+The Harness makes the agent fluent in what to do and which references to load;
+MCP tools execute GroundX operations; REST APIs and SDKs remain the direct
+integration and fallback surfaces.
+
 ## One-sentence form
 
 GroundX Studio Harness gives AI agents the GroundX-specific skills, connectors, and design patterns they need to build document intelligence workflows in days instead of months.
@@ -38,6 +43,7 @@ GroundX Studio Harness gives AI agents the GroundX-specific skills, connectors, 
 - Use `proof-points.md` for numbers, customer outcomes, benchmarks, and logos.
 - Do not claim bulk reprocessing of historical documents under a new extraction schema with no re-ingest unless an authoritative product or API reference explicitly supports it.
 - Do not say a runtime is certified or officially supported unless a current source says so. For broad compatibility, say "plugin-supporting agent runtime" or "agent surfaces such as..." rather than promising every runtime behaves identically.
+- Do not imply the Harness is the exclusive GroundX integration path. Co-list MCP for connected agents and REST/SDKs for direct application integration when the surface needs the full integration landscape.
 
 ## Register
 

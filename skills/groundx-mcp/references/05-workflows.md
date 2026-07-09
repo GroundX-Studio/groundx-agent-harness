@@ -122,7 +122,8 @@ Replace `"abc123"` with the actual `processId` from the ingest response.
 **Required scope:** `groundx:write`
 
 Once the processing status is `complete`, call `search_content` to query within a specific
-bucket or group. Pass the `bucketId` or `groupId` as `id`.
+bucket or group. Pass the `bucketId` or `groupId` as `id`. This is the normal search path
+for an MCP ingest-to-search workflow.
 
 ```json
 search_content({
@@ -136,16 +137,23 @@ search_content({
 Replace `789` with your `bucketId` or `groupId`, and replace `"your query"` with the actual
 search string.
 
-Alternatively, use `search_documents` to search across all documents without specifying a
-bucket or group target:
+Use `search_documents` only when the caller already has an explicit set of document IDs and
+wants to search that set directly:
 
 ```json
 search_documents({
   "searchDocumentsRequest": {
+    "documentIds": [
+      "doc_123",
+      "doc_456"
+    ],
     "query": "your query"
   }
 })
 ```
+
+Do not use `search_documents` as an all-documents or account-wide search shortcut. For
+bucket or group search, use `search_content`.
 
 ---
 
@@ -159,7 +167,7 @@ search_documents({
 | 3. Ingest document | `document_ingestremote` | `groundx:ingest` |
 | 4. Poll for completion | `document_getprocessingstatusbyid` | `groundx:ingest` |
 | 5a. Search by bucket or group | `search_content` | `groundx:write` |
-| 5b. Search across documents | `search_documents` | `groundx:write` |
+| 5b. Search explicit document set | `search_documents` | `groundx:write` |
 
 A session with only `groundx:read` scope cannot complete this workflow. `groundx:read`
 grants access only to `bucket_list`, `group_list`, and `health_get` from the default tool

@@ -10,6 +10,22 @@ If a rule below disagrees with a statement elsewhere in the harness, this file w
 
 Plus a parallel: **GroundX Studio Harness** is the agentic adoption layer for any of the above — not a hierarchical layer, but a delivery channel for the GroundX-touching surfaces.
 
+## 1.1 Plain-English mental model
+
+Use this when the user is not asking for investor/category depth and only needs
+to understand the names:
+
+| Name | Plain meaning | Use it when... | Do not confuse it with... |
+| --- | --- | --- | --- |
+| **Valantor** | The company and master brand. | Company, category, investor, Visual Intelligence, AI + humans accountability, or Outcome Plug-in strategy. | GroundX the platform or EyeLevel the heritage brand. |
+| **GroundX** | The platform layer. | Product mechanism, document intelligence, ingest, search, RAG, workflows, extraction substrate, APIs, SDKs, MCP, or deployment. | The company. Externally, introduce it as GroundX by Valantor. |
+| **EyeLevel** | The acquired-company / heritage brand that built GroundX before Valantor acquired the work. | Origin story, team heritage, or EyeLevel-pack product surfaces. | The platform. Never say EyeLevel by Valantor. |
+| **GroundX MCP** | The preferred connected-agent path for using GroundX tools. | An installed agent has MCP tools connected and needs to operate GroundX. | REST/SDK endpoint semantics, which belong to `groundx-api`. |
+| **GroundX Studio Harness** | The agent knowledge and workflow layer. | Agents need GroundX-specific skills, references, patterns, and medium guidance. | The only way to integrate GroundX. |
+
+Keep simple relationship answers simple. Do not expand into a full investor,
+category, or Outcome Plug-in narrative unless the user asks for that altitude.
+
 ## 2. Valantor — master brand
 
 - **Role:** the enterprise Visual Intelligence operating company.

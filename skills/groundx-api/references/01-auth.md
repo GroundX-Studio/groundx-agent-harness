@@ -40,10 +40,12 @@ environment first:
 | Prod | SDK default, or `https://api.groundx.ai/api` | prod `GROUNDX_API_KEY` from `https://dashboard.groundx.ai` |
 | Dev | `https://devapi.groundx.ai/api` | dev `GROUNDX_API_KEY` from `https://devdashboard.groundx.ai` |
 
-The hosted GroundX MCP connector is optional and currently production-only. If MCP tools
-are already visible and the target is prod, call `groundx_account_context` before
-choosing customer, partner, workspace, or admin behavior. If the target is dev, use the
-Python SDK or REST instead of asking the user to connect MCP.
+The hosted GroundX MCP connector is optional and currently production-only from the API
+skill's perspective, but it is the preferred execution path for connected agent-operated
+prod work. If MCP tools are already visible and the target is prod, call
+`groundx_account_context` before choosing customer, partner, workspace, or admin behavior,
+then prefer the matching MCP tool. If the target is dev, use the Python SDK or REST instead
+of asking the user to connect MCP.
 
 MCP auth is handled at the transport layer — never put the raw API key in MCP tool
 arguments, redirect URLs, browser code, logs, transcripts, generated examples, or
@@ -59,8 +61,9 @@ Once connected in prod, `groundx_account_context` returns the resolved account t
 mode (`customer`, `partner`, or `admin`), granted scopes, base URL, and enabled tool
 groups. Customer accounts expose customer GroundX tools. Partner accounts also expose
 Partner and Workspace tools when enabled. Admin accounts expose all enabled tool groups.
-If connector attachment/auth fails, or a needed tool remains missing after discovery,
-use the Python SDK or REST references below and keep the API key server-side.
+If connector attachment/auth fails, the target is not prod, or a needed tool remains
+missing after discovery, use the Python SDK or REST references below and keep the API key
+server-side.
 
 For Partner MCP sessions, do not pass raw API keys as tool arguments. Partner resource tools use
 `customerUsername` as a per-call target-customer selector; the server maps it to the Partner API

@@ -25,14 +25,15 @@ buyer framing, objections, or product descriptions.
 | Proof points and outcomes | `proof-points.md` |
 | Buyer-specific framing | `audiences.md`, `buyer.md` |
 | Objections | `objections.md` |
-| Brand hierarchy and naming | `brand-relationship.md` |
+| Brand hierarchy, naming, and agent integration mental model | `brand-relationship.md` |
 
 ## Deferrals
 
 | Intent | Start with |
 | --- | --- |
 | Valantor master-brand or category framing | `master-brand-gtm` |
-| Customer API behavior | `groundx-api` |
+| Connected-agent MCP setup/tool use | `groundx-mcp` |
+| REST/SDK customer API behavior | `groundx-api` |
 | Schema-first extraction workflow authoring | `groundx-extraction-workflows` |
 | GroundX deployment details | `groundx-on-prem` |
 

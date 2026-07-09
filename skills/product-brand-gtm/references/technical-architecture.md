@@ -1,6 +1,6 @@
 # Technical Architecture: The "Why" Behind Accuracy
 
-This is the messaging-side explanation of why GroundX produces unrivaled accuracy. Use it when a buyer asks *how* the accuracy claim works — typically a technical audience (VP Eng, Data Lead, ML team, architect). For external/public-facing content, use the descriptive phrasing here; do not name the underlying vision-model architecture by its open-source name.
+This is the messaging-side explanation of why GroundX can support high-accuracy document understanding and retrieval. Use it when a buyer asks *how* the accuracy claim works — typically a technical audience (VP Eng, Data Lead, ML team, architect). For external/public-facing content, use the descriptive phrasing here; do not name the underlying vision-model architecture by its open-source name.
 
 For the deployment/operational story, see `differentiation.md` § 1. For the accuracy claim itself, see `differentiation.md` § 2 and `proof-points.md`.
 
@@ -37,7 +37,9 @@ LLMs have what we call *"ADD"* — they fail at long tasks. Ask a general-purpos
 
 GroundX runs a set of agents at **three levels of granularity**: **document, section, and chunk.** At each level the agents generate metadata — summaries and keywords — that downstream search and reasoning depend on. At the chunk level specifically, the agents also produce the three versions of the chunk text used by the search layer (one tuned for LLM completions, one tuned for search, one preserving the original extracted text — see § 4 for how those are consumed).
 
-Because each agent works on a small, narrow piece — a section to summarize, a chunk to keyword, a paragraph to enrich — older and cheaper models do the job reliably. The system was designed when GPT-3 was state of the art. That history is why it still works on small, self-hostable models today. Cost wins compound; the operational story for on-prem deployment gets stronger.
+Because each agent works on a small, narrow piece — a section to summarize, a chunk to keyword, a paragraph to enrich — older and cheaper models can do many jobs reliably. The system was designed when GPT-3 was state of the art. That history is why it can still work with small, self-hostable models for focused steps today.
+
+Do not turn this into a blanket cost-scaling claim. The top-level ingest path has sequential stages, while specific stages can parallelize per page, section, or chunk. Stage-level parallelism can improve wall-clock throughput and focused tasks can reduce model cost, but storage, OpenSearch, retained artifacts, and much of processing still scale with document size, element count, and chunk volume. For deployment-level cost estimates, route to `groundx-on-prem`.
 
 For extraction work specifically, a dedicated **QA microservice** reconciles conflicting field extractions and QAs the final structured-data output — the layer that turns *"agents pulled candidate values"* into *"this is the row we will return."*
 
@@ -67,7 +69,7 @@ The Apple-vs-PC argument from `differentiation.md` § 4 has a technical version 
 The same architecture serves both:
 
 - **Document understanding** (extraction, structured data, fine-tuning data for models). The vision model + agentic pipeline produce structured data directly.
-- **Full end-to-end RAG.** Same ingest, plus the hybrid search, gives unrivaled retrieval accuracy.
+- **Full end-to-end RAG.** Same ingest, plus the hybrid search, supports high-accuracy retrieval.
 
 A buyer can use one capability or both. See `capabilities-and-surfaces.md` for the consumption surfaces that expose them.
 

@@ -131,6 +131,11 @@ Pull these directly when a customer voice is needed.
 - Internal-only customer numbers or accuracy figures. If a claim is not externally publishable, it does not belong here.
 - Master-brand altitude claims (Visual Intelligence category metrics, AI+humans accountability framing, Outcome Plug-in vertical economics). Those belong to `master-brand-gtm/references/proof-points.md` framed at master-brand altitude.
 - Speculative metrics ("up to 10x faster", "save N FTEs"). If a real customer has supplied the number, request inclusion through the source-attribution process; do not extrapolate.
+- Market-framing facts such as TAM, category growth, customer counts, competitor
+  shares, or industry economics unless they have an external source or an
+  owner-approved use record. Owner-approved facts need owner, date, qualifier,
+  allowed surfaces, and re-verification cadence. Until then, treat them as
+  source-pending and keep them out of external product guidance.
 
 ## 7. Verification cadence
 
