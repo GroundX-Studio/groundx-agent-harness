@@ -68,6 +68,19 @@ The `level` controls where the step runs:
 
 `kind: instruct` is invalid with `level: document` in the harness validator.
 
+Before live ingest, estimate request fanout:
+
+- `chunk_requests ~= pages * chunks per page * chunk-level custom steps`
+- `section_requests ~= pages * section-level custom steps` only when
+  `workflow.section_strategy: page`
+- `document_requests ~= document-level custom steps`
+
+Pseudo groups reduce field and prompt load, but pseudo groups at `level: chunk`
+still multiply requests. If statement-style fields are split into many broad
+pseudo groups and expected documents may be long, use `workflow.section_strategy: page`
+with `level: section` for those broad statement passes. Keep chunk level for
+local repeating rows when the estimate stays below the warning threshold.
+
 The harness intentionally does not load `domain:` or `slot:` YAML forms. Use the
 public GroundX Python SDK helper directly when you need SDK-level YAML loading
 outside the harness templates. Omit any final group a document does not have.

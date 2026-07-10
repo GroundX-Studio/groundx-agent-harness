@@ -143,6 +143,14 @@ through `customChunkOutputs`, `customSectionOutputs`, or `customDocumentOutputs`
 The custom step's `level` and `kind` determine how the platform runs the prompt
 and how local `xray_to_extract.py` maps X-Ray values back to final JSON.
 
+Choose `level` with request fanout in mind. Estimate
+`pages * chunks per page * chunk-level custom steps` before live ingest. Pseudo
+groups reduce field and prompt load, but pseudo groups at `level: chunk` still
+multiply requests. For long statement-style documents, use
+`workflow.section_strategy: page` and `level: section` for broad statement
+passes when chunk fanout approaches the 2000 request cap. Use chunk level for
+local repeating records only when the estimate fits.
+
 ### 6.1 `kind: instruct`
 
 - **Output shape:** one flat object

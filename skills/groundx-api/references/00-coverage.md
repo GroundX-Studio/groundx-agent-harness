@@ -75,6 +75,7 @@ _No individual operations — cross-cutting content._
 | ✓ | `workflow_remove_from_account` | `DELETE /v1/workflow/relationship` |
 | ✓ | `workflow_remove_from_id` | `DELETE /v1/workflow/relationship/{id}` |
 | ✓ | `workflow_update` | `PUT /v1/workflow/{id}` |
+| ✓ | `workflow_validate` | `POST /v1/workflow/validate` |
 
 ## 07-customer-and-keys.md
 

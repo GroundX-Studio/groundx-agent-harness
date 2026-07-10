@@ -23,6 +23,7 @@ command arguments.
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import os
 import sys
@@ -32,6 +33,7 @@ import dotenv
 from groundx import GroundX
 
 from compile_workflow import build_workflow_artifacts, workflow_sdk_kwargs
+from estimate_workflow_requests import count_pdf_pages, estimate_request_fanout
 from validate_workflow_json import validate
 
 
@@ -213,6 +215,39 @@ def _write_metadata(out: str, metadata: dict[str, typing.Any]) -> None:
             f.write(str(metadata["bucketId"]))
 
 
+def _request_risk_report(
+    workflow: dict[str, typing.Any],
+    out: str,
+    *,
+    estimate_pdfs: list[str],
+    estimate_docs_dir: str | None,
+    expected_pages: int | None,
+) -> dict[str, typing.Any]:
+    pdfs = list(estimate_pdfs)
+    if estimate_docs_dir:
+        pdfs.extend(sorted(glob.glob(os.path.join(estimate_docs_dir, "*.pdf"))))
+
+    if not pdfs and expected_pages is None:
+        report: dict[str, typing.Any] = {
+            "risk_status": "not_estimated",
+            "recommended_action": (
+                "Deploy does not ingest a document. Supply --estimate-pdf, "
+                "--estimate-docs-dir, or --expected-pages to report request fanout."
+            ),
+        }
+    else:
+        page_counts = [count_pdf_pages(path) for path in pdfs]
+        report = estimate_request_fanout(
+            workflow,
+            page_counts=page_counts,
+            expected_pages=expected_pages,
+        )
+
+    with open(_abs(out, "request_estimate.json"), "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2, default=str)
+    return report
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--yaml", required=True, help="Path to extraction YAML")
@@ -225,6 +260,9 @@ def main() -> int:
     parser.add_argument("--add-to-account", action="store_true", help="Set workflow as account default")
     parser.add_argument("--dry-run", action="store_true", help="Compile, validate, and write planned actions without API calls")
     parser.add_argument("--skip-validate", action="store_true", help="Skip workflow JSON validation")
+    parser.add_argument("--estimate-pdf", action="append", default=[], help="Optional PDF evidence for deploy-only request-risk reporting")
+    parser.add_argument("--estimate-docs-dir", default=None, help="Optional PDF directory for deploy-only request-risk reporting")
+    parser.add_argument("--expected-pages", type=int, default=None, help="Optional expected page count for deploy-only request-risk reporting")
     args = parser.parse_args()
 
     bucket_targets = [
@@ -238,6 +276,13 @@ def main() -> int:
     os.makedirs(args.out, exist_ok=True)
     workflow_name = args.workflow_name or os.path.splitext(os.path.basename(args.yaml))[0]
     workflow = _compile_workflow(args.yaml, workflow_name, args.out, args.skip_validate)
+    request_risk = _request_risk_report(
+        workflow,
+        args.out,
+        estimate_pdfs=args.estimate_pdf,
+        estimate_docs_dir=args.estimate_docs_dir,
+        expected_pages=args.expected_pages,
+    )
 
     if args.dry_run:
         planned_attachments = []
@@ -257,12 +302,14 @@ def main() -> int:
             "workflowName": workflow["name"],
             "workflowJson": _abs(args.out, "workflow.json"),
             "plannedAttachment": planned_attachment,
+            "requestRisk": request_risk,
         }
         _write_metadata(args.out, metadata)
         print(
             "dry-run ok. "
             f"workflow_action={metadata['workflowAction']} "
             f"target={planned_attachment} "
+            f"request_risk={request_risk.get('risk_status')} "
             f"out={args.out}"
         )
         return 0
@@ -308,6 +355,7 @@ def main() -> int:
             "bucketCreated": created_bucket,
             "bucketPreserved": bucket_preserved,
             "accountAssigned": account_assigned,
+            "requestRisk": request_risk,
             "error": attachment_error,
             "cleanupNote": (
                 "bucket deletion is not a supported harness cleanup path"
@@ -330,6 +378,7 @@ def main() -> int:
         "createdBucketName": args.create_bucket_name,
         "bucketCreated": created_bucket,
         "accountAssigned": account_assigned,
+        "requestRisk": request_risk,
     }
     _write_metadata(args.out, metadata)
 
@@ -339,7 +388,10 @@ def main() -> int:
     if bucket_id is not None:
         target_parts.append(f"bucket {bucket_id}")
     target = ", ".join(target_parts) if target_parts else "no attachment"
-    print(f"workflow {workflow_action}. workflow_id={workflow_id} target={target} out={args.out}")
+    print(
+        f"workflow {workflow_action}. workflow_id={workflow_id} "
+        f"target={target} request_risk={request_risk.get('risk_status')} out={args.out}"
+    )
     return 0
 
 
