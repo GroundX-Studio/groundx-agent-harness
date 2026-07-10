@@ -32,6 +32,7 @@ a field, or planning a serious extraction pilot.
 | Authoring or revising YAML schema | `16_prompt_writing.md`, `prompt-quality.md`, `2_schema_design.md` |
 | Improving prompts after misses or reviewer feedback | `prompt-improvement-loop.md`, then `16_prompt_writing.md` |
 | Choosing custom workflow steps and preserving RAG while extracting | `3_prompt_pipeline.md` |
+| Estimating request fanout before live ingest; choosing chunk versus page-section execution | `2_schema_design.md`, `3_prompt_pipeline.md`, `templates/estimate_workflow_requests.py` |
 | Wrapping YAML with custom extract/reconcile/QA prompt modules and managing prompt iterations today | `prompt-manager.md` |
 | Finished-YAML deployment decision: MCP vs deploy-only local script vs full local run | `deploy.md` |
 | Modifying compiler, deploy, or runner behavior | `4_sdk_integration.md` |
@@ -56,6 +57,13 @@ for SDK internals.
 
 Keep customer documents, expected answers, private notes, and run outputs out of committed
 artifacts unless the customer explicitly approves sharing.
+
+Estimate request fanout before live ingest. Use expected pages, chunks per
+page, and custom step counts: `pages * chunks per page * chunk-level custom
+steps`. Pseudo groups reduce field and prompt load, but pseudo groups at
+`level: chunk` still multiply requests. For large statement-style documents,
+prefer `workflow.section_strategy: page` plus `level: section` when chunk
+fanout approaches the 2000 request cap.
 
 Use `16_prompt_writing.md`, `prompt-quality.md`, and `prompt-improvement-loop.md`
 before drafting or tightening prompts. The skill should teach the full process first:

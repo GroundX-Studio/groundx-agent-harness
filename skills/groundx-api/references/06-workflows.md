@@ -1,9 +1,9 @@
 # Workflows
 
-This reference covers the ten workflow operations: creating, listing, getting, updating,
-and deleting workflow definitions; looking up the account-level workflow assignment;
-assigning and removing a workflow from the account; and assigning and removing a workflow
-from a specific group or bucket.
+This reference covers the eleven workflow operations: creating, validating, listing,
+getting, updating, and deleting workflow definitions; looking up the account-level
+workflow assignment; assigning and removing a workflow from the account; and assigning
+and removing a workflow from a specific group or bucket.
 
 ## 1. Workflow overview
 
@@ -209,7 +209,37 @@ Content-Type: application/json
 
 **Response:** `{ "workflow": { "workflowId": "uuid", "name": "technical-docs", ... } }`
 
-## 3. workflow_list / GET /v1/workflow
+## 3. workflow_validate / POST /v1/workflow/validate
+
+Validate a workflow definition without creating or modifying anything. The request body
+matches `workflow_create`, including authored workflow YAML in `yaml`; the server
+compiles and validates it, then returns the compiled workflow on success.
+
+**MCP:**
+```json
+{
+  "name": "technical-docs",
+  "yaml": "workflow: ..."
+}
+```
+Tool: `workflow_validate`
+
+**REST:**
+```http
+POST /v1/workflow/validate
+X-API-Key: YOUR_API_KEY
+Content-Type: application/json
+
+{
+  "name": "technical-docs",
+  "yaml": "workflow: ..."
+}
+```
+
+**Response:** `{ "workflow": { ... } }` — compiled workflow object. Validation failures
+return the same structured error shape as create.
+
+## 4. workflow_list / GET /v1/workflow
 
 List all workflow definitions associated with the API key.
 
@@ -227,7 +257,7 @@ X-API-Key: YOUR_API_KEY
 
 **Response:** `{ "workflows": [...] }` — array of workflow objects.
 
-## 4. workflow_get / GET /v1/workflow/{id}
+## 5. workflow_get / GET /v1/workflow/{id}
 
 Look up a workflow by its `workflowId` (UUID), or by a `groupId` or `bucketId` to find
 the workflow currently assigned to that group or bucket.
@@ -237,6 +267,13 @@ the workflow currently assigned to that group or bucket.
 { "id": "workflow-uuid" }
 ```
 Tool: `workflow_get`
+
+Optional inputs:
+
+| Field | Meaning |
+|---|---|
+| `format` | `json` returns the compiled workflow object; `yaml` returns the stored authored workflow YAML source when available. |
+| `metadataOnly` | When true, returns workflow metadata such as `workflowId` and `updatedAt` without the workflow extract/settings body. |
 
 **REST:**
 ```http
@@ -254,7 +291,7 @@ SDK-valid. If hosted MCP `workflow_get` fails output validation on those paths,
 classify it as MCP output-schema drift and use REST or the Python SDK with an
 `X-API-Key` from env/session secret storage while the hosted schema is fixed.
 
-## 5. workflow_update / PUT /v1/workflow/{id}
+## 6. workflow_update / PUT /v1/workflow/{id}
 
 Update an existing workflow definition. Supply the desired custom overlay relative
 to GroundX defaults. Omitted step settings return to defaults; they do not
@@ -324,7 +361,7 @@ prior workflow JSON, logs, backups, or source YAML. For default prompts, resubmi
 the desired overlay after the backend fix or recreate the workflow from a clean
 source definition.
 
-## 6. workflow_delete / DELETE /v1/workflow/{id}
+## 7. workflow_delete / DELETE /v1/workflow/{id}
 
 Delete a workflow definition by its `workflowId`. This removes the definition but does
 not affect documents already processed with it.
@@ -343,7 +380,7 @@ X-API-Key: YOUR_API_KEY
 
 **Response:** `{ "message": "OK" }`
 
-## 7. workflow_get_account / GET /v1/workflow/relationship
+## 8. workflow_get_account / GET /v1/workflow/relationship
 
 Get the workflow currently assigned at the account level (the default workflow applied
 to all files unless overridden).
@@ -362,7 +399,7 @@ X-API-Key: YOUR_API_KEY
 
 **Response:** `{ "workflow": { ... } }` — the account-level workflow, if one is assigned.
 
-## 8. workflow_add_to_account / POST /v1/workflow/relationship
+## 9. workflow_add_to_account / POST /v1/workflow/relationship
 
 Assign a workflow to the account level. This becomes the default for all ingested files
 unless a more specific assignment (group, bucket) overrides it.
@@ -384,7 +421,7 @@ Content-Type: application/json
 
 **Response:** `{ "message": "OK" }`
 
-## 9. workflow_remove_from_account / DELETE /v1/workflow/relationship
+## 10. workflow_remove_from_account / DELETE /v1/workflow/relationship
 
 Remove the account-level workflow assignment. After removal, ingest uses the GroundX
 default processing unless a group- or bucket-level workflow is assigned.
@@ -403,7 +440,7 @@ X-API-Key: YOUR_API_KEY
 
 **Response:** `{ "message": "OK" }`
 
-## 10. workflow_add_to_id / POST /v1/workflow/relationship/{id}
+## 11. workflow_add_to_id / POST /v1/workflow/relationship/{id}
 
 Assign a workflow to a specific group or bucket. Files ingested into that group or bucket
 will use this workflow instead of the account-level default.
@@ -432,7 +469,7 @@ Content-Type: application/json
 
 **Response:** `{ "message": "OK" }`
 
-## 11. workflow_remove_from_id / DELETE /v1/workflow/relationship/{id}
+## 12. workflow_remove_from_id / DELETE /v1/workflow/relationship/{id}
 
 Remove the workflow assignment from the group or bucket identified by `id`. After
 removal, the account-level workflow (if any) applies again.

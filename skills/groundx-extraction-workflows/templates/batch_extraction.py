@@ -61,7 +61,12 @@ from groundx import Document, GroundX  # noqa: E402
 from compile_workflow import build_workflow_artifacts, workflow_sdk_kwargs  # noqa: E402
 import score_extraction as cmp  # noqa: E402
 from batch_score import aggregate_reports  # noqa: E402
-from run_extraction import _load_business_logic_metadata, _poll, derive_extraction_artifacts  # noqa: E402
+from run_extraction import (  # noqa: E402
+    _load_business_logic_metadata,
+    _poll,
+    _request_estimate_preflight,
+    derive_extraction_artifacts,
+)
 from run_log import RunLog  # noqa: E402
 from validate_workflow_json import validate as validate_workflow  # noqa: E402
 
@@ -121,6 +126,11 @@ def main() -> int:
     p.add_argument("--poll-interval", type=int, default=15)
     p.add_argument("--max-polls", type=int, default=80)
     p.add_argument("--keep", action="store_true", help="keep workflow after run")
+    p.add_argument(
+        "--allow-high-request-estimate",
+        action="store_true",
+        help="Proceed even when request-fanout preflight reaches the risk threshold",
+    )
     args = p.parse_args()
 
     keys_dir = args.keys_dir or args.docs_dir
@@ -138,11 +148,33 @@ def main() -> int:
         print(f"no .pdf documents under {args.docs_dir}", file=sys.stderr)
         return 2
     manifest = cmp.load_manifest(args.manifest)
+    selected_docs: list[str] = []
+    skipped_docs: list[str] = []
+    answer_keys: dict[str, str] = {}
+    for doc_path in docs:
+        base = os.path.splitext(os.path.basename(doc_path))[0]
+        key_path = cmp.find_answer_key(keys_dir, base)
+        if not key_path:
+            skipped_docs.append(base)
+            continue
+        selected_docs.append(doc_path)
+        answer_keys[base] = key_path
+    if not selected_docs:
+        print("no documents with matching expected-answer JSON after selection", file=sys.stderr)
+        return 2
     bl_meta = _load_business_logic_metadata(args.yaml)
     workflow_name = args.workflow_name or os.path.splitext(os.path.basename(args.yaml))[0]
 
     with RunLog(os.path.join(args.out, "verify.log")) as rl:
-        rl.event("verify.start", yaml=args.yaml, docs=len(docs), out=args.out)
+        rl.event(
+            "verify.start",
+            yaml=args.yaml,
+            docs=len(selected_docs),
+            discovered_docs=len(docs),
+            out=args.out,
+        )
+        for base in skipped_docs:
+            rl.event("verify.doc.skip", doc=base, reason="no expected-answer JSON")
         wf, extraction_metadata = build_workflow_artifacts(args.yaml, name=workflow_name)
         errors = validate_workflow(wf)
         if errors:
@@ -157,6 +189,14 @@ def main() -> int:
             json.dump(wf, f, indent=2, default=str)
         with open(os.path.join(args.out, "extraction_workflow_metadata_v1.json"), "w") as f:
             json.dump(extraction_metadata, f, indent=2, default=str)
+        if not _request_estimate_preflight(
+            rl,
+            args.out,
+            wf,
+            selected_docs,
+            allow_high_request_estimate=args.allow_high_request_estimate,
+        ):
+            return 2
         created = _create_workflow(gx, args.yaml, wf, workflow_name)
         workflow_id = _workflow_id(created)
         if args.add_to_account:
@@ -168,12 +208,9 @@ def main() -> int:
 
         per_doc = []
         try:
-            for doc_path in docs:
+            for doc_path in selected_docs:
                 base = os.path.splitext(os.path.basename(doc_path))[0]
-                key_path = cmp.find_answer_key(keys_dir, base)
-                if not key_path:
-                    rl.event("verify.doc.skip", doc=base, reason="no expected-answer JSON")
-                    continue
+                key_path = answer_keys[base]
                 ingest = gx.ingest(documents=[Document(bucket_id=bucket_id, file_path=doc_path,
                                                        file_name=os.path.basename(doc_path), file_type="pdf")])
                 document_id = _poll(gx, ingest.ingest.process_id, args.poll_interval, args.max_polls, rl)

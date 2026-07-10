@@ -14,9 +14,10 @@
 extraction_policy_version: v1
 
 workflow:
+  section_strategy: page
   custom_steps:
   - name: statement_fields
-    level: chunk
+    level: section
     kind: instruct
   - name: charge_lines
     level: chunk

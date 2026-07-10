@@ -5,7 +5,7 @@
 #
 # This starter enables two common custom steps:
 #
-#   statement_fields: per-document fields. Each chunk contributes partial
+#   statement_fields: per-document fields. Each page section contributes partial
 #                     fields, and the platform reconciles them into one flat
 #                     object.
 #
@@ -25,9 +25,10 @@
 extraction_policy_version: v1
 
 workflow:
+  section_strategy: page
   custom_steps:
     - name: statement_fields
-      level: chunk
+      level: section
       kind: instruct
     - name: charge_lines
       level: chunk

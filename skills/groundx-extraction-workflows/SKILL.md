@@ -19,6 +19,12 @@ runs the full ingest/poll/X-Ray/extract loop and can resume a timed-out local
 poll with `--resume --out <run-dir>`. Interactive platform execution delegates
 to `groundx-api`.
 
+Before live ingest, estimate request fanout from expected pages, chunks per
+page, and chunk-level custom steps. Pseudo groups reduce prompt load but pseudo
+groups at `level: chunk` still multiply requests. For large statement-style
+documents, prefer `workflow.section_strategy: page` with `level: section` when
+the chunk estimate approaches the request cap.
+
 For public extraction documentation and installed-agent runtime guidance, read
 `references/public-docs.md` first. Public docs should use the GroundX SDK path,
 including `client.ingest(...)`, and keep harness/compiler internals out unless
@@ -55,18 +61,20 @@ the user explicitly asks for SDK internals.
    `references/prompt-manager.md` and use `templates/prompt_manager.py` as the
    minimal today-path manager.
 7. Compile the YAML into `workflow.json` with `templates/compile_workflow.py`.
-8. For a finished YAML, read `references/deploy.md`, then use
+8. Estimate request fanout with `templates/estimate_workflow_requests.py` or
+   live-run preflight before ingest.
+9. For a finished YAML, read `references/deploy.md`, then use
    `templates/deploy_workflow.py` to deploy the workflow through the GroundX Python SDK.
    For a full local run, use
    `templates/run_extraction.py`. For interactive platform execution, route to
    `groundx-api`.
-9. Score against expected answers: `templates/score_extraction.py` for one document, or
+10. Score against expected answers: `templates/score_extraction.py` for one document, or
    `templates/batch_extraction.py` to ingest + score a folder live. To re-score a captured
    run **offline (no re-ingest)** — after fixing expected-answer mappings or to score on
    another machine — use `templates/batch_score.py <run_dir> --keys-dir <expected-answers>`.
    If expected answers arrive as spreadsheets, documents, text files, PDFs, or
    human-review notes, map them into runner-shaped JSON before scoring.
-10. Iterate one field at a time with `references/prompt-improvement-loop.md`; inspect
+11. Iterate one field at a time with `references/prompt-improvement-loop.md`; inspect
    X-Ray before tightening prompts when accuracy stalls or a field is wrong.
 
 ## What This Skill Produces
@@ -85,6 +93,9 @@ full deployable project scaffold is not part of the default deliverable.
       delegates to `groundx-api`.
 - [ ] No real GroundX API key appears in any artifact.
 - [ ] Group decomposition is explicit.
+- [ ] Request fanout is estimated from pages, chunks per page, custom steps, and
+      pseudo groups before live ingest; large statement-style workflows consider
+      `workflow.section_strategy: page`.
 - [ ] Field fixes identify the specific YAML line or field to change.
 - [ ] Prompt edits follow `references/16_prompt_writing.md`,
       `references/prompt-quality.md`, and `references/prompt-improvement-loop.md`.

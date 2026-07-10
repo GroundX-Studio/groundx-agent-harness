@@ -11,9 +11,10 @@
 extraction_policy_version: v1
 
 workflow:
+  section_strategy: page
   custom_steps:
   - name: claim_fields
-    level: chunk
+    level: section
     kind: instruct
   - name: claim_line_items
     level: chunk

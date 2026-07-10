@@ -50,6 +50,7 @@ from groundx import Document, GroundX
 # Sibling template imports (in-process — no subprocess overhead).
 from business_logic import apply_business_logic
 from compile_workflow import build_workflow_artifacts, workflow_sdk_kwargs
+from estimate_workflow_requests import DEFAULT_CAP, count_pdf_pages, estimate_request_fanout
 from run_log import RunLog
 from validate_workflow_json import validate as validate_workflow
 from xray_to_extract import xray_reassembly_artifacts
@@ -131,6 +132,84 @@ def _read_json(path: str) -> typing.Any:
 def _write_json(path: str, payload: typing.Any) -> None:
     with open(path, "w") as f:
         json.dump(payload, f, indent=2, default=str)
+
+
+def _enforce_request_estimate_report(
+    rl: RunLog,
+    out_dir: str,
+    report: dict,
+    *,
+    allow_high_request_estimate: bool,
+) -> bool:
+    _write_json(_abs(out_dir, "request_estimate.json"), report)
+    status = report.get("risk_status")
+    max_requests = report.get("max_estimated_requests")
+    rl.event(
+        "request_estimate.report",
+        risk_status=status,
+        max_estimated_requests=max_requests,
+        output=_abs(out_dir, "request_estimate.json"),
+    )
+    if status == "warning":
+        rl.event("request_estimate.warning", max_estimated_requests=max_requests)
+    if status in {"block", "unknown_high_risk"}:
+        rl.event(
+            "request_estimate.block",
+            risk_status=status,
+            max_estimated_requests=max_requests,
+            recommended_action=report.get("recommended_action"),
+        )
+        if allow_high_request_estimate:
+            rl.event("request_estimate.override", risk_status=status)
+            return True
+        print(
+            "ERROR: request estimate blocks this live extraction "
+            f"({status}, max={max_requests}). "
+            f"{report.get('recommended_action', 'Change strategy or pass --allow-high-request-estimate.')}",
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
+def _request_estimate_preflight(
+    rl: RunLog,
+    out_dir: str,
+    workflow: dict,
+    pdf_paths: list[str],
+    *,
+    allow_high_request_estimate: bool,
+) -> bool:
+    try:
+        page_counts = [count_pdf_pages(path) for path in pdf_paths]
+    except Exception as exc:
+        rl.event("request_estimate.error", error=str(exc))
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return False
+    report = estimate_request_fanout(workflow, page_counts=page_counts)
+    return _enforce_request_estimate_report(
+        rl,
+        out_dir,
+        report,
+        allow_high_request_estimate=allow_high_request_estimate,
+    )
+
+
+def _load_reused_workflow_extract(
+    gx: GroundX,
+    workflow_id: str,
+) -> typing.Optional[dict]:
+    definition_loader = getattr(gx, "load_extraction_definition", None)
+    if callable(definition_loader):
+        definition = definition_loader(workflow_id=workflow_id)
+        workflow_extract = getattr(definition, "extract", None)
+        return workflow_extract if isinstance(workflow_extract, dict) else None
+    workflow_loader = getattr(gx, "load_extraction_definition_from_workflow", None)
+    if callable(workflow_loader):
+        definition = workflow_loader(workflow_id)
+        workflow_extract = getattr(definition, "extract", None)
+        return workflow_extract if isinstance(workflow_extract, dict) else None
+    return None
 
 
 def _load_workflow_extract_from_run(out_dir: str) -> typing.Optional[dict]:
@@ -666,6 +745,11 @@ def main() -> int:
     )
     parser.add_argument("--poll-interval", type=int, default=15, help="Seconds between status polls")
     parser.add_argument("--max-polls", type=int, default=120, help="Max status polls before timeout")
+    parser.add_argument(
+        "--allow-high-request-estimate",
+        action="store_true",
+        help="Proceed even when request-fanout preflight reaches the risk threshold",
+    )
     args = parser.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
@@ -786,6 +870,51 @@ def main() -> int:
         rl.event("run.start", yaml=args.yaml, pdf=args.pdf, out=args.out, bucket_name=args.bucket_name)
         rl.quota_snapshot(gx, label="run.start")
 
+        wf_body: typing.Optional[dict] = None
+        workflow_extract: typing.Optional[dict] = None
+        if args.reuse_workflow:
+            workflow_extract = _load_reused_workflow_extract(gx, args.reuse_workflow)
+            if workflow_extract is None:
+                report = {
+                    "risk_status": "unknown_high_risk",
+                    "cap": DEFAULT_CAP,
+                    "max_estimated_requests": None,
+                    "recommended_action": (
+                        "Reused workflow definition could not be loaded for request "
+                        "fanout estimation. Load the workflow definition before ingest "
+                        "or pass --allow-high-request-estimate to override."
+                    ),
+                }
+                if not _enforce_request_estimate_report(
+                    rl,
+                    args.out,
+                    report,
+                    allow_high_request_estimate=args.allow_high_request_estimate,
+                ):
+                    return 2
+            else:
+                if not _request_estimate_preflight(
+                    rl,
+                    args.out,
+                    workflow_extract,
+                    [args.pdf],
+                    allow_high_request_estimate=args.allow_high_request_estimate,
+                ):
+                    return 2
+        else:
+            wf_body = _compile(args.yaml, workflow_json_path, workflow_name, rl)
+            workflow_extract = wf_body.get("extract")
+            if not args.skip_validate:
+                _validate(wf_body, workflow_json_path, rl)
+            if not _request_estimate_preflight(
+                rl,
+                args.out,
+                wf_body,
+                [args.pdf],
+                allow_high_request_estimate=args.allow_high_request_estimate,
+            ):
+                return 2
+
         # Setup phase — workflow create + bucket create + attach.
         # A workflow created by this setup can be rolled back while it is still
         # unattached. Buckets and post-ingest resources stay in place for
@@ -794,28 +923,13 @@ def main() -> int:
         bucket_id: typing.Optional[int] = None
         created_workflow_id: typing.Optional[str] = None
         created_bucket_id: typing.Optional[int] = None
-        workflow_extract: typing.Optional[dict] = None
 
         try:
             if args.reuse_workflow:
                 workflow_id = args.reuse_workflow
-                definition_loader = getattr(gx, "load_extraction_definition", None)
-                if callable(definition_loader):
-                    definition = definition_loader(workflow_id=workflow_id)
-                    workflow_extract = getattr(definition, "extract", None)
-                else:
-                    workflow_loader = getattr(
-                        gx, "load_extraction_definition_from_workflow", None
-                    )
-                    if callable(workflow_loader):
-                        definition = workflow_loader(workflow_id)
-                        workflow_extract = getattr(definition, "extract", None)
                 rl.event("workflow.reuse", workflow_id=workflow_id)
             else:
-                wf_body = _compile(args.yaml, workflow_json_path, workflow_name, rl)
-                workflow_extract = wf_body.get("extract")
-                if not args.skip_validate:
-                    _validate(wf_body, workflow_json_path, rl)
+                assert wf_body is not None
                 create_resp = _create_workflow(gx, args.yaml, wf_body, workflow_name)
                 workflow_id = _workflow_id(create_resp)
                 created_workflow_id = workflow_id
