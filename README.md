@@ -30,8 +30,10 @@ https://api.groundx.ai/mcp
 - A GroundX API key. For prod, sign in or create an account at
   `https://dashboard.groundx.ai`, create or copy a prod API key, and keep it in
   local secret storage or the GroundX OAuth page. Never paste API keys into chat.
-- One of: VS Code + Claude, Claude Code Desktop, Claude Desktop, Codex Desktop,
-  Codex CLI, or Claude Code CLI.
+- One of: VS Code (with the Claude Code or Codex CLI), Claude Code Desktop, Claude
+  Desktop, Codex Desktop, Codex CLI, or Claude Code CLI. Any other agent that supports
+  the Agent Skills (`SKILL.md`) standard can also use the harness skills — see
+  "Other skills-capable agents" below.
 - Put API keys in environment variables or approved local secret stores. Do not paste
   keys into prompts.
 - Dev and prod use different API keys. For prod, leave `GROUNDX_BASE_URL` unset. For
@@ -53,19 +55,29 @@ Client support:
 
 | Client | Plugin / skills | MCP API tools |
 | --- | --- | --- |
-| VS Code + Claude | Yes | Yes |
+| VS Code (Claude Code or Codex CLI) | Yes | Yes |
 | Claude Code Desktop | Yes | Yes |
 | Claude app with Plugins/Cowork | Yes | Yes |
 | Claude Desktop with Connectors only | No plugin skills; use hosted connector for MCP tools | Yes |
 | Codex Desktop | Yes | Yes |
 | Codex CLI | Yes | Yes |
 | Claude Code CLI | Yes | Yes |
+| Other skills-capable agents (Cursor, Gemini, Windsurf, Copilot, …) | Yes — portable Agent Skills, added manually | Yes, when the agent supports MCP |
+
+The one-command plugin install is available on Claude and Codex. The harness content
+itself is standard Agent Skills (`SKILL.md`) under `skills/`, so any other
+skills-capable agent (Cursor, Gemini, Windsurf, GitHub Copilot, and more) can use the
+same skills by adding that folder to its skills directory. See "Other skills-capable
+agents".
 
 ## Installation
 
-### VS Code + Claude
+### VS Code
 
-Install the plugin from the VS Code integrated terminal:
+VS Code has no separate install. Open the integrated terminal and run the CLI install
+for the agent you use.
+
+Claude Code:
 
 ```sh
 claude plugin --help
@@ -76,16 +88,34 @@ claude plugin install groundx-agent-harness@groundx-agent-harness
 If `claude plugin --help` does not work, update Claude Code first. The `/plugin`
 slash command is not available in every VS Code chat surface.
 
+Codex:
+
+```sh
+codex plugin marketplace add GroundX-Studio/groundx-agent-harness --ref main
+codex plugin add groundx-agent-harness@groundx-agent-harness
+```
+
+Another agent? See "Other skills-capable agents".
+
 Connect MCP, optional prod-only:
 
-1. Add the hosted GroundX MCP server:
+1. Add the hosted GroundX MCP server.
+
+   Claude Code:
 
    ```sh
    claude mcp add --transport http groundx https://api.groundx.ai/mcp
    ```
 
-2. Run `/mcp`, connect `groundx`, enter the prod API key on the GroundX OAuth
-   page, and start a new Claude Code session.
+   Codex:
+
+   ```sh
+   codex mcp add groundx --url https://api.groundx.ai/mcp
+   codex mcp login groundx
+   ```
+
+2. Connect (`/mcp` in Claude Code), enter the prod API key on the GroundX OAuth
+   page, and start a new session.
 
 ### Claude Code Desktop
 
@@ -307,6 +337,27 @@ claude mcp add --transport http groundx https://api.groundx.ai/mcp
 
 Then run `/mcp`, connect `groundx`, enter the prod API key on the GroundX OAuth
 page, and start a new session.
+
+### Other skills-capable agents
+
+Agents beyond Claude and Codex — Cursor, Gemini, Windsurf, GitHub Copilot, and more —
+can use the harness through the open Agent Skills (`SKILL.md`) standard. There is no
+one-command install; add the skills manually.
+
+1. Clone this repository:
+
+   ```sh
+   git clone https://github.com/GroundX-Studio/groundx-agent-harness
+   ```
+
+2. Add the repository's `skills/` folder to your agent's skills directory. See your
+   agent's documentation for where skills live and whether placement is automatic or
+   manual.
+3. Reload or restart the agent so it picks up the skills.
+
+Connect MCP, optional prod-only: if your agent supports MCP, add a Streamable HTTP
+server pointing at `https://api.groundx.ai/mcp`, authenticate, and enter the prod API
+key on the GroundX OAuth page.
 
 ## Verification
 
