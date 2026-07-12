@@ -74,8 +74,7 @@ agents".
 
 ### VS Code
 
-VS Code has no separate install. Open the integrated terminal and run the CLI install
-for the agent you use.
+In the VS Code integrated terminal, run the install commands for the agent you use.
 
 Claude Code:
 
