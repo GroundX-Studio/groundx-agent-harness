@@ -39,7 +39,7 @@ RAG is one consumption pattern, not the default external label. Use it when the 
 
 The shorthand: *Apple vs PC — some things perform better when built by one vendor than assembled from parts.*
 
-## 5. The GroundX Studio Harness as the answer to implementation-scale pain
+## 5. The GroundX Agent Harness as the answer to implementation-scale pain
 
 **The argument.** Buyers keep saying *"I have 500 AI agent use cases, how am I going to implement them all?"* The Harness is the direct answer for GroundX-touching use cases — agents that know GroundX intimately (working inside Claude, Gemini, ChatGPT, Replit, Cursor, smolagents, openclaw, or any agent framework) stand up new integrations dramatically faster than a one-by-one engineering build.
 

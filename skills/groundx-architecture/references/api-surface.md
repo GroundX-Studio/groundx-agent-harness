@@ -60,4 +60,4 @@ The SDKs themselves carry no runtime cost. Per-call cost lives at the deployment
 - **Call semantics, endpoint behavior, auth header format, error codes, retry behavior:** `groundx-api` for customer-tier and Workspace facade behavior; Partner-tier details are outside this public SDK-surface topic.
 - **The `groundx` pod itself** (the API Handler that all external surfaces hit): `overview.md` § 4.5, `ingest-service.md`, and `search-service.md`.
 - **Frontends that consume the API:** `integration-architecture.md` covers the pattern; per-frontend repo inventories are outside this public architecture topic.
-- **The Studio Harness as a development surface above the API:** Harness publishing and UI-building skills own the workflow details; this file covers only API-surface shape.
+- **The Agent Harness as a development surface above the API:** Harness publishing and UI-building skills own the workflow details; this file covers only API-surface shape.

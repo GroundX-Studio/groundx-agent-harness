@@ -3,7 +3,7 @@
  * validate-public-bundle.mjs — standalone validation for GroundX Agent Harness.
  *
  * This script is copied into the generated public repository. It must not depend on
- * private groundx-studio-harness source files.
+ * private source files from the generating repository.
  *
  * Usage:
  *   node scripts/validate-public-bundle.mjs

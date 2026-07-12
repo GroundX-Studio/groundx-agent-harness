@@ -8,7 +8,7 @@ If a rule below disagrees with a statement elsewhere in the harness, this file w
 
 > **Valantor** (the company) → **GroundX** (the platform) → **GroundX Studio** (the extensibility platform) → **Outcome Plug-ins** (the productized verticals) → **Operational Layer** (Valantor agents + human orchestration).
 
-Plus a parallel: **GroundX Studio Harness** is the agentic adoption layer for any of the above — not a hierarchical layer, but a delivery channel for the GroundX-touching surfaces.
+Plus a parallel: **GroundX Agent Harness** is the agentic adoption layer for any of the above — not a hierarchical layer, but a delivery channel for the GroundX-touching surfaces.
 
 ## 1.1 Plain-English mental model
 
@@ -21,7 +21,7 @@ to understand the names:
 | **GroundX** | The platform layer. | Product mechanism, document intelligence, ingest, search, RAG, workflows, extraction substrate, APIs, SDKs, MCP, or deployment. | The company. Externally, introduce it as GroundX by Valantor. |
 | **EyeLevel** | The acquired-company / heritage brand that built GroundX before Valantor acquired the work. | Origin story, team heritage, or EyeLevel-pack product surfaces. | The platform. Never say EyeLevel by Valantor. |
 | **GroundX MCP** | The preferred connected-agent path for using GroundX tools. | An installed agent has MCP tools connected and needs to operate GroundX. | REST/SDK endpoint semantics, which belong to `groundx-api`. |
-| **GroundX Studio Harness** | The agent knowledge and workflow layer. | Agents need GroundX-specific skills, references, patterns, and medium guidance. | The only way to integrate GroundX. |
+| **GroundX Agent Harness** | The agent knowledge and workflow layer. | Agents need GroundX-specific skills, references, patterns, and medium guidance. | The only way to integrate GroundX. |
 
 Keep simple relationship answers simple. Do not expand into a full investor,
 category, or Outcome Plug-in narrative unless the user asks for that altitude.
@@ -89,7 +89,7 @@ category, or Outcome Plug-in narrative unless the user asks for that altitude.
 - **Strategic frame:** *AI + humans accountability* — reframes services from low-multiple consulting into managed AI infrastructure with SLAs and long-term contracts. See `ai-and-humans.md`.
 - **Do not claim shipping status externally.** Investor narrative can articulate the strategic posture; customer-facing surfaces cannot claim the Operational Layer is GA.
 
-## 8. GroundX Studio Harness — agentic adoption channel
+## 8. GroundX Agent Harness — agentic adoption channel
 
 - **State:** alpha. The skill substrate (this harness) is currently the most modern way to consume GroundX into agent-led workflows.
 - **Role:** drops GroundX-implementation time from months to days for any agent (Claude, Gemini, ChatGPT, Cursor, Replit, openclaw, smolagents, or any agent framework) by giving the agent deep, structured knowledge of GroundX, the brand, and the operating rules.
@@ -106,7 +106,7 @@ category, or Outcome Plug-in narrative unless the user asks for that altitude.
 | FraudX, ExtractX (the GA Outcome Plug-ins) | ClaimsX / ComplianceX / OpsX / FinanceX / GridX as if they ship today |
 | Operational Layer (strategic posture) | Operational Layer as a GA product |
 | Document Plug-ins, Function Plug-ins | Studio plug-ins as outcomes |
-| The GroundX Studio Harness | A custom integration framework (the Harness is the productized version) |
+| The GroundX Agent Harness | A custom integration framework (the Harness is the productized version) |
 
 ## 10. Altitude routing
 

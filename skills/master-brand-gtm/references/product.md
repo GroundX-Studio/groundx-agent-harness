@@ -11,7 +11,7 @@ Per-entity product-state inventory at **master-brand altitude**. Mirrors `../../
 | Hosted platform | **Hosted GroundX** | GA |
 | Self-hosted platform | **GroundX On-Prem** (Helm) | GA |
 | No-code single UI | **GroundX Studio** (UI) | In development |
-| Agentic adoption | **GroundX Studio Harness** | Alpha |
+| Agentic adoption | **GroundX Agent Harness** | Alpha |
 | Outcome Plug-in | **FraudX** | GA |
 | Outcome Plug-in | **ExtractX** | GA |
 | Outcome Plug-in | **ClaimsX, ComplianceX, OpsX, FinanceX, GridX** | Illustrative marketing concepts only |
@@ -31,7 +31,7 @@ The public Helm chart README's "Open Beta" tag is stale; treat GroundX On-Prem a
 
 The no-code single UI consumption surface. **In development.** Three use cases: Extract (data extraction), Interact (chat / RAG), Report (smart pre-compiled RAG with follow-up chat). The master-brand framing avoids the product-altitude detail (Replit-built prototype, rebuild via Harness) and positions Studio as *the demonstration surface where business users see Visual Intelligence value without IT or formal deployment* — the champion-enablement path for the LOB / outcome-buyer audience routing in `buyer.md`.
 
-## 5. GroundX Studio Harness (master-brand framing)
+## 5. GroundX Agent Harness (master-brand framing)
 
 The agentic adoption layer. **Alpha.** The master-brand framing: *the Harness is how Valantor industrializes Visual Intelligence across hundreds of enterprise AI use cases.* It is the operational answer to the implementation-scale pain (*"I have 500 AI agent use cases, how am I going to implement them all?"*). At master-brand altitude, the Harness is a productivity-multiplier story for the platform; product-altitude detail (Claude/Codex install, Cursor/Replit roadmap) lives in `../../product-brand-gtm/references/product.md` § 5.
 

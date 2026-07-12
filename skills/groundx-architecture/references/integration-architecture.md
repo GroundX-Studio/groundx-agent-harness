@@ -12,7 +12,7 @@ GroundX exposes a small set of integration surfaces:
 
 - **Customer-tier REST API** — the primary surface customer applications use.
 - **Customer-tier SDKs** — Python and TypeScript, both Fern-generated.
-- **Workspace facade endpoints** — GroundX API control-plane routes for Studio Harness managed projects: create, git-session, deploy-config, diagnostics, publish, cleanup, and fallback file operations. Endpoint semantics live in `groundx-api`; the agent workflow lives in Studio Harness managed-project guidance.
+- **Workspace facade endpoints** — GroundX API control-plane routes for Agent Harness managed projects: create, git-session, deploy-config, diagnostics, publish, cleanup, and fallback file operations. Endpoint semantics live in `groundx-api`; the agent workflow lives in Agent Harness managed-project guidance.
 - **Partner-tier REST API** — for partners managing customer accounts and provisioning customer resources.
 - **Callbacks** — outbound HTTP POST notifications GroundX sends to customer-supplied URLs on ingest progress.
 - **X-Ray retrieval** — the customer-facing aggregate JSON for each ingested document; usable as a per-document bulk-export pattern.
@@ -60,13 +60,13 @@ The single external ingress is `groundx`. The single external egress (for outbou
 | --- | --- | --- | --- | --- |
 | Customer-tier REST API | Customer | Inbound | HTTPS request/response | `groundx-api` |
 | Customer-tier SDKs (`groundx-python`, `groundx-typescript`) | Customer | Inbound | Fern-generated client over REST | `api-surface.md` (this skill) + `groundx-api` |
-| Workspace facade endpoints | Workspace | Inbound | HTTPS request/response + polling | `groundx-api` § Workspace endpoints + Studio Harness managed-project guidance |
+| Workspace facade endpoints | Workspace | Inbound | HTTPS request/response + polling | `groundx-api` § Workspace endpoints + Agent Harness managed-project guidance |
 | Partner-tier REST API | Partner | Inbound | HTTPS request/response | Partner API guidance, when available |
 | Callbacks (per-request, on `callbackUrl`) | Customer | Outbound | HTTP POST | `groundx-api` § documents |
 | X-Ray retrieval | Customer | Inbound (pull) | `GET /v1/ingest/document/xray/{documentId}` + `xrayUrl` capability URL | `groundx-api` § documents + `agentic-pipeline.md` § 5 |
 | `ws.eyelevel.ai` websocket | Partner | Bidirectional | WebSocket | EyeLevel SSP and GroundX Dashboard frontend behavior |
 | Customer-built frontends (pattern, not a surface) | Customer | Inbound | Per-customer paired-app shape | Frontend/scaffold architecture guidance |
-| Studio Harness scaffold (paired React/MUI + TS middleware) | Customer-tier + Partner-tier; Workspace facade for managed-project workflow | Inbound | Generated app shape | Studio Harness publish/build guidance + `groundx-api` Workspace reference |
+| Agent Harness scaffold (paired React/MUI + TS middleware) | Customer-tier + Partner-tier; Workspace facade for managed-project workflow | Inbound | Generated app shape | Agent Harness publish/build guidance + `groundx-api` Workspace reference |
 
 ### 5.2 Callbacks — what they cover
 
@@ -93,7 +93,7 @@ At the integration-surface altitude, `ws.eyelevel.ai` is conceptually a sibling 
 
 ### 5.5 Customer-built frontends as an integration pattern
 
-The dozens of customer-built frontends in production are themselves an integration pattern: each customer builds an application on top of the customer-tier API. The pattern is typically **frontend + middleware proxy + customer-tier API**, where the middleware holds the customer's `X-API-Key` so the frontend never sees it. The Studio Harness scaffold formalizes this pattern; older customer frontends predate the scaffold and are ad-hoc.
+The dozens of customer-built frontends in production are themselves an integration pattern: each customer builds an application on top of the customer-tier API. The pattern is typically **frontend + middleware proxy + customer-tier API**, where the middleware holds the customer's `X-API-Key` so the frontend never sees it. The Agent Harness scaffold formalizes this pattern; older customer frontends predate the scaffold and are ad-hoc.
 
 For the scaffold pattern, use Harness web UI and publish guidance. This public architecture file does not enumerate individual frontend repositories.
 
@@ -129,7 +129,7 @@ Integration surfaces themselves are not significant cost drivers — the SDKs ar
 - **The SDK call patterns, hand-maintained extras, Fern generation**: `api-surface.md`.
 - **The callback event types and payload shape**: `groundx-api` § documents.
 - **The X-Ray field-by-field schema**: `agentic-pipeline.md` § 5 + `groundx-api/guides/05-document-understanding.md` § 5.
-- **The Studio Harness scaffold pattern** for customer-built frontends: Harness web UI and publish guidance.
+- **The Agent Harness scaffold pattern** for customer-built frontends: Harness web UI and publish guidance.
 - **The inventory of company-owned and customer-built frontends**: outside this public architecture topic.
 - **The legacy WordPress / Zapier / Marketo plugins**: WordPress is still served by the legacy Lambda pipeline; others are out of scope.
 - **The auth model (X-API-Key, X-Customer-Key, Basic Auth login flow)**: `identity-and-trust.md`.

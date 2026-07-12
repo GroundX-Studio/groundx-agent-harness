@@ -55,7 +55,7 @@ For the differentiator pillars these anchors live in, see `differentiation.md`. 
 
 ### 3.2 "We need to deploy across hundreds of use cases — how do we afford the integration cost?"
 
-- **Reframe:** This is the implementation-scale pain. The Studio Harness is the direct answer. Agents that know GroundX intimately stand up new integrations dramatically faster than a one-by-one engineering build — across Claude, Gemini, ChatGPT, Replit, Cursor, smolagents, openclaw, or any agent framework.
+- **Reframe:** This is the implementation-scale pain. The Agent Harness is the direct answer. Agents that know GroundX intimately stand up new integrations dramatically faster than a one-by-one engineering build — across Claude, Gemini, ChatGPT, Replit, Cursor, smolagents, openclaw, or any agent framework.
 - **Proof:** See `differentiation.md` § 5 and `buyer.md` § 1. The Harness is the operational answer for GroundX-touching use cases.
 
 ## 4. Architecture and technical

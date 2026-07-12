@@ -43,7 +43,7 @@ For enterprise / regulated buyers, lead with on-prem deployment:
 
 For teams facing the *"500 use cases, how do I implement them all"* pain:
 
-> The most modern way to consume GroundX is through the Studio Harness — a bundle of skills that gives your agents (Claude, Gemini, ChatGPT, Cursor, Replit, or any framework) deep knowledge of GroundX, so they can stand up new use cases dramatically faster than a one-by-one engineering build.
+> The most modern way to consume GroundX is through the Agent Harness — a bundle of skills that gives your agents (Claude, Gemini, ChatGPT, Cursor, Replit, or any framework) deep knowledge of GroundX, so they can stand up new use cases dramatically faster than a one-by-one engineering build.
 
 The Harness has a specific origin: the GroundX Studio no-code UI (see `product.md` § 4) was first prototyped on Replit as a buggy but working implementation. That prototype demonstrated what coding agents could already do with the right direction — and motivated building the Harness as the systematic substrate that lets agents reproduce the result reliably. Studio is now being rebuilt via the Harness. The Harness exists in part because Studio proved the pattern was real.
 
