@@ -11,7 +11,7 @@ Authoritative product-state inventory for every shipping (or named) product enti
 | Hosted SaaS | **Hosted GroundX** | GA |
 | Self-hosted | **GroundX On-Prem** (Helm distribution) | GA |
 | No-code single UI | **GroundX Studio** | In development |
-| AI Agent Harness | **GroundX Studio Harness** | Alpha |
+| AI Agent Harness | **GroundX Agent Harness** | Alpha |
 | Outcome Plug-in | **FraudX** | GA |
 | Outcome Plug-in | **ExtractX** | GA |
 | Outcome Plug-in | **ClaimsX** | Illustrative concept |
@@ -26,7 +26,7 @@ Hosted GroundX and GroundX On-Prem are sibling distributions of the same engine;
 - **State.** GA.
 - **Buyer.** Self-service inbound user. Typically arrives via SEO or content (influencer-promoted blog post, YouTube, podcast). Runs the gamut of verticals. **Volume:** ~30 signups per day. **Conversion:** very low.
 - **MVP today.** A small allowance of ingestion tokens (the metering unit for files ingested) and search requests, accessed through an end-user dashboard. The dashboard experience is currently broken and clearly is not fulfilling the user's interest.
-- **Roadmap next.** Replace the dashboard with GroundX Studio as soon as possible, building Studio via the GroundX Studio Harness.
+- **Roadmap next.** Replace the dashboard with GroundX Studio as soon as possible, building Studio via the GroundX Agent Harness.
 - **Why this exists.** Inbound discovery channel — a low-friction way for individual technical users to evaluate the GroundX engine before a managed sale starts. Today it converts poorly; the Studio rebuild is the lever to fix that.
 
 ## 3. GroundX On-Prem
@@ -42,15 +42,15 @@ Hosted GroundX and GroundX On-Prem are sibling distributions of the same engine;
 - **State.** In development.
 - **Buyer.** The **business user** who wants to see the value of GroundX without needing IT or a formal deployment. Potentially a major decision maker in the purchase. Strategically, this is a buyer we want to see the value early and become a champion who can go fight IT for the product.
 - **MVP today.** A Replit-built buggy implementation that has most of the desired features but is buggy. **This was the inspiration for building the Harness** — it showed what was possible with coding tools given the proper direction, which is the proof of concept the Harness systematizes.
-- **Roadmap next.** Develop consensus on the final design, rebuild via the GroundX Studio Harness within days, replace the existing GroundX dashboard experience with this.
+- **Roadmap next.** Develop consensus on the final design, rebuild via the GroundX Agent Harness within days, replace the existing GroundX dashboard experience with this.
 - **Why this exists.** The hosted GroundX dashboard is broken. Studio is the productized fix — and the *champion-enabler* for the LOB pitch path. A business user who plays with Studio and gets value becomes the internal advocate when IT pushes back.
 - **Use cases packaged in the UI.** **Extract** (data extraction), **Interact** (chat / RAG), **Report** (smart pre-compiled RAG queries assembled into a report with follow-up chat). These names are coined by the sales team and should be used verbatim.
 
-## 5. GroundX Studio Harness
+## 5. GroundX Agent Harness
 
 - **State.** Alpha. This is the product we are inside right now.
 - **Buyer.** The executive team. The IT team. The Harness is *the how* for scaling GroundX deployments and dropping implementation time from months to days. It is the operational answer to the *"I have 500 AI agent use cases, how am I going to implement them all?"* pain (see `buyer.md` § 1).
-- **MVP today.** GroundX Studio Harness is an **AI Agent Harness**. Install the plugin via Claude or OpenAI Codex; interact via the existing Claude or OpenAI experience. The Harness packages skills, connectors, references, templates, and design patterns that an installed agent loads automatically to become fluent in GroundX.
+- **MVP today.** GroundX Agent Harness is an **AI Agent Harness**. Install the plugin via Claude or OpenAI Codex; interact via the existing Claude or OpenAI experience. The Harness packages skills, connectors, references, templates, and design patterns that an installed agent loads automatically to become fluent in GroundX.
 - **Roadmap next.** Iteratively expand integration points to other agent surfaces (Cursor, Replit, Gemini — at minimum confirm functionality there; some may already be compatible). Build a no-code GUI on top of the harness, mirroring how Cursor and Replit expose coding agents. GA to customers as an enabling tool.
 - **Why this exists.** Two reasons. (1) Scaling GroundX adoption — the customer is doing many AI use cases, and the harness lets agents stand them up without a one-by-one engineering build. (2) Reducing the cost of building the *other* GroundX products (Studio especially) — the Replit-built Studio prototype proved coding agents could do it; the Harness gives them the right substrate.
 - **Treat as messaging pillar, not technical moat.** Easy to copy. Pillar holds because every AI winner so far has won by being the easiest path into a capability for a buyer who was underserved by what existed before — see `differentiation.md` § 5.

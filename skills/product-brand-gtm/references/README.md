@@ -21,7 +21,7 @@ buyer framing, objections, or product descriptions.
 | Differentiator pillars | `differentiation.md` |
 | Technical "why" behind accuracy claims | `technical-architecture.md` |
 | Product surfaces and capabilities | `capabilities-and-surfaces.md`, `product.md` |
-| GroundX Studio Harness positioning | `harness-pitch.md` |
+| GroundX Agent Harness positioning | `harness-pitch.md` |
 | Proof points and outcomes | `proof-points.md` |
 | Buyer-specific framing | `audiences.md`, `buyer.md` |
 | Objections | `objections.md` |

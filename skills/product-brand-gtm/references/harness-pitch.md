@@ -1,10 +1,10 @@
-# GroundX Studio Harness Pitch
+# GroundX Agent Harness Pitch
 
-Use this reference when copy needs to explain GroundX Studio Harness, especially on one-sheeters, technical references, leave-behinds, sales decks, product overviews, or internal enablement. This file is intentionally short-form. It gives agents the words to describe the Harness without drifting into generic agent-platform language.
+Use this reference when copy needs to explain GroundX Agent Harness, especially on one-sheeters, technical references, leave-behinds, sales decks, product overviews, or internal enablement. This file is intentionally short-form. It gives agents the words to describe the Harness without drifting into generic agent-platform language.
 
 ## Canonical short pitch
 
-GroundX Studio Harness is an **AI Agent Harness**: a plugin of skills, connectors, and design patterns that gives AI agents fluency in the GroundX platform. Load it into Claude, ChatGPT Codex, Replit, Cursor, openclaw, or any plugin-supporting agent runtime, and agents can implement RAG, extraction, smart reports, classification, Studio UIs, portals, review workflows, and integrations directly against GroundX.
+GroundX Agent Harness is an **AI Agent Harness**: a plugin of skills, connectors, and design patterns that gives AI agents fluency in the GroundX platform. Load it into Claude, ChatGPT Codex, Replit, Cursor, openclaw, or any plugin-supporting agent runtime, and agents can implement RAG, extraction, smart reports, classification, Studio UIs, portals, review workflows, and integrations directly against GroundX.
 
 For connected agent execution, GroundX MCP is the preferred path when available.
 The Harness makes the agent fluent in what to do and which references to load;
@@ -13,7 +13,7 @@ integration and fallback surfaces.
 
 ## One-sentence form
 
-GroundX Studio Harness gives AI agents the GroundX-specific skills, connectors, and design patterns they need to build document intelligence workflows in days instead of months.
+GroundX Agent Harness gives AI agents the GroundX-specific skills, connectors, and design patterns they need to build document intelligence workflows in days instead of months.
 
 ## What it is
 

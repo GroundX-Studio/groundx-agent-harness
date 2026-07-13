@@ -22,7 +22,7 @@ A recurring buyer voice frames why every Valantor differentiator matters at ente
 
 > *"I have 500 AI agent use cases, how am I going to implement them all?"*
 
-At master-brand altitude this becomes *"how does the enterprise industrialize AI across hundreds of use cases at once?"* The GroundX Studio Harness (product layer) is the operational answer to the implementation-velocity dimension; Outcome Plug-ins (vertical productization) are the answer to the *we will deliver the outcome* dimension. Both are productized expressions of the same strategic posture: Valantor sells *industrialization at scale*, not *a single AI tool*.
+At master-brand altitude this becomes *"how does the enterprise industrialize AI across hundreds of use cases at once?"* The GroundX Agent Harness (product layer) is the operational answer to the implementation-velocity dimension; Outcome Plug-ins (vertical productization) are the answer to the *we will deliver the outcome* dimension. Both are productized expressions of the same strategic posture: Valantor sells *industrialization at scale*, not *a single AI tool*.
 
 ## 3. The ideal-customer profile
 

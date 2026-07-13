@@ -44,7 +44,7 @@ wants a ready UI, and APIs/SDKs when an engineering team is embedding GroundX di
 the direct-integration surface, use MCP when a connected agent operates GroundX tools; use
 REST/SDKs for direct app/backend integration, development targets, and fallback paths.
 
-### 2.1 GroundX Studio Harness — the AI Agent Harness
+### 2.1 GroundX Agent Harness — the AI Agent Harness
 
 The Harness is an **AI Agent Harness**: a plugin of skills, connectors, and design patterns that gives agents — Claude, Gemini, ChatGPT, Replit, Cursor, smolagents, openclaw, or any plugin-supporting agent framework — fluency in GroundX so they can build robust end-user or system integrations.
 
@@ -76,7 +76,7 @@ know which direct-integration path is in use.
 
 You can mix any capability with any surface.
 
-| Capability \ Surface | Studio Harness | Studio (UI) | Direct Integration (API / SDK / MCP) |
+| Capability \ Surface | Agent Harness | Studio (UI) | Direct Integration (API / SDK / MCP) |
 | --- | --- | --- | --- |
 | Document understanding | Agents ingest + extract from any framework | Extract use case in the UI | REST/SDK ingest + extraction API; MCP ingest when connected |
 | Full end-to-end RAG | Agents ingest + retrieve + ground answers from any framework | Interact and Report use cases in the UI | REST/SDK search + retrieval API; MCP search when connected |

@@ -13,11 +13,6 @@ For authenticated GroundX API calls, set `GROUNDX_API_KEY` in the shell that sta
 your agent. Use a regular GroundX user API key unless GroundX has issued you
 Partner-tier access.
 
-This repository installs **GroundX Agent Harness**, the public runtime bundle for
-agents. The internal **GroundX Studio Harness** is separate and includes Studio-only
-web UI, publish, slides, and partner-admin production skills. Those internal skills
-are intentionally not included in the public agent harness.
-
 The hosted MCP server is optional and currently production-only. Connect it only when
 your client supports MCP and the target environment is prod:
 

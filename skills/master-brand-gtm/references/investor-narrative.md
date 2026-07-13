@@ -59,7 +59,7 @@ When asked *"why does Valantor warrant a premium multiple?"* the answer compress
 Use this in investor materials to articulate the why-now:
 
 1. **The data comprehension gap.** Most enterprise data is locked in unstructured visual formats that general-purpose AI cannot reliably read at scale. Structural barrier, not a tooling or skills problem. (See `narrative.md` § 4.)
-2. **The implementation-scale pain.** *"I have 500 AI agent use cases, how am I going to implement them all?"* Enterprises cannot industrialize AI one use case at a time. Visual Intelligence is the foundational layer that closes the comprehension gap; the GroundX Studio Harness is the operational layer that industrializes implementation. (See `buyer.md` § 2.)
+2. **The implementation-scale pain.** *"I have 500 AI agent use cases, how am I going to implement them all?"* Enterprises cannot industrialize AI one use case at a time. Visual Intelligence is the foundational layer that closes the comprehension gap; the GroundX Agent Harness is the operational layer that industrializes implementation. (See `buyer.md` § 2.)
 
 Both problems compound: AI does not work on the data that matters, and the work cannot be industrialized one engagement at a time. Closing both at once is the investor narrative.
 

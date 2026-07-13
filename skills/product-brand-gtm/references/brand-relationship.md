@@ -20,7 +20,7 @@ GroundX path an agent should use:
 | **EyeLevel** | The acquired-company / heritage brand that built GroundX before Valantor acquired the work. | The topic is the team's history, origin story, logo lockup, or EyeLevel-pack product surfaces. | The platform. Never say "EyeLevel by Valantor." |
 | **GroundX MCP** | The preferred connected-agent path for using GroundX tools. | An installed agent has MCP tools connected and needs to ingest, poll, search, list, or discover operations. | REST/SDK endpoint semantics, which belong to `groundx-api`. |
 | **REST APIs / SDKs** | Direct integration surfaces for application code and fallback. | The topic is backend integration, dev environment behavior, endpoint shapes, SDK objects, local-file upload gaps, or MCP fallback. | MCP setup and tool-use instructions. |
-| **GroundX Studio Harness** | The agent knowledge and workflow layer. | The topic is helping agents build GroundX-backed work, UI, decks, extraction specs, or integrations correctly. | The only way to integrate GroundX. |
+| **GroundX Agent Harness** | The agent knowledge and workflow layer. | The topic is helping agents build GroundX-backed work, UI, decks, extraction specs, or integrations correctly. | The only way to integrate GroundX. |
 | **GroundX On-Prem** | A deployment distribution of GroundX for customer-controlled infrastructure. | The topic is deployment mode, Kubernetes, Helm, values.yaml, private cloud, air-gapped, residency, or operations. | Runtime workflow model assignment, which belongs to `groundx-api`. |
 
 ## 2. Valantor (master brand)

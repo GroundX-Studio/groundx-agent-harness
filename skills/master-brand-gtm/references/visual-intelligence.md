@@ -34,7 +34,7 @@ Five layers, named at master-brand altitude (the same architecture lives in `bra
 2. **Extensibility (GroundX Studio + plug-ins)** — Document Plug-ins and Function Plug-ins composed of Skills, Agents, and Hooks. Building blocks, never outcomes.
 3. **Outcome layer (Outcome Plug-ins)** — vertical solutions composing Studio plug-ins into repeatable products with defined SLAs. FraudX and ExtractX shipping; others illustrative.
 4. **Operational layer (Valantor agents + human orchestration)** — converts Visual Intelligence into real enterprise outcomes through agent-and-human orchestration. Concept-only today.
-5. **Adoption layer (GroundX Studio Harness — agentic adoption)** — drops implementation time from months to days for any GroundX-touching use case.
+5. **Adoption layer (GroundX Agent Harness — agentic adoption)** — drops implementation time from months to days for any GroundX-touching use case.
 
 The stack is the answer to *how is Visual Intelligence delivered*. Each layer composes onto the one below; every layer is powered by GroundX (the platform layer is never optional).
 

@@ -4,11 +4,11 @@ The workspace runner is the **agent-facing project-workspace API** — the subsy
 
 ## 1. Marketing altitude
 
-Workspace runners stay out of marketing content. The Studio Harness scaffold pattern is the marketing surface above this subsystem; workspace internals should not appear in marketing copy.
+Workspace runners stay out of marketing content. The Agent Harness scaffold pattern is the marketing surface above this subsystem; workspace internals should not appear in marketing copy.
 
 ## 2. Product altitude
 
-The workspace runner is what makes managed Studio Harness projects work. When a workspace-capable caller creates a new managed project, clones an existing one, runs a command inside it, publishes it, or cleans it up, the request enters through `groundx` as a Workspace facade API call and is routed to the workspace runner subsystem. The subsystem handles git operations on behalf of the caller — managing credentials, branches, commits, and pushes — so callers don't manage git themselves.
+The workspace runner is what makes managed Agent Harness projects work. When a workspace-capable caller creates a new managed project, clones an existing one, runs a command inside it, publishes it, or cleans it up, the request enters through `groundx` as a Workspace facade API call and is routed to the workspace runner subsystem. The subsystem handles git operations on behalf of the caller — managing credentials, branches, commits, and pushes — so callers don't manage git themselves.
 
 ## 3. Conceptual / algorithmic altitude
 
@@ -25,7 +25,7 @@ Three architectural choices shape the workspace runner:
 The workspace runner is **6 pods** + two stores:
 
 ```
-agent caller (Studio Harness workflow, etc.) → Workspace facade API → groundx → API → workspace-api → Celery → workspace workers (5)
+agent caller (Agent Harness workflow, etc.) → Workspace facade API → groundx → API → workspace-api → Celery → workspace workers (5)
                                                                                                                          → file storage (PVC)
                                                                                                                          → Process Metadata DB (dedicated tables)
 ```
@@ -101,7 +101,7 @@ Deployment-level cost framing is owned by `groundx-on-prem`.
 
 - **Workspace endpoint surface and auth model** (route shapes, deploy-config payloads, diagnostics, publish): the GroundX API skill's Workspace endpoint guidance.
 - **Partner account lifecycle and credential issuance** (how partner credentials are issued, validated, scoped): outside this public architecture topic.
-- **The agent-facing workflows** (clone, edit, publish, cleanup) that consume this subsystem: Studio Harness managed-project workflow guidance.
-- **The Studio Harness scaffold pattern** that managed projects are built from: Harness web UI and publish guidance.
+- **The agent-facing workflows** (clone, edit, publish, cleanup) that consume this subsystem: Agent Harness managed-project workflow guidance.
+- **The Agent Harness scaffold pattern** that managed projects are built from: Harness web UI and publish guidance.
 - **Per-pod-worker responsibilities, source-of-truth** — to be back-ported when documented in the source.
 - **Per-deployment PVC sizing, Helm storage backing selection**: `groundx-on-prem`.

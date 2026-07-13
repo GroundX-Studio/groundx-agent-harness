@@ -22,7 +22,7 @@ A recurring buyer voice frames why every differentiator matters at enterprise sc
 
 > *"I have 500 AI agent use cases, how am I going to implement them all?"*
 
-At hundreds of use cases, anything less than enterprise-grade accuracy, on-prem deployability, integrated architecture, and a productive implementation pattern fails the math. The GroundX Studio Harness specifically answers the implementation-velocity dimension; the other pillars answer per-use-case bar requirements. This pain is master context for every pitch — every pillar gets stronger when framed against it.
+At hundreds of use cases, anything less than enterprise-grade accuracy, on-prem deployability, integrated architecture, and a productive implementation pattern fails the math. The GroundX Agent Harness specifically answers the implementation-velocity dimension; the other pillars answer per-use-case bar requirements. This pain is master context for every pitch — every pillar gets stronger when framed against it.
 
 ### 2.1 The two volume problems
 
