@@ -126,7 +126,7 @@ claude plugin install groundx-agent-harness@groundx-agent-harness
   code(`
 claude mcp add --transport http groundx https://api.groundx.ai/mcp
 `);
-  console.log("Run /mcp, connect groundx, enter the prod API key on the GroundX OAuth page, then start a new Claude Code session in VS Code.");
+  console.log("Run /mcp, connect groundx, enter the prod API key on the GroundX sign-in page, then start a new Claude Code session in VS Code.");
 }
 
 function claudeCodeDesktop() {
@@ -188,7 +188,7 @@ Sync -> Personal directory/card -> GroundX Agent Harness -> Install
   code(`
 claude mcp add --transport http groundx https://api.groundx.ai/mcp
 `);
-  console.log("Run /mcp, connect groundx, enter the prod API key on the GroundX OAuth page, then start a new Claude Code session.");
+  console.log("Run /mcp, connect groundx, enter the prod API key on the GroundX sign-in page, then start a new Claude Code session.");
 }
 
 function claudeDesktop() {
@@ -199,7 +199,7 @@ Customize -> Connectors -> + -> Add custom connector
 Name: GroundX API
 Remote MCP Server URL: https://api.groundx.ai/mcp
 `);
-  console.log("Leave advanced OAuth fields empty unless Claude asks you to review discovered settings. Click Add first, then click Connect on the next screen. Enter the prod API key on the GroundX OAuth page, then enable the connector in a conversation.");
+  console.log("Leave advanced OAuth fields empty unless Claude asks you to review discovered settings. Click Add first, then click Connect on the next screen. Enter the prod API key on the GroundX sign-in page, then enable the connector in a conversation.");
   console.log("Connector tool calls may default to per-tool approval prompts. That is expected. Choose Always allow only after accepting the broader connector permission.");
 }
 
@@ -219,7 +219,7 @@ Toggle to Streamable HTTP
 URL: https://api.groundx.ai/mcp
 Save
 `);
-  console.log("The saved MCP server entry in the MCP server list should show an Authenticate button. Click Authenticate and enter the prod API key on the GroundX OAuth page.");
+  console.log("The saved MCP server entry in the MCP server list should show an Authenticate button. Click Authenticate and enter the prod API key on the GroundX sign-in page.");
 }
 
 function codexCli() {
@@ -253,14 +253,14 @@ claude plugin install groundx-agent-harness@groundx-agent-harness
   code(`
 claude mcp add --transport http groundx https://api.groundx.ai/mcp
 `);
-  console.log("Run /mcp, connect groundx, enter the prod API key on the GroundX OAuth page, then start a new session.");
+  console.log("Run /mcp, connect groundx, enter the prod API key on the GroundX sign-in page, then start a new session.");
 }
 
 function mcp() {
   section("Hosted GroundX API MCP");
   console.log("For clients that support remote MCP/connectors, connect the hosted GroundX API MCP endpoint:");
   code("https://api.groundx.ai/mcp");
-  console.log("Do not paste API keys into prompts. Use the deployment-managed OAuth flow or connector install flow. In Claude Desktop, open Customize -> Connectors, click Add, then Connect on the next screen. Enter the prod API key on the GroundX OAuth page. Connector tool calls may default to per-tool approval prompts; choose Always allow only after accepting the broader connector permission.");
+  console.log("Do not paste API keys into prompts. Use the deployment-managed OAuth flow or connector install flow. In Claude Desktop, open Customize -> Connectors, click Add, then Connect on the next screen. Enter the prod API key on the GroundX sign-in page. Connector tool calls may default to per-tool approval prompts; choose Always allow only after accepting the broader connector permission.");
 }
 
 function verify() {
