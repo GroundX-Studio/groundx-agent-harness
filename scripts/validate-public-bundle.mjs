@@ -235,7 +235,7 @@ if (existsSync(readmePath)) {
     "Add from a repository",
     "GitHub account is not required",
     "GroundX-Studio/groundx-agent-harness",
-    "GroundX OAuth page",
+    "GroundX sign-in page",
     "Always allow",
     "Name: GroundX API",
   ]) {
@@ -283,7 +283,7 @@ if (existsSync(doctorPath)) {
     "Customize -> Plugins -> Personal plugins + -> Add marketplace -> Add from a repository",
     "GitHub account is not required",
     "GroundX-Studio/groundx-agent-harness",
-    "GroundX OAuth page",
+    "GroundX sign-in page",
     "Always allow",
     "Name: GroundX API",
   ]) {
@@ -305,11 +305,11 @@ if (existsSync(doctorPath)) {
   );
   for (const client of ["vscode-claude", "claude-code", "claude-code-desktop"]) {
     const clientOutput = runDoctor(client);
-    requireText(doctorPath, clientOutput, "GroundX OAuth page", `${client} OAuth API-key placement`);
+    requireText(doctorPath, clientOutput, "GroundX sign-in page", `${client} OAuth API-key placement`);
     forbidText(doctorPath, clientOutput, "complete OAuth", `${client} vague complete OAuth wording`);
   }
   const codexDesktopOutput = runDoctor("codex-desktop");
-  requireText(doctorPath, codexDesktopOutput, "GroundX OAuth page", "codex-desktop OAuth API-key placement");
+  requireText(doctorPath, codexDesktopOutput, "GroundX sign-in page", "codex-desktop OAuth API-key placement");
   requireText(doctorPath, codexDesktopOutput, "MCP server entry", "codex-desktop manual MCP server entry wording");
   forbidText(doctorPath, codexDesktopOutput, "complete OAuth", "codex-desktop vague complete OAuth wording");
   forbidText(doctorPath, codexDesktopOutput, "From plugins list", "codex-desktop generated plugin-list wording");
