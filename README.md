@@ -335,16 +335,6 @@ If your agent supports remote MCP, you can also add the optional tools: in your
 agent's MCP settings, add a Streamable HTTP server with URL
 `https://api.groundx.ai/mcp`, authenticate, and enter your key on the GroundX
 sign-in page.
-
-### Working against dev?
-
-The steps above target prod, which is where most users work. To use the dev
-environment, create a dev key at `https://devdashboard.groundx.ai` and set
-`GROUNDX_BASE_URL=https://devapi.groundx.ai/api` in the shell that starts your
-agent. Prod and dev are separate accounts: buckets, keys, documents, and account
-data do not carry over. Hosted MCP is prod-only, so use the SDK or REST directly
-for dev.
-
 ## Try GroundX Studio
 
 See your agent put GroundX to work in about five minutes. The agent does the
