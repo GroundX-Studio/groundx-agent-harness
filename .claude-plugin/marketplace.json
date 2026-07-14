@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "GroundX agent runtime harness for API use, schema-first extraction, on-prem deployment, architecture, and supported GTM guidance.",
-    "version": "2.2.15"
+    "version": "2.2.16"
   },
   "plugins": [
     {
