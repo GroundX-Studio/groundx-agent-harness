@@ -349,9 +349,10 @@ them.
    which line does it come from?"
 3. **Pull out the details.** For example: "Pull the invoice number, date, vendor,
    each line item, and the total into a table."
-4. **Make extraction accurate at scale.** For real volume, have it build an
-   extraction workflow that grades itself against an answer key and tunes the
-   schema and prompts until it is at least 90% accurate.
+4. **Make extraction accurate at scale.** For real volume, describe the fields
+   you want (or paste a sample of the JSON), hand over a few documents, and have
+   it build an extraction workflow, run it, and refine the schema and prompts on
+   its own until the output holds up.
 
 Then point it at your own documents and go further: ask for a summary report, a
 way to classify them, or a small app to search them.
