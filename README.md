@@ -10,19 +10,20 @@ with:
 - GroundX product, company, and architecture questions
 
 It is built on the open Agent Skills (`SKILL.md`) standard. Claude and Codex
-install it as a one-command plugin; any other skills-capable agent (Cursor,
-Replit, Gemini, Windsurf, Copilot, and more) uses the same portable skills by
-adding this repository's `skills/` folder. Installing the skills is the primary
-step and is what "Agent Harness" is; the hosted MCP server (below) is a separate,
-optional add-on.
+install it as a one-command plugin. Other skills-capable agents (Cursor, Replit,
+Gemini, Windsurf, Copilot, and more) install the same skills however that agent
+supports Agent Skills, which may be an install command or adding this
+repository's `skills/` folder; see your agent's own docs for the exact step.
+Installing the skills is the main step and is what "Agent Harness" is. Connecting
+the hosted MCP server (below) is an optional enhancement.
 
-This repository installs **GroundX Agent Harness**, the public runtime bundle for
-agents. The internal **GroundX Agent Harness** is separate and includes
-Studio-only web UI, publish, slides, and partner-admin production skills. Those
-internal skills are intentionally not included in the public agent harness.
+This repository is **GroundX Agent Harness**. It does not include the internal
+**GroundX Agent Harness** skills (Studio-only web UI, publish, slides, and
+partner-admin production), which are intentionally kept out of this agent
+harness.
 
-The hosted MCP server is optional and prod-only today. Connect it only when your
-agent supports remote MCP and you are working against prod:
+The hosted MCP server is optional. Connect it when your agent supports remote
+MCP:
 
 ```text
 https://api.groundx.ai/mcp
@@ -36,40 +37,37 @@ https://api.groundx.ai/mcp
 
 Wherever you enter your key, use the GroundX sign-in page, an environment
 variable, or an approved local secret store. Never paste an API key into chat or
-into a tool argument. For authenticated GroundX API calls, set `GROUNDX_API_KEY`
-in the shell that starts your agent. Use a regular GroundX user API key unless
-GroundX has issued you Partner-tier access.
+into a tool argument. Use a regular GroundX user API key unless GroundX has
+issued you Partner-tier access.
 
-The skills and the MCP server are separate pieces:
+Install the skills first. Then, to let the agent actually reach GroundX, pick
+either way (you don't need both):
 
-- The skills give the agent GroundX instructions and workflows.
-- `GROUNDX_API_KEY` gives SDK/REST access.
-- MCP gives the agent authenticated GroundX API tools when your agent supports
-  it.
-- Install the skills first. Add MCP only when you need its tools.
-- Connector tool calls may default to per-tool approval prompts. That is
-  expected. You may choose **Always allow** after accepting the broader security
-  tradeoff.
+- **The hosted tools (MCP).** Connect them once and the agent calls them. Sign in
+  through your agent by OAuth or with your API key in the connection settings.
+  Use this when your agent supports connecting remote tools. Connector tool calls
+  may default to per-tool approval prompts; that is expected, and you may choose
+  **Always allow** after accepting the broader security tradeoff.
+- **The SDK or REST API.** Set `GROUNDX_API_KEY` where your agent runs and it
+  calls GroundX from code. This works with any agent that can run code or make
+  web requests.
 
 Client support:
 
-| Client | Plugin / skills | MCP API tools |
+| Client | Skills | Hosted MCP tools |
 | --- | --- | --- |
 | Claude Desktop | Yes | Yes |
-| Claude Desktop with Connectors only | No plugin skills; use hosted connector for MCP tools | Yes |
 | Codex Desktop | Yes | Yes |
 | Claude CLI | Yes | Yes |
 | Codex CLI | Yes | Yes |
 | VS Code | Yes | Yes |
-| Everything else (Cursor, Replit, Gemini, Windsurf, Copilot, and more) | Yes, via the portable `skills/` folder | If your agent supports remote MCP |
+| Everything else (Cursor, Replit, Gemini, Windsurf, Copilot, and more) | Yes, installed however your agent supports Agent Skills | If your agent supports remote MCP |
 
 ## Installation
 
 ### Claude Desktop
 
-Most Claude app builds expose the **Plugins/Cowork** surface and install the
-plugin from a marketplace. Builds that expose only **Connectors** use the hosted
-MCP connector path at the end of this section.
+Install the plugin from a marketplace using the **Plugins/Cowork** surface.
 
 **Install the plugin (personal marketplace).** Route: **Customize -> Plugins ->
 Personal plugins + -> Add marketplace -> Add from a repository**.
@@ -82,7 +80,7 @@ Personal plugins + -> Add marketplace -> Add from a repository**.
    GroundX-Studio/groundx-agent-harness
    ```
 
-4. A GitHub account is not required for this public repository. If the repository
+4. A GitHub account is not required for this repository. If the repository
    list cannot load, type `GroundX-Studio/groundx-agent-harness` directly and
    continue.
 5. Click **Sync**.
@@ -95,7 +93,7 @@ GitHub sync uses a private or internal marketplace repository.
 The public repo is not supported as the direct organization marketplace sync target.
 
 1. Create or choose a private/internal organization marketplace repository.
-2. Vendor/copy this public bundle into that repository at:
+2. Vendor/copy this bundle into that repository at:
 
    ```text
    plugins/groundx-agent-harness/
@@ -113,7 +111,7 @@ The public repo is not supported as the direct organization marketplace sync tar
 
 3. Create the private marketplace root `.claude-plugin/marketplace.json` with a
    complete marketplace manifest. Use your organization for the root `owner`,
-   keep the public bundle plugin entry's `description`, `strict`, and `skills`
+   keep the bundle plugin entry's `description`, `strict`, and `skills`
    fields, and change only the plugin `source` to this repo-relative path. You
    may replace `author` with your approved organization publisher value:
 
@@ -155,7 +153,7 @@ The public repo is not supported as the direct organization marketplace sync tar
    plugin -> GroundX Agent Harness**), then run `/reload-plugins` or start a new
    session.
 
-**Connect MCP (optional).**
+**Connect the hosted MCP tools (optional).** Use the command line:
 
 ```sh
 claude mcp add --transport http groundx https://api.groundx.ai/mcp
@@ -164,26 +162,13 @@ claude mcp add --transport http groundx https://api.groundx.ai/mcp
 Run `/mcp`, connect `groundx`, enter your key on the GroundX sign-in page, and
 start a new Claude Code session.
 
-**Connector-only builds.** If your Claude Desktop build exposes only
-**Connectors** (no Plugins/Cowork surface), it has no plugin skills; the
-connector provides MCP tools only:
-
-1. Open **Claude Desktop -> Customize -> Connectors**.
-2. Click **+**, then **Add custom connector**.
-3. Enter:
-
-   ```text
-   Name: GroundX API
-   Remote MCP Server URL: https://api.groundx.ai/mcp
-   ```
-
-4. Leave advanced OAuth fields empty unless Claude asks you to review discovered
-   settings.
-5. Click **Add** first, then **Connect** on the next screen.
-6. Enter your key on the GroundX sign-in page.
-7. Enable the connector in a conversation. Expect per-tool approval prompts by
-   default; choose **Always allow** only after accepting the broader connector
-   permission.
+Or connect through the Claude Desktop UI: open **Customize -> Connectors -> +
+-> Add custom connector** and enter `Name: GroundX API` with the MCP URL
+`https://api.groundx.ai/mcp`. Leave advanced OAuth fields empty unless Claude
+asks you to review discovered settings. Click **Add**, then **Connect** on the
+next screen, and enter your key on the GroundX sign-in page. Connector tool calls
+may default to per-tool approval prompts; choose **Always allow** only after
+accepting the broader connector permission.
 
 ### Claude Code Desktop
 

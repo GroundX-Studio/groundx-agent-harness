@@ -193,7 +193,7 @@ claude mcp add --transport http groundx https://api.groundx.ai/mcp
 
 function claudeDesktop() {
   section("Claude Desktop");
-  console.log("If your Claude app shows Customize -> Plugins and Cowork, use the plugin path. If your Claude Desktop build only exposes Connectors, use the hosted MCP connector:");
+  console.log("Install the plugin from the Customize -> Plugins and Cowork surface. To connect the hosted MCP tools instead, use the Connectors route:");
   code(`
 Customize -> Connectors -> + -> Add custom connector
 Name: GroundX API

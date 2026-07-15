@@ -243,12 +243,6 @@ if (existsSync(readmePath)) {
       flag(readmePath, `README install guide must include ${expected}`);
     }
   }
-  requireText(
-    readmePath,
-    readme,
-    "No plugin skills; use hosted connector for MCP tools",
-    "connector-only Claude Desktop plugin-scope clarification",
-  );
   for (const forbidden of [
     "Settings -> Plugins -> Add -> Add marketplace",
     "Create plugin -> Add marketplace",
