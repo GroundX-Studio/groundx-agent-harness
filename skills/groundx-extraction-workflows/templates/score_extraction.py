@@ -47,10 +47,26 @@ _GROUP_ALIASES: typing.Dict[str, typing.List[str]] = {
     "charges": ["charges", "account_charges"],
     "account_charges": ["account_charges", "charges"],
 }
+_FIELD_VALUE_OBJECT_KEYS = {"value", "_raw_text", "_confidence"}
+
+
+def _is_field_value_object(value: typing.Any) -> bool:
+    return (
+        isinstance(value, dict)
+        and "value" in value
+        and set(value).issubset(_FIELD_VALUE_OBJECT_KEYS)
+    )
+
+
+def _field_value(value: typing.Any) -> typing.Any:
+    if _is_field_value_object(value):
+        return value.get("value")
+    return value
 
 
 def normalize_value(val: typing.Any) -> str:
     """Normalize a value for comparison: strip whitespace, normalize dates."""
+    val = _field_value(val)
     if val is None:
         return ""
     s = str(val).strip()
@@ -102,10 +118,14 @@ def load_answer_key_json(json_path: str) -> typing.Dict[str, typing.Any]:
     for key, value in data.items():
         if isinstance(value, list):
             expected["groups"][key] = [r for r in value if isinstance(r, dict)]
+        elif _is_field_value_object(value):
+            expected["singleton"][key] = value.get("value")
         elif isinstance(value, dict):
             # Nested object: treat its scalars as namespaced singleton fields.
             for sub_key, sub_val in value.items():
-                if not isinstance(sub_val, (list, dict)):
+                if _is_field_value_object(sub_val):
+                    expected["singleton"][f"{key}.{sub_key}"] = sub_val.get("value")
+                elif not isinstance(sub_val, (list, dict)):
                     expected["singleton"][f"{key}.{sub_key}"] = sub_val
         else:
             # Scalar — keep even when null so null-vs-miss can be checked.

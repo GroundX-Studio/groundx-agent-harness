@@ -42,6 +42,13 @@ non-extraction API/debug calls, set
 `GROUNDX_BASE_URL=https://devapi.groundx.ai/api`; for prod, leave it unset.
 GroundX MCP is optional and prod-only.
 
+Product YAML upload is a separate platform path. It accepts authored YAML,
+normalizes it when needed, persists the effective source/metadata, and creates
+or updates the workflow server-side. Use that path when proving user/product
+upload behavior, especially internal legacy YAML-to-v1 normalization. The local
+SDK paths below send compiled workflow bodies and cannot prove upload-time
+normalization.
+
 ## 2. The compile script
 
 ### 2.1 What compile_workflow.py does
@@ -181,7 +188,7 @@ simple extractions or high-volume runs, `medium` may be acceptable.
 
 ## 4. The workflow lifecycle
 
-There are three execution paths:
+There are three local/agent execution paths, plus the product YAML upload path:
 
 - **Deploy-only local script:** `templates/deploy_workflow.py` compiles,
   validates, creates or updates the workflow, and optionally attaches it
@@ -192,6 +199,9 @@ There are three execution paths:
   extraction is available.
 - **Interactive agent operation:** use `groundx-api`; use MCP tools only when
   they are already connected in prod, otherwise use the Python SDK/API path.
+- **Product YAML upload:** use the platform upload path when the behavior under
+  test is raw YAML upload, normalization, persisted source, or user-facing
+  workflow creation.
 
 For first-run deploy guidance, use `deploy.md`. It has the short decision table
 for MCP vs `deploy_workflow.py` vs `run_extraction.py`.
@@ -222,6 +232,10 @@ YAML and then pass the same raw path back through
 compiler contract for `workflow_step:`, custom routes, and metadata-aware pilot
 YAML. The high-level SDK helpers remain the preferred public SDK surface for
 YAML that is directly SDK-loadable.
+
+Do not treat this local compiled path as proof that product YAML upload works.
+Certification and regression evidence for upload behavior must use the platform
+YAML upload path and record that workflow creation path explicitly.
 
 `document_getextract` returns the workflow-defined JSON object exactly as
 GroundX stored it. Do not assume a fixed vocabulary such as `amount_due` or

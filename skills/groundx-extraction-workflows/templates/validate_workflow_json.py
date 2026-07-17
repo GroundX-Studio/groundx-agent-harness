@@ -485,7 +485,7 @@ def _validate_custom_workflow(workflow: dict) -> typing.List[str]:
     extract = workflow.get("extract")
     authored = extract.get("_groundx_persisted_extract") if isinstance(extract, dict) else None
     for group_name, field_name, pointer in _extract_final_field_pointers(authored):
-        if pointer not in routed_final_fields:
+        if pointer not in routed_final_fields and (group_name, field_name) not in routed_workflow_fields:
             errors.append(
                 f"authored final field '{group_name}.{field_name}' has no custom output route"
             )

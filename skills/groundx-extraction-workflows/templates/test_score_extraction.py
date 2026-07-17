@@ -65,6 +65,56 @@ def test_nested_singleton_group_scores_against_nested_extraction():
     assert report["has_failure"] is False
 
 
+def test_json_answer_key_field_value_objects_score_as_nested_singletons(tmp_path):
+    key_path = tmp_path / "adp-shaped-answer.json"
+    key_path.write_text(
+        """
+{
+  "employer_information": {
+    "employer_name": {
+      "value": "Z&N Coffeehouse Companies Inc",
+      "_raw_text": null,
+      "_confidence": "yellow"
+    },
+    "address_state": {
+      "value": "CO",
+      "_raw_text": null,
+      "_confidence": "yellow"
+    }
+  },
+  "plan_information": {
+    "plan_number": {
+      "value": "001",
+      "_raw_text": "Plan Sequence Number 001",
+      "_confidence": "green"
+    }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    expected = compare.load_answer_key(str(key_path))
+    extracted = {
+        "employer_information": {
+            "employer_name": "Z&N Coffeehouse Companies Inc",
+            "address_state": "CO",
+        },
+        "plan_information": {
+            "plan_number": "001",
+        },
+    }
+
+    report = compare.compare_extraction(extracted, expected)
+
+    assert expected["singleton"] == {
+        "employer_information.employer_name": "Z&N Coffeehouse Companies Inc",
+        "employer_information.address_state": "CO",
+        "plan_information.plan_number": "001",
+    }
+    assert report["summary"]["singleton"] == (3, 3)
+    assert report["has_failure"] is False
+
+
 def test_expected_value_but_missing_extraction_is_miss():
     expected = {"singleton": {"payment_amount_due": "312.47"}, "groups": {}}
     extracted = {"payment_amount_due": ""}

@@ -93,6 +93,80 @@ def _iter_chunks(xray: dict) -> typing.Iterator[dict]:
                 yield chunk
 
 
+def _normalize_keyed_records(
+    records: typing.Any,
+    aliases: dict[str, str],
+) -> typing.Any:
+    if not isinstance(records, list):
+        return records
+    normalized_records = []
+    for record in records:
+        if not isinstance(record, dict):
+            normalized_records.append(record)
+            continue
+        normalized = {}
+        for key, value in record.items():
+            normalized[aliases.get(key, key)] = value
+        normalized_records.append(normalized)
+    return normalized_records
+
+
+def _normalize_workflow_extract(
+    workflow_extract: typing.Optional[dict],
+) -> typing.Optional[dict]:
+    """Accept SDK extract payloads and platform workflow readbacks."""
+    if not isinstance(workflow_extract, dict):
+        return workflow_extract
+    if isinstance(workflow_extract.get("extract"), dict):
+        return _normalize_workflow_extract(workflow_extract["extract"])
+
+    workflow = workflow_extract.get("workflow")
+    if not isinstance(workflow, dict):
+        workflow = workflow_extract
+
+    route_aliases = {
+        "workflowGroup": "workflow_group",
+        "workflowField": "workflow_field",
+        "finalPath": "final_path",
+        "stepName": "step_name",
+        "outputMap": "output_map",
+        "outputKey": "output_key",
+        "readbackPath": "readback_path",
+    }
+    leaf_aliases = {
+        **route_aliases,
+        "fieldType": "field_type",
+    }
+    relationship_aliases = {
+        "parentGroup": "parent_group",
+        "childGroup": "child_group",
+        "parentOutputField": "parent_output_field",
+        "matchAttrs": "match_attrs",
+        "uniqueAttrs": "unique_attrs",
+        "passthrough": "passthrough",
+        "unmatchedChildGroup": "unmatched_child_group",
+    }
+
+    normalized_workflow = dict(workflow)
+    for snake_key, camel_key, aliases in (
+        ("custom_steps", "customSteps", {}),
+        ("output_routes", "outputRoutes", route_aliases),
+        ("leaf_fields", "leafFields", leaf_aliases),
+        ("output_relationships", "outputRelationships", relationship_aliases),
+    ):
+        value = workflow.get(snake_key)
+        if not isinstance(value, list):
+            value = workflow.get(camel_key)
+        if isinstance(value, list):
+            normalized_workflow[snake_key] = _normalize_keyed_records(value, aliases)
+
+    if isinstance(workflow_extract.get("workflow"), dict):
+        normalized_extract = dict(workflow_extract)
+        normalized_extract["workflow"] = normalized_workflow
+        return normalized_extract
+    return {"workflow": normalized_workflow}
+
+
 def _custom_route_values(
     container: dict,
     route: dict,
@@ -391,6 +465,7 @@ def xray_reassembly_artifacts(
     workflow_extract: typing.Optional[dict] = None,
 ) -> dict:
     """Return the SDK readback envelope for local X-Ray reconstruction."""
+    workflow_extract = _normalize_workflow_extract(workflow_extract)
     sdk_artifacts = _sdk_reassembly_artifacts(xray, workflow_extract)
     if sdk_artifacts is not None:
         return sdk_artifacts
@@ -439,7 +514,7 @@ def main() -> int:
     workflow_extract = None
     if args.workflow_json:
         with open(args.workflow_json) as f:
-            workflow_extract = (json.load(f) or {}).get("extract")
+            workflow_extract = _normalize_workflow_extract(json.load(f) or {})
 
     extract = xray_to_extract(xray, workflow_extract=workflow_extract)
     sys.stdout.write(json.dumps(extract, indent=args.indent, default=str))

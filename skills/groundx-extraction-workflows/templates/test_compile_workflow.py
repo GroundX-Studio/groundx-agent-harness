@@ -624,6 +624,56 @@ _pseudo_groups:
     }
 
 
+def test_custom_workflow_routes_statement_role_group_to_document_root():
+    """Statement-role workflow groups are document fields, not group-nested rows."""
+    y = """
+extraction_policy_version: v1
+workflow:
+  custom_steps:
+    - name: statement_labels
+      level: chunk
+      kind: instruct
+  agent_chain:
+    - parallel:
+        - group: renamed_statement
+          chain: [reconcile_statement, qa_statement, save_statement]
+renamed_statement:
+  workflow_step: statement_labels
+  role: statement
+  final_value_aliases:
+    statement_period_start_date: measurement_period_start_date
+  fields:
+    account_number:
+      workflow_output_key: account_number
+      prompt:
+        description: account
+        type: str
+        identifiers: ["Account"]
+        instructions: extract account
+"""
+
+    wf = build_workflow(_write(y))
+
+    assert wf["outputRoutes"] == [
+        {
+            "workflowGroup": "renamed_statement",
+            "workflowField": "account_number",
+            "finalPath": "/account_number",
+            "stepName": "statement_labels",
+            "level": "chunk",
+            "outputMap": "customChunkOutputs",
+            "outputKey": "account_number",
+            "readbackPath": "/chunks/*/customChunkOutputs/statement_labels/account_number",
+        }
+    ]
+    assert wf["leafFields"][0]["finalPath"] == "/account_number"
+    metadata = wf["extract"]["workflow"]
+    assert metadata["output_routes"][0]["final_path"] == "/account_number"
+    assert metadata["leaf_fields"][0]["final_path"] == "/account_number"
+    authored = wf["extract"]["_groundx_persisted_extract"]
+    assert authored["renamed_statement"]["role"] == "statement"
+
+
 def _required_prompt_molecules() -> tuple[str, ...]:
     return ("all", "figure", "paragraph", "table-figure")
 
@@ -1976,6 +2026,28 @@ statement:
     assert wf["extract"]["workflow"]["agent_chain"] == expected_chain
     authored = wf["extract"]["_groundx_persisted_extract"]
     assert authored["workflow"]["agent_chain"] == expected_chain
+
+
+def test_fallback_prepare_preserves_prompt_default_metadata(monkeypatch):
+    """CDN v1 workflows may carry prompt.default as authored metadata."""
+    monkeypatch.setattr(
+        compile_workflow,
+        "_sdk_prepare_extraction_yaml",
+        None,
+        raising=False,
+    )
+    yaml_text = _custom_yaml().replace(
+        "        instructions: extract account\n",
+        "        instructions: extract account\n        default: Account number\n",
+    )
+
+    wf = build_workflow(_write(yaml_text))
+
+    authored = wf["extract"]["_groundx_persisted_extract"]
+    assert (
+        authored["statement"]["fields"]["account_number"]["prompt"]["default"]
+        == "Account number"
+    )
 
 
 def test_fallback_agent_chain_does_not_change_schema_hash(monkeypatch):

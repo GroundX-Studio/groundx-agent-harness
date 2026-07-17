@@ -126,6 +126,51 @@ def test_xray_to_extract_custom_routes_ignore_legacy_fallback_noise():
     }
 
 
+def test_xray_to_extract_accepts_platform_readback_workflow_routes():
+    workflow_extract = {
+        "customSteps": [
+            {
+                "name": "adp_f1_employer_and_plan_information",
+                "level": "section",
+                "kind": "instruct",
+            }
+        ],
+        "outputRoutes": [
+            {
+                "workflowGroup": "adp_f1_employer_and_plan_information",
+                "workflowField": "employer_name",
+                "finalPath": "/employer_information/employer_name",
+                "stepName": "adp_f1_employer_and_plan_information",
+                "level": "section",
+                "outputMap": "customSectionOutputs",
+                "outputKey": "employer_name",
+                "readbackPath": (
+                    "/chunks/*/customSectionOutputs/"
+                    "adp_f1_employer_and_plan_information/employer_name"
+                ),
+            }
+        ],
+    }
+    xray = {
+        "chunks": [
+            {
+                "sectionSummary": '{"account_number": "legacy-noise"}',
+                "customSectionOutputs": {
+                    "adp_f1_employer_and_plan_information": {
+                        "employer_name": "Z&N Coffeehouse Companies Inc"
+                    }
+                },
+            }
+        ]
+    }
+
+    assert xray_to_extract(xray, workflow_extract=workflow_extract) == {
+        "employer_information": {
+            "employer_name": "Z&N Coffeehouse Companies Inc"
+        }
+    }
+
+
 def test_xray_to_extract_preserves_nested_repeated_custom_paths():
     workflow_extract = {
         "workflow": {

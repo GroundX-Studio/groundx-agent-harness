@@ -79,6 +79,12 @@ that already validated them. The public SDK
 directly SDK-loadable, but harness local templates should not compile a YAML and
 then pass the same raw path back to those helpers.
 
+This local SDK path is not the same as the product YAML upload path. It bypasses
+upload-time normalization, persisted source handling, and any internal legacy
+YAML-to-v1 translation owned by the platform. Use it for local deployment,
+diagnostics, or controlled extraction runs. Do not use it as proof that a user
+upload, product upload, or legacy YAML normalization path works.
+
 ## Engine-Only Updates
 
 When the only intended change is the model endpoint for existing workflow steps,

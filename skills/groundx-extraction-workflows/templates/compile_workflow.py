@@ -138,6 +138,7 @@ _GROUP_METADATA_KEYS = {
     "remaining_attrs",
     "required_any_attrs",
     "required_attrs",
+    "role",
     "unique_attrs",
 }
 
@@ -153,6 +154,7 @@ _DIRECT_FIELD_KEYS = {
 }
 _PSEUDO_FIELD_KEYS = {"path", "prompt"}
 _PROMPT_KEYS = {
+    "default",
     "description",
     "format",
     "identifiers",
@@ -857,6 +859,35 @@ def _collect_final_leaf_paths(groups: dict) -> set[str]:
     return leaf_paths
 
 
+def _collect_final_leaf_paths_for_routes(
+    groups: dict,
+    *,
+    document_root_groups: typing.Set[str],
+) -> set[str]:
+    leaf_paths: set[str] = set()
+
+    def _walk(group_name: str, fields: typing.Any, prefix: tuple[str, ...] = ()) -> None:
+        if not isinstance(fields, dict):
+            return
+        for field_name, field_data in fields.items():
+            if not isinstance(field_data, dict):
+                continue
+            path = (*prefix, str(field_name))
+            nested_fields = field_data.get("fields")
+            if isinstance(nested_fields, dict) and nested_fields:
+                _walk(group_name, nested_fields, path)
+            elif group_name in document_root_groups:
+                leaf_paths.add(_json_pointer(path))
+            else:
+                leaf_paths.add(_json_pointer((group_name, *path)))
+
+    for group_name, group_data in groups.items():
+        if isinstance(group_data, dict):
+            _walk(str(group_name), group_data.get("fields"))
+
+    return leaf_paths
+
+
 def _assert_pseudo_groups_are_routable(raw: dict, source: str) -> None:
     pseudo_groups = raw.get("_pseudo_groups")
     if pseudo_groups is None:
@@ -1053,6 +1084,7 @@ def _collect_fallback_custom_routes(
     *,
     fields: dict,
     group_name: str,
+    document_root: bool,
     step_name: str,
     steps_by_name: dict,
     prefix: tuple[str, ...] = (),
@@ -1074,7 +1106,11 @@ def _collect_fallback_custom_routes(
                     f"workflow_output_key for [{group_name}.{field_name}] must be a string"
                 )
             workflow_field = _workflow_field_name(prefix, str(field_name))
-            final_path = _json_pointer((group_name, *prefix, str(field_name)))
+            final_path = (
+                _json_pointer((*prefix, str(field_name)))
+                if document_root
+                else _json_pointer((group_name, *prefix, str(field_name)))
+            )
             level = step["level"]
             route = {
                 "workflow_group": group_name,
@@ -1106,6 +1142,7 @@ def _collect_fallback_custom_routes(
             nested_routes, nested_leaves, nested_paths = _collect_fallback_custom_routes(
                 fields=nested_fields,
                 group_name=group_name,
+                document_root=document_root,
                 step_name=step_name,
                 steps_by_name=steps_by_name,
                 prefix=(*prefix, str(field_name)),
@@ -1482,6 +1519,41 @@ def _agent_chain_task_suffix(task: str) -> str:
     return task.rsplit("_", 1)[-1]
 
 
+def _agent_chain_group_roles(raw_chain: typing.Any) -> dict[str, str]:
+    roles: dict[str, str] = {}
+    if not isinstance(raw_chain, list):
+        return roles
+    for raw_stage in raw_chain:
+        if not isinstance(raw_stage, dict) or not isinstance(
+            raw_stage.get("parallel"),
+            list,
+        ):
+            continue
+        for raw_branch in raw_stage["parallel"]:
+            if not isinstance(raw_branch, dict):
+                continue
+            group = raw_branch.get("group")
+            chain = raw_branch.get("chain")
+            if not isinstance(group, str) or not isinstance(chain, list):
+                continue
+            suffixes = {
+                _agent_chain_task_suffix(task)
+                for task in chain
+                if isinstance(task, str)
+                and task in _CUSTOM_WORKFLOW_AGENT_CHAIN_SUPPORTED_TASKS
+            }
+            if len(suffixes) == 1:
+                roles[group] = suffixes.pop()
+    return roles
+
+
+def _is_document_root_statement_group(group_data: dict) -> bool:
+    return isinstance(group_data.get("final_value_aliases"), dict) or isinstance(
+        group_data.get("fill_rules"),
+        list,
+    )
+
+
 def _prepare_extraction_yaml_fallback(raw: dict, source: str) -> _PreparedExtractionYaml:
     workflow = raw.get("workflow")
     if not isinstance(workflow, dict):
@@ -1517,6 +1589,9 @@ def _prepare_extraction_yaml_fallback(raw: dict, source: str) -> _PreparedExtrac
         for key in _TOP_LEVEL_METADATA_KEYS
         if key in raw
     }
+    agent_chain = workflow.get("agent_chain")
+    workflow_group_roles = _agent_chain_group_roles(agent_chain)
+    document_root_groups: set[str] = set()
     groups: dict[str, dict] = {}
     final_group_metadata: dict[str, dict] = {}
     workflow_group_metadata: dict[str, dict] = {}
@@ -1549,9 +1624,16 @@ def _prepare_extraction_yaml_fallback(raw: dict, source: str) -> _PreparedExtrac
 
         workflow_groups[group_name] = _strip_group_metadata(group_data)
         workflow_group_metadata[group_name] = {"workflow_step": step_name}
+        document_root = (
+            workflow_group_roles.get(group_name) == "statement"
+            and _is_document_root_statement_group(group_data)
+        )
+        if document_root:
+            document_root_groups.add(group_name)
         group_routes, group_leaves, group_paths = _collect_fallback_custom_routes(
             fields=fields,
             group_name=group_name,
+            document_root=document_root,
             step_name=step_name,
             steps_by_name=steps_by_name,
         )
@@ -1589,7 +1671,13 @@ def _prepare_extraction_yaml_fallback(raw: dict, source: str) -> _PreparedExtrac
         for route in routes
         if isinstance(route.get("final_path"), str)
     }
-    missing_final_paths = sorted(_collect_final_leaf_paths(groups) - routed_final_paths)
+    missing_final_paths = sorted(
+        _collect_final_leaf_paths_for_routes(
+            groups,
+            document_root_groups=document_root_groups,
+        )
+        - routed_final_paths
+    )
     if missing_final_paths:
         missing = ", ".join(missing_final_paths[:5])
         suffix = "" if len(missing_final_paths) <= 5 else ", ..."
@@ -1634,7 +1722,6 @@ def _prepare_extraction_yaml_fallback(raw: dict, source: str) -> _PreparedExtrac
         workflow_metadata["template"] = copy.deepcopy(workflow["template"])
     if field_counts:
         workflow_metadata["field_counts"] = field_counts
-    agent_chain = workflow.get("agent_chain")
     if agent_chain is not None:
         if not isinstance(agent_chain, list) or not agent_chain:
             raise ValueError("workflow.agent_chain must be a non-empty list")
@@ -1658,6 +1745,57 @@ def _prepare_extraction_yaml_fallback(raw: dict, source: str) -> _PreparedExtrac
     )
 
 
+def _normalize_prepared_document_root_routes(prepared: typing.Any, raw: dict) -> typing.Any:
+    workflow = raw.get("workflow")
+    agent_chain = workflow.get("agent_chain") if isinstance(workflow, dict) else None
+    roles = _agent_chain_group_roles(agent_chain)
+    document_root_groups = {
+        group_name
+        for group_name, group_data in _workflow_group_items(raw)
+        if roles.get(group_name) == "statement"
+        and _is_document_root_statement_group(group_data)
+    }
+    if not document_root_groups:
+        return prepared
+
+    def normalize_pointer(pointer: typing.Any, group_name: str) -> typing.Any:
+        if not isinstance(pointer, str):
+            return pointer
+        prefix = f"/{group_name}/"
+        if pointer.startswith(prefix):
+            return "/" + pointer[len(prefix):]
+        return pointer
+
+    persisted = getattr(prepared, "persisted_workflow_extract", None)
+    if isinstance(persisted, dict):
+        metadata = persisted.get("workflow")
+        if isinstance(metadata, dict):
+            for route in metadata.get("output_routes", []) or []:
+                if not isinstance(route, dict):
+                    continue
+                group_name = route.get("workflow_group")
+                if group_name in document_root_groups:
+                    route["final_path"] = normalize_pointer(route.get("final_path"), group_name)
+            for leaf in metadata.get("leaf_fields", []) or []:
+                if not isinstance(leaf, dict):
+                    continue
+                group_name = leaf.get("workflow_group")
+                if group_name in document_root_groups:
+                    leaf["final_path"] = normalize_pointer(leaf.get("final_path"), group_name)
+            metadata["schema_hash"] = _custom_workflow_schema_hash(metadata)
+
+    workflow_field_paths = getattr(prepared, "workflow_field_paths", None)
+    if isinstance(workflow_field_paths, dict):
+        for group_name in document_root_groups:
+            paths = workflow_field_paths.get(group_name)
+            if not isinstance(paths, dict):
+                continue
+            for field_name, pointer in list(paths.items()):
+                paths[field_name] = normalize_pointer(pointer, group_name)
+
+    return prepared
+
+
 def _prepare_schema(raw_yaml: str, source: str) -> typing.Any:
     raw = _safe_load_yaml(raw_yaml, source) or {}
     if not isinstance(raw, dict):
@@ -1676,12 +1814,13 @@ def _prepare_schema(raw_yaml: str, source: str) -> typing.Any:
         return _prepare_extraction_yaml_fallback(raw, source)
 
     prepared_raw_yaml = yaml.safe_dump(raw, sort_keys=False)
-    return _sdk_prepare_extraction_yaml(
+    prepared = _sdk_prepare_extraction_yaml(
         prepared_raw_yaml,
         top_level_metadata_keys=_TOP_LEVEL_METADATA_KEYS,
         final_group_metadata_keys=_FINAL_GROUP_METADATA_KEYS,
         workflow_group_metadata_keys=_WORKFLOW_GROUP_METADATA_KEYS,
     )
+    return _normalize_prepared_document_root_routes(prepared, raw)
 
 
 def _read_and_prepare_schema(yaml_path: str) -> tuple[str, typing.Any]:
