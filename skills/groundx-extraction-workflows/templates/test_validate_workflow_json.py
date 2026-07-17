@@ -290,6 +290,109 @@ def test_validate_accepts_pseudo_group_routes_to_final_fields():
     assert validate(workflow) == []
 
 
+def test_validate_accepts_statement_group_routes_to_flattened_final_fields():
+    workflow = _custom_workflow()
+    field = {
+        "prompt": {
+            "description": "account",
+            "type": "str",
+            "identifiers": ["Account"],
+            "instructions": "extract account",
+        }
+    }
+    persisted_workflow = {
+        "metadata_version": 1,
+        "custom_steps": [
+            {
+                "name": "statement_fields",
+                "level": "chunk",
+                "kind": "instruct",
+            }
+        ],
+        "output_routes": [
+            {
+                "workflow_group": "statement",
+                "workflow_field": "account_number",
+                "final_path": "/account_number",
+                "step_name": "statement_fields",
+                "level": "chunk",
+                "output_map": "customChunkOutputs",
+                "output_key": "account_number",
+                "readback_path": (
+                    "/chunks/*/customChunkOutputs/statement_fields/account_number"
+                ),
+            }
+        ],
+        "leaf_fields": [
+            {
+                "final_path": "/account_number",
+                "workflow_group": "statement",
+                "workflow_field": "account_number",
+                "step_name": "statement_fields",
+                "level": "chunk",
+                "output_key": "account_number",
+                "field_type": "str",
+                "is_repeated": False,
+                "repetition_scope": "none",
+            }
+        ],
+    }
+    workflow["extract"] = {
+        "statement": {"fields": {"account_number": field}},
+        "workflow": persisted_workflow,
+        "_groundx_persisted_extract": {
+            "extraction_policy_version": "v1",
+            "workflow": persisted_workflow,
+            "statement": {"fields": {"account_number": field}},
+        },
+    }
+    workflow["customSteps"] = [
+        {
+            "name": "statement_fields",
+            "level": "chunk",
+            "kind": "instruct",
+            "config": {
+                "all": {
+                    "includes": {"pageImages": True},
+                    "prompt": {
+                        "request": "Extract account.",
+                        "task": "Return account.",
+                    },
+                }
+            },
+        }
+    ]
+    workflow["outputRoutes"] = [
+        {
+            "workflowGroup": "statement",
+            "workflowField": "account_number",
+            "finalPath": "/account_number",
+            "stepName": "statement_fields",
+            "level": "chunk",
+            "outputMap": "customChunkOutputs",
+            "outputKey": "account_number",
+            "readbackPath": (
+                "/chunks/*/customChunkOutputs/statement_fields/account_number"
+            ),
+        }
+    ]
+    workflow["leafFields"] = [
+        {
+            "finalPath": "/account_number",
+            "workflowGroup": "statement",
+            "workflowField": "account_number",
+            "stepName": "statement_fields",
+            "level": "chunk",
+            "outputKey": "account_number",
+            "fieldType": "str",
+            "isRepeated": False,
+            "repetitionScope": "none",
+        }
+    ]
+
+    assert validate(workflow) == []
+
+
 def test_validate_rejects_route_leaf_mismatch():
     workflow = _custom_workflow()
     workflow["leafFields"][0]["finalPath"] = "/line_items/*/amount"

@@ -15,6 +15,7 @@ Collect or confirm:
 - the expected output handoff: JSON file, callback, API retrieval, report, or UI review
 - whether documents arrive as complete batches or gradually over time
 - whether the customer permits storing samples, expected answers, and iteration artifacts
+- whether to use an exact existing bucket or create a new isolated test bucket
 
 For a shape-only proof, one representative document can be enough. For a serious pilot, prefer 20-100 representative documents when practical. For benchmark-style claims, prefer about 100 clean labeled examples with trusted expected answers. Do not treat customer-provided expected answers as automatically correct; validate obvious mismatches against the source document before tightening prompts.
 
@@ -62,6 +63,9 @@ Before iteration starts, define:
 - repeating-record accuracy bar, if applicable
 - allowed WARN conditions from `5_validation.md`
 - maximum iteration budget from `8_iteration_and_feedback.md`
+- for harness-guided authoring, the bounded loop target: stop at >=90%
+  field-level accuracy or after 10 iterations, with raw `documents.get_extract`
+  scoring evidence
 - what happens if the expected answers are incomplete or ambiguous
 - what artifact is delivered at the end: YAML, workflow JSON, extracted JSON, comparison report, or UI-ready output
 
@@ -81,6 +85,8 @@ If the customer wants push delivery, use the GroundX API callback pattern with `
 ## Do not
 
 - Start schema work from a vague "extract everything" request.
+- Create a new bucket without explicit user permission or an already-approved
+  isolated test-bucket policy.
 - Promise benchmark accuracy from one or two examples.
 - Assume the customer's expected answers are correct when the extraction finds plausible extra records.
 - Auto-finalize extraction for document sets that require human batch readiness.

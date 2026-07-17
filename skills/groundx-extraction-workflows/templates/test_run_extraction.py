@@ -229,6 +229,49 @@ def test_poll_fails_when_complete_status_has_no_document_id():
     assert any(event["event"] == "ingest.failed" for event in rl.events)
 
 
+def test_poll_retries_transient_status_errors_before_terminal_status():
+    rl = RecordingLog()
+    calls = {"count": 0}
+
+    def status_after_timeout(process_id):
+        assert process_id == "process-1"
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise TimeoutError("temporary status timeout")
+        return ns(
+            ingest=ns(
+                status="complete",
+                progress=ns(
+                    complete=ns(documents=[ns(document_id="doc-1")]),
+                    processing=ns(documents=[]),
+                    errors=ns(total=0, documents=[]),
+                ),
+            )
+        )
+
+    gx = ns(documents=ns(get_processing_status_by_id=status_after_timeout))
+
+    document_id = run_extraction._poll(
+        gx,
+        "process-1",
+        interval=0,
+        max_polls=2,
+        rl=rl,
+    )
+
+    assert document_id == "doc-1"
+    assert calls["count"] == 2
+    poll_errors = [event for event in rl.events if event["event"] == "ingest.poll_error"]
+    assert poll_errors == [
+        {
+            "event": "ingest.poll_error",
+            "poll": 1,
+            "error_type": "TimeoutError",
+            "error": "temporary status timeout",
+        }
+    ]
+
+
 def test_poll_timeout_writes_actionable_summary_and_bounded_history(tmp_path):
     rl = RecordingLog()
     history_path = tmp_path / "timeout_history.json"
@@ -353,6 +396,7 @@ def test_fresh_run_persists_business_logic_metadata_for_resume(tmp_path, monkeyp
     monkeypatch.setenv("GROUNDX_API_KEY", "test-key")
     monkeypatch.setattr(run_extraction, "GroundX", FreshNoRawGroundX)
     monkeypatch.setattr(run_extraction, "Document", lambda **kwargs: kwargs)
+    monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
     monkeypatch.setattr(
         run_extraction,
         "_compile",
@@ -398,6 +442,158 @@ def test_fresh_run_persists_business_logic_metadata_for_resume(tmp_path, monkeyp
     assert json.loads((tmp_path / "business_logic_metadata.json").read_text()) == metadata
 
 
+def test_fresh_run_ingests_with_process_level_full(tmp_path, monkeypatch):
+    captured = {}
+
+    class CapturingGroundX(FreshNoRawGroundX):
+        def ingest(self, **kwargs):
+            captured.update(kwargs)
+            return ns(ingest=ns(process_id="process-1"))
+
+    monkeypatch.setenv("GROUNDX_API_KEY", "test-key")
+    monkeypatch.setattr(run_extraction, "GroundX", CapturingGroundX)
+    monkeypatch.setattr(run_extraction, "Document", lambda **kwargs: kwargs)
+    monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
+    monkeypatch.setattr(
+        run_extraction,
+        "_compile",
+        lambda *args, **kwargs: {
+            "name": "workflow-name",
+            "extract": {"workflow": {"output_routes": []}},
+        },
+    )
+    monkeypatch.setattr(run_extraction, "_validate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        run_extraction,
+        "_create_workflow",
+        lambda *args, **kwargs: ns(workflow=ns(workflow_id="workflow-1")),
+    )
+    monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", lambda yaml_path: {})
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_extraction.py",
+            "--yaml",
+            "prompt.yaml",
+            "--pdf",
+            "sample.pdf",
+            "--out",
+            str(tmp_path),
+            "--bucket-name",
+            "bucket",
+            "--poll-interval",
+            "0",
+            "--max-polls",
+            "1",
+        ],
+    )
+
+    rc = run_extraction.main()
+
+    assert rc == 0
+    assert captured["documents"][0]["process_level"] == "full"
+
+
+def test_fresh_run_accepts_reuse_bucket_without_bucket_name(tmp_path, monkeypatch):
+    monkeypatch.setenv("GROUNDX_API_KEY", "test-key")
+    monkeypatch.setattr(run_extraction, "GroundX", FreshNoRawGroundX)
+    monkeypatch.setattr(run_extraction, "Document", lambda **kwargs: kwargs)
+    monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
+    monkeypatch.setattr(
+        run_extraction,
+        "_compile",
+        lambda *args, **kwargs: {
+            "name": "workflow-name",
+            "extract": {"workflow": {"output_routes": []}},
+        },
+    )
+    monkeypatch.setattr(run_extraction, "_validate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        run_extraction,
+        "_create_workflow",
+        lambda *args, **kwargs: ns(workflow=ns(workflow_id="workflow-1")),
+    )
+    monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", lambda yaml_path: {})
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_extraction.py",
+            "--yaml",
+            "prompt.yaml",
+            "--pdf",
+            "sample.pdf",
+            "--out",
+            str(tmp_path),
+            "--reuse-bucket",
+            "101",
+            "--poll-interval",
+            "0",
+            "--max-polls",
+            "1",
+        ],
+    )
+
+    rc = run_extraction.main()
+
+    assert rc == 0
+
+
+def test_reuse_workflow_prefers_run_local_workflow_json_for_fanout(tmp_path, monkeypatch):
+    workflow_body = {"customSteps": []}
+    (tmp_path / "workflow.json").write_text(json.dumps(workflow_body))
+    captured = {}
+
+    def fake_request_estimate(rl, out_dir, workflow, pdf_paths, *, allow_high_request_estimate):
+        captured["workflow"] = workflow
+        return True
+
+    def forbidden_estimate_report(*args, **kwargs):
+        raise AssertionError("run-local workflow.json should avoid unknown-high-risk fallback")
+
+    monkeypatch.setenv("GROUNDX_API_KEY", "test-key")
+    monkeypatch.setattr(run_extraction, "GroundX", FreshNoRawGroundX)
+    monkeypatch.setattr(run_extraction, "Document", lambda **kwargs: kwargs)
+    monkeypatch.setattr(
+        run_extraction,
+        "_load_reused_workflow_extract",
+        lambda gx, workflow_id: (_ for _ in ()).throw(
+            AssertionError("run-local workflow.json should avoid workflow API load")
+        ),
+    )
+    monkeypatch.setattr(run_extraction, "_request_estimate_preflight", fake_request_estimate)
+    monkeypatch.setattr(run_extraction, "_enforce_request_estimate_report", forbidden_estimate_report)
+    monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", lambda yaml_path: {})
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_extraction.py",
+            "--yaml",
+            "prompt.yaml",
+            "--pdf",
+            "sample.pdf",
+            "--out",
+            str(tmp_path),
+            "--reuse-workflow",
+            "workflow-platform-1",
+            "--bucket-name",
+            "bucket",
+            "--poll-interval",
+            "0",
+            "--max-polls",
+            "1",
+        ],
+    )
+
+    rc = run_extraction.main()
+
+    assert rc == 0
+    assert captured["workflow"] == workflow_body
+    assert (tmp_path / "workflow_id.txt").read_text() == "workflow-platform-1"
+
+
 def test_fresh_run_persists_business_logic_metadata_before_poll_timeout(tmp_path, monkeypatch):
     metadata = {"charges": {"unique_attrs": ["description"]}}
 
@@ -410,6 +606,7 @@ def test_fresh_run_persists_business_logic_metadata_before_poll_timeout(tmp_path
     monkeypatch.setenv("GROUNDX_API_KEY", "test-key")
     monkeypatch.setattr(run_extraction, "GroundX", FreshNoRawGroundX)
     monkeypatch.setattr(run_extraction, "Document", lambda **kwargs: kwargs)
+    monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
     monkeypatch.setattr(
         run_extraction,
         "_compile",
@@ -638,6 +835,56 @@ def test_extract_artifacts_trusts_section_shaped_get_extract_output():
     assert artifacts["diagnostic_extract"] is None
     assert artifacts["final_output"] is None
     assert artifacts["source"] == "get_extract"
+
+
+def test_extract_artifacts_captures_reassembly_diagnostic_when_raw_extract_exists():
+    rl = RecordingLog()
+    raw_extract = {"accounts": [{"account_id": "A-1"}]}
+    workflow_extract = {
+        "workflow": {
+            "custom_steps": [
+                {"name": "account_rows", "level": "chunk", "kind": "summary"},
+            ],
+            "output_routes": [
+                {
+                    "workflow_group": "accounts",
+                    "workflow_field": "account_id",
+                    "final_path": "/accounts/account_id",
+                    "step_name": "account_rows",
+                    "level": "chunk",
+                    "output_map": "customChunkOutputs",
+                    "output_key": "account_id",
+                },
+            ],
+        }
+    }
+    gx = ns(
+        documents=ns(
+            get_xray=lambda document_id: {
+                "chunks": [
+                    {
+                        "customChunkOutputs": {
+                            "account_rows": {"_records": [{"account_id": "A-1"}]},
+                        }
+                    }
+                ]
+            },
+            get_extract=lambda document_id: raw_extract,
+        )
+    )
+
+    artifacts = run_extraction.derive_extraction_artifacts(
+        gx,
+        "doc-1",
+        rl=rl,
+        workflow_extract=workflow_extract,
+    )
+
+    assert artifacts["raw_extract"] == raw_extract
+    assert artifacts["diagnostic_extract"] is None
+    assert artifacts["final_output"] is None
+    assert artifacts["source"] == "get_extract"
+    assert artifacts["reassembly_diagnostic"]["final_output"] == raw_extract
 
 
 def test_extract_artifacts_treats_empty_get_extract_dict_as_raw_unavailable():

@@ -30,6 +30,8 @@ Optional flags:
     --resume               Resume polling from an existing run directory.
     --poll-interval <sec>  Seconds between status polls (default: 15).
     --max-polls <n>        Maximum number of polls before timeout (default: 120).
+    --callback-url <url>    Optional ingest callback URL.
+    --callback-data <str>   Optional callback data echoed by GroundX callbacks.
 """
 
 import argparse
@@ -39,6 +41,7 @@ import shlex
 import sys
 import time
 import typing
+import urllib.parse
 
 import dotenv
 
@@ -58,6 +61,28 @@ from xray_to_extract import xray_reassembly_artifacts
 
 TIMEOUT_HISTORY_LIMIT = 10
 BUSINESS_LOGIC_METADATA_FILENAME = "business_logic_metadata.json"
+TRANSIENT_STATUS_ERROR_NAMES = {
+    "ConnectError",
+    "ConnectTimeout",
+    "NetworkError",
+    "ReadError",
+    "ReadTimeout",
+    "RemoteProtocolError",
+    "TimeoutException",
+    "TransportError",
+    "WriteError",
+    "WriteTimeout",
+}
+
+
+def _is_transient_status_error(exc: Exception) -> bool:
+    if isinstance(exc, (TimeoutError, ConnectionError, OSError)):
+        return True
+    module = exc.__class__.__module__
+    name = exc.__class__.__name__
+    return name in TRANSIENT_STATUS_ERROR_NAMES and (
+        module.startswith("httpx") or module.startswith("httpcore")
+    )
 
 
 def _load_business_logic_metadata(yaml_path: str) -> dict:
@@ -217,7 +242,19 @@ def _load_workflow_extract_from_run(out_dir: str) -> typing.Optional[dict]:
     if not isinstance(workflow, dict):
         return None
     extract = workflow.get("extract")
-    return extract if isinstance(extract, dict) else None
+    if isinstance(extract, dict):
+        return extract
+    compiled_keys = {
+        "customSteps",
+        "custom_steps",
+        "outputRoutes",
+        "output_routes",
+        "leafFields",
+        "leaf_fields",
+    }
+    if any(key in workflow for key in compiled_keys):
+        return workflow
+    return None
 
 
 def _write_output_provenance(out_dir: str, *, process_id: str, document_id: str) -> None:
@@ -230,6 +267,15 @@ def _write_output_provenance(out_dir: str, *, process_id: str, document_id: str)
             "document_id": document_id,
         },
     )
+
+
+def _redacted_url(url: typing.Optional[str]) -> typing.Optional[str]:
+    if not url:
+        return None
+    parsed = urllib.parse.urlparse(url)
+    if not parsed.scheme or not parsed.netloc:
+        return "[invalid-url]"
+    return urllib.parse.urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", ""))
 
 
 def _to_plain_dict(obj: typing.Any) -> dict:
@@ -472,7 +518,19 @@ def _poll(
     last_status: typing.Optional[str] = None
     last_progress_counts = {"complete": 0, "processing": 0, "errors": 0}
     for i in range(max_polls):
-        st = gx.documents.get_processing_status_by_id(process_id=process_id)
+        try:
+            st = gx.documents.get_processing_status_by_id(process_id=process_id)
+        except Exception as exc:
+            if not _is_transient_status_error(exc):
+                raise
+            rl.event(
+                "ingest.poll_error",
+                poll=i + 1,
+                error_type=exc.__class__.__name__,
+                error=str(exc)[:200],
+            )
+            time.sleep(interval)
+            continue
         status = st.ingest.status
         last_status = status
         rl.event("ingest.poll", poll=i + 1, status=status)
@@ -562,6 +620,11 @@ def derive_extraction_artifacts(
 
     if isinstance(fetched, dict) and fetched:
         raw_extract = fetched
+        if workflow_extract:
+            reassembly_diagnostic = xray_reassembly_artifacts(
+                xray,
+                workflow_extract=workflow_extract,
+            )
         if bl_metadata:
             final_output = apply_business_logic(raw_extract, bl_metadata)
             if rl:
@@ -750,6 +813,8 @@ def main() -> int:
         action="store_true",
         help="Proceed even when request-fanout preflight reaches the risk threshold",
     )
+    parser.add_argument("--callback-url", default=None, help="Optional callback URL for ingest status updates")
+    parser.add_argument("--callback-data", default=None, help="Optional callback data echoed by GroundX callbacks")
     args = parser.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
@@ -768,10 +833,11 @@ def main() -> int:
             for flag, value in (
                 ("--yaml", args.yaml),
                 ("--pdf", args.pdf),
-                ("--bucket-name", args.bucket_name),
             )
             if not value
         ]
+        if not args.bucket_name and not args.reuse_bucket:
+            missing.append("--bucket-name or --reuse-bucket")
         if missing:
             parser.error(
                 "the following arguments are required unless --resume is used: "
@@ -873,7 +939,10 @@ def main() -> int:
         wf_body: typing.Optional[dict] = None
         workflow_extract: typing.Optional[dict] = None
         if args.reuse_workflow:
-            workflow_extract = _load_reused_workflow_extract(gx, args.reuse_workflow)
+            workflow_extract = (
+                _load_workflow_extract_from_run(args.out)
+                or _load_reused_workflow_extract(gx, args.reuse_workflow)
+            )
             if workflow_extract is None:
                 report = {
                     "risk_status": "unknown_high_risk",
@@ -928,6 +997,8 @@ def main() -> int:
             if args.reuse_workflow:
                 workflow_id = args.reuse_workflow
                 rl.event("workflow.reuse", workflow_id=workflow_id)
+                with open(_abs(args.out, "workflow_id.txt"), "w") as f:
+                    f.write(workflow_id)
             else:
                 assert wf_body is not None
                 create_resp = _create_workflow(gx, args.yaml, wf_body, workflow_name)
@@ -975,11 +1046,21 @@ def main() -> int:
                     file_path=args.pdf,
                     file_name=os.path.basename(args.pdf),
                     file_type="pdf",
+                    process_level="full",
                 )
-            ]
+            ],
+            callback_url=args.callback_url,
+            callback_data=args.callback_data,
         )
         process_id = ingest_resp.ingest.process_id
-        rl.event("ingest.start", process_id=process_id, pdf=args.pdf)
+        rl.event(
+            "ingest.start",
+            process_id=process_id,
+            pdf=args.pdf,
+            callback_requested=bool(args.callback_url),
+            callback_url=_redacted_url(args.callback_url),
+            callback_data=args.callback_data,
+        )
         with open(_abs(args.out, "process_id.txt"), "w") as f:
             f.write(process_id)
 

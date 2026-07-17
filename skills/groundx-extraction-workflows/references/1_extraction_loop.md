@@ -59,10 +59,14 @@ Before the loop runs, the working directory must have:
    same command should also ingest, poll, capture X-Ray, and retrieve extract
 7. `score_extraction.py` — copied from
    `skills/groundx-extraction-workflows/templates/score_extraction.py`
-8. `requirements.txt` — copied from
+8. `run_extraction_loop.py` — copied from
+   `skills/groundx-extraction-workflows/templates/run_extraction_loop.py` when
+   the work is PDF plus desired schema plus expected answers and should iterate
+   up to 10 times or until accuracy is at least 90%
+9. `requirements.txt` — copied from
    `skills/groundx-extraction-workflows/templates/requirements.txt`
-9. The input PDF (named anything; pass the path as needed)
-10. Expected answers for scoring. If they are already runner-shaped JSON, use
+10. The input PDF (named anything; pass the path as needed)
+11. Expected answers for scoring. If they are already runner-shaped JSON, use
     them directly as the expected-answer JSON file. If they arrive as a spreadsheet,
     document, text file, PDF, or human-review notes, create a source-backed
     mapping record before scoring.
@@ -137,6 +141,11 @@ attach it to a bucket or the account default. It writes `workflow.json`,
 It is deploy-only; it does not ingest files, poll status, capture X-Ray,
 or retrieve extract output.
 
+This is the direct compiled SDK path. It is not proof of product YAML upload
+behavior, persisted-source handling, or legacy YAML normalization. When the
+claim is that uploaded YAML behaves correctly, use the platform YAML upload path
+and record that path in the evidence.
+
 Read `deploy.md` before running it. The short version: use `--bucket-id`
 for an existing bucket ID, `--bucket-name` for an exact existing bucket-name
 lookup, and `--create-bucket-name` when the command should create a new bucket.
@@ -149,7 +158,9 @@ currently work; do not run this path against dev unless an operator explicitly
 confirms it is available. The runner writes `output.json` only for the
 raw GroundX `get_extract` payload. If raw extract is unavailable, it writes
 `xray_diagnostic.json` and `final_output.json` instead. Add
-`--require-raw-extract` when missing `output.json` should fail the run. If local
+`--require-raw-extract` when missing `output.json` should fail the run. The
+runner ingests with `processLevel: full` so workflow execution is on the path.
+If local
 polling reaches `--max-polls`, the runner writes `timeout_summary.json` and a
 bounded `timeout_history.json` with the process ID, workflow ID, bucket ID,
 last status, scoreability, and a resume command. Resume the same process with:
@@ -165,6 +176,29 @@ Do not redeploy, create a new bucket, attach a new workflow, or ingest the file
 again just because local polling timed out. A timeout means the local wait
 expired; the platform process may still complete.
 
+**Bounded authoring loop:** when the user has supplied one or more PDFs, a
+desired schema or YAML draft, and expected answers or reviewer notes mapped to
+JSON, use `run_extraction_loop.py`. It composes `run_extraction.py` for each
+iteration, requires raw `documents.get_extract` provenance before scoring,
+records request-fanout evidence, YAML diffs, workflow/bucket/document/process
+IDs, X-Ray/extract artifacts, `loop_state.json`, and `final_report.json`, and
+stops when field-level accuracy is at least 90% or 10 iterations have run.
+
+```bash
+python run_extraction_loop.py \
+  --yaml prompt.yaml \
+  --pdf sample.pdf \
+  --expected-json expected_answers.json \
+  --out runs/sample-loop \
+  --iteration-schema-dir iterations/
+```
+
+If the score is below 90%, inspect the PDF, X-Ray, raw extraction, score report,
+and the compiled prompt/workflow diff. Make one prompt or group-rule change,
+save it as `iterations/prompt.iteration-02.yaml` or `iterations/iteration-02.yaml`,
+and continue. The runner reports `blocked` instead of retrying the same YAML
+when no next revision is available.
+
 **Interactive agent path:** when an agent is operating inside Claude or
 Codex, follow `groundx-api` operation semantics with the selected
 environment's `GROUNDX_API_KEY`. Use the GroundX Python SDK by default.
@@ -178,8 +212,9 @@ The manual operation loop is:
 
 1. **Create or update the workflow.** POST `workflow.json` via the
    `workflows.create()` SDK call. In prod sessions where MCP is already
-   connected, `workflow_create` is also acceptable. The response includes the
-   `workflowId`.
+   connected, `workflow_create` is also acceptable. This is still the direct
+   compiled workflow path, not the product YAML upload path. The response
+   includes the `workflowId`.
 2. **Attach the workflow to a bucket.** Either an existing bucket or a
    new one. Use the SDK call, or `workflow_add_to_id` when using prod MCP.
 3. **Ingest the PDF.** For local PDFs, prefer the Python SDK ingest
@@ -242,7 +277,10 @@ The most common iteration patterns:
 
 ## 4. When to stop
 
-Stop when:
+For the harness-guided loop, stop when field-level accuracy is at least 90% or
+10 iterations have run. Do not stop early on shape-only success.
+
+For manual production-quality iteration, stop when:
 
 - The accuracy report shows no FAIL rows
 - Remaining WARN rows are documented platform-side issues (see

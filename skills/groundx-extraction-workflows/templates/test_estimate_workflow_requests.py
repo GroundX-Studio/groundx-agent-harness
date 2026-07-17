@@ -81,7 +81,61 @@ class EstimateWorkflowRequestsTest(unittest.TestCase):
         self.assertEqual(report["sample_confidence"], "weak")
         scenario_names = {scenario["name"] for scenario in report["scenarios"]}
         self.assertIn("plausible_large_document", scenario_names)
-        self.assertEqual(report["risk_status"], "block")
+        plausible = [
+            scenario
+            for scenario in report["scenarios"]
+            if scenario["name"] == "plausible_large_document"
+            and scenario["chunks_per_page"] == 5.0
+        ][0]
+        self.assertEqual(plausible["pages"], 75)
+        self.assertEqual(plausible["estimated_requests"], 1125)
+        self.assertEqual(report["risk_status"], "ok")
+
+    def test_low_sample_defaults_missing_page_evidence_to_25_pages(self):
+        workflow = {
+            "customSteps": [
+                {"name": "statement_a", "level": "chunk", "kind": "instruct"},
+                {"name": "statement_b", "level": "chunk", "kind": "instruct"},
+                {"name": "statement_c", "level": "chunk", "kind": "instruct"},
+            ],
+        }
+
+        report = estimator.estimate_request_fanout(workflow, page_counts=[3])
+
+        self.assertEqual(report["sample_confidence"], "weak")
+        plausible = [
+            scenario
+            for scenario in report["scenarios"]
+            if scenario["name"] == "plausible_large_document"
+            and scenario["chunks_per_page"] == 5.0
+        ][0]
+        self.assertEqual(plausible["pages"], 25)
+        self.assertEqual(plausible["estimated_requests"], 375)
+        self.assertEqual(report["max_estimated_requests"], 375)
+        self.assertEqual(report["risk_status"], "ok")
+
+    def test_missing_page_evidence_defaults_to_25_pages(self):
+        workflow = {
+            "customSteps": [
+                {"name": "statement_a", "level": "chunk", "kind": "instruct"},
+                {"name": "statement_b", "level": "chunk", "kind": "instruct"},
+                {"name": "statement_c", "level": "chunk", "kind": "instruct"},
+            ],
+        }
+
+        report = estimator.estimate_request_fanout(workflow)
+
+        self.assertEqual(report["sample_confidence"], "missing")
+        plausible = [
+            scenario
+            for scenario in report["scenarios"]
+            if scenario["name"] == "plausible_large_document"
+            and scenario["chunks_per_page"] == 5.0
+        ][0]
+        self.assertEqual(plausible["pages"], 25)
+        self.assertEqual(plausible["estimated_requests"], 375)
+        self.assertEqual(report["max_estimated_requests"], 375)
+        self.assertEqual(report["risk_status"], "ok")
 
     def test_generic_repeating_records_remain_allowed_when_under_threshold(self):
         workflow = {

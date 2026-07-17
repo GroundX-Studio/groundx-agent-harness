@@ -54,7 +54,7 @@ to the user. Do not use `slot:`, `domain:`, or field-level `workflow_step`.
 Estimate request fanout before choosing chunk-level execution. The planning
 rule is `pages * chunks per page * chunk-level custom steps`; pseudo groups
 reduce field and prompt load but pseudo groups at `level: chunk` still multiply
-requests. If expected documents are long, especially around 200 pages, move
+requests. If evidence shows expected documents are long, move
 broad statement-style groups to `workflow.section_strategy: page` and
 `level: section` when the chunk estimate approaches the 2000 request cap.
 
@@ -109,6 +109,11 @@ Read `deploy.md`.
 Use `deploy_workflow.py` for deploy-only SDK execution. Use `groundx-api` for
 interactive workflow registration, bucket attachment, ingest, polling, and
 extract retrieval. Do not copy API operation semantics into this skill.
+
+`deploy_workflow.py` and direct `workflow_create` calls send compiled workflow
+bodies. They are useful local/agent paths, but they do not prove product YAML
+upload behavior, persisted-source handling, or legacy normalization. Use the
+platform YAML upload path when that is the behavior being certified.
 
 ## 6. Run Extraction And Inspect Evidence
 
