@@ -125,7 +125,7 @@ The decision is per-service. For each backing service, walk the deployer through
 
 For an air-gapped deployment, **Mode 2 is the default for every service** unless the deployer has air-gap-internal infrastructure they want to point at.
 
-For a Red Hat OpenShift deployment, the OpenShift AI quickstart path defaults to Mode 2 across the board — see `references/openshift.md` (planned).
+For a Red Hat OpenShift deployment, the OpenShift AI quickstart path defaults to Mode 2 across the board — see `references/openshift.md`.
 
 ## 5. Version floors
 
@@ -143,7 +143,7 @@ When in Mode 2, the chart depends on several operators that ship separately:
 | **Percona Operator for MySQL** | Process metadata DB | The chart's MySQL when `db.enabled=true`. |
 | **MinIO operator** | Object store | The chart's file storage when `file.enabled=true`. |
 | **OpenSearch operator** | Retrieval DB | The chart's search when `search.enabled=true`. |
-| **NVIDIA GPU Operator** | GPU scheduling | Not a backing service per se — needed for `layout-inference`, `ranker-inference`, `summary-inference` to acquire GPUs. See `references/cluster-requirements.md` § 2.4 + `references/gpu-operator.md` (planned). |
+| **NVIDIA GPU Operator** | GPU scheduling | Not a backing service per se — needed for `layout-inference`, `ranker-inference`, `summary-inference` to acquire GPUs. See `references/cluster-requirements.md` § 2.4 + `references/gpu-operator.md`. |
 
 For the per-operator install workflow and ordering (operators first, then GroundX), route to `references/install-flow.md`.
 
@@ -152,10 +152,10 @@ For the per-operator install workflow and ordering (operators first, then Ground
 - **What each store actually holds (X-Ray, JSONL, intermediate vs persistent, audit log)** → `groundx-architecture/references/store.md`.
 - **Customer-isolation enforcement at the store layer** → `groundx-architecture/references/multi-tenancy.md`.
 - **Hybrid-search index shape inside OpenSearch** → `groundx-architecture/references/hybrid-search.md`.
-- **Field-by-field `values.yaml` reference for the `file` / `db` / `cache` / `search` / `stream` blocks** → `references/values-yaml.md` (planned).
-- **Install workflow ordering** → `references/install-flow.md` (planned).
-- **NVIDIA GPU Operator setup** → `references/gpu-operator.md` (planned).
-- **OpenShift AI quickstart** → `references/openshift.md` (planned).
-- **Air-gapped deployment changes** → `references/air-gapped.md` (planned).
-- **Disaster recovery and cross-region failover** → `groundx-architecture/references/disaster-recovery.md` + `references/dr-cross-region-runbook.md` (planned).
-- **Cost estimation across the three modes** → `references/cost-estimation.md` (planned).
+- **Field-by-field `values.yaml` reference for the `file` / `db` / `cache` / `search` / `stream` blocks** → `references/values-yaml.md`.
+- **Install workflow ordering** → `references/install-flow.md`.
+- **NVIDIA GPU Operator setup** → `references/gpu-operator.md`.
+- **OpenShift AI quickstart** → `references/openshift.md`.
+- **Air-gapped deployment changes** → `references/air-gapped.md`.
+- **Disaster recovery and cross-region failover** → `groundx-architecture/references/disaster-recovery.md` + `references/dr-cross-region-runbook.md`.
+- **Cost estimation across the three modes** → `references/cost-estimation.md`.

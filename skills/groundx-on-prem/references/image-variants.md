@@ -173,7 +173,7 @@ If any pod shows UID `1001` or pulls a non-Chainguard tag, the flag-plus-overrid
 
 - **`admin.imageRepository` mechanics** → `license-and-admin.md` § 4.
 - **Pull-secret credential lifecycle** → `credentials.md` § 5.
-- **MinIO / Strimzi / NVIDIA operator deployment specifics** → `services-prereqs.md` and `services-operators.md` (when it ships).
-- **Air-gapped image-mirroring procedure** → `air-gapped.md` (planned).
+- **MinIO / Strimzi / NVIDIA operator deployment specifics** → `services-prereqs.md` and `services-operators.md`.
+- **Air-gapped image-mirroring procedure** → `air-gapped.md`.
 - **FedRAMP attestation checklists** → out of scope; consult the deployer's compliance org and `groundx-architecture/references/data-residency.md`.
 - **Chainguard product details, pricing, or tag-lifecycle policy** → consult Chainguard's documentation.

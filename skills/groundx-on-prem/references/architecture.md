@@ -68,8 +68,8 @@ These are intentional configurations. The chart does not surreptitiously route a
 
 ### 3.4 Always-external (these always cross the cluster boundary)
 
-- **Model-weight downloads.** `layout-inference` and `ranker-inference` pull model blobs from S3 on pod init and when `config.py` targets change. In air-gapped deployments, these blobs must be mirrored locally — see `references/air-gapped.md` (planned).
-- **Container image pulls.** The chart pulls from whatever registry is configured. Air-gapped deployments mirror images — see `references/air-gapped.md` (planned).
+- **Model-weight downloads.** `layout-inference` and `ranker-inference` pull model blobs from S3 on pod init and when `config.py` targets change. In air-gapped deployments, these blobs must be mirrored locally — see `references/air-gapped.md`.
+- **Container image pulls.** The chart pulls from whatever registry is configured. Air-gapped deployments mirror images — see `references/air-gapped.md`.
 
 ### 3.5 What does *not* leave the cluster
 
@@ -97,7 +97,7 @@ For a deployer authoring NetworkPolicy, the practical input map:
 - **Allow ingress to `groundx` on the configured ingress port** for API traffic.
 - **Deny everything else** by default if the deployer's compliance posture requires it.
 
-The author of this file is not the canonical NetworkPolicy producer — `references/troubleshooting.md` (planned) will capture the most common policy-misconfiguration failure modes when that file ships.
+The author of this file is not the canonical NetworkPolicy producer — `references/troubleshooting.md` captures the most common policy-misconfiguration failure modes.
 
 ## 5. Service mesh and ingress
 
@@ -113,7 +113,7 @@ The author of this file is not the canonical NetworkPolicy producer — `referen
 - **Cluster sizing — chips, GPUs, total resources, NVIDIA GPU Operator** → `references/cluster-requirements.md`.
 - **Node-group label scheme and per-group resource profiles** → `references/node-groups.md`.
 - **Backing-service field-by-field selection mechanics** → `references/services-prereqs.md`.
-- **Field-by-field `values.yaml` reference** → `references/values-yaml.md` (planned).
-- **Install workflow** → `references/install-flow.md` (planned).
+- **Field-by-field `values.yaml` reference** → `references/values-yaml.md`.
+- **Install workflow** → `references/install-flow.md`.
 - **TLS / cert / custom-CA authoring** → `references/tls-and-certs.md`.
-- **NetworkPolicy templates and common misconfigurations** → `references/troubleshooting.md` (planned) when it ships.
+- **NetworkPolicy templates and common misconfigurations** → `references/troubleshooting.md`.

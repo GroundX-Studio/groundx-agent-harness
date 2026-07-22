@@ -174,4 +174,4 @@ The most common production shape that this skill has documented experience with:
 - **Cost-modelling math** → `cost-estimation.md` § 8.
 - **Substitution decision matrix** → `service-substitution.md` § 5.
 - **Operator install per backing service** → `services-operators.md`.
-- **DR across regions** → `dr-cross-region-runbook.md` (planned).
+- **DR across regions** → `dr-cross-region-runbook.md`.
