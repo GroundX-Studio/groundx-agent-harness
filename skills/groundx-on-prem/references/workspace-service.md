@@ -247,7 +247,7 @@ workspace:
 
 Per-worker HPAs emit `workspace-<worker>:task` queue-depth metrics. Chart-defaults for the five workspace workers (`_helpers/app/workspace-{cleanup,command,provision,publish,workspace}.tpl:32–43`): **threshold 10** (queue message backlog), **target 1** (fraction of threshold the HPA aims for), **throughput 9000** (tokens/min per worker per thread). The API has materially higher defaults — threshold 4000 and throughput 50000 — because it serves request-time traffic, not queue work. Per-component overrides keep custom worker queue names in values (so the HPA and metrics-server config stay in sync — do not edit templates).
 
-For the full autoscaling story, route to `autoscaling.md` (planned).
+For the full autoscaling story, route to `autoscaling.md`.
 
 ## 9. Disabling — turning off the runner cleanly
 
@@ -290,6 +290,6 @@ All 6 deployments should have `READY 1/1` (or higher under HPA). For end-to-end 
 - **Field-by-field schema for `workspace.*`** → `values-yaml.md`.
 - **Discovery questionnaire for workspace at install time** → `values-authoring.md`.
 - **Operator dependencies (no operator required for workspace itself; depends on MySQL, Redis, and the chart's standard backing services)** → `services-operators.md`.
-- **HPA / metrics-server config** → `autoscaling.md` (planned).
+- **HPA / metrics-server config** → `autoscaling.md`.
 - **TLS / certs for the internal workspace API** → `tls-and-certs.md`.
 - **Backup / disaster-recovery for workspace records in MySQL** → `groundx-architecture/references/disaster-recovery.md`.

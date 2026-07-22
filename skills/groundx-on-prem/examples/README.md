@@ -66,5 +66,5 @@ If the schema is violated, helm prints a `values don't meet the specifications o
 - Install ordering → `references/install-flow.md`.
 - Backing-service prerequisites → `references/services-prereqs.md`.
 - Cluster prerequisites (chip arch, GPU operator, namespace, PV class) → `references/cluster-requirements.md`.
-- Air-gapped image mirroring → `references/air-gapped.md` (planned).
-- Cost estimation → `references/cost-estimation.md` (planned).
+- Air-gapped image mirroring → `references/air-gapped.md`.
+- Cost estimation → `references/cost-estimation.md`.

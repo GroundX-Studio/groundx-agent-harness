@@ -24,9 +24,11 @@ Three architectural ideas drive failure handling:
 
 ```
 External dependencies (retried):
-  3rd-party LLM call from summary-client
+  3rd-party LLM enrichment call from summary-client
     → 3 retries with progressive backoff
-    → after 3 retries, document fails
+    → no usable content after retries: document completes if still saveable/indexable;
+      failed enrichment is recorded in statusMessage
+    → hard provider or structural failures still fail the document
   OpenSearch read from groundx (search path)
     → 3 retries with sleep between (non-progressive)
     → after 3 retries, error returned to caller
@@ -67,7 +69,8 @@ Queue overflow (Kafka / SQS over-capacity):
 
 | Subsystem | Failure scenario | Recovery behavior | Customer impact |
 | --- | --- | --- | --- |
-| **`summary-client` → 3rd-party LLM** | LLM returns error / times out | **Progressive-backoff retry, up to 3 attempts.** After 3 retries, the document fails. | Document does not complete ingest; customer sees failure via `/v1/ingest/{processId}` status (and via callback, if attached, per `integration-architecture.md` § 5.2) |
+| **`summary-client` → 3rd-party LLM enrichment** | No usable enrichment content after retries | **Progressive-backoff retry, up to 3 attempts.** After retry exhaustion, the document still completes if it can be saved and indexed; the failed enrichment request is recorded in `statusMessage`. | Document completes ingest on the content that succeeded; customers can inspect `statusMessage` for partial enrichment failures. |
+| **`summary-client` → 3rd-party LLM hard failure** | Hard provider rejection / timeout / structural error | **Progressive-backoff retry, up to 3 attempts.** After retries, the document fails through the normal failure path. | Document does not complete ingest; customer sees failure via `/v1/ingest/{processId}` status (and via callback, if attached, per `integration-architecture.md` § 5.2). |
 | **`groundx` → OpenSearch read** (search path) | OpenSearch read error / timeout | **3 retries with a sleep between** (non-progressive). After 3 retries, error returned to the caller. | Search request returns an error to the caller; no degraded fallback to keyword-only |
 | **`groundx` → `ranker-api` → `ranker-inference`** (search path) | Ranker error / GPU OOM / timeout | **Cloud-service deployments fall back to calling OpenAI** for the score. **On-prem deployments fail** (no fallback). | Cloud: degraded result (still ranked, via different scoring); on-prem: search request fails |
 | **`process` → file storage write** (terminal step) | S3/MinIO write fails | **Document fails.** No inline retry; the terminal write is treated as a hard fail. | Document ingest marked failed |
@@ -91,7 +94,8 @@ Queue overflow (Kafka / SQS over-capacity):
 | `groundx` auth check (RDS down) | Fails closed |
 | `groundx` auth check (Redis down) | Falls through to RDS — fails open at the cache layer (degraded latency) |
 | Celery broker (Redis down) | Fails closed for queued work |
-| 3rd-party LLM (summary path) | Fails closed after 3 retries |
+| 3rd-party LLM no-content enrichment exhaustion (summary path) | Fails open to completed ingest with `statusMessage` partial-failure detail |
+| 3rd-party LLM hard failure (summary path) | Fails closed after retries |
 | 3rd-party LLM (ranker fallback, cloud only) | Fails open — used as fallback when self-hosted ranker fails |
 | OpenSearch read (search path) | Fails closed after 3 retries |
 | OpenSearch write (`process` terminal step) | Fails closed — document fails |
@@ -107,6 +111,10 @@ When a document fails, the customer sees:
 - `GET /v1/ingest/{processId}` returns the failure status with a status message (per `groundx-api`).
 - If a `callbackUrl` was attached, the callback POST fires once with the failure outcome (per `integration-architecture.md` § 5.2). **No retries** on the callback — if the customer's endpoint is down, the customer must poll.
 
+When a document completes with partial summary enrichment failure, the customer sees completed
+ingest plus `statusMessage` detail identifying the failed enrichment request. The document remains
+searchable on the content that was successfully saved and indexed.
+
 When the search path fails (OpenSearch read or ranker), the customer sees an error response from `groundx`. There is no degraded-mode fallback for search beyond the ranker → OpenAI fallback in the cloud service.
 
 ### 5.4 Operator-visible signals
@@ -117,7 +125,7 @@ When the search path fails (OpenSearch read or ranker), the customer sees an err
 | Layout or extract callback-handler failure | Hosted-cloud operator alerting via the GroundX-side `layoutWebhook` critical alert path, plus callback-handler logs |
 | Hosted workspace pod alert | No sourced route in this reference; do not claim one unless the GroundX partner/workspace route proves it |
 | Pod CrashLoopBackOff | Kubernetes events; metrics pod via queue back-pressure (eventually) |
-| 3rd-party LLM failure | Logs in CloudWatch (cloud) / stdout (on-prem) on the `summary-client` pod |
+| 3rd-party LLM summary enrichment retry exhaustion or hard failure | Logs in CloudWatch (cloud) / stdout (on-prem) on the `summary-client` pod |
 | Queue back-pressure exceeding threshold | The metrics pod's queue-back-pressure signal — drives HPA scale-out |
 | AZ outage | CloudWatch (cloud) — managed-service alarms |
 | Audit-log queries (compliance investigation) | The same logging stack as ops logs (per `observability.md` § 5.3) |

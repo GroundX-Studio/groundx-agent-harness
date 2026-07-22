@@ -43,7 +43,7 @@ Skip this phase when bringing an existing cluster. The `terraform/aws/setup-eks`
 
 After phase 1 completes, `kubectl get nodes` shows the labeled node groups and the cluster is ready for helm.
 
-For deeper Terraform details (VPC sizing, node-group autoscaling configuration, NVIDIA driver), route to `references/terraform-aws.md` (planned).
+For deeper Terraform details (VPC sizing, node-group autoscaling configuration, NVIDIA driver), route to `references/terraform-aws.md`.
 
 ## 4. Phase 2 — helm install (canonical sequence)
 
@@ -65,7 +65,7 @@ helm repo add nvidia https://helm.ngc.nvidia.com/nvidia
 helm repo update
 ```
 
-`registry.groundx.ai/helm` hosts the official chart releases. `helm.ngc.nvidia.com/nvidia` hosts the NVIDIA GPU Operator chart. Air-gapped deployments mirror these locally — see `references/air-gapped.md` (planned).
+`registry.groundx.ai/helm` hosts the official chart releases. `helm.ngc.nvidia.com/nvidia` hosts the NVIDIA GPU Operator chart. Air-gapped deployments mirror these locally — see `references/air-gapped.md`.
 
 ### 4.3 Install the NVIDIA GPU Operator
 
@@ -89,7 +89,7 @@ kubectl get nodes -o json | jq '.items[].status.allocatable["nvidia.com/gpu"]'
 
 The pods should reach `Running`; the allocatable `nvidia.com/gpu` on GPU nodes should report a non-empty number.
 
-For NVIDIA GPU Operator specifics (driver mode, AKS `runtimeClass` quirk), route to `references/gpu-operator.md` (planned).
+For NVIDIA GPU Operator specifics (driver mode, AKS `runtimeClass` quirk), route to `references/gpu-operator.md`.
 
 ### 4.4 Install the prereq charts
 
@@ -253,7 +253,7 @@ Expected: `200 OK` once the application has connected to all backing services. F
 
 Run an ingest against a known-good document through the GroundX API, wait for processing to complete, run a search query, verify the result. For the API call shape, route to `groundx-api/`.
 
-For common failure modes (stuck documents, queue back-pressure, GPU scheduling failures, summary engine misconfig), route to `references/troubleshooting.md` (planned).
+For common failure modes (stuck documents, queue back-pressure, GPU scheduling failures, summary engine misconfig), route to `references/troubleshooting.md`.
 
 ## 8. Uninstall
 
@@ -292,7 +292,7 @@ Air-gapped deployments add three concerns to the canonical flow:
 2. **Model-weight S3 mirroring** — `layout-inference` and `ranker-inference` pull model weights from S3 at pod init. The air-gapped deployer mirrors these blobs to an internal S3-compatible object store and overrides the model-source URL.
 3. **NVIDIA GPU Operator offline mode** — the GPU operator's driver and toolkit images must be in the internal registry; the operator chart values override the image source.
 
-For the full air-gapped runbook, route to `references/air-gapped.md` (planned).
+For the full air-gapped runbook, route to `references/air-gapped.md`.
 
 ## 10. What this file does not cover
 
@@ -300,11 +300,11 @@ For the full air-gapped runbook, route to `references/air-gapped.md` (planned).
 - **Backing-service decision logic** → `references/services-prereqs.md`.
 - **Cluster prerequisites (chips, GPUs, k8s/helm versions, namespace, PV class)** → `references/cluster-requirements.md`.
 - **Node-group label scheme + per-microservice node-label overrides** → `references/node-groups.md`.
-- **NVIDIA GPU Operator install details (driver mode, AKS quirk)** → `references/gpu-operator.md` (planned).
-- **Terraform AWS EKS specifics** → `references/terraform-aws.md` (planned).
+- **NVIDIA GPU Operator install details (driver mode, AKS quirk)** → `references/gpu-operator.md`.
+- **Terraform AWS EKS specifics** → `references/terraform-aws.md`.
 - **TLS, certs, custom CA, ingress controller choice** → `references/tls-and-certs.md`.
-- **Air-gapped deployment full runbook** → `references/air-gapped.md` (planned).
-- **Disaster recovery / cross-region failover runbook** → `references/dr-cross-region-runbook.md` (planned) + `groundx-architecture/references/disaster-recovery.md`.
-- **Common failure modes + fixes** → `references/troubleshooting.md` (planned).
+- **Air-gapped deployment full runbook** → `references/air-gapped.md`.
+- **Disaster recovery / cross-region failover runbook** → `references/dr-cross-region-runbook.md` + `groundx-architecture/references/disaster-recovery.md`.
+- **Common failure modes + fixes** → `references/troubleshooting.md`.
 - **API calls post-install** → `groundx-api/`.
 - **Marketing / positioning on why on-prem** → `product-brand-gtm/` or `master-brand-gtm/`.

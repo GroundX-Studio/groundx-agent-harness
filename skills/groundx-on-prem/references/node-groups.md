@@ -16,7 +16,7 @@ Every GroundX pod ships with a `nodeAffinity` block + matching `tolerations` blo
 | `eyelevel-gpu-ranker` | GPU for the re-ranker | `ranker-inference` |
 | `eyelevel-gpu-summary` | GPU for the bundled summary stack | `summary-inference` (only when `summary.api.enabled: true` + `summary.inference.enabled: true`) |
 
-The chart looks for these values under the node-label **key `eyelevel_node`** on the cluster's nodes. Apply `eyelevel_node=<value>` as a node label on each node group / node pool. The Terraform AWS EKS scaffolding in the upstream `groundx-on-prem` repo creates EKS managed node groups labeled accordingly — see `references/terraform-aws.md` (planned). On Azure AKS / generic Kubernetes / OpenShift, the deployer applies the labels themselves to whatever node-group or machine-pool abstraction the platform uses.
+The chart looks for these values under the node-label **key `eyelevel_node`** on the cluster's nodes. Apply `eyelevel_node=<value>` as a node label on each node group / node pool. The Terraform AWS EKS scaffolding in the upstream `groundx-on-prem` repo creates EKS managed node groups labeled accordingly — see `references/terraform-aws.md`. On Azure AKS / generic Kubernetes / OpenShift, the deployer applies the labels themselves to whatever node-group or machine-pool abstraction the platform uses.
 
 > **Don't use the bare key `node` for these labels.** `node` collides with reserved metric labels in Prometheus / Grafana and other Kubernetes-native observability stacks, and using it here can corrupt dashboards and alerts. Use `eyelevel_node` instead. (The chart's `nodeAffinity` template includes a second `matchExpressions` term for the key `node` as a legacy fallback; it works, but is discouraged for the reasons above and should not be relied on.)
 
@@ -60,7 +60,7 @@ The chart defaults for the three inference microservices (from the upstream `gro
 | `ranker-inference` | 14 | 1 | ~1.25 GB | ~17.5 GB (sized for 24 GB) |
 | `summary-inference` | 1 | 1 | ~12 GB | ~12 GB (sized for 24 GB Gemma 3) |
 
-Per-pod replica counts (`replicas:` in values.yaml) are 1 by default for each. Autoscaling (HPA) is **off** by default and turning it on multiplies the resource footprint by the autoscaler's max-replicas. See `references/autoscaling.md` (planned).
+Per-pod replica counts (`replicas:` in values.yaml) are 1 by default for each. Autoscaling (HPA) is **off** by default and turning it on multiplies the resource footprint by the autoscaler's max-replicas. See `references/autoscaling.md`.
 
 For the CPU + memory resource requests / limits per microservice (not GPU memory — Kubernetes-level CPU and memory `requests` and `limits`), the upstream `values.yaml`'s per-microservice block is the source of truth. The chart sets reasonable per-pod CPU + memory defaults; deployers tune them based on observed load.
 
@@ -86,7 +86,7 @@ The deployer overrides per-microservice rather than globally. There is **no sing
 
 For the field-by-field enumeration of every `node` block (one under each of `groundx`, `upload`, `queue`, `process`, `summaryClient`, `metrics`, `layoutWebhook`, `layoutApi`, `layoutProcess`, `layoutCorrect`, `layoutInference`, `layoutOcr`, `layoutMap`, `layoutSave`, `rankerApi`, `rankerInference`, `summaryApi`, `summaryInference`, the extract microservices, and the workspace microservices), the upstream `groundx-on-prem` repo's `values.yaml` is the source of truth — also captured in the upstream README's nodeSelector inventory.
 
-The full mapping will land in `references/values-yaml.md` (planned) once that file ships.
+The full mapping lands in `references/values-yaml.md`.
 
 ## 5. Practical layout — minimum vs production
 
@@ -117,8 +117,8 @@ For total cluster-wide budget framing, route to `references/cluster-requirements
 
 - **Chip architecture, Kubernetes / Helm versions, namespace, PV class, cluster-wide budget** → `references/cluster-requirements.md`.
 - **Backing-service prerequisites and selection mechanics** → `references/services-prereqs.md`.
-- **Field-by-field `values.yaml` reference (including every `node` block)** → `references/values-yaml.md` (planned).
-- **Autoscaling — HPA configuration, custom metrics server, per-pod scaling behavior** → `references/autoscaling.md` (planned).
-- **NVIDIA GPU Operator install** → `references/gpu-operator.md` (planned).
-- **Terraform AWS EKS managed node groups** → `references/terraform-aws.md` (planned).
+- **Field-by-field `values.yaml` reference (including every `node` block)** → `references/values-yaml.md`.
+- **Autoscaling — HPA configuration, custom metrics server, per-pod scaling behavior** → `references/autoscaling.md`.
+- **NVIDIA GPU Operator install** → `references/gpu-operator.md`.
+- **Terraform AWS EKS managed node groups** → `references/terraform-aws.md`.
 - **Architectural rationale for the GPU workloads** → `groundx-architecture/references/ai-ml-lifecycle.md`, `vision-model.md`, `hybrid-search.md`, `summary-service.md`.

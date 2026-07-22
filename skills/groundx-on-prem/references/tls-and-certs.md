@@ -253,6 +253,6 @@ spec:
 - **Generic cert-manager / Let's Encrypt setup** → consult upstream cert-manager documentation. This file only describes how the chart integrates.
 - **Field-level reference for `cluster.tls.existingSecret`, `<microservice>.ingress.tls[]`, `db.existing.rootCerts`** → `values-yaml.md` § 3 (cluster), § 4.2 (db), § 5.10 (common ingress shape).
 - **Secret-handling patterns that hold TLS material** (Sealed Secrets, ESO, SOPS) → `credentials.md` § 5–§ 8.
-- **OpenShift Route quirks beyond TLS** → `openshift.md` (planned).
-- **NetworkPolicy authoring (which traffic to allow)** → `troubleshooting.md` (planned) and `architecture.md` § 4.
+- **OpenShift Route quirks beyond TLS** → `openshift.md`.
+- **NetworkPolicy authoring (which traffic to allow)** → `troubleshooting.md` and `architecture.md` § 4.
 - **Architectural rationale for TLS at the trust-boundary level** → `groundx-architecture/references/identity-and-trust.md` § 6.

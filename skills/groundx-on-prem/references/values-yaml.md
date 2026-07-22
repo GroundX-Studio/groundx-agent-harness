@@ -62,7 +62,7 @@ These fields live at the root of values.yaml.
 - **Type:** string — `""` (default images) or `"chainguard"` (Chainguard hardened distroless).
 - **Default:** `""`.
 - **Description:** Selects between the default container images and the Chainguard-hardened distroless variants.
-- **When to change:** Set to `chainguard` for FedRAMP / SOC2-stringent / security-compliance-focused deployments. See `references/image-variants.md` (planned).
+- **When to change:** Set to `chainguard` for FedRAMP / SOC2-stringent / security-compliance-focused deployments. See `references/image-variants.md`.
 - **Gotchas:** Chainguard images run as user `65532` (the chart automatically uses this UID when `imageType=chainguard`). The default images run as `1001`. Mixing image variants across pods is not supported.
 
 ### 2.6 `environment` *(internal-only, not in schema)*
