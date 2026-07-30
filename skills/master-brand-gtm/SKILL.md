@@ -24,7 +24,12 @@ executive descriptors, and EyeLevel/GroundX/Valantor brand hierarchy questions.
 - **Deferrals:** GroundX product-level positioning routes to `product-brand-gtm`;
   connected-agent MCP setup/tool use routes to `groundx-mcp`; REST/SDK API semantics
   route to `groundx-api`; deployment routes to `groundx-on-prem`.
-- **Before producing output:** read the relevant reference from `references/README.md`.
+- **Before producing output:** read the relevant reference from
+  `references/README.md`. Neutral explanations use stable narrative without
+  unsolicited volatile proof. Investor, board, RFP, one-pager, objection, and
+  other evidence-bearing work also loads `references/proof-points.md`
+  automatically and applies its audience, source, qualifier, and freshness
+  rules.
 - **Misuse cases:** do not claim illustrative products are shipping; do not invent
   customer outcomes or proof points.
 

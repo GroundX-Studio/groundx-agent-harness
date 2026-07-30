@@ -60,5 +60,7 @@ Use these as short-form anchors, not as mandatory boilerplate:
 - Investor narrative depth. Use `investor-narrative.md` for fundraising, market structure,
   and valuation logic.
 - Product mechanism. Use `../../product-brand-gtm/` for GroundX product-altitude mechanisms.
-- Proof points. Use `proof-points.md` before citing customer numbers, benchmarks, logos, or
-  partner claims.
+- Proof points. Use `proof-points.md` before citing customer outcomes,
+  benchmarks, technical-corpus evidence, or partner claims. Customer-count,
+  adoption, and logo claims require a current approved source supplied for the
+  job.

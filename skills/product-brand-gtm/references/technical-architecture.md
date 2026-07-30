@@ -25,15 +25,25 @@ Everything below is a consequence of those two design decisions.
 
 ## 2. The vision model
 
-At the core of GroundX is a proprietary vision model fine-tuned on more than 1 million pages of enterprise documents. It is not a generic image model retrofitted for documents and it is not an OCR layer that hands raw text to an LLM. It is purpose-built to identify the elements of a page *before* any reasoning happens.
+At the core of GroundX is a proprietary vision model fine-tuned for enterprise
+documents. It is not a generic image model retrofitted for documents and it is
+not an OCR layer that hands raw text to an LLM. It is purpose-built to identify
+the elements of a page *before* any reasoning happens. When technical-corpus
+evidence is relevant, retrieve the current eligible value from
+`proof-points.md`; do not present it as adoption or company traction.
 
 The insight: every document is composed of three basic element types — **tables, paragraphs, and figures**. The vision model identifies those elements on every page with high accuracy. Section boundaries, columns, captions, and figure regions are detected too. The result: a clean, structured map of *what is on the page and where*, before a single LLM token is spent.
 
-External-facing description: *"a proprietary, fine-tuned vision model trained on over 1 million pages of enterprise documents."* Do not name the underlying open-source architecture in public content.
+External-facing description: *"a proprietary vision model fine-tuned for
+enterprise documents."* Do not name the underlying open-source architecture in
+public content or copy the current training-corpus value outside
+`proof-points.md`.
 
 ## 3. The agentic pipeline
 
-LLMs have what we call *"ADD"* — they fail at long tasks. Ask a general-purpose model to read a 200-page policy document and pull every fare rule and you will get hallucinations, omissions, and reasoning drift. The agentic pipeline solves this by breaking the document apart and running narrow agents over each piece.
+Long, compound document tasks can cause general-purpose models to omit details
+or drift. The agentic pipeline addresses that failure mode by breaking the
+document apart and running narrow agents over each piece.
 
 GroundX runs a set of agents at **three levels of granularity**: **document, section, and chunk.** At each level the agents generate metadata — summaries and keywords — that downstream search and reasoning depend on. At the chunk level specifically, the agents also produce the three versions of the chunk text used by the search layer (one tuned for LLM completions, one tuned for search, one preserving the original extracted text — see § 4 for how those are consumed).
 
@@ -77,4 +87,6 @@ A buyer can use one capability or both. See `capabilities-and-surfaces.md` for t
 
 - It does not invent facts. It grounds answers in source documents with attribution.
 - It does not require buyers to be on a specific LLM vendor. The output is model-agnostic; pick best-fit model per task.
-- It is not a closed system. The on-prem Helm chart is open-beta and self-deployable; the hosted version offers white-glove support and closed-source enhancements.
+- It is not limited to one deployment model. Route current hosted and on-prem
+  lifecycle claims to `product.md`, and deployment details to
+  `groundx-on-prem`; do not infer lifecycle state from a stale repository badge.

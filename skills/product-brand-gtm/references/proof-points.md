@@ -1,8 +1,20 @@
 # Proof Points
 
-Customer outcomes, benchmarks, logos, and scale facts that can be cited in external content. Every claim carries `Source:` and `Last verified:` lines. If a claim is not in this file, do not assert it externally — see `SKILL.md` pre-return checklist § 7.
+Customer outcomes, benchmarks, technical-corpus evidence, partner validation,
+and quotes that can be cited in external content. Every claim carries `Source:`
+and `Last verified:` lines. If a claim is not in this file, do not assert it
+externally — see `SKILL.md` pre-return checklist § 7.
 
 For the differentiator pillars these proofs anchor, see `differentiation.md`.
+
+## Claim record contract
+
+For each claim, `Use as`, `Industry`, or the section purpose defines its allowed
+audience and surface. `Source` and `Last verified` are mandatory. A
+claim-specific qualifier is mandatory when the record lists one; otherwise no
+additional qualifier is recorded. Section 7 supplies the default recheck
+trigger. If allowed use, source, freshness, or a required qualifier is unclear,
+omit the claim rather than filling the gap from another reference.
 
 ## 1. Accuracy claims
 
@@ -69,25 +81,13 @@ For the differentiator pillars these proofs anchor, see `differentiation.md`.
 - **Source:** FraudX 2026 May sales deck.
 - **Last verified:** 2026-05-17.
 
-## 3. Logos and scale
+## 3. Technical corpus
 
-### 3.1 Trusted-by logos
+Developer-adoption, platform-usage, and customer-count figures are intentionally
+not maintained as default GTM proof. They become stale quickly and must come
+from a current, approved source supplied for the specific communication job.
 
-> Trusted by Air France, Dartmouth, Samsung, and 3,000+ global developers.
-
-- **Source:** GroundX On-Prem Helm chart repo README; eyelevel.ai homepage.
-- **Last verified:** 2026-05-14.
-
-### 3.2 Platform scale
-
-> 7B+ tokens ingested on the platform.
-
-- **Use as:** scale signal in technical and investor-facing content.
-- **Source:** eyelevel.ai messaging.
-- **Last verified:** 2026-05-14.
-- **Note:** the GroundX On-Prem Helm chart README cites 2B+ tokens; that figure may be out of date. Use 7B+ as the current external number.
-
-### 3.3 Training corpus
+### 3.1 Training corpus
 
 > Vision model fine-tuned on **1 million+ pages** of enterprise documents.
 
@@ -129,13 +129,15 @@ Pull these directly when a customer voice is needed.
 ## 6. What this file does not cover
 
 - Internal-only customer numbers or accuracy figures. If a claim is not externally publishable, it does not belong here.
-- Master-brand altitude claims (Visual Intelligence category metrics, AI+humans accountability framing, Outcome Plug-in vertical economics). Those belong to `master-brand-gtm/references/proof-points.md` framed at master-brand altitude.
+- Master-brand framing. This file owns the eligible claim payload at every
+  altitude; `master-brand-gtm/references/proof-points.md` owns only the
+  Valantor/category angle applied to that payload.
 - Speculative metrics ("up to 10x faster", "save N FTEs"). If a real customer has supplied the number, request inclusion through the source-attribution process; do not extrapolate.
 - Market-framing facts such as TAM, category growth, customer counts, competitor
   shares, or industry economics unless they have an external source or an
-  owner-approved use record. Owner-approved facts need owner, date, qualifier,
-  allowed surfaces, and re-verification cadence. Until then, treat them as
-  source-pending and keep them out of external product guidance.
+  approved use record. Approved facts need a reviewable approval source, date,
+  qualifier, allowed surfaces, and re-verification cadence. Until then, treat
+  them as source-pending and keep them out of external product guidance.
 
 ## 7. Verification cadence
 

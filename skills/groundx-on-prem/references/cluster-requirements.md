@@ -44,7 +44,7 @@ These can be the same physical GPU (with MIG / time-slicing) or separate GPUs on
 
 The **NVIDIA GPU Operator** must be installed on the cluster *before* GroundX. The operator provides the device plugin (`nvidia.com/gpu` resource registration), the container runtime configuration, and the driver lifecycle. Without it, GroundX's inference pods schedule but fail to acquire GPUs.
 
-For installation specifics (incl. the AKS-specific runtimeClass quirk), route to `references/gpu-operator.md` (planned). Until that file ships, the upstream NVIDIA GPU Operator documentation is the source of truth.
+For installation specifics (incl. the AKS-specific runtimeClass quirk), route to `references/gpu-operator.md`.
 
 ## 3. Kubernetes and Helm versions
 
@@ -58,7 +58,7 @@ The chart does **not** pin a `kubeVersion` constraint in `Chart.yaml` — there 
 
 ### 3.3 OpenShift
 
-Red Hat OpenShift is a supported target. For the OpenShift AI quickstart deployment path, route to `references/openshift.md` (planned).
+Red Hat OpenShift is a supported target. For the OpenShift AI quickstart deployment path, route to `references/openshift.md`.
 
 ## 4. Namespace
 
@@ -104,16 +104,16 @@ A precise budget depends on workload (concurrent ingest rate, document size, sum
 | **Memory (backing services, Mode 2)** | ~16–32 GiB baseline | Same caveat. |
 | **Persistent storage (backing services, Mode 2)** | 100s of GiB to TiBs | Driven by ingested document volume + retention. |
 
-The numbers above are **rough planning baselines**, not commitments. They assume the chart's default replica counts and worker / thread settings. For the canonical resource modelling, the upstream `groundx-on-prem` repo's `bin/estimate` workflow is the source of truth — route to `references/cost-estimation.md` (planned) for the deployment-side framing of that workflow.
+The numbers above are **rough planning baselines**, not commitments. They assume the chart's default replica counts and worker / thread settings. For the canonical resource modelling, the upstream `groundx-on-prem` repo's `bin/estimate` workflow is the source of truth — route to `references/cost-estimation.md` for the deployment-side framing of that workflow.
 
 ## 7. What this file does not cover
 
 - **Per-microservice resource requests / limits** → `references/node-groups.md`.
 - **Backing-service field-by-field selection** (`db.existing.*`, `cache.existing.*`, etc.) → `references/services-prereqs.md`.
-- **Field-by-field `values.yaml` reference** → `references/values-yaml.md` (planned).
-- **NVIDIA GPU Operator install** → `references/gpu-operator.md` (planned).
-- **Terraform AWS EKS provisioning** → `references/terraform-aws.md` (planned).
-- **Red Hat OpenShift AI quickstart** → `references/openshift.md` (planned).
-- **Air-gapped image mirroring** → `references/air-gapped.md` (planned).
-- **Cost estimation via `bin/estimate`** → `references/cost-estimation.md` (planned).
+- **Field-by-field `values.yaml` reference** → `references/values-yaml.md`.
+- **NVIDIA GPU Operator install** → `references/gpu-operator.md`.
+- **Terraform AWS EKS provisioning** → `references/terraform-aws.md`.
+- **Red Hat OpenShift AI quickstart** → `references/openshift.md`.
+- **Air-gapped image mirroring** → `references/air-gapped.md`.
+- **Cost estimation via `bin/estimate`** → `references/cost-estimation.md`.
 - **Architectural rationale for the GPU mix** → `groundx-architecture/references/ai-ml-lifecycle.md`, `vision-model.md`, `hybrid-search.md`, `summary-service.md`.

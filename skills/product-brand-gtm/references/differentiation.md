@@ -4,30 +4,39 @@ GroundX has five differentiator pillars. Order matters — pillars 1 and 2 are t
 
 For the master pain context that frames all five pillars, see `buyer.md` § 1.
 
-## 1. On-prem / air-gapped via Helm; Red Hat partner
+## 1. On-prem / air-gapped via Helm
 
-**The argument.** GroundX deploys on-prem, air-gapped, or in the cloud via Helm charts. Red Hat shipped an OpenShift AI quickstart for it. For regulated industries (insurance, financial services, healthcare, public sector, energy) and for any buyer unwilling to feed their corpus to an AI vendor that could leak or train on it, this is the only viable path.
+**The argument.** GroundX deploys on-prem, in supported air-gapped
+environments, or in the cloud. For regulated, data-sensitive, and
+sovereignty-constrained buyers, customer-controlled deployment can be a
+prerequisite.
 
 **Why it's a moat.** Very little competition exists in either document understanding or RAG when deploying on-prem. Most competitors are SaaS-only or hybrid. Building a hardened, air-gapped, Kubernetes-native deployment is a multi-year engineering investment, not a feature flag.
 
-**Proof anchors** (see `proof-points.md`):
-- Open-source on-prem Helm repo at `registry.groundx.ai/helm`.
-- Red Hat OpenShift AI quickstart `rh-ai-quickstart/Billing-extraction-with-GroundX` — third-party validation.
-- "GroundX On-Prem requires no external dependencies when running, meaning it can be used in air-gapped environments."
+**Proof anchors.** Use `groundx-on-prem` for current deployment facts. For
+evidence-bearing work, retrieve any eligible partner or third-party validation
+from `proof-points.md`; do not maintain its status here.
 
 ## 2. Most accurate document intelligence for complex documents
 
-**The argument.** Up to 99% accuracy on the documents that break general-purpose AI. 96.2% Air France/KLM on visually complex policy documents (beating a 60% target). Superhuman DocBench performance. Head-to-head wins against popular RAG tools.
+**The argument.** GroundX is built for high-accuracy understanding of complex
+enterprise documents that break general-purpose AI. For an evidence-bearing
+artifact, select the current eligible accuracy, customer, or benchmark claim
+from `proof-points.md`.
 
 **Why it's defensible.** The accuracy comes from the architecture — a fine-tuned vision model that knows what's on every page *before* any LLM reasoning happens, an agentic pipeline that focuses narrow agents on tiny pieces of the document, and a proprietary hybrid search that combines relevance and semantic scoring. See `technical-architecture.md` for the full mechanism.
 
-**Use real-number framing, not comparative.** *"Up to 99% accuracy"* and *"96.2% accuracy on Air France/KLM policy documents (60% target)"* are stronger than *"more accurate than X"* or *"outperforms in head-to-head."*
+**Use current approved proof, not comparative-only claims.** Retrieve the
+headline and supporting result from `proof-points.md`, including qualifiers and
+freshness metadata. Do not maintain the values here.
 
 RAG is one consumption pattern, not the default external label. Use it when the buyer asks about RAG, search, retrieval, grounding, or failed internal RAG projects. Otherwise lead with accurate document understanding, structured extraction, grounded answers, and source-backed workflows.
 
 ## 3. Heritage and pedigree
 
-**The argument.** The team came out of IBM Research, helped lead IBM Watson's strategy and formation, was moved into the Weather Company acquisition to do "AI at consumer scale," and left in 2019 specifically to solve the documents-for-AI problem. User approximately #20 of ChatGPT. Built GroundX from first principles before the current AI boom.
+**The argument.** The team came out of IBM Research, helped lead IBM Watson's
+strategy and formation, did consumer-scale AI at the Weather Company, and built
+GroundX from first principles around the documents-for-AI problem.
 
 **Why it matters.** Technical buyers can sniff out shallow wrappers. The heritage earns credibility for the deeper technical claims. Use the full arc (see `narrative.md` § 4) in analyst briefings and longer formats; compress to a sentence in shorter ones.
 
@@ -35,13 +44,22 @@ RAG is one consumption pattern, not the default external label. Use it when the 
 
 **The argument.** GroundX is one coherent end-to-end system — ingest produces JSON metadata chunks that the store and the hybrid search are designed to consume. It is not a Frankenstein stitched from open-source vector DB + parser + reranker. Most competitors do similarity-only via vector DB; GroundX does intentional ingest → store → hybrid search.
 
-**Why it matters.** Scale exposes integration seams. At hundreds of use cases, a stitched-together system means N integration points to maintain, and accuracy that degrades because each vendor was optimized for its own piece. An integrated system gives consistent behavior across use cases and a single accuracy story.
+**Why it matters.** Scale exposes integration seams. Across a large use-case
+portfolio, a stitched-together system creates many integration points to
+maintain, and each vendor optimizes only its own piece. An integrated system
+gives more consistent behavior across use cases and one architecture to
+operate.
 
 The shorthand: *Apple vs PC — some things perform better when built by one vendor than assembled from parts.*
 
-## 5. The GroundX Agent Harness as the answer to implementation-scale pain
+## 5. The GroundX Harness adoption pattern as the answer to implementation-scale pain
 
-**The argument.** Buyers keep saying *"I have 500 AI agent use cases, how am I going to implement them all?"* The Harness is the direct answer for GroundX-touching use cases — agents that know GroundX intimately (working inside Claude, Gemini, ChatGPT, Replit, Cursor, smolagents, openclaw, or any agent framework) stand up new integrations dramatically faster than a one-by-one engineering build.
+**The argument.** Buyers can accumulate more AI use cases than their teams can
+implement one by one. The Harness is the direct answer for GroundX-touching use
+cases: portable GroundX knowledge and workflows help compatible agents stand up
+new integrations without rebuilding the same implementation context each time.
+Use `harness-pitch.md` to attribute public Agent Harness, private Studio
+Harness, MCP, and host-agent capabilities correctly.
 
 **Why it's framed as a pillar despite being copyable.** The pattern is easy to copy. The pillar holds anyway because every AI winner so far has won by being the easiest path into a capability for a buyer who was underserved by what existed before. The Harness is GroundX's version of that bet *against a specific, articulated pain* — not a generic ease-of-use claim.
 
@@ -54,14 +72,17 @@ Lead order varies by buyer:
 | Buyer signal | Pillar order |
 | --- | --- |
 | LOB owner / outcome-buyer asking about business metrics | 2 → 5 → 1 → 4 → 3 (lead with proof; route to `product.md` § 9 if outcome-paying is in scope) |
-| Hostile internal IT / defensive internal AI program | Find an LOB champion to route around the room; if you must pitch here, frame the Harness as a force-multiplier rather than a replacement (5 → 1 → 4 → 2 → 3) |
+| Buyer explicitly raises displacement, job-security, control, or internal-program ownership concerns | Acknowledge the concern, frame the Harness as a force multiplier, and involve the outcome owner without bypassing the technical buyer (5 → 1 → 4 → 2 → 3) |
 | Regulated industry, on-prem requirement, data sovereignty | 1 → 2 → 4 → 3 → 5 |
 | Tried RAG and failed, accuracy pain | 2 → 4 → 3 → 1 → 5 |
-| "500 use cases, can't implement them all" | 5 → 2 → 1 → 4 → 3 |
+| Large use-case backlog, limited implementation capacity | 5 → 2 → 1 → 4 → 3 |
 | Long sales cycle, technical due diligence | 3 → 2 → 4 → 1 → 5 |
 | Generic / no specific signal | 2 → 1 → 4 → 3 → 5 |
 
-The pillars do not change. Their order does. **The room-reading axis from `buyer.md` § 1 also does not change.** When the technical buyer is hostile, no pillar ordering rescues the pitch on its own — route around them via an LOB champion or pivot to outcomes.
+The pillars do not change. Their order does. Apply the conditional
+organizational-risk guidance from `buyer.md` § 1 only when the buyer supplies
+that signal. Otherwise treat technical stakeholders as ordinary collaborators
+and order the pillars around the stated problem.
 
 ## 7. What this differentiation does not claim
 

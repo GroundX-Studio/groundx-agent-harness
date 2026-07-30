@@ -1,10 +1,14 @@
 # Outcome Plug-in Playbooks
 
-Per-Outcome-Plug-in positioning. Two shipping (FraudX, ExtractX); five illustrative-only (ClaimsX, ComplianceX, OpsX, FinanceX, GridX). For the canonical shipping/illustrative distinction, see `product.md` § 6–8 and `brand-hierarchy.md` § 6. This file owns the messaging detail.
+Per-Outcome-Plug-in positioning. `product.md` is the sole lifecycle and promise
+owner. Read it before using any named playbook; this file owns messaging detail,
+not current availability.
 
-**Hard rule for this file:** illustrative concepts do not get playbooks the way shipping products do. Their entries below are *category-pattern demonstrations*, not market-ready positioning.
+**Hard rule for this file:** when `product.md` classifies a name as
+illustrative, its entry is a category-pattern demonstration, not market-ready
+positioning.
 
-## 1. FraudX (shipping — GA)
+## 1. FraudX
 
 ### Buyer
 
@@ -15,17 +19,25 @@ Four buyer cuts across the insurance-fraud value chain (see `../../product-brand
 - **Legal teams / Defense counsel** — build cross-examination off the record; surface contradictions before deposition.
 - **General Contractors / GC & law firms** — scale file review across thousands of claims without scaling headcount.
 
-Today's production focus: construction workers' compensation claims fraud investigation.
+Use `product.md` for the current vertical and capability boundary.
 
 ### Problem statement
 
-Insurance fraud costs the US **$308B annually** (Coalition Against Insurance Fraud, 2023); **10% of every premium dollar** is lost to fraudulent and inflated claims (FBI Insurance Fraud estimate). Modern claim files run to thousands of pages — too many to read manually. SIU headcount doesn't scale with fraud volume, and general-purpose AI tools hallucinate citations that don't hold up in court. FraudX closes the bandwidth gap with an AI investigator that reads every page and links every finding to its source.
+Insurance fraud creates a structural review-bandwidth problem: claim files are
+too large to review comprehensively, SIU capacity does not scale with fraud
+volume, and unsupported AI citations do not hold up in investigation or court.
+FraudX closes that gap with an AI investigator that reads the file and links
+each finding to its source. Load current industry figures from
+`proof-points.md` only when the artifact needs market substantiation.
 
 ### What it is
 
 A productized four-surface AI investigator:
 
-- **FraudX Score** — AI-generated fraud probability for every claim, with ranked red flags, severity tiers (HIGH / MED / LOW), and the evidence behind each finding. Re-runs automatically when new documents arrive. 20+ investigator-defined red flags configured to the line of business.
+- **FraudX Score** — AI-generated fraud probability for every claim, with
+  ranked red flags, severity tiers (HIGH / MED / LOW), and the evidence behind
+  each finding. Re-runs automatically when new documents arrive. Retrieve the
+  current investigator-defined check set from `product.md`.
 - **Chat with Claims** — ask the case file anything in plain English; get source-linked answers with no hallucinations. *"Like a research assistant who never misses a detail."*
 - **Evidence Package** — source-cited dossier built for SIU referral, reservation of rights, or trial prep. Every red flag links to the exact page, line, and timestamp in the source document. Saves dozens of hours per claim.
 - **Network Analysis** — cross-references every actor in the claim (claimants, providers, attorneys, locations) against a network of flagged actors; surfaces organized rings by connecting actors across unrelated claims.
@@ -35,36 +47,44 @@ A productized four-surface AI investigator:
 Three steps from a stack of unstructured documents to a defensible, source-cited fraud assessment:
 
 1. **Ingest the entire claim file** — medical records, bills, ISO reports, depositions, photos, site reports, recorded statements. Any format, any length.
-2. **Run 20+ fraud checks** — FraudX scores each claim against an extensible library of indicators tuned by SIU investigators and defense counsel.
+2. **Run investigator-defined fraud checks** — FraudX scores each claim against
+   the current extensible indicator library recorded in `product.md`.
 3. **Deliver a cited, source-linked dossier** — every red flag links back to the exact page, line, and timestamp. Defensible from day one.
 
 ### Positioning (master-brand altitude)
 
-> *FraudX is the first shipping Outcome Plug-in — Valantor-operated, GroundX-powered insurance fraud detection delivered as a productized solution. An AI investigator that never blinks: it reads every page of every claim, surfaces the red flags, and builds the file investigators need to deny, defend, or recover — in minutes, not months. Built on GroundX, productized for repeatable enterprise deployment with the speed, accuracy, and auditability fraud teams need.*
+> *FraudX is a Valantor-operated, GroundX-powered insurance-fraud
+> investigation product. It reads the claim file, surfaces source-linked
+> signals, and helps investigators build a reviewable evidence record.*
 
 ### Use in master-brand materials
 
 - Lead proof point for the *[Outcome]X* productization pattern.
 - Vertical-thesis anchor for insurance and regulated-financial-services framing.
 - AI+humans accountability proof: investigators stay in the loop; the system encodes their expertise rather than replacing it.
-- Investor-narrative anchor for *"vertical Outcome Plug-ins are a real product line, not just a roadmap."*
+- Investor-narrative anchor for the Outcome Plug-in productization pattern,
+  when `product.md` permits the current product claim.
 - Tagline-ready: *"An AI investigator that never blinks"* / *"Find source-linked fraud signals faster"* / *"Show every flagged network with evidence."*
 
 ### Proof (see `proof-points.md` for full citations)
 
-- 3 named customer quotes — Kirk Willis (Willis Law Group), Andriana Vamvakas (Andromeda Advantage), Dan Hickey (Tradesman/Roosevelt Road). See `proof-points.md` § 7 quote bank.
-- ROI snapshot (EyeLevel internal benchmark; *"Actual results vary."*) — 40× faster review, 10× more files reviewed per day, directional reduction in loss ratio. See `proof-points.md` § 2.4.
-- Team credentials — built by the AI engineers behind IBM Watson, 20+ patents in AI / digital security / enterprise systems, co-developed with elite SIU teams. See `proof-points.md` § 4.2.
+- Customer voice — use the current eligible quote bank in `proof-points.md`.
+- Operational ROI — use only the current claim, attribution, and qualifier in
+  `proof-points.md`.
+- Team and partner validation — use only claims currently admitted by
+  `proof-points.md`.
 
 ### Do not
 
 - Invent accuracy numbers or claim-volume figures beyond what's in `proof-points.md`. Specific customer numbers route through sales.
-- Claim FraudX runs across all insurance lines today. Construction workers' comp is the production focus; other lines are forward-looking.
+- Claim a line of business or capability beyond the current boundary in
+  `product.md`.
 - Conflate FraudX with general claims processing (that is the illustrative ClaimsX concept — see § 3).
-- Quote 40× or 10× without the *EyeLevel internal benchmark* attribution and *"Actual results vary"* qualifier.
+- Copy an operational ROI value or qualifier from this playbook; retrieve the
+  current payload from `proof-points.md`.
 - Use judgmental labels for people, doctors, providers, firms, or claim participants in reusable copy. Avoid phrases like "bad guys," "bad actors," and "bad doctors." Use neutral terms such as flagged entities, watch list, data list, claim participants, providers, networks, or source-linked fraud signals.
 
-## 2. ExtractX (shipping — GA)
+## 2. ExtractX
 
 ### Buyer
 
@@ -72,12 +92,9 @@ Companies or BPOs (business process outsourcers) with human teams paired to lega
 
 ### What it is
 
-A productized data-extraction outcome. Today, delivered in two operational modes:
-
-- **As a service.** Valantor team uses GroundX internally on behalf of the client to deliver extracted data; the client consumes the output without operating the platform.
-- **As a partner deployment.** Valantor integrates GroundX into the customer's existing document-processing workflows; the customer operates with Valantor's support.
-
-Roadmap: expose ExtractX entirely via the Harness and Studio for rapid customer-led implementation — moving from *service / partner deployment* mode toward *customer self-service via the platform*.
+A productized data-extraction outcome for replacing brittle OCR and templating
+workflows. Use `product.md` for the current delivery modes, self-service
+boundary, and roadmap.
 
 ### Positioning (master-brand altitude)
 
@@ -85,25 +102,30 @@ Roadmap: expose ExtractX entirely via the Harness and Studio for rapid customer-
 
 ### Use in master-brand materials
 
-- Second shipping Outcome Plug-in proof — demonstrates the vertical breadth of the productization pattern (insurance fraud + document operations, two distinct industries).
-- Best lead for the outcomes-vs-tools narrative in `ai-and-humans.md` — ExtractX literally is *the outcome (extracted data) sold as a service*. It is the most concrete operationalization of the Operational Layer concept (§ 5 of `ai-and-humans.md`) that exists today.
+- Use as a document-operations example of the Outcome Plug-in pattern when
+  `product.md` permits the current claim.
+- Use as an outcomes-vs-tools example only within the current delivery boundary
+  in `product.md`.
 - Anchor for the *legacy-OCR-replacement* messaging — competitive against the in-place stack of OCR templates plus human review, not against vector-DB stacks.
 
 ### Do not
 
-- Claim ExtractX is fully self-service via Studio today. Self-service via the Harness and Studio is the roadmap; current MVP is service-mode or partner-deployment.
+- Claim a delivery mode or self-service capability beyond `product.md`.
 - Quote pricing or per-document rates.
 - Frame ExtractX as a replacement for FraudX or vice versa — they target distinct verticals.
 
-## 3. ClaimsX (illustrative concept only — not shipping)
+## 3. ClaimsX
 
 ### State
 
-Illustrative marketing concept. **No customer-facing implementation.** Used in master-brand materials and the brand-architecture document to demonstrate the *[Outcome]X* pattern extension into claims processing as a vertical adjacent to fraud investigation.
+Use only while `product.md` classifies ClaimsX as illustrative. In that state,
+it demonstrates how the *[Outcome]X* pattern could extend into claims
+processing.
 
 ### Use when
 
-- Articulating the vertical extension pattern: *"the Outcome Plug-in family extends from FraudX (fraud investigation) into adjacent claims-processing outcomes — ClaimsX is the named roadmap concept for that extension."*
+- Articulating a possible claims-processing extension while `product.md`
+  permits illustrative use.
 - Demonstrating naming consistency in the [Outcome]X pattern.
 
 ### Do not
@@ -112,11 +134,12 @@ Illustrative marketing concept. **No customer-facing implementation.** Used in m
 - Invent customer outcomes, accuracy numbers, deployment counts, or pilot details.
 - Position ClaimsX in proof-point sections — there are no proofs yet.
 
-## 4. ComplianceX (illustrative concept only — not shipping)
+## 4. ComplianceX
 
 ### State
 
-Illustrative marketing concept. **No customer-facing implementation.** Demonstrates the pattern extension into compliance workflows — regulatory reporting, audit-trail generation, policy-compliance validation.
+Use only while `product.md` classifies ComplianceX as illustrative. In that
+state, it demonstrates the pattern extension into compliance workflows.
 
 ### Use when
 
@@ -124,13 +147,16 @@ Illustrative marketing concept. **No customer-facing implementation.** Demonstra
 
 ### Do not
 
-- Claim ComplianceX is in pilot, in development, or otherwise productized. It is a category-pattern demonstration only.
+- Claim any lifecycle or availability beyond the current record in
+  `product.md`.
 
-## 5. OpsX, FinanceX, GridX (illustrative concepts only — not shipping)
+## 5. OpsX, FinanceX, GridX
 
 ### State
 
-Illustrative marketing concepts named in the Valantor brand-architecture document. Demonstrate the pattern extension into operations (OpsX), finance functions (FinanceX), and energy/grid (GridX) verticals.
+Use only while `product.md` classifies these names as illustrative. In that
+state, they demonstrate possible extensions into operations, finance, and
+energy or grid workflows.
 
 ### Use when
 
@@ -146,18 +172,24 @@ Illustrative marketing concepts named in the Valantor brand-architecture documen
 
 When writing a master-brand piece (white paper, investor narrative, analyst briefing) that needs to cover the Outcome Plug-in family:
 
-1. Lead with the shipping pair: **FraudX (insurance fraud, GA)** + **ExtractX (document operations, GA)**.
-2. Position them as the live proofs of the *[Outcome]X* productization pattern — the pattern is real, not theoretical.
-3. Reference the roadmap-of-the-pattern: *"The same pattern extends into adjacent regulated verticals — claims processing (ClaimsX), compliance workflows (ComplianceX), operations (OpsX), finance functions (FinanceX), energy/grid (GridX)."* — explicitly framed as roadmap, never as shipping.
-4. Tie back to the strategic frame: Outcome Plug-ins are how Valantor industrializes Visual Intelligence into repeatable vertical products with SLAs.
+1. Read `product.md` and select only named Outcome Plug-ins whose current
+   lifecycle and promise boundary permit the intended surface.
+2. Position current products as evidence of the *[Outcome]X* productization
+   pattern.
+3. Use illustrative names only as conditional pattern demonstrations.
+4. Tie back to the strategic frame: Outcome Plug-ins industrialize Visual
+   Intelligence into repeatable vertical products.
 
 A clean composite phrasing:
 
-> *Valantor's Outcome Plug-in family today includes two shipping vertical solutions — FraudX for insurance fraud investigation and ExtractX for document-operations extraction. Both are Valantor-operated, GroundX-powered, productized for repeatable enterprise deployment. The same pattern extends across the Outcome Plug-in roadmap into claims processing, compliance workflows, operations, finance, and energy/grid verticals (ClaimsX, ComplianceX, OpsX, FinanceX, GridX).*
+> *Valantor's Outcome Plug-ins turn GroundX capabilities into repeatable
+> vertical products. Use the current product-state owner to name available
+> examples, and label any illustrative extensions explicitly.*
 
 ## 7. Cross-references
 
-- `product.md` § 6–8 — the canonical state matrix for every Outcome Plug-in.
+- `product.md` § Outcome Plug-ins — master-brand framing and the route to the
+  canonical state matrix for every Outcome Plug-in.
 - `brand-hierarchy.md` § 6 — the hard rules on Outcome Plug-in framing (not companies, not bespoke, every Outcome powered by GroundX).
 - `verticals.md` — the why-these-verticals thesis (regulated, asset-heavy, compliance-intensive).
 - `proof-points.md` — customer outcomes that anchor the FraudX and ExtractX positioning.

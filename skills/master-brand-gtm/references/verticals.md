@@ -10,20 +10,24 @@ Valantor deploys Visual Intelligence first in **regulated, asset-heavy verticals
 
 Three reasons compound:
 
-- **Natural barriers to entry.** Regulated industries have compliance, governance, and data-sovereignty requirements that block most AI vendors. Valantor's on-prem and air-gapped deployment capability (GA via Helm; Red Hat partnership) is purpose-built for these constraints — see `../../product-brand-gtm/references/differentiation.md` § 1.
+- **Natural barriers to entry.** Regulated industries have compliance,
+  governance, and data-sovereignty requirements that make customer-controlled
+  deployment important. See
+  `../../product-brand-gtm/references/differentiation.md` § 1 for the stable
+  argument and `proof-points.md` for current eligible third-party validation.
 - **Human-in-the-loop validation is rewarded, not penalized.** Regulated workflows already include human oversight. AI + humans accountability is not an awkward add-on — it is the operating model the vertical already runs on. Valantor's strategic posture aligns with the vertical's reality.
 - **Infrastructure-grade economics.** Regulated verticals run multi-year contracts on document-heavy workflows. Time-to-revenue is faster (the buyer is mandated to solve the problem); contract size is larger (the workflows are mission-critical); switching cost is higher (the integrations are deep). All three contribute to infrastructure-tier valuation.
 
 ## 3. Priority verticals
 
-| Vertical | Why first | Outcome Plug-in (state) |
+| Vertical | Why first | Product association |
 | --- | --- | --- |
-| **Insurance** | Document complexity (claims, policies, fraud investigations); high regulatory bar; large mature carriers running multi-year contracts. **Structural why-now:** $308B annual cost of insurance fraud in the US (Coalition Against Insurance Fraud, 2023); 10% of every premium dollar lost to fraudulent and inflated claims (FBI Insurance Fraud estimate); claim files routinely run to thousands of pages while SIU headcount doesn't scale with fraud volume. The bandwidth gap is where fraud hides — and where the Outcome Plug-in lands. | **FraudX (GA)** for fraud investigation; **ClaimsX (illustrative)** for claims processing roadmap |
-| **Financial services** | Compliance-heavy document workflows (KYC, AML, regulatory reporting, lending operations); large institutions; multi-year contract horizon | **ExtractX (GA)** for document operations; **FinanceX (illustrative)** for finance-function roadmap |
-| **Healthcare** | Visual complexity (medical records, claim forms, lab results, scans); HIPAA / regulatory environment; AskVet customer story is the early proof | No shipping Outcome Plug-in yet; AskVet customer story demonstrates the vertical applicability |
-| **Public sector** | Document-heavy regulated environment; air-gapped deployment requirements (Valantor's on-prem capability is decisive here); long-cycle but durable contracts | No shipping Outcome Plug-in yet |
-| **Energy / utilities** | Asset-heavy, technical-diagram-intensive workflows; regulated reporting; long-life infrastructure | **GridX (illustrative)** for energy / grid roadmap |
-| **Operations / BPO** | Document-extraction modernization (replace legacy OCR + human review); large existing BPO industry running on outdated stacks | **ExtractX (GA)** is the lead Outcome Plug-in; **OpsX (illustrative)** for adjacent operations workflows |
+| **Insurance** | Document complexity, a high regulatory bar, and review bandwidth that does not scale with claim-file volume. | Fraud investigation and claims-processing fit; use `product.md` before naming a current product. |
+| **Financial services** | Compliance-heavy document workflows such as KYC, AML, regulatory reporting, and lending operations. | Document operations and finance-workflow fit; use `product.md` before naming a current product. |
+| **Healthcare** | Visual complexity across records, forms, lab results, and scans. | Use `proof-points.md` for eligible customer evidence and `product.md` for current product availability. |
+| **Public sector** | Document-heavy regulated environments and customer-controlled deployment requirements. | Use `product.md` for current product availability. |
+| **Energy / utilities** | Asset-heavy, technical-diagram-intensive workflows and regulated reporting. | Energy and grid workflow fit; use `product.md` before naming a current product. |
+| **Operations / BPO** | Modernizing document extraction and review workflows. | Document-operations fit; use `product.md` before naming a current product. |
 
 ## 4. The compounding logic
 
@@ -39,17 +43,21 @@ The compounding is what justifies the infrastructure-tier valuation (see `invest
 
 At master-brand altitude, the matrix is:
 
-- **Shipping Outcome Plug-ins prove the pattern works.** FraudX (insurance fraud) and ExtractX (document operations) demonstrate two distinct industries with productized vertical solutions live today.
-- **Illustrative Outcome Plug-ins demonstrate the pattern extends.** ClaimsX, ComplianceX, OpsX, FinanceX, GridX are named in the brand architecture to show the productization roadmap. They are not shipping.
-- **Vertical depth comes through partnerships and Operational Layer engagements** (when the Operational Layer ships). The pattern is not *Valantor ships an Outcome Plug-in for every vertical immediately* — it is *Valantor builds productized verticals where the buyer demand and the document-comprehension fit are highest, and extends the pattern from there*.
+- Current Outcome Plug-ins can prove the pattern when `product.md` permits the
+  claim.
+- Illustrative names may demonstrate how the pattern extends, but do not create
+  availability.
+- The strategy is to productize verticals where buyer demand and document fit
+  are strongest, not to promise one for every vertical.
 
 ## 6. How to write about new verticals (defensively)
 
-If asked about a vertical where there is no shipping Outcome Plug-in (e.g. legal, real estate, manufacturing):
+If asked about a vertical without a currently eligible Outcome Plug-in:
 
 - Acknowledge the data comprehension gap applies to the vertical (the vertical has document-heavy workflows; the gap is structural).
-- Cite the shipping Outcome Plug-ins (FraudX, ExtractX) as proofs of the productization pattern.
-- Position the new vertical as *fits the thesis; productization is on the roadmap when buyer demand and document fit align*.
+- Cite only products currently eligible under `product.md` as examples of the
+  productization pattern.
+- Position the new vertical as a fit with the thesis, not as a roadmap promise.
 - Do not promise a date or product name for a not-yet-named extension.
 
 ## 7. The cross-vertical talking points
@@ -57,7 +65,8 @@ If asked about a vertical where there is no shipping Outcome Plug-in (e.g. legal
 Use these in white papers and investor materials:
 
 - *"Valantor deploys Visual Intelligence first in regulated, asset-heavy verticals — insurance, financial services, healthcare, public sector, energy — where document complexity, compliance requirements, and financial stakes create natural barriers to entry."*
-- *"The Outcome Plug-in pattern productizes Visual Intelligence into repeatable vertical solutions with defined SLAs. Two are live today (FraudX, ExtractX); the pattern extends across the roadmap."*
+- *"The Outcome Plug-in pattern productizes Visual Intelligence into repeatable
+  vertical solutions; use the current state owner to name available examples."*
 - *"Every regulated-vertical deployment compounds — corpus scale improves the model; workflow integration deepens organizational embedment; multi-year contracts compound switching costs."*
 
 ## 8. What this thesis does not claim
@@ -65,4 +74,5 @@ Use these in white papers and investor materials:
 - Not that Valantor will ship an Outcome Plug-in for every vertical. The pattern extends where buyer demand and document fit align — not on a fixed schedule.
 - Not that non-regulated verticals are out of scope. The category claim applies broadly; the *first-deployment focus* is regulated; broader adoption follows.
 - Not that vertical productization is the only revenue path. Hosted GroundX, On-Prem, and Harness adoption are the platform-layer revenue paths; Outcome Plug-ins layer on top.
-- Not that any of the illustrative Outcome Plug-ins ship today. ClaimsX, ComplianceX, OpsX, FinanceX, GridX are roadmap-of-the-pattern only.
+- Not that an illustrative name is a current product. `product.md` controls that
+  classification.

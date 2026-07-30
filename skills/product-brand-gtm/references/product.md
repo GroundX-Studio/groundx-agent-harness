@@ -1,111 +1,166 @@
-# Product: What Is Built, MVP, and Capabilities
+# Product: Current State And Promise Boundaries
 
-Authoritative product-state inventory for every shipping (or named) product entity in the EyeLevel / GroundX / Valantor stack. Each entity has State, Buyer, MVP today, Roadmap next, and a short Why. Treat this file as the source of truth for product claims — `proof-points.md` cites customer outcomes; `brand-relationship.md` covers the brand hierarchy; this file covers *what each product actually is right now.*
+This product-state inventory is the local source of truth for product-altitude
+promise boundaries. It records lifecycle state, what may be promised, the
+technical source when one exists, the reviewable verification basis, and the
+condition that forces a recheck. Customer outcomes and benchmarks live in
+`proof-points.md`; API, deployment, and bundle details remain with their
+technical sources.
 
-**Do not invent state.** If an entity below is marked *concept* or *illustrative*, do not write external content as if it ships. This product-state inventory is the local source of truth for product-altitude claims and is authoritative as of 2026-05-14. For master-brand framing, cross-check `../../master-brand-gtm/references/product.md`.
+If new collateral conflicts with this inventory, use the recorded state for the
+runtime answer and request a reviewable approved product-state update. Narrative,
+objections, and collateral do not become parallel state registries. If an agent
+cannot access such an approval, it must preserve the state below, flag the
+recheck, and avoid claiming that reconciliation is complete.
 
-## 1. The product map at a glance
+Repository-backed skills and specs listed below control technical semantics or
+bundle boundaries, not business lifecycle decisions.
 
-| Layer | Product | State |
-| --- | --- | --- |
-| Hosted SaaS | **Hosted GroundX** | GA |
-| Self-hosted | **GroundX On-Prem** (Helm distribution) | GA |
-| No-code single UI | **GroundX Studio** | In development |
-| AI Agent Harness | **GroundX Agent Harness** | Alpha |
-| Outcome Plug-in | **FraudX** | GA |
-| Outcome Plug-in | **ExtractX** | GA |
-| Outcome Plug-in | **ClaimsX** | Illustrative concept |
-| Outcome Plug-in | **ComplianceX** | Illustrative concept |
-| Outcome Plug-in | **OpsX**, **FinanceX**, **GridX** | Illustrative concepts |
-| Service layer | **Operational Layer** (Valantor agents + human orchestration) | Concept |
+`Tracked source` identifies the reviewable repository record from which a
+lifecycle state was carried forward. It is an audit anchor, not a fresh
+product-owner confirmation. A newer approved product-state update replaces the
+tracked state.
 
-Hosted GroundX and GroundX On-Prem are sibling distributions of the same engine; everything else either sits on top of them, packages them differently, or productizes Valantor's services around them.
+## 1. Product map
+
+| Layer | Product | State | Promise boundary | Technical source / review instruction | Verification basis | Recheck trigger |
+| --- | --- | --- | --- | --- | --- | --- |
+| Hosted platform | **Hosted GroundX** | GA | May be described as the available hosted GroundX platform. Do not promise current UI quality, signup behavior, or conversion performance from GTM guidance. | `groundx-api` for supported behavior; approved product-state update required for lifecycle changes | Tracked source: canonical inventory at `4ca915b` (2026-05-15); no newer approved lifecycle update supplied | Product lifecycle change, customer-facing launch, or quarterly review |
+| Self-hosted platform | **GroundX On-Prem** | GA | May be sold as the self-hosted and air-gapped GroundX distribution. Deployment facts, including the available workspace service, come from `groundx-on-prem` and architecture guidance. | `groundx-on-prem` for deployment truth; approved product-state update required for lifecycle changes | Tracked source: canonical inventory at `4ca915b` (2026-05-15); no newer approved lifecycle update supplied | Chart lifecycle change, support-policy change, or quarterly review |
+| No-code UI | **GroundX Studio** | In development | Describe the intended business-user surface and named use cases. Do not promise general customer availability. | Approved product-state update required for lifecycle changes | Tracked source: canonical inventory at `4ca915b` (2026-05-15); no newer approved lifecycle update supplied | Release milestone, availability announcement, or quarterly review |
+| Public agentic adoption | **GroundX Agent Harness** | Available public bundle | Promise public GroundX knowledge and workflows only. Do not attribute Studio-only, MCP, or host-client capabilities to it. | `public-harness` spec | Current public-harness spec and generated manifest | Public release-scope change or quarterly review |
+| Private agentic adoption | **GroundX Studio Harness** | Alpha, private expanded bundle | Describe the prebuilt Studio production, authoring, publishing, administration, and operational workflows only for the private bundle. Do not imply that it exclusively owns the underlying On-Prem workspace service. | `private-harness` spec for bundle boundary; approved product-state update required for lifecycle changes | Tracked source: canonical inventory at `00fab9d` (2026-05-22) for lifecycle; current private-harness spec for bundle boundary | Product lifecycle change, bundle-scope change, or quarterly review |
+| Outcome Plug-in | **FraudX** | GA | May be described as a shipping insurance-fraud Outcome Plug-in within the current capability boundary. | Approved product-state update required for lifecycle changes | Tracked source: canonical inventory at `4ca915b` (2026-05-15); no newer approved lifecycle update supplied | Capability, vertical, or lifecycle change; quarterly review |
+| Outcome Plug-in | **ExtractX** | GA | May be described as a shipping document-operations Outcome Plug-in. Self-service delivery remains roadmap. | Approved product-state update required for lifecycle changes | Tracked source: canonical inventory at `4ca915b` (2026-05-15); no newer approved lifecycle update supplied | Delivery-model or lifecycle change; quarterly review |
+| Outcome Plug-in | **ClaimsX, ComplianceX, OpsX, FinanceX, GridX** | Illustrative concepts | Use only to illustrate the productization pattern. Do not claim availability, pilots, or customer outcomes. | Approved product-state update required before changing availability | Tracked source: canonical inventory at `4ca915b` (2026-05-15); no newer approved lifecycle update supplied | Productization approval or quarterly review |
+| Service layer | **Operational Layer** | Concept | Describe strategic outcomes-as-a-service posture only. Do not claim a shipping, customer-deployed, or available-on-request product. | Approved product-state update required before changing availability | Tracked source: canonical inventory at `4ca915b` (2026-05-15); no newer approved lifecycle update supplied | Approved customer offering, lifecycle decision, or quarterly review |
 
 ## 2. Hosted GroundX
 
-- **State.** GA.
-- **Buyer.** Self-service inbound user. Typically arrives via SEO or content (influencer-promoted blog post, YouTube, podcast). Runs the gamut of verticals. **Volume:** ~30 signups per day. **Conversion:** very low.
-- **MVP today.** A small allowance of ingestion tokens (the metering unit for files ingested) and search requests, accessed through an end-user dashboard. The dashboard experience is currently broken and clearly is not fulfilling the user's interest.
-- **Roadmap next.** Replace the dashboard with GroundX Studio as soon as possible, building Studio via the GroundX Agent Harness.
-- **Why this exists.** Inbound discovery channel — a low-friction way for individual technical users to evaluate the GroundX engine before a managed sale starts. Today it converts poorly; the Studio rebuild is the lever to fix that.
+- **Buyer.** Teams evaluating or integrating the hosted GroundX platform.
+- **Current promise.** Hosted GroundX provides the managed platform path for
+  document ingest, understanding, extraction, search, and grounded answers.
+  Retrieve supported behavior from `groundx-api`.
+- **Stable value.** Low-friction evaluation and managed operation without
+  requiring a customer-run deployment.
+- **Do not include.** Signup volume, conversion, dashboard quality, internal
+  implementation problems, or replacement plans.
 
 ## 3. GroundX On-Prem
 
-- **State.** GA. The public Helm chart repository at `github.com/eyelevelai/groundx-on-prem` carries an "Open Beta" tag that is stale — treat the public repo as authoritative for capabilities and dependencies, not lifecycle state.
-- **Buyer.** SRE, VP of Engineering, the person who owns product or the person who owns deployment. Usually an **influencer in the buying decision, not the decision maker.** Their job is to evaluate the level of effort to integrate and install.
-- **MVP today.** Helm chart-based installation deployable to cloud, on-prem, or fully air-gapped Kubernetes. No external runtime dependencies. Includes Ingest service (fine-tuned vision model + agentic pipeline at document/section/chunk levels), Store (encrypted storage for source files, semantic objects, vectors), Search (OpenSearch + fine-tuned re-ranker + hybrid retrieval), SDK access (Python, TypeScript), REST API parity with hosted, HPA autoscaling + custom metrics server, optional Prometheus integration, optional AWS Terraform path, Red Hat OpenShift AI partner quickstart, x86_64 publicly (arm64 on customer request). The `values.yaml` is **very confusing** today given poor documentation and the wealth of configurable options.
-- **Roadmap next.** Properly educate on all of the configuration options — the values-file UX is the active gap.
-- **Why this exists.** The only viable path for regulated and data-sovereignty buyers. Differentiator pillar 1; almost no competition in document understanding or RAG when deploying on-prem. The buyer's job is to land confidence that the install is tractable — so docs quality directly drives win rate.
+- **Buyer.** Engineering, security, platform, and operations teams that require
+  customer-controlled deployment.
+- **Current promise.** GA self-hosted GroundX for Kubernetes, including
+  private-cloud and air-gapped postures where supported by the deployment
+  owner.
+- **Stable value.** Data control, deployment flexibility, and a path for
+  regulated or sovereignty-sensitive workloads.
+- **Technical boundary.** Use `groundx-on-prem` for Helm, infrastructure,
+  architecture, workspace-service availability, runtime support, configuration,
+  and operational claims.
 
-## 4. GroundX Studio (no-code single UI)
+## 4. GroundX Studio
 
-- **State.** In development.
-- **Buyer.** The **business user** who wants to see the value of GroundX without needing IT or a formal deployment. Potentially a major decision maker in the purchase. Strategically, this is a buyer we want to see the value early and become a champion who can go fight IT for the product.
-- **MVP today.** A Replit-built buggy implementation that has most of the desired features but is buggy. **This was the inspiration for building the Harness** — it showed what was possible with coding tools given the proper direction, which is the proof of concept the Harness systematizes.
-- **Roadmap next.** Develop consensus on the final design, rebuild via the GroundX Agent Harness within days, replace the existing GroundX dashboard experience with this.
-- **Why this exists.** The hosted GroundX dashboard is broken. Studio is the productized fix — and the *champion-enabler* for the LOB pitch path. A business user who plays with Studio and gets value becomes the internal advocate when IT pushes back.
-- **Use cases packaged in the UI.** **Extract** (data extraction), **Interact** (chat / RAG), **Report** (smart pre-compiled RAG queries assembled into a report with follow-up chat). These names are coined by the sales team and should be used verbatim.
+- **Buyer.** Business users who need a guided GroundX experience without
+  beginning from API integration.
+- **State.** In development. Do not claim general customer availability.
+- **Intended use cases.** **Extract**, **Interact**, and **Report**. Preserve
+  these names.
+- **Stable value.** A focused business-user surface for seeing and using
+  GroundX outputs.
+- **Do not include.** Prototype history, implementation quality, rebuild plans,
+  or internal design debate.
 
-## 5. GroundX Agent Harness
+## 5. GroundX Harnesses
 
-- **State.** Alpha. This is the product we are inside right now.
-- **Buyer.** The executive team. The IT team. The Harness is *the how* for scaling GroundX deployments and dropping implementation time from months to days. It is the operational answer to the *"I have 500 AI agent use cases, how am I going to implement them all?"* pain (see `buyer.md` § 1).
-- **MVP today.** GroundX Agent Harness is an **AI Agent Harness**. Install the plugin via Claude or OpenAI Codex; interact via the existing Claude or OpenAI experience. The Harness packages skills, connectors, references, templates, and design patterns that an installed agent loads automatically to become fluent in GroundX.
-- **Roadmap next.** Iteratively expand integration points to other agent surfaces (Cursor, Replit, Gemini — at minimum confirm functionality there; some may already be compatible). Build a no-code GUI on top of the harness, mirroring how Cursor and Replit expose coding agents. GA to customers as an enabling tool.
-- **Why this exists.** Two reasons. (1) Scaling GroundX adoption — the customer is doing many AI use cases, and the harness lets agents stand them up without a one-by-one engineering build. (2) Reducing the cost of building the *other* GroundX products (Studio especially) — the Replit-built Studio prototype proved coding agents could do it; the Harness gives them the right substrate.
-- **Treat as messaging pillar, not technical moat.** Easy to copy. Pillar holds because every AI winner so far has won by being the easiest path into a capability for a buyer who was underserved by what existed before — see `differentiation.md` § 5.
+### GroundX Agent Harness
 
-## 6. FraudX (Outcome Plug-in)
+- **Availability.** Public bundle.
+- **Current promise.** Portable GroundX knowledge and workflows for compatible
+  skills-capable agents.
+- **Boundary.** Does not include private prebuilt Studio production, publishing,
+  administration, partner-lifecycle, or internal workflow skills. This does not
+  remove the On-Prem customer's ability to enable and operate the workspace
+  service using public guidance. It also does not own capabilities supplied
+  independently by the host client.
+
+### GroundX Studio Harness
+
+- **State.** Alpha, private expanded bundle.
+- **Current promise.** Shared GroundX knowledge plus prebuilt Studio production,
+  authoring, publishing, administration, and operational workflows.
+- **Boundary.** Do not imply public availability or treat it as the same bundle
+  as GroundX Agent Harness. Do not imply that the private bundle is required to
+  deploy or operate the On-Prem workspace service.
+
+GroundX MCP is optional connected execution, separate from installed knowledge.
+REST and SDKs remain direct integration paths. Use `harness-pitch.md` for
+buyer-facing capability attribution and bundle policy/generated manifests for
+exact membership.
+
+## 6. FraudX
 
 - **State.** GA.
-- **Buyer.** Four cuts across the insurance-fraud value chain (canonical detail in `audiences.md` § FraudX buyer cuts): **Carriers & TPAs claims teams** (triage suspicious claims at intake, justify reserves), **SIU investigators** (skip the file slog, land on the leads that matter), **legal teams / defense counsel** (build cross-examination off the record, surface contradictions before deposition), **GCs & law firms** (scale file review without scaling headcount). Today the production deployment is focused on construction workers' compensation claims fraud investigation.
-- **MVP today — four capability surfaces:**
-  - **FraudX Score** — AI-generated fraud probability per claim with ranked red flags, severity tiers (HIGH / MED / LOW), and the evidence behind each finding. Re-runs automatically as new documents arrive. 20+ investigator-defined red flags configured to the line of business.
-  - **Chat with Claims** — plain-language Q&A over the full case file with source-linked answers. *"Like a research assistant who never misses a detail."*
-  - **Evidence Package** — source-cited dossier for SIU referral, reservation of rights, or trial prep. Every red flag links to the exact page, line, and timestamp in the source document.
-  - **Network Analysis** — pattern-matching across claimants, providers, attorneys, and locations; surfaces organized fraud rings by connecting actors across unrelated claims.
-- **How it works (3 steps).** (1) Ingest the entire claim file — any format, any length (medical records, bills, ISO reports, depositions, photos, site reports, recorded statements). (2) Run 20+ fraud checks scoring each claim against an extensible investigator-defined indicator library. (3) Deliver a cited, source-linked dossier defensible from day one.
-- **ROI claims.** *EyeLevel internal benchmark; "Actual results vary":* 40× faster claim file review, 10× more files reviewed per day, directional reduction in loss ratio.
-- **Customer voice.** Three named customer quotes — Kirk Willis (Willis Law Group), Andriana Vamvakas (Andromeda Advantage), Dan Hickey (Tradesman/Roosevelt Road). Cited at master-brand altitude in `../../master-brand-gtm/references/proof-points.md` § 7 quote bank.
-- **Why this exists.** Vertical Outcome Plug-in pattern proof point. Demonstrates the *[Outcome]X* productized productization — repeatable, defined SLA, GroundX-powered.
+- **Buyer.** Insurance-fraud investigation teams, claims organizations, SIU,
+  and legal review teams within the currently approved vertical boundary.
+- **Current promise.** A GroundX-powered investigation product that applies the
+  current investigator-defined checks and produces source-linked signals,
+  answers, evidence, and network analysis.
+- **Boundary.** Require an approved product-state update before expanding the
+  supported lines of business or capabilities. Use `proof-points.md` for
+  customer voice, ROI, benchmarks, or other substantiation.
+- **Stable value.** Faster, more reviewable investigation with evidence tied
+  back to source material.
 
-## 7. ExtractX (Outcome Plug-in)
+## 7. ExtractX
 
 - **State.** GA.
-- **Buyer.** Companies or BPOs (business process outsourcers) who have human teams paired with legacy OCR / templating systems to process invoices and other documents. The pitch is *modernize the OCR-and-human-review pipeline.*
-- **MVP today.** Either (a) provide the extracted data **as a service** — Valantor team uses the tool internally on behalf of the client — or (b) **partner to deploy and integrate** GroundX into the customer's existing document-processing workflows.
-- **Roadmap next.** Expose ExtractX entirely via the Harness and Studio for rapid implementation, either internally by Valantor or by the customer directly.
-- **Why this exists.** Productized data-extraction outcome. Different from `groundx-extraction-workflows` (the contributor-facing skill for authoring extraction workflows): ExtractX is the customer-facing vertical product; `groundx-extraction-workflows` is the developer toolkit.
+- **Buyer.** Companies and BPOs modernizing document extraction and review
+  workflows.
+- **Current promise.** A productized extraction outcome delivered through the
+  currently approved managed or partnership deployment path.
+- **Boundary.** Harness-and-Studio self-service remains roadmap until the owner
+  changes the lifecycle record.
+- **Stable value.** Replace brittle OCR-and-template workflows with structured,
+  reviewable GroundX outputs.
 
-## 8. ClaimsX, ComplianceX, OpsX, FinanceX, GridX (Outcome Plug-ins — illustrative concepts only)
+## 8. Illustrative Outcome Plug-ins
 
-- **State.** Illustrative marketing concepts. Not shipping.
-- **Why named.** They appear in Valantor master-brand materials to demonstrate the *[Outcome]X* productization pattern (claims processing, compliance workflows, operations, finance, energy/grid). They do not have customer-facing implementations today.
-- **Do not.** Do not write external content as if these ship. Do not invent customer outcomes for them. Do not claim accuracy numbers, deployments, or pilots. If asked about them, route the conversation to master-brand-altitude framing (Valantor's *vertical-Outcome-Plug-in strategy*) and acknowledge they are illustrative until productized.
+ClaimsX, ComplianceX, OpsX, FinanceX, and GridX are illustrative marketing
+concepts, not shipping products.
 
-## 9. Operational Layer (Valantor agents + human orchestration)
+- Use them only to explain the broader *[Outcome]X* productization pattern.
+- Do not invent availability, customers, accuracy, pilots, deployment counts,
+  or dates.
+- Route master-brand strategy to `master-brand-gtm`; use FraudX and ExtractX as
+  the current shipping examples.
 
-- **State.** Concept. No shipping customer product yet.
-- **Buyer.** Companies that just want the outcome (e.g. extracted data) and will pay for the outcome rather than for the tool that produces it. This is the *outcomes-vs-tools* sales path (see `buyer.md` § 2).
-- **MVP today.** None today. Valantor has the infrastructure to scale this rapidly when a customer is landed (offshore shops in India and Macedonia capable of doing the human-in-the-loop work).
-- **Roadmap next.** Land a customer. Sell against outcomes vs. tools. Ramp up capability as the first engagement defines the operating playbook.
-- **Why this exists.** Strategic positioning at the master-brand altitude — the productization of *outcomes-as-a-service* sold against business metrics. Reframes services from low-multiple consulting into managed AI infrastructure with SLAs and long-term contracts. **Do not claim shipping status externally.**
+## 9. Operational Layer
+
+- **State.** Concept. No shipping customer product.
+- **Buyer idea.** Organizations that would rather buy a governed business
+  outcome than assemble and operate the underlying toolchain.
+- **Promise boundary.** Describe the outcomes-as-a-service strategy and AI plus
+  human accountability model only. Do not claim availability, deployment,
+  staffing readiness, or a live customer offering.
+- **Reconciliation rule.** A real customer offer requires an approved,
+  reviewable product-state update before GTM language changes.
 
 ## 10. How to use this file
 
-The catalog above is the answer when a buyer asks:
+- Use the table for lifecycle and promise questions.
+- Use the relevant product section for stable buyer/value framing.
+- Use `proof-points.md` for eligible customer, benchmark, partner, technical
+  corpus, or performance proof.
+- Use `harness-pitch.md` to distinguish public Agent Harness, private Studio
+  Harness, MCP, and host-agent capabilities.
+- If collateral is stronger than the current state, keep the current answer and
+  request a reviewable approved product-state update.
 
-- *"What is GroundX?"* — § 2 + § 3 (hosted + on-prem are the engine; everything else sits on top).
-- *"What is the Studio?"* — § 4 (no-code UI) and § 5 (Harness). Note these are distinct things even though they share the *Studio* name.
-- *"What is FraudX / ExtractX?"* — § 6 / § 7.
-- *"What other vertical solutions do you offer?"* — § 8 with the explicit illustrative-concept caveat. Do not list them as if they ship.
-- *"Can we just pay you to do this for us?"* — § 9 (Operational Layer is the answer in concept; flag that it is not GA and a real engagement is the way to make it real).
+## 11. What this file does not own
 
-For positioning *why* each product exists in a buyer-specific way, see `audiences.md`. For *what to say when a buyer objects*, see `objections.md`. For *which differentiator pillar to lead with per buyer*, see `differentiation.md` § 6.
-
-## 11. What this file does not cover
-
-- **Pricing or contract terms.** Agent-generated content does not quote prices; route to sales.
-- **Master-brand-altitude positioning** of Valantor as the Visual Intelligence Company. That defers to `master-brand-gtm` when it exists.
-- **Customer outcome citations.** Those live in `proof-points.md`. This file states what products exist; `proof-points.md` cites what customers got from them.
-- **Visual or voice register.** `../product-brand-design-standards/` owns those.
+- Pricing or contract terms.
+- Customer outcomes, benchmarks, or performance values.
+- API, SDK, MCP, deployment, or exact bundle-membership semantics.
+- Master-brand Valantor category positioning.
+- Visual or voice-register decisions.

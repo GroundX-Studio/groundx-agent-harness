@@ -20,8 +20,9 @@ GroundX path an agent should use:
 | **EyeLevel** | The acquired-company / heritage brand that built GroundX before Valantor acquired the work. | The topic is the team's history, origin story, logo lockup, or EyeLevel-pack product surfaces. | The platform. Never say "EyeLevel by Valantor." |
 | **GroundX MCP** | The preferred connected-agent path for using GroundX tools. | An installed agent has MCP tools connected and needs to ingest, poll, search, list, or discover operations. | REST/SDK endpoint semantics, which belong to `groundx-api`. |
 | **REST APIs / SDKs** | Direct integration surfaces for application code and fallback. | The topic is backend integration, dev environment behavior, endpoint shapes, SDK objects, local-file upload gaps, or MCP fallback. | MCP setup and tool-use instructions. |
-| **GroundX Agent Harness** | The agent knowledge and workflow layer. | The topic is helping agents build GroundX-backed work, UI, decks, extraction specs, or integrations correctly. | The only way to integrate GroundX. |
-| **GroundX On-Prem** | A deployment distribution of GroundX for customer-controlled infrastructure. | The topic is deployment mode, Kubernetes, Helm, values.yaml, private cloud, air-gapped, residency, or operations. | Runtime workflow model assignment, which belongs to `groundx-api`. |
+| **GroundX Agent Harness** | The public GroundX knowledge and workflow bundle. | A public or customer agent needs portable GroundX guidance. | GroundX Studio Harness, MCP execution, or capabilities supplied by the host client. |
+| **GroundX Studio Harness** | The private expanded GroundX knowledge and workflow bundle with prebuilt Studio workflows. | Ready-made Studio production, authoring, publishing, administration, or operational workflows are in scope. | The public Agent Harness, the underlying On-Prem workspace service, or the only way to integrate GroundX. |
+| **GroundX On-Prem** | A deployment distribution of GroundX for customer-controlled infrastructure, including the workspace service where configured. | The topic is deployment mode, Kubernetes, Helm, values.yaml, workspace-service operation, private cloud, air-gapped, residency, or operations. | Private Studio Harness workflow skills or runtime workflow model assignment, which belongs to `groundx-api`. |
 
 ## 2. Valantor (master brand)
 
@@ -60,25 +61,31 @@ GroundX path an agent should use:
 
 - **Role:** Valantor-operated, GroundX-powered vertical solutions. The industrialization layer where Studio plug-ins compose into repeatable, enterprise-grade outcomes.
 - **Naming convention:** **[Outcome]X**.
-- **State as of 2026-05-14:**
-  - **Shipping (GA):** **FraudX**, **ExtractX**.
-  - **Illustrative marketing concepts (not shipping):** ClaimsX, ComplianceX, OpsX, FinanceX, GridX. These names appear in master-brand materials to demonstrate the *[Outcome]X* productization pattern; they do not have current customer-facing implementations. **Do not claim them as products in external content.** Do not invent customer outcomes for them.
+- **Current state:** use `product.md` as the sole lifecycle and promise owner.
+  It distinguishes shipping Outcome Plug-ins from illustrative concepts and
+  records when that decision must be rechecked.
 - **Key discipline:**
   - Outcome Plug-ins are **not** companies.
   - Outcome Plug-ins are **not** bespoke projects — they are repeatable products with defined inputs, outputs, and SLAs.
   - Every Outcome Plug-in is powered by GroundX.
-- **Positioning examples (shipping products only):**
-  - *FraudX is an insurance-specific Outcome Plug-in built on GroundX that automates fraud detection with speed, accuracy, and auditability enterprises can trust.* Buyer: fraud investigation teams (notably construction workers' compensation claims investigation). Current sales framing: four product surfaces (FraudX Score, Chat with Claims, Evidence Package, Network Analysis) and 20+ investigator-defined fraud checks with source-linked dossiers. Older smart-report implementation notes belong in architecture context, not external sales headlines.
-  - *ExtractX is the GA Outcome Plug-in for companies and BPOs replacing legacy OCR / templating systems for invoice and other document processing.* Buyer: organizations with human teams paired to legacy OCR/templating stacks. MVP today is delivered either as a service (Valantor team runs the tool on behalf of the client) or as a partnership deployment integrating GroundX into existing document-processing workflows. Roadmap: expose entirely via Harness and Studio for rapid customer-led implementation.
-- **Master-brand altitude:** Outcome Plug-in marketing and vertical-thesis articulation (including the illustrative-concept plug-ins as category demonstrations) defers to `master-brand-gtm`. This skill mentions Outcome Plug-ins only when product context demands it; when it does, the shipping/illustrative distinction is preserved.
+- **Positioning examples:** use only when `product.md` currently permits the
+  named product claim.
+  - *FraudX is an insurance-specific Outcome Plug-in built on GroundX that helps investigation teams detect, examine, and document fraud with source-linked evidence.* Use `product.md` for the current capability boundary and `proof-points.md` for eligible quantitative proof.
+  - *ExtractX is a document-operations Outcome Plug-in for organizations replacing legacy OCR and templating workflows.* Use `product.md` for current lifecycle and delivery boundaries.
+- **Master-brand altitude:** Outcome Plug-in marketing and vertical-thesis
+  articulation defers to `master-brand-gtm`. `product.md` remains the lifecycle
+  and promise owner.
 
 ## 7. Operational Layer (Valantor agents + human orchestration)
 
-- **State as of 2026-05-14: concept — no shipping customer product yet.** Valantor has the offshore infrastructure (shops in India and Macedonia) capable of scaling once a customer is landed. The Operational Layer is the intended productization of *outcomes-as-a-service* sold against business metrics rather than against AI tooling.
+- **State:** use `product.md` for lifecycle, promise boundary, freshness, and
+  recheck trigger. The Operational Layer is the intended productization of
+  *outcomes-as-a-service* sold against business metrics rather than AI tooling.
 - **Intended role:** where Valantor converts Visual Intelligence into real enterprise outcomes. Agents orchestrated on top of GroundX, Studio plug-ins, and Outcome Plug-ins, paired with human-in-the-loop oversight.
 - **Three roles humans are intended to play:** enterprise industrialization, outcome accountability, enterprise-wide AI adoption.
 - **Master-brand altitude:** the "AI + humans accountability" investor narrative defers to `master-brand-gtm`. This file mentions the operational layer only to keep the hierarchy complete.
-- **Do not claim shipping status externally.** Operational Layer messaging stays aspirational until the first customer is landed.
+- **Do not infer availability from strategy language.** Apply the current
+  promise boundary in `product.md`.
 
 ## 8. Naming rule summary
 
@@ -89,9 +96,9 @@ GroundX path an agent should use:
 | Valantor is the Visual Intelligence Company | Valantor uses GroundX-like technology |
 | EyeLevel — A Valantor Company (on lockup) | A separately-typed "A VALANTOR COMPANY" tagline next to the logo |
 | Extract / Interact / Report (Studio use cases) | Other invented names for the three use cases |
-| Fine-tuned vision model trained on 1M+ pages of enterprise documents | The underlying open-source architecture name |
+| Approved external vision-model description from `technical-architecture.md`; current training-corpus value only from `proof-points.md` | The underlying open-source architecture name |
 | Outcome Plug-ins are repeatable products | Outcome Plug-ins are services / consulting engagements |
-| FraudX and ExtractX (the GA Outcome Plug-ins) | ClaimsX / ComplianceX / OpsX / FinanceX / GridX as if they ship today (they are illustrative concepts) |
+| Outcome Plug-ins whose current state in `product.md` permits external use | An illustrative name as if it were an available product |
 
 ## 9. Altitude routing
 

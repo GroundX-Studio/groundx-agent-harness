@@ -18,7 +18,7 @@ Installing the skills is the main step and is what "Agent Harness" is. Connectin
 the hosted MCP server (below) is an optional enhancement.
 
 This repository is **GroundX Agent Harness**. It does not include the internal
-**GroundX Agent Harness** skills (Studio-only web UI, publish, slides, and
+**GroundX Studio Harness** skills (Studio-only web UI, publish, slides, and
 partner-admin production), which are intentionally kept out of this agent
 harness.
 

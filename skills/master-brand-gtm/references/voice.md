@@ -61,11 +61,15 @@ should sharpen the outcome-vs-tools posture, not become repetitive boilerplate:
 
 Master-brand voice does not hedge unnecessarily, but it does not overclaim either. Three rules:
 
-- **State shipping products as shipping.** FraudX and ExtractX are GA; say so directly.
-- **State illustrative concepts as illustrative.** ClaimsX, ComplianceX, OpsX, FinanceX, GridX are roadmap-of-the-pattern; say so directly. Do not blur with shipping products.
-- **State the Operational Layer as concept.** Investor narrative can articulate the strategic posture; customer-facing surfaces stay at *"available on request"* or *"engagement-based"*.
+- **Use the product-state owner.** Read `product.md` before naming a current
+  lifecycle or availability boundary.
+- **Keep illustrative concepts illustrative.** A narrative or roadmap mention
+  does not make a product available.
+- **Keep strategy inside the promise boundary.** Investor narrative may explain
+  strategic posture only to the extent `product.md` permits.
 
-The honest staging is itself part of the voice. Master-brand audiences (investors, analysts, board) lose trust faster on overclaims than on clear staging. *"FraudX and ExtractX are live today; the [Outcome]X pattern extends into adjacent verticals on the roadmap"* lands as credible. *"Our Outcome Plug-in family includes FraudX, ClaimsX, ComplianceX..."* lands as overclaiming.
+Honest staging is part of the voice. Master-brand audiences lose trust faster
+on overclaims than on a clear, owner-backed lifecycle boundary.
 
 ## 7. Audience-altitude voice shifts
 
@@ -90,7 +94,7 @@ differ in altitude:
 | Vocabulary anchor | *Vision Model, Agentic Pipeline, Hybrid Search, accuracy, on-prem* | *Visual Intelligence, data comprehension gap, control plane, infrastructure-grade* |
 | Sentence shape | Mix of short headlines and tight three-line explanations | Short declarative headlines + long compound-complex explanatory paragraphs |
 | Audience | CIO, VP Eng, Data Lead, LOB, developer | CEO, CFO, Board, investor, analyst, industry leader |
-| Forbidden | Hype, fabricated proof, EyeLevel-by-Valantor construction | Same plus: SaaS-tier vocabulary, overclaiming illustrative Outcome Plug-ins as shipping, Operational Layer as GA |
+| Forbidden | Hype, fabricated proof, EyeLevel-by-Valantor construction | Same plus: SaaS-tier vocabulary or any lifecycle claim that exceeds `product.md` |
 
 Both voices are direct and unhyped; they sound like the same company at different altitudes. A reader who encounters both should recognize the family resemblance.
 

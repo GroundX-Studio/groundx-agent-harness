@@ -188,7 +188,7 @@ If `kubectl describe hpa` shows `<unknown>` for the metric, the metrics server i
 - **Per-pod resource defaults and node-group placement** → `node-groups.md`.
 - **Cost modelling around HPA min/max footprint** → `cost-estimation.md`.
 - **Prometheus / Grafana setup beyond the ServiceMonitor toggle** → `monitoring.md`.
-- **External metrics adapter installation** → `monitoring.md` (planned) — the chart's metrics server is the GroundX-side source; the cluster also needs a Kubernetes external-metrics adapter for HPAs to consume the metrics.
+- **External metrics adapter installation** → `monitoring.md` — the chart's metrics server is the GroundX-side source; the cluster also needs a Kubernetes external-metrics adapter for HPAs to consume the metrics.
 - **Workspace runner specific HPA defaults** → `workspace-service.md` § 8.
 - **Architectural rationale for the two-axis model** → `groundx-architecture/references/observability.md`.
 - **Troubleshooting HPA / metrics-server failures** → `troubleshooting.md` § 4.

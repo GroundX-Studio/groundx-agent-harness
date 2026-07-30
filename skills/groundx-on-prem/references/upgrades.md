@@ -204,5 +204,5 @@ If any pod is stuck `Pending` or `CrashLoopBackOff`, the standard troubleshootin
 - **Chart CHANGELOG / breaking-change log** → consult the chart's own `CHANGELOG.md` (when present).
 - **Data-side schema migrations within MySQL or OpenSearch** → handled by the application's init job; not chart-side.
 - **Major-version Kubernetes upgrades** → upstream Kubernetes docs; the chart works across recent K8s versions but coordinate carefully.
-- **Cross-region DR-driven upgrades (active-passive failover patterns)** → `dr-cross-region-runbook.md` (planned).
+- **Cross-region DR-driven upgrades (active-passive failover patterns)** → `dr-cross-region-runbook.md`.
 - **Specific chart-version migration steps** → consult the chart's release notes.

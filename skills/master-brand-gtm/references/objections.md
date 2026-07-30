@@ -25,8 +25,11 @@ Structure each entry as **Objection → Reframe → Proof**.
 
 ### 2.1 *"Isn't the Operational Layer just consulting?"*
 
-- **Reframe.** Consulting is bespoke, time-and-materials, low-multiple. The Operational Layer is positioned as managed AI infrastructure — repeatable outcomes delivered on SLAs with multi-year contracts. The distinction is the productization: outcomes are repeatable products, not one-off engagements. **Acknowledge openly: the Operational Layer is concept-only today. The strategic posture is articulated; the operational reality follows the first customer.**
-- **Proof:** `ai-and-humans.md` § 3 (valuation lever); `product.md` § 9 (state).
+- **Reframe.** Consulting is bespoke and time-based. The Operational Layer
+  narrative describes repeatable, accountable outcomes rather than one-off
+  engagements. Apply its current lifecycle and promise boundary from
+  `product.md`; do not upgrade the strategy into an available offering.
+- **Proof:** `ai-and-humans.md` § 3 (valuation lever); `product.md` § Operational Layer (state routing).
 
 ### 2.2 *"How is 'AI + Humans' different from 'human-in-the-loop AI' everyone else claims?"*
 
@@ -37,57 +40,101 @@ Structure each entry as **Objection → Reframe → Proof**.
 
 ### 3.1 *"Outcome Plug-ins sound like consulting projects."*
 
-- **Reframe.** Outcome Plug-ins are repeatable products with defined inputs, outputs, and SLAs — not bespoke projects. FraudX and ExtractX demonstrate the productization pattern with live customer-facing deployment. Every Outcome Plug-in is powered by GroundX (the platform is never optional), which is what makes them repeatable rather than custom.
-- **Proof:** `outcome-playbooks.md` § 1–2 (shipping playbooks); `brand-hierarchy.md` § 6 (key discipline).
+- **Reframe.** Outcome Plug-ins are repeatable products with defined inputs,
+  outputs, and accountability boundaries, not bespoke projects. Use
+  `product.md` to identify which named examples currently support that claim.
+- **Proof:** `outcome-playbooks.md` for messaging patterns; `product.md` for
+  current lifecycle state.
 
 ### 3.2 *"What about ClaimsX / ComplianceX / OpsX / FinanceX / GridX — those don't seem to ship."*
 
-- **Reframe.** Correct — those are illustrative marketing concepts that demonstrate the productization pattern Valantor extends into adjacent regulated verticals over time. Two Outcome Plug-ins ship today (FraudX and ExtractX); the others are roadmap-of-the-pattern. The pattern is real; not every named extension is yet productized.
-- **Proof:** `outcome-playbooks.md` § 3–5 (illustrative-concept handling); `product.md` § 8.
+- **Reframe.** Use the current classification in `product.md`. Illustrative
+  names may explain the productization pattern only while the owner records
+  them as illustrative; do not turn them into product claims.
+- **Proof:** `outcome-playbooks.md` for the category pattern; `product.md` for
+  current state and promise boundaries.
 
 ## 4. Defensibility and competitive
 
 ### 4.1 *"Foundation models will commoditize this."*
 
-- **Reframe.** Foundation models are inputs to Visual Intelligence; commoditization at the model layer makes the integration layer more valuable, not less. The data comprehension gap is structural — better models alone do not close it. Vision-model fine-tuning on 1M+ pages, agentic pipeline at document/section/chunk levels, hybrid search across rich metadata chunks — none of this comes for free with a better foundation model.
-- **Proof:** `visual-intelligence.md` § 5 (what VI is not); `../../product-brand-gtm/references/technical-architecture.md`.
+- **Reframe.** Foundation models are inputs to Visual Intelligence;
+  commoditization at the model layer makes the integration layer more valuable,
+  not less. The data comprehension gap is structural — better models alone do
+  not close it. The GroundX mechanism combines document understanding,
+  multi-level processing, and hybrid retrieval rather than assuming a better
+  foundation model supplies the integration layer for free.
+- **Proof:** `visual-intelligence.md` § 5 (what VI is not);
+  `../../product-brand-gtm/references/technical-architecture.md` for mechanism;
+  `proof-points.md` for an eligible current training-corpus or benchmark claim.
 
 ### 4.2 *"What stops a hyperscaler from building this in-house?"*
 
-- **Reframe.** Hyperscalers focus on general-purpose model and infrastructure layers; the integrated Visual Intelligence platform — including the vertical Outcome Plug-ins, the Operational Layer accountability model, and the on-prem / air-gapped deployment capability — is a vertical and operational play they typically partner for rather than build. The Red Hat OpenShift AI quickstart is one expression of that partnership pattern.
-- **Proof:** `proof-points.md` § 4.1 (Red Hat partnership); `verticals.md` § 2 (why regulated verticals create natural barriers).
+- **Reframe.** Hyperscalers focus on general-purpose model and infrastructure
+  layers. Valantor's position combines document comprehension,
+  customer-controlled deployment, and productized vertical outcomes. Keep the
+  Operational Layer within its current promise boundary.
+- **Proof:** Retrieve current eligible partner validation from
+  the canonical proof owner; use `verticals.md` § 2 for the stable regulated-market
+  rationale.
 
 ### 4.3 *"How does Valantor defend against fast-following AI startups?"*
 
-- **Reframe.** Three compounding moats: (1) corpus scale — every document processed improves system intelligence (7B+ tokens ingested today); (2) workflow integration — every Outcome Plug-in deployment compounds switching costs; (3) regulated-vertical deployment depth — on-prem and air-gapped capability is multi-year engineering, not a feature flag. None of these moats compress on a startup timeline.
+- **Reframe.** Three compounding moats: (1) technical learning — every document
+  processed improves system intelligence; (2) workflow integration — every
+  Outcome Plug-in deployment compounds switching costs; (3)
+  regulated-vertical deployment depth — on-prem and air-gapped capability is
+  multi-year engineering, not a feature flag. Use eligible technical-corpus
+  evidence from `proof-points.md` without presenting it as adoption or company
+  traction.
 - **Proof:** `investor-narrative.md` § 4 (compounding logic); `../../product-brand-gtm/references/differentiation.md` § 1 (on-prem moat).
 
-## 5. Internal AI program (the existential-crisis dynamic)
+## 5. Internal AI program
 
 ### 5.1 *"We have an internal AI program — why do we need Valantor?"*
 
-- **Reframe.** Internal programs are excellent for the AI use cases the internal team can sustain. The implementation-scale pain — *"500 use cases, how do we do them all?"* — is what internal programs cannot solve alone. Valantor is the platform plus the Harness plus the Operational Layer that lets the internal team operate at the scale the business is mandating.
-- **Read the room.** This objection from a CIO/CTO can be defensive — the internal program may be the political vehicle for the team's continued relevance. Route the conversation toward outcomes the internal program is not yet delivering, with an LOB champion bringing the business-outcome demand. See `buyer.md` § 1 and `../../product-brand-gtm/references/objections.md` § 1.4.
+- **Reframe.** Internal programs are effective for the AI use cases their teams
+  can sustain. The implementation-scale problem appears when the backlog grows
+  faster than internal delivery capacity. Position GroundX and the Harness as
+  force multipliers, and keep the Operational Layer within its current
+  promise boundary from `product.md`.
+- **Read the room.** Treat the internal program as legitimate. If the buyer
+  explicitly raises displacement, ownership, or political concerns, acknowledge
+  them and position Valantor as a force multiplier. Bring in an LOB sponsor when
+  that person owns the business outcome, not as a way to bypass the technical
+  buyer. See `buyer.md` § 1 and
+  `../../product-brand-gtm/references/objections.md` § 1.3.
 - **Proof:** `buyer.md` § 2 (implementation-scale pain); `../../product-brand-gtm/references/differentiation.md` § 5 (Harness).
 
 ## 6. Operational reality vs strategic posture
 
 ### 6.1 *"You talk about the Operational Layer as if it's a product, but is anyone running it?"*
 
-- **Reframe.** Honest answer: the Operational Layer is concept-only today. Valantor has the offshore infrastructure ready (shops in India and Macedonia) to scale once a customer is landed. The investor narrative articulates the strategic posture — *AI + humans accountability is what enterprises buy at scale, and Valantor is positioning to deliver it as managed infrastructure with SLAs*. Customer-facing surfaces today rely on Hosted GroundX, On-Prem, FraudX, ExtractX, and the Harness as the live delivery options.
-- **Why this honesty matters.** Master-brand audiences (investors, analysts, board members) lose trust faster on overclaims than on clear staging. Position the Operational Layer as *next phase, infrastructure ready* rather than overclaiming GA.
-- **Proof:** `product.md` § 9 (state); `ai-and-humans.md` § 4 (outcomes-vs-tools).
+- **Reframe.** Give the lifecycle and promise boundary recorded in
+  `product.md`, then describe only the strategic AI + humans accountability
+  posture that boundary permits.
+- **Why this honesty matters.** Master-brand audiences lose trust faster on
+  overclaims than on clear staging. State the recorded lifecycle boundary and
+  omit internal staffing or operating-readiness anecdotes.
+- **Proof:** `product.md` § Operational Layer (state routing); `ai-and-humans.md` § 4 (outcomes-vs-tools).
 
 ### 6.2 *"How big is Valantor's customer base today?"*
 
-- **Reframe.** Cite named logos (Air France, Dartmouth, Samsung), the developer-base scale (3,000+ developers), and the platform-corpus volume (7B+ tokens ingested). Two shipping Outcome Plug-ins (FraudX, ExtractX) are in production. Avoid speculative TAM numbers or unverified customer counts.
-- **Proof:** `proof-points.md` § 5.
+- **Reframe.** Do not answer customer-base size from this GTM skill unless the
+  user supplies a current approved claim for that purpose. The canonical proof
+  owner contains customer outcomes and quotes, not a current company-traction
+  count. Retrieve current shipping products separately from `product.md`.
+- **Proof:** Use an approved current customer-count source supplied for the
+  communication job; otherwise say the count is not established here.
 
 ## 7. Timing and urgency
 
 ### 7.1 *"Why now? Why this category, this year?"*
 
-- **Reframe.** Two compounding forces meeting at the same time: (1) AI-native enterprise transformation has moved from optional to mandated across every sector; (2) the data comprehension gap blocks AI from the use cases that matter most. *Hundreds of AI use cases per enterprise* meets *most enterprise data is locked in visual formats*. Visual Intelligence is the foundational layer that resolves both at once. Pre-2024 the demand was not there; post-2024 it is.
+- **Reframe.** The urgency comes from two forces: enterprises have a growing AI
+  use-case backlog, and the data comprehension gap blocks the document-heavy
+  work that matters most. Visual Intelligence addresses the shared structural
+  bottleneck without relying on a dated market-adoption claim.
 - **Proof:** `narrative.md` § 5 (compounding enterprise imperative); `visual-intelligence.md` § 3 (the gap).
 
 ### 7.2 *"What if the market consolidates around something else?"*

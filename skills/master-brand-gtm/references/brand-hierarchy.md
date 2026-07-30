@@ -8,7 +8,7 @@ If a rule below disagrees with a statement elsewhere in the harness, this file w
 
 > **Valantor** (the company) → **GroundX** (the platform) → **GroundX Studio** (the extensibility platform) → **Outcome Plug-ins** (the productized verticals) → **Operational Layer** (Valantor agents + human orchestration).
 
-Plus a parallel: **GroundX Agent Harness** is the agentic adoption layer for any of the above — not a hierarchical layer, but a delivery channel for the GroundX-touching surfaces.
+Plus a parallel: **GroundX Studio Harness** is the agentic adoption layer for any of the above — not a hierarchical layer, but a delivery channel for the GroundX-touching surfaces.
 
 ## 1.1 Plain-English mental model
 
@@ -21,7 +21,8 @@ to understand the names:
 | **GroundX** | The platform layer. | Product mechanism, document intelligence, ingest, search, RAG, workflows, extraction substrate, APIs, SDKs, MCP, or deployment. | The company. Externally, introduce it as GroundX by Valantor. |
 | **EyeLevel** | The acquired-company / heritage brand that built GroundX before Valantor acquired the work. | Origin story, team heritage, or EyeLevel-pack product surfaces. | The platform. Never say EyeLevel by Valantor. |
 | **GroundX MCP** | The preferred connected-agent path for using GroundX tools. | An installed agent has MCP tools connected and needs to operate GroundX. | REST/SDK endpoint semantics, which belong to `groundx-api`. |
-| **GroundX Agent Harness** | The agent knowledge and workflow layer. | Agents need GroundX-specific skills, references, patterns, and medium guidance. | The only way to integrate GroundX. |
+| **GroundX Agent Harness** | The public GroundX knowledge and workflow bundle. | A customer or public agent needs portable GroundX guidance. | GroundX Studio Harness, MCP execution, or capabilities supplied by the host client. |
+| **GroundX Studio Harness** | The private expanded GroundX knowledge and workflow bundle with prebuilt Studio workflows. | Ready-made Studio production, authoring, publishing, administration, or operational workflows are in scope. | The public Agent Harness, the underlying On-Prem workspace service, or the only way to integrate GroundX. |
 
 Keep simple relationship answers simple. Do not expand into a full investor,
 category, or Outcome Plug-in narrative unless the user asks for that altitude.
@@ -45,7 +46,8 @@ category, or Outcome Plug-in narrative unless the user asks for that altitude.
 - **External rendering:** *GroundX by Valantor* when introducing the platform externally.
 - **Internal / product framing:** *GroundX is the platform, not the company.*
 - **Hard rule:** **GroundX is never optional.** Every Valantor module, agent, workflow, plug-in, and Outcome runs on GroundX.
-- **State:** GA. Two sibling distributions — Hosted GroundX (SaaS) and GroundX On-Prem (Helm-deployable self-hostable, air-gapped capable). See `product.md` for state detail.
+- **State:** use `product.md` for the current distributions, lifecycle, and
+  promise boundaries.
 - **Do not say:** *"GroundX is the company"*; *"Valantor's GroundX product"* (slightly awkward — prefer *"the GroundX platform"* or *"GroundX by Valantor"*).
 
 ## 4. EyeLevel — heritage / acquired company
@@ -63,37 +65,52 @@ category, or Outcome Plug-in narrative unless the user asks for that altitude.
 - **Plug-in types** (apply across both categories): **Skills** (discrete reusable capabilities), **Agents** (autonomous multi-step operators), **Hooks** (event-driven triggers at defined workflow points).
 - **Sharing rule:** every Studio plug-in is shareable across projects, teams, and other plug-ins, including Outcome Plug-ins.
 - **Key discipline:** Studio plug-ins are **building blocks**, never outcomes. Outcome Plug-ins (§ 6) are how blocks compose into productized outcomes.
-- **State:** the no-code single UI is in development (Replit-built prototype today; rebuild via the Harness is the path forward). The plug-in / extensibility model is the product description.
+- **State:** use `product.md` for the current lifecycle, promise boundary, and
+  recheck trigger. The plug-in and extensibility model is the durable product
+  description.
 - **Note on naming overlap:** *GroundX Studio* names both the no-code single UI (the product surface) and the extensibility platform (the plug-in model). Context disambiguates. When distinguishing matters, use *the GroundX Studio UI* vs. *GroundX Studio's plug-in model* explicitly.
 
 ## 6. Outcome Plug-ins — productized verticals
 
 - **Role:** Valantor-operated, GroundX-powered vertical solutions. The industrialization layer where Studio plug-ins compose into repeatable, enterprise-grade outcomes.
 - **Naming convention:** **[Outcome]X**.
-- **State as of 2026-05-14:**
-  - **Shipping (GA):** **FraudX**, **ExtractX**. See `product.md` § 6–7 and `outcome-playbooks.md` for buyer / MVP / roadmap detail.
-  - **Illustrative marketing concepts (not shipping):** ClaimsX, ComplianceX, OpsX, FinanceX, GridX. They demonstrate the *[Outcome]X* productization pattern in master-brand materials and analyst briefings. **Do not claim them as products in external content.** Do not invent customer outcomes for them.
+- **Current state:** use `product.md` as the sole lifecycle and promise owner.
+  It distinguishes shipping Outcome Plug-ins from illustrative concepts and
+  records when that decision must be rechecked.
 - **Key discipline:**
   - Outcome Plug-ins are **not** companies.
   - Outcome Plug-ins are **not** bespoke projects — they are repeatable products with defined inputs, outputs, and SLAs.
   - Every Outcome Plug-in is powered by GroundX.
-- **Positioning examples (shipping products only):**
+- **Positioning examples:** use only when `product.md` currently permits the
+  named product claim.
   - *FraudX is an insurance-specific Outcome Plug-in built on GroundX that automates fraud detection with speed, accuracy, and auditability enterprises can trust.*
-  - *ExtractX is the GA Outcome Plug-in for companies and BPOs replacing legacy OCR / templating systems for invoice and document processing.*
+  - *ExtractX is an Outcome Plug-in for companies and BPOs replacing legacy OCR and templating systems for document processing.*
 
 ## 7. Operational Layer — Valantor agents + human-in-the-loop
 
-- **State as of 2026-05-14: concept — no shipping customer product yet.** Valantor has offshore infrastructure (shops in India and Macedonia) capable of scaling once a customer is landed.
+- **State:** use `product.md` for lifecycle, promise boundary, freshness, and
+  recheck trigger.
 - **Intended role:** convert Visual Intelligence into real enterprise outcomes. Agents orchestrated on top of GroundX, Studio plug-ins, and Outcome Plug-ins, paired with human-in-the-loop oversight.
 - **Three intended human roles:** enterprise industrialization, outcome accountability, enterprise-wide AI adoption.
 - **Strategic frame:** *AI + humans accountability* — reframes services from low-multiple consulting into managed AI infrastructure with SLAs and long-term contracts. See `ai-and-humans.md`.
-- **Do not claim shipping status externally.** Investor narrative can articulate the strategic posture; customer-facing surfaces cannot claim the Operational Layer is GA.
+- **Do not infer availability from strategy language.** Apply the current
+  promise boundary in `product.md`.
 
-## 8. GroundX Agent Harness — agentic adoption channel
+## 8. GroundX Harnesses — agentic adoption channels
 
-- **State:** alpha. The skill substrate (this harness) is currently the most modern way to consume GroundX into agent-led workflows.
-- **Role:** drops GroundX-implementation time from months to days for any agent (Claude, Gemini, ChatGPT, Cursor, Replit, openclaw, smolagents, or any agent framework) by giving the agent deep, structured knowledge of GroundX, the brand, and the operating rules.
-- **Not a hierarchical layer.** The Harness sits alongside the stack as a delivery channel — applicable to GroundX, Studio, Outcome Plug-ins, and (in time) Operational Layer surfaces. It is the productization of the *implementation-scale pain* answer (see `../../product-brand-gtm/references/differentiation.md` § 5).
+- **GroundX Agent Harness:** public GroundX knowledge and workflows.
+- **GroundX On-Prem workspace service:** customer-deployable service covered by
+  public operator guidance.
+- **GroundX Studio Harness:** private expanded bundle with prebuilt Studio
+  production, authoring, publishing, administration, and operational workflows.
+- **GroundX MCP:** optional connected execution for live GroundX operations,
+  separate from installed knowledge.
+- **Host agent:** may supply slide, page, application, research, or other
+  capabilities independently of either GroundX bundle. Label those capabilities
+  separately.
+- **Not a hierarchical layer.** The Harnesses sit alongside the stack as
+  delivery channels. Use `../../product-brand-gtm/references/harness-pitch.md`
+  for buyer-facing positioning and bundle policy/manifests for exact membership.
 
 ## 9. Naming rule summary
 
@@ -103,10 +120,10 @@ category, or Outcome Plug-in narrative unless the user asks for that altitude.
 | GroundX by Valantor | EyeLevel by Valantor |
 | GroundX is the platform | GroundX is the company |
 | EyeLevel — A Valantor Company (lockup) | A separately-typed "A VALANTOR COMPANY" tagline next to the logo |
-| FraudX, ExtractX (the GA Outcome Plug-ins) | ClaimsX / ComplianceX / OpsX / FinanceX / GridX as if they ship today |
-| Operational Layer (strategic posture) | Operational Layer as a GA product |
+| Outcome Plug-ins whose current state in `product.md` permits external use | Illustrative names as if they are available products |
+| Operational Layer within its current promise boundary | Strategy language as evidence of availability |
 | Document Plug-ins, Function Plug-ins | Studio plug-ins as outcomes |
-| The GroundX Agent Harness | A custom integration framework (the Harness is the productized version) |
+| GroundX Agent Harness (public) / GroundX Studio Harness (private expanded) | One interchangeable Harness or an unlabeled host capability |
 
 ## 10. Altitude routing
 

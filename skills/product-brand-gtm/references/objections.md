@@ -9,32 +9,56 @@ For the differentiator pillars these anchors live in, see `differentiation.md`. 
 ### 1.1 "We'll just use OpenAI / Claude / Gemini directly."
 
 - **Reframe:** General-purpose AI fails on the documents that actually matter — visually complex policies, claims, contracts, technical diagrams, tables, decision trees. The failure rate is not a feature gap; it is structural. General-purpose models don't see document structure before they reason about it.
-- **Proof:** Air France/KLM's policy documents broke every general-purpose AI they tested before GroundX produced 96.2% accuracy against a 60% target. DocBench superhuman performance against general models. See `proof-points.md` § 1.
+- **Proof:** Select the current eligible customer and benchmark claims from
+  `proof-points.md` § 1; preserve their source, qualifier, and freshness rules.
 
 ### 1.2 "We can build this ourselves."
 
-- **Reframe:** Probably — eventually. The question is the math. The team that built GroundX has been at this since IBM Research, helped lead Watson, did consumer-scale AI at Weather Company, and spent years before the AI craze on this exact problem. The vision model is fine-tuned on 1 million+ pages of enterprise documents. The hybrid search architecture is the product of years of iteration. A six-engineer in-house project is not going to match that in twelve months.
-- **Read the room.** This objection often arrives loaded — when it comes from an IT or engineering audience facing the AI existential crisis (see `buyer.md` § 1), it is sometimes *"we are already building this defensively to keep our team relevant."* In that frame, the pure math argument lands as a threat. The right move is often to acknowledge the internal effort, position GroundX as a force-multiplier that lets their team take on more ambitious work, and route the conversation toward an LOB champion who can speak to business outcomes the internal program is not yet delivering.
-- **Proof:** The heritage arc (see `narrative.md` § 4); the 1M+ pages training corpus; the head-to-head benchmarks against popular RAG tools.
+- **Reframe:** Probably — eventually. The question is the math. The team that
+  built GroundX has been at this since IBM Research, helped lead Watson, did
+  consumer-scale AI at the Weather Company, and spent years on this exact
+  problem. The architecture combines specialized document understanding,
+  focused processing, and hybrid retrieval. Compare the internal build against
+  that full system, not against a single API call.
+- **Read the room.** Treat the internal effort as legitimate. If the buyer
+  explicitly raises displacement, job-security, control, or internal-program
+  ownership concerns, acknowledge the stated concern and position GroundX as a
+  force multiplier. Involve an LOB sponsor when that person owns the business
+  outcome or budget; do not bypass the technical buyer based on role alone.
+- **Proof:** Use the heritage arc from `narrative.md`, the mechanism from
+  `technical-architecture.md`, and any current training-corpus or benchmark
+  claims from `proof-points.md`.
 
 ### 1.3 "Our internal AI team is already building this."
 
-- **Reframe.** Many enterprises are running internal AI projects right now whose primary function is to keep the technical team relevant (see `buyer.md` § 1). Two responses, by audience:
+- **Reframe.** Start by asking what the internal program is intended to deliver,
+  where it is working, and where capacity or document complexity creates a gap.
+  Do not assume the program exists to protect jobs or justify headcount. Two
+  responses, by decision ownership:
   - If the buyer is the LOB owner whose outcomes the internal team is supposed to deliver: ask whether the internal program is hitting the business metrics that matter. If not, the conversation pivots to outcomes the internal program is not yet delivering, and GroundX (or the Operational Layer for outcome-buyers, `product.md` § 9) becomes the path to those outcomes.
-  - If the buyer is IT or engineering themselves: do not argue the internal program is wasted. Position the Harness as a force-multiplier that makes their team more productive across the 500-use-case backlog, not as a replacement. Cite the implementation-scale pain (`buyer.md` § 2).
+  - If the buyer is IT or engineering: do not argue the internal program is
+    wasted. Position the Harness as a force multiplier that makes their team
+    more productive across a large use-case backlog. Apply job-security framing
+    only if the buyer explicitly supplies that signal (`buyer.md` § 1).
 - **Proof:** The implementation-scale pain framing in `buyer.md` § 2; the Harness positioning in `differentiation.md` § 5.
 
 ### 1.4 "Our documents aren't that complex; basic RAG works fine."
 
-- **Reframe:** Two scenarios. If that is true and scale is small, you may not need GroundX yet — buy it when the complexity or volume crosses the line. If you think it is true but scale is high (1000s of pages, 100s of document variants), basic RAG breaks quietly — accuracy degrades, hallucinations creep into corners, and the failure mode is hard to detect until a customer or a regulator finds it.
+- **Reframe:** Two scenarios. If that is true and the corpus is small, you may
+  not need GroundX yet. If the corpus is large or spans many document variants,
+  basic RAG can fail quietly through degraded retrieval, omissions, and
+  hard-to-detect edge cases.
 - **Proof:** The eyelevel.ai head-to-head on vector-DB-loses-accuracy-at-scale; AskVet's data trove was unlocked only after specialized document handling.
 
 ## 2. Deployment and security
 
 ### 2.1 "We can't send our data to a vendor."
 
-- **Reframe:** Then deploy GroundX inside your own environment. For buyer and trust conversations, lead with on-prem, private cloud, residency control, or fully air-gapped operation. For platform engineers, the implementation path is Kubernetes via Helm charts with no external runtime dependencies. Red Hat shipped an OpenShift AI quickstart for it.
-- **Proof:** GroundX On-Prem Helm chart repo at `registry.groundx.ai/helm`. The Red Hat AI quickstart `rh-ai-quickstart/Billing-extraction-with-GroundX`. See `proof-points.md` § 4.
+- **Reframe:** Then deploy GroundX inside your own environment. For buyer and
+  trust conversations, lead with on-prem, private-cloud, residency-control, or
+  supported air-gapped operation. Route platform engineers to
+  `groundx-on-prem` for current Kubernetes, Helm, and runtime requirements.
+- **Proof:** Retrieve eligible third-party validation from `proof-points.md` § 4.
 
 ### 2.2 "We need full data sovereignty."
 
@@ -43,19 +67,28 @@ For the differentiator pillars these anchors live in, see `differentiation.md`. 
 
 ### 2.3 "Our security team won't allow another vendor."
 
-- **Reframe:** The on-prem deployment is your infrastructure. The hosted version is opt-in. The Red Hat partnership reduces vendor surface — you are buying a product Red Hat has validated.
-- **Proof:** Red Hat AI quickstart partnership.
+- **Reframe:** The on-prem deployment runs in customer-controlled
+  infrastructure, while the hosted version is a separate option. Use current
+  deployment facts from `groundx-on-prem`.
+- **Proof:** Retrieve eligible partner validation from `proof-points.md`; do not
+  assert a current partner status from this objection.
 
 ## 3. Cost and operational
 
 ### 3.1 "This is expensive vs free open-source tools."
 
 - **Reframe:** Free open-source tools become expensive at scale — vendor stitching, accuracy degradation, hallucination cleanup, multiple tools to maintain. GroundX's agentic pipeline was designed around focused element-level tasks, so many steps can use smaller, easier-to-self-host models instead of sending whole documents to one frontier model. The premium pays back on accuracy that reduces manual review and on an integrated deployment that avoids a multi-vendor stitching project. Do not promise total cost stops scaling; deployment-level cost still depends on volume, storage, retained artifacts, and model choices.
-- **Proof:** AskVet's 40% → 80% gross margin shift; the architecture-level cost argument in `technical-architecture.md` § 3.
+- **Proof:** Select a current eligible business-outcome claim from
+  `proof-points.md`; pair it with the architecture-level cost argument in
+  `technical-architecture.md` § 3.
 
-### 3.2 "We need to deploy across hundreds of use cases — how do we afford the integration cost?"
+### 3.2 "We have a large use-case backlog — how do we afford the integration cost?"
 
-- **Reframe:** This is the implementation-scale pain. The Agent Harness is the direct answer. Agents that know GroundX intimately stand up new integrations dramatically faster than a one-by-one engineering build — across Claude, Gemini, ChatGPT, Replit, Cursor, smolagents, openclaw, or any agent framework.
+- **Reframe:** This is the implementation-scale pain. GroundX Agent Harness
+  supplies public portable GroundX knowledge and workflows to compatible
+  agents. When private Studio production or operations are actually in scope,
+  GroundX Studio Harness adds the expanded internal capability set. Keep MCP
+  execution and host-client capabilities separately attributed.
 - **Proof:** See `differentiation.md` § 5 and `buyer.md` § 1. The Harness is the operational answer for GroundX-touching use cases.
 
 ## 4. Architecture and technical
@@ -91,13 +124,14 @@ For the differentiator pillars these anchors live in, see `differentiation.md`. 
 
 ### 6.1 "We're not ready yet — still exploring."
 
-- **Reframe:** That is fine. The first ask is light — MNDA, share docs and intent. We can demo on your real documents in days, not weeks. The collaborative deep dive happens after you have seen it work on your material. See `sales-motion.md`.
+- **Reframe:** That is fine. The first ask is light — MNDA, share documents and intent. We can scope a live demo against your material, then use the result to guide a deeper working session. See `sales-motion.md`.
 - **Proof:** The sales process.
 
 ### 6.2 "We need to see it work on our documents."
 
 - **Reframe:** Best signal we can give. Share a clean dataset under MNDA; we can run a live demo against it. This is part of the standard process. See `sales-motion.md`.
-- **Proof:** Air France/KLM's three-month engagement proved out 96.2% accuracy on their actual policy documents.
+- **Proof:** Select the current eligible real-document engagement claim from
+  `proof-points.md`.
 
 ## 7. What this file does not handle
 
