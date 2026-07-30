@@ -188,6 +188,6 @@ If `nvidia-smi` returns a device but GroundX inference pods can't acquire it, ch
 - **Cost levers (disable summary-inference, MIG-share, right-size layout workers)** → `cost-estimation.md` § 3.
 - **OpenShift AI quickstart end-to-end deployment** → `openshift.md`.
 - **GPU metrics in Prometheus / Grafana** → `monitoring.md`.
-- **Per-cloud GPU instance recommendations** → `deployment-options.md` (planned) and `terraform-aws.md` (planned).
+- **Per-cloud GPU instance recommendations** → `deployment-options.md` and `terraform-aws.md`.
 - **NVIDIA proprietary feature flags** (e.g., NVIDIA AI Enterprise licensing) → consult NVIDIA documentation.
-- **Air-gapped GPU Operator install** → `air-gapped.md` (planned).
+- **Air-gapped GPU Operator install** → `air-gapped.md`.

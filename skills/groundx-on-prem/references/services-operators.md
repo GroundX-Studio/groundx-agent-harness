@@ -266,8 +266,8 @@ The full ordered install workflow (with chart-side knobs and validation checks) 
 - **The chart's per-subsystem `existing.*` field surface** → `service-substitution.md` § 4.
 - **The chart's per-pod resource and replica defaults** → `node-groups.md`, `cluster-requirements.md`.
 - **Helm install command sequencing (install-flow ordering)** → `install-flow.md`.
-- **NVIDIA GPU Operator deep-dive (driver versions, MIG, time-slicing, troubleshooting)** → `gpu-operator.md` (planned).
+- **NVIDIA GPU Operator deep-dive (driver versions, MIG, time-slicing, troubleshooting)** → `gpu-operator.md`.
 - **TLS-cert provisioning for backing services** → `tls-and-certs.md`.
 - **Backup / restore strategy for each backing service** → operator-specific docs upstream; not chart-side.
-- **OpenShift-specific operator considerations** → `openshift.md` (planned).
-- **Air-gapped operator-image mirroring** → `air-gapped.md` (planned).
+- **OpenShift-specific operator considerations** → `openshift.md`.
+- **Air-gapped operator-image mirroring** → `air-gapped.md`.

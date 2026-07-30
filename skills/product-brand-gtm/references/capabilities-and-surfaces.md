@@ -1,12 +1,14 @@
 # Functional Capabilities and Consumption Surfaces
 
-GroundX has two functional capabilities and three buyer-facing consumption surfaces:
-Harness, Studio, and APIs/SDKs. GroundX MCP is the preferred connected-agent execution path
-inside the direct-integration surface. These are independent axes — a buyer picks one (or
-both) capabilities and consumes them through one (or more) surfaces. Lead with the Harness
-when the pain is implementation velocity. For an installed agent that already has GroundX
-MCP connected, MCP is the preferred tool-execution path; the Harness is the knowledge and
-workflow layer that helps the agent use GroundX well.
+GroundX has two functional capabilities and three buyer-facing consumption
+surfaces: the Harness knowledge layer, Studio UI, and direct integrations.
+GroundX MCP is optional connected execution inside the direct-integration
+surface. These are independent axes — a buyer picks one or both capabilities and
+uses one or more surfaces.
+
+The Harness surface has two bundles: the public GroundX Agent Harness and the
+private expanded GroundX Studio Harness. The host AI client may supply separate
+creation capabilities; do not attribute those to a GroundX bundle.
 
 For the technical mechanism that powers both capabilities, see `technical-architecture.md`.
 
@@ -18,7 +20,8 @@ A buyer can use either or both.
 
 Convert documents into structured outputs with human-like reasoning — not pure OCR. Use cases:
 
-- **Data extraction.** Pull fields, values, relationships, and context from documents with precision. The same field pulled from 40 different document formats can be normalized into consistent structured output.
+- **Data extraction.** Pull fields, values, relationships, and context from
+  varied document formats and normalize them into consistent structured output.
 - **Structured data for graph databases.** Populate knowledge graphs from documents at scale.
 - **Fine-tuning data for models.** Turn document corpora into training data in the formats models expect.
 
@@ -44,13 +47,25 @@ wants a ready UI, and APIs/SDKs when an engineering team is embedding GroundX di
 the direct-integration surface, use MCP when a connected agent operates GroundX tools; use
 REST/SDKs for direct app/backend integration, development targets, and fallback paths.
 
-### 2.1 GroundX Agent Harness — the AI Agent Harness
+### 2.1 GroundX Harnesses — the AI Agent Harness surface
 
-The Harness is an **AI Agent Harness**: a plugin of skills, connectors, and design patterns that gives agents — Claude, Gemini, ChatGPT, Replit, Cursor, smolagents, openclaw, or any plugin-supporting agent framework — fluency in GroundX so they can build robust end-user or system integrations.
+- **GroundX Agent Harness** is the public GroundX knowledge and workflow bundle.
+- **GroundX On-Prem workspace service** can be enabled and operated by customers
+  using public deployment and operator guidance.
+- **GroundX Studio Harness** is the private expanded bundle with prebuilt Studio
+  production, authoring, publishing, administration, and operational workflows
+  that may use the workspace service.
+- **GroundX MCP** is optional connected execution, separate from either
+  installed knowledge bundle.
+- **Host-agent capabilities** remain separately labeled when Claude, Codex,
+  ChatGPT, Gemini, or another client supplies them independently.
 
-**Why lead with it.** This is GroundX's answer to the implementation-scale pain (*"I have 500 AI agent use cases, how am I going to implement them all?"* — see `buyer.md` § 1). Agents that know GroundX intimately stand up new integrations dramatically faster than a one-by-one engineering build.
+**Why lead with the Harness surface.** It answers implementation-scale pain by
+giving agents GroundX-specific knowledge instead of forcing each team to
+rediscover the platform for every workflow.
 
-**Integration patterns it supports.** API workflow integrations, connected-agent MCP workflows, plugin agentic integrations, customized UI.
+Use `harness-pitch.md` for buyer-facing pattern attribution. Use bundle policy
+and generated manifests, not GTM prose, for exact membership.
 
 ### 2.2 GroundX Studio — the no-code single UI
 
@@ -76,18 +91,19 @@ know which direct-integration path is in use.
 
 You can mix any capability with any surface.
 
-| Capability \ Surface | Agent Harness | Studio (UI) | Direct Integration (API / SDK / MCP) |
+| Capability \ Surface | Harness knowledge layer | Studio (UI) | Direct Integration (API / SDK / MCP) |
 | --- | --- | --- | --- |
-| Document understanding | Agents ingest + extract from any framework | Extract use case in the UI | REST/SDK ingest + extraction API; MCP ingest when connected |
-| Full end-to-end RAG | Agents ingest + retrieve + ground answers from any framework | Interact and Report use cases in the UI | REST/SDK search + retrieval API; MCP search when connected |
+| Document understanding | Guide agents to ingest and extract through a supported execution path; prebuilt Studio production workflows require the private bundle or a separately labeled host capability | Extract use case in the UI | REST/SDK ingest + extraction API; MCP ingest when connected |
+| Full end-to-end RAG | Guide agents to ingest, retrieve, and ground answers through a supported execution path | Interact and Report use cases in the UI | REST/SDK search + retrieval API; MCP search when connected |
 
 ## 4. How to talk about the matrix in a pitch
 
 The matrix is a closing tool, not an opening one. Lead with the capability the buyer cares
-about (extraction for a CFO; RAG for a customer-service exec; both for a CIO). Then map to
-the consumption surface that fits the team — Harness for engineering velocity, Studio for
-non-technical immediate use, APIs/SDKs for engineering embed, and MCP for connected-agent
-operation inside that direct-integration path.
+about (extraction for a CFO; RAG for a customer-service exec; both for a CIO).
+Then map to the consumption surface that fits the team — the appropriate Harness
+bundle for agent guidance, Studio for non-technical use, APIs/SDKs for
+engineering embed, and MCP for connected-agent operation inside the
+direct-integration path.
 
 A common bad framing: pitching three surfaces as if they're the value prop. The value prop is the accuracy, on-prem story, integrated architecture, and heritage (see `differentiation.md`). Surfaces are how the buyer touches that value, not the value itself.
 

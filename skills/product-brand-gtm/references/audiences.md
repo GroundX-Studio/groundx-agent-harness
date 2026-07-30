@@ -2,18 +2,28 @@
 
 Persona-axis overlay on the message-axis. Use this file to adapt the pitch shape — defined in `buyer.md` — to a specific buyer persona without changing the underlying claims.
 
-For the master market context (the AI-existential-crisis dynamic) that shapes every audience, see `buyer.md` § 1. For the implementation-scale pain, see `buyer.md` § 2. For the differentiator pillars used to construct each persona pitch, see `differentiation.md`.
+For the conditional organizational-risk signal, see `buyer.md` § 1. For the
+implementation-scale pain, see `buyer.md` § 2. For the differentiator pillars
+used to construct each persona pitch, see `differentiation.md`.
 
-**Audience ordering note.** Line-of-Business owners (§ 1 below) are listed first because the existential-crisis dynamic makes them the preferred buyer wherever a choice exists. CIO / VP Eng / Data Lead audiences (§§ 2–4) are framed as **potentially hostile gatekeepers with competing internal AI projects** rather than as straightforward technical buyers.
+**Audience ordering note.** Line-of-Business owners (§ 1 below) are listed first
+because many product pitches begin with a measurable business outcome. This is
+not a ranking of stakeholder legitimacy. CIO / VP Eng / Data Lead audiences
+(§§ 2–4) are technical collaborators and buyers by default.
 
 ## 1. Line-of-Business owner (Customer Service, Claims, Compliance, Operations, Fraud Investigation, BPO ops)
 
-**Why this audience comes first.** LOB owners measure their world in outcomes the business already understands — cost per case, resolution rate, fraud-detect rate, margin, FTE displacement, time-to-revenue. They are not threatened by AI in the same way IT and engineering are; they are looking for tools that help them hit business metrics. They are the buyer the existential-crisis dynamic in `buyer.md` § 1 directs us toward.
+**Why this audience comes first.** LOB owners measure their world in outcomes
+the business already understands — cost per case, resolution rate, fraud-detect
+rate, margin, capacity, and time-to-revenue. Start here when this stakeholder
+owns the business result or budget.
 
 **What they care about.** Business outcomes. Cost reduction. Time-to-value. Whether the system actually answers the customer's question or pulls the right field from the document without hallucinating. Champion-readiness — can they walk it into IT and defend the choice.
 
 **Pitch shape.**
-- Lead with **customer outcomes** — Air France/KLM 96.2% beating a 60% target, AskVet's 40% → 80% margin shift and 70–85% autonomous resolution, FraudX in production with four product surfaces and 20+ investigator-defined fraud checks.
+- Lead with an eligible **customer outcome** from `proof-points.md` and the
+  current matching capability or lifecycle state from `product.md`. Keep claim
+  values and qualifiers in their owners.
 - Lead second with **the Operational Layer concept** if the buyer would rather pay for the outcome than for a tool — see `product.md` § 9.
 - Pillar order: 2 (accuracy proof) → 5 (Harness as adoption velocity) → 1 (on-prem if compliance comes up) → 4 (integrated architecture) → 3 (heritage).
 - Reference `proof-points.md` § 1 and § 2, and `product.md` § 6 (FraudX) or § 7 (ExtractX) when there's a vertical fit.
@@ -22,41 +32,51 @@ For the master market context (the AI-existential-crisis dynamic) that shapes ev
 
 ## 2. CIO / CTO
 
-**Audience context.** Often facing the AI existential crisis personally — they are accountable for AI strategy at the same time they may have an internal team building AI projects defensively. They may quietly want the vendor solution to succeed, or may quietly want it to fail to protect their internal program.
+**Audience context.** Accountable for AI strategy, standardization, governance,
+and the performance of internal and external delivery paths. Do not infer hidden
+motives from the role. Apply `buyer.md` § 1 only when the buyer explicitly
+raises an organizational-risk concern.
 
 **What they care about (stated).** AI-native transformation across the enterprise. Hundreds of AI use cases at varying maturity. Standardization that keeps switching costs down and platform debt manageable.
 
-**What they often care about (unstated).** Whether bringing in this vendor will be seen as undermining their internal team's relevance. Whether they can position the adoption as their own initiative.
-
 **Pitch shape.**
-- Lead with the implementation-scale pain — it frames the conversation as *how do we scale AI across 500 use cases* rather than *here's another AI vendor*.
-- **Find an LOB champion in parallel** — even when the CIO is the convening buyer, the LOB voice de-risks the pitch by showing demand is from business operations, not from IT being sold to.
+- Lead with the implementation-scale pain — frame the conversation around how
+  the organization can scale a large AI use-case backlog, rather than around
+  another isolated AI vendor.
+- Include the LOB outcome owner when the decision spans business metrics,
+  operational adoption, or a separate budget.
 - Pillar order: 5 (Harness as the operational answer) → 2 (accuracy bar that scales) → 1 (on-prem for compliance breadth) → 4 (integrated architecture) → 3 (heritage).
 - Emphasize: standardization, multi-use-case economics, model-agnostic posture, **the Harness as a force-multiplier that makes the internal team more productive, not redundant.**
 - De-emphasize: low-level technical mechanism (defer to VP Eng).
 
 ## 3. VP / Director of Engineering
 
-**Audience context.** Closest to the existential crisis. Their team often *is* the internal AI project the CIO is protecting. Pitching here without acknowledging that dynamic is the fastest way to lose the room.
+**Audience context.** Owns implementation feasibility, integration quality, and
+operational burden. Treat the team's existing work as relevant technical
+context, not as evidence of defensive motives.
 
 **What they care about (stated).** Can their team actually build with this. Integration complexity. Operational burden. Whether the system can be self-hosted, governed, and observed.
 
-**What they often care about (unstated).** Whether adopting this vendor solution means their team gets smaller, or whether it lets their team take on more ambitious work. The Harness pitch lands much better when framed as the second.
-
 **Pitch shape.**
-- Lead with on-prem / Helm / Red Hat partnership (pillar 1) and integrated architecture (pillar 4) — these are *engineering excellence* messages that earn respect without threatening.
+- Lead with on-prem / Helm deployment (pillar 1) and integrated architecture
+  (pillar 4). Add eligible partner validation from `proof-points.md` when the
+  artifact needs substantiation.
 - Pillar order: 1 → 4 → 2 → 5 → 3.
 - Open the technical-architecture conversation. Reference `technical-architecture.md`.
-- Emphasize: Helm chart deployability, SDKs in Python and TypeScript, MCP wrapper, autoscaling, no external dependencies in air-gapped mode, **the Harness as a tool that makes their team's work tractable across the 500-use-case backlog rather than replaceable.**
-- De-emphasize: business outcomes (defer to LOB); the *we will do it for you* Operational Layer framing — that reads as threatening to this audience.
+- Emphasize: Helm chart deployability, SDKs in Python and TypeScript, MCP
+  integration, autoscaling, no external dependencies in air-gapped mode, and
+  **the Harness as a tool that makes a large use-case backlog tractable for
+  their team rather than replacing it.**
+- De-emphasize: business outcomes (defer to LOB) and the Operational Layer when
+  the conversation is specifically about implementation mechanics.
 
 ## 4. Data Lead / Head of ML / Head of AI
 
-**Audience context.** Often running the defensive internal AI project. Often a vector-database believer or a build-from-foundation-models believer. Cynical about new AI vendors.
+**Audience context.** Often owns an internal AI program and has made deliberate
+architecture choices. Expect technical scrutiny and compare approaches on
+evidence.
 
 **What they care about (stated).** Accuracy at scale on the actual document corpus. Whether RAG will work. Whether extraction will hold up across document variants. Vector DB tradeoffs.
-
-**What they often care about (unstated).** Whether GroundX's approach validates or invalidates the architectural bets they have made internally. A pitch that argues *vector-DB-only loses accuracy at scale* (one of our head-to-head posts) can read as a personal attack.
 
 **Pitch shape.**
 - Lead with the **accuracy pillar (pillar 2)** and the technical "why" behind it — let the architecture earn the credibility rather than asserting it.
@@ -72,8 +92,9 @@ For the master market context (the AI-existential-crisis dynamic) that shapes ev
 **Pitch shape:**
 - Lead with on-prem / air-gapped optionality (pillar 1) — *we can deploy inside your perimeter; you do not have to send data anywhere.*
 - Pillar order: 1 → 3 (heritage as trust signal) → 4 → 2 → 5.
-- Reference the Red Hat OpenShift AI partner quickstart.
-- Emphasize: deployment options (cloud, on-prem, air-gapped), Red Hat partnership, model-agnostic posture, decade-plus team heritage.
+- Reference current eligible third-party validation from `proof-points.md`.
+- Emphasize: deployment options, customer control, model-agnostic posture, and
+  durable team heritage.
 - De-emphasize: forward-looking features.
 
 ## 6. Investor (founder / executive briefing)
@@ -88,7 +109,9 @@ For the master market context (the AI-existential-crisis dynamic) that shapes ev
 
 ## 7. FraudX buyer cuts (vertical-specific overlay on § 1 LOB owner)
 
-FraudX is the first shipping Outcome Plug-in (see `product.md` § 6 for product detail). Its buyers cut across the insurance-fraud value chain — same Outcome Plug-in, configured to how each team works the file. Treat these as vertical-specific instances of § 1 (Line-of-Business owner) — each has its own outcome the business already measures.
+When `product.md` permits FraudX positioning, its buyers cut across the
+insurance-fraud value chain. Treat these as vertical-specific instances of § 1
+(Line-of-Business owner), each with an outcome the business already measures.
 
 ### 7.1 Carriers & TPAs / Claims teams
 
@@ -128,7 +151,7 @@ FraudX is the first shipping Outcome Plug-in (see `product.md` § 6 for product 
 - Carriers/TPAs and SIU usually live inside the same buying organization (carrier with in-house SIU); the conversation flows between them but the budget often sits with the carrier's claims operations leader.
 - Legal / GC + law firm buyers are typically external to the carrier and buy on their own contract — *don't conflate them with carrier SIU in the same deal motion*.
 - For the master-brand-altitude reframe of these four cuts, see `../../master-brand-gtm/references/outcome-playbooks.md` § 1 (FraudX buyer).
-- For the customer voice on the record, see `../../master-brand-gtm/references/proof-points.md` § 7 quote bank (Kirk Willis / Andriana Vamvakas / Dan Hickey).
+- For eligible customer voice, use this skill's canonical `proof-points.md` quote bank.
 
 ## 8. Persona cross-pitch rules
 

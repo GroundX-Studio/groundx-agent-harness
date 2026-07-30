@@ -167,7 +167,7 @@ Air-gapped clusters can't pull updates automatically. The update procedure:
 4. **Transfer new chart tarball into the air-gapped environment**.
 5. **`helm upgrade`** with the new chart + new image references.
 
-See `upgrades.md` (planned) for the general upgrade flow; air-gapped just adds the mirror-and-transfer step at the front.
+See `upgrades.md` for the general upgrade flow; air-gapped just adds the mirror-and-transfer step at the front.
 
 ## 11. Cross-field implications
 

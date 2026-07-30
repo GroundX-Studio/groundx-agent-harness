@@ -2,7 +2,11 @@
 
 Persona-axis overlay on the master-brand message-axis. Use this file to adapt the master-brand pitch — defined in `buyer.md`, `narrative.md`, `investor-narrative.md`, and `ai-and-humans.md` — to a specific buyer persona at master-brand altitude.
 
-For the existential-crisis dynamic that frames every persona, see `buyer.md` § 1. For the LOB-as-outcome-buyer routing, see `buyer.md` § 6. For product-altitude personas (CIO / VP Eng / Data Lead / LOB at the GroundX product level), see `../../product-brand-gtm/references/audiences.md` — that file owns product-altitude audience cuts.
+For the conditional organizational-risk signal, see `buyer.md` § 1. For
+outcome-owner routing, see `buyer.md` § 6. For product-altitude personas (CIO /
+VP Eng / Data Lead / LOB at the GroundX product level), see
+`../../product-brand-gtm/references/audiences.md` — that file owns
+product-altitude audience cuts.
 
 **Master-brand audiences are typically more senior, more strategy-oriented, and more business-outcome-driven than product-altitude audiences.** The pitch shape shifts accordingly.
 
@@ -25,8 +29,10 @@ For the existential-crisis dynamic that frames every persona, see `buyer.md` § 
 - Lead with the outcomes-vs-tools posture and the AI+humans-accountability valuation framing.
 - Pillar order: infrastructure-grade economics → outcome-buying clarity → multi-year contract economics → category-defining positioning.
 - Reference `ai-and-humans.md` § 3 (valuation signals) and `investor-narrative.md` § 6 (four valuation pillars).
-- Emphasize: the Operational Layer's strategic posture (paying for outcomes, not tools) — explicitly flagged as concept-only today.
-- Cite AskVet's 40% → 80% margin shift as the customer-economics proof at this altitude.
+- Emphasize the outcomes-not-tools posture only within the current Operational
+  Layer promise boundary from `product.md`.
+- Use an eligible customer-economics proof from `proof-points.md`; keep the
+  current value and qualifier in that owner.
 - De-emphasize: visual mechanism, product-feature lists.
 
 ## 3. Board / Director
@@ -57,9 +63,12 @@ For the existential-crisis dynamic that frames every persona, see `buyer.md` § 
 
 **Pitch shape.**
 - Lead with the category claim (`visual-intelligence.md` § 1) and the data comprehension gap framing.
-- Pillar order: category definition → vertical proof (FraudX, ExtractX shipping) → third-party validation (Red Hat partnership) → strategic frame (AI+humans, Operational Layer concept).
-- Reference Seamless Partners coverage (`proof-points.md` § 4.2) as the analyst-style independent-analysis precedent.
-- Emphasize: precise category definition, named vertical proofs, named partnerships.
+- Pillar order: category definition → current eligible vertical proof →
+  current eligible third-party validation → strategic frame (AI+humans,
+  Operational Layer concept).
+- When eligible, use the Seamless Partners record from the canonical proof owner as the analyst-style independent-analysis precedent.
+- Emphasize: precise category definition and only the vertical or partner proof
+  currently eligible in `proof-points.md`.
 - De-emphasize: product-feature detail, internal-state details.
 
 ## 6. Industry leader / vertical executive (insurance, financial services, healthcare, public sector, energy)
@@ -68,21 +77,32 @@ For the existential-crisis dynamic that frames every persona, see `buyer.md` § 
 
 **Pitch shape.**
 - Lead with the vertical thesis and the Outcome Plug-in productization pattern.
-- Pillar order: vertical-specific Outcome Plug-in (if shipping) or vertical-thesis fit (if not) → regulated-deployment capability → AI+humans accountability → infrastructure-grade contract economics.
+- Pillar order: a currently eligible vertical Outcome Plug-in or the stable
+  vertical-thesis fit → regulated-deployment capability → AI+humans
+  accountability → infrastructure-grade contract economics.
 - Reference `verticals.md` for the thesis and `outcome-playbooks.md` for the relevant Outcome Plug-in.
-- Emphasize: on-prem / air-gapped deployment, Red Hat OpenShift quickstart, regulated-vertical accuracy bar (Air France / KLM 96.2% as the cross-vertical proof).
-- De-emphasize: master-brand framing if the executive is asking *what does it do for my industry today.* Pivot to vertical-specific Outcome Plug-in (FraudX for insurance, ExtractX for document-ops) when available.
+- Emphasize: on-prem / air-gapped deployment, eligible third-party validation,
+  and the current regulated-enterprise accuracy proof from `proof-points.md`.
+- De-emphasize master-brand framing if the executive is asking what it does for
+  the industry today. Use only the vertical product that `product.md` currently
+  marks eligible.
 
 ## 7. CIO / CTO / Head of AI (when at master-brand altitude)
 
-**Audience context.** Technical executives appearing in master-brand conversations (an investor roadshow stop, a board presentation, a category-creation white paper review). Often facing the existential-crisis dynamic personally (see `buyer.md` § 1 and `../../product-brand-gtm/references/audiences.md` § 2–4).
+**Audience context.** Technical executives appearing in master-brand
+conversations (an investor roadshow stop, a board presentation, a
+category-creation white paper review). Treat them as collaborators and apply
+the organizational-risk framing in `buyer.md` § 1 only when they explicitly
+supply that signal.
 
 **Pitch shape.**
 - Lead with the implementation-scale pain and the platform-plus-Harness operational answer.
 - Pillar order: data-comprehension-gap framing → platform-and-Harness operational answer → AI+humans accountability → governance / on-prem.
-- Reference `../../product-brand-gtm/references/audiences.md` for the technical-buyer routing-around-hostility framing.
+- Reference `../../product-brand-gtm/references/audiences.md` for the
+  product-level technical-buyer pitch.
 - Emphasize: the Harness as a force-multiplier (not a replacement) for the internal technical team; governance and on-prem reduce vendor risk.
-- De-emphasize: outcomes-vs-tools framing as a primary lead (it reads as threatening to this audience — see `../../product-brand-gtm/references/audiences.md` § 3).
+- De-emphasize: outcomes-vs-tools framing when the conversation is about
+  implementation mechanics rather than business-model strategy.
 
 ## 8. Persona cross-pitch rules
 

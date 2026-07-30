@@ -17,7 +17,9 @@ for the user to name Valantor, master brand, GTM, positioning, or messaging.
 
 1. Start in `../SKILL.md` for the public routing contract.
 2. Pick one reference from the map below.
-3. Open `proof-points.md` before using any customer, benchmark, outcome, or logo.
+3. Open `proof-points.md` automatically for investor, board, RFP, one-pager,
+   objection, benchmark, or other evidence-bearing work. For a neutral company
+   explanation, do not volunteer volatile proof.
 4. Open `brand-hierarchy.md` whenever Valantor, GroundX, or EyeLevel naming comes up.
 
 ## Reference Map
@@ -47,5 +49,6 @@ for the user to name Valantor, master brand, GTM, positioning, or messaging.
 | Schema-first extraction workflow authoring | `groundx-extraction-workflows` |
 | GroundX deployment details | `groundx-on-prem` |
 
-Do not claim illustrative products are shipping. Do not invent customer outcomes or
-proof points.
+Use `product.md` for every lifecycle or availability claim. Do not turn an
+illustrative name into a product promise, and do not invent customer outcomes
+or proof points.

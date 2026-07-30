@@ -32,9 +32,13 @@ Five layers, named at master-brand altitude (the same architecture lives in `bra
 
 1. **Visual Intelligence platform (GroundX)** — converts raw visual data into trusted, structured, model-ready intelligence. The foundation.
 2. **Extensibility (GroundX Studio + plug-ins)** — Document Plug-ins and Function Plug-ins composed of Skills, Agents, and Hooks. Building blocks, never outcomes.
-3. **Outcome layer (Outcome Plug-ins)** — vertical solutions composing Studio plug-ins into repeatable products with defined SLAs. FraudX and ExtractX shipping; others illustrative.
-4. **Operational layer (Valantor agents + human orchestration)** — converts Visual Intelligence into real enterprise outcomes through agent-and-human orchestration. Concept-only today.
-5. **Adoption layer (GroundX Agent Harness — agentic adoption)** — drops implementation time from months to days for any GroundX-touching use case.
+3. **Outcome layer (Outcome Plug-ins)** — vertical solutions composing Studio
+   plug-ins into repeatable products. Use `product.md` for current lifecycle and
+   promise boundaries.
+4. **Operational layer (Valantor agents + human orchestration)** — the
+   strategic model for converting Visual Intelligence into accountable
+   outcomes. Use `product.md` for current lifecycle and promise boundaries.
+5. **Adoption layer (GroundX Harnesses)** — gives compatible agents GroundX-specific knowledge and workflows for scaling GroundX-backed use cases. Use `product.md` for lifecycle state and `../../product-brand-gtm/references/harness-pitch.md` to distinguish the public Agent Harness, private Studio Harness, optional MCP execution, and host-client capabilities.
 
 The stack is the answer to *how is Visual Intelligence delivered*. Each layer composes onto the one below; every layer is powered by GroundX (the platform layer is never optional).
 
@@ -51,7 +55,9 @@ Use these in white papers, analyst briefings, and category-defining materials:
 
 - *Visual Intelligence is the foundational capability AI-native enterprises need to close the data comprehension gap.*
 - *Existing categories — IDP, RAG, Document AI — each solve a fragment. Visual Intelligence integrates them.*
-- *The data comprehension gap is structural, not a tooling or skills problem. It is the bottleneck blocking AI deployment across the hundreds of use cases enterprises are racing to operationalize.*
+- *The data comprehension gap is structural, not a tooling or skills problem.
+  It blocks AI deployment across the large portfolio of document-intensive use
+  cases enterprises are trying to operationalize.*
 - *Visual Intelligence becomes the enterprise system of record for understanding and operationalizing visual data — model-agnostic, deployment-agnostic, security-first.*
 - *AI + Humans accountability is what enterprises buy at scale, not raw AI capability. Visual Intelligence is the substrate that makes AI+Humans accountability practical.*
 

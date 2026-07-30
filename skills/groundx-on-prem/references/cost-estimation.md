@@ -150,7 +150,7 @@ Don't skip step 1. Substitution choices propagate through every other estimate.
 - **Operator installation specifics** → `services-operators.md`.
 - **Summary engine selection (the biggest single GPU lever)** → `engines.md`.
 - **Workspace runner subsystem footprint** → `workspace-service.md`.
-- **HPA / autoscaling specifics** → `autoscaling.md` (planned).
+- **HPA / autoscaling specifics** → `autoscaling.md`.
 - **AWS-specific helpers (e.g., `bin/environment` for VPC/EKS setup, `bin/estimate` for capacity aggregation)** → optional AWS tooling not required by the chart; out of scope here. The chart itself is cloud-agnostic.
 - **Cloud-provider pricing math** → out of scope; consult cloud-provider pricing calculators. The chart only models the in-cluster footprint, not the per-instance / per-service pricing.
 - **TCO modelling (license + support + ops + compute)** → out of scope; depends on procurement model.

@@ -299,7 +299,7 @@
     },
     "groundx-architecture": {
       "mode": "public-profile",
-      "reason": "Approved architecture facts for installed agents; public wrapper blocks internal frontend/workspace implementation surfaces.",
+      "reason": "Approved architecture facts for installed agents; public output keeps On-Prem workspace architecture while blocking private Studio workflow and frontend implementation surfaces.",
       "runtimeFamily": "reference",
       "runtimeAddOns": [],
       "commandPrefixes": [],

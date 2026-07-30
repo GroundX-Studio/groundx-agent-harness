@@ -169,5 +169,5 @@ The deployment archetypes in `values-authoring.md` § 4 map to mode choices as:
 - **Architectural picture of which microservices run when** → `groundx-architecture/references/overview.md`.
 - **Workspace runner architecture** → `groundx-architecture/references/workspace-architecture.md`.
 - **Per-microservice resource sizing per mode** → `cluster-requirements.md` § 6 + `node-groups.md`.
-- **Cost implications of mode choice** → `cost-estimation.md` (planned).
+- **Cost implications of mode choice** → `cost-estimation.md`.
 - **Backing-service decision per mode** → `services-prereqs.md`.

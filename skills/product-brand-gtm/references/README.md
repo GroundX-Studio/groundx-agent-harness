@@ -8,8 +8,9 @@ buyer framing, objections, or product descriptions.
 
 1. Start in `../SKILL.md` for the public routing contract.
 2. Pick one reference from the map below.
-3. Open `proof-points.md` before using any customer, benchmark, accuracy, or outcome
-   claim.
+3. Open `proof-points.md` automatically for one-pagers, RFPs, objection
+   responses, sales substantiation, benchmarks, or other evidence-bearing work.
+   For a neutral product explanation, do not volunteer volatile proof.
 4. Open `brand-relationship.md` whenever GroundX, EyeLevel, and Valantor naming or
    hierarchy comes up.
 
@@ -21,7 +22,7 @@ buyer framing, objections, or product descriptions.
 | Differentiator pillars | `differentiation.md` |
 | Technical "why" behind accuracy claims | `technical-architecture.md` |
 | Product surfaces and capabilities | `capabilities-and-surfaces.md`, `product.md` |
-| GroundX Agent Harness positioning | `harness-pitch.md` |
+| Public Agent Harness, private Studio Harness, MCP, and host capability attribution | `harness-pitch.md` |
 | Proof points and outcomes | `proof-points.md` |
 | Buyer-specific framing | `audiences.md`, `buyer.md` |
 | Objections | `objections.md` |

@@ -8,7 +8,9 @@ The Valantor master-brand story. Headline, category claim, the data comprehensio
 
 This is the master-brand headline for valantor.com hero, investor materials, category-creation white papers, analyst briefings. It asserts the category — *Visual Intelligence* — and Valantor's ownership of it.
 
-Pair with a specific proof point when space allows: *99% accuracy at scale*, *AI + Human accountability layer*, or one of the customer outcomes from `proof-points.md`.
+For an evidence-bearing artifact, pair the narrative with an eligible current
+claim from `proof-points.md`. For a neutral explanation, do not volunteer
+volatile proof.
 
 ## 2. The one-line pitch
 
@@ -17,7 +19,12 @@ Valantor is the enterprise platform for Visual Intelligence — converting unstr
 ## 3. The three-line pitch
 
 - **The problem.** Enterprises are mandating AI-native transformation, but the data that drives their business — contracts, claims, policies, technical diagrams, scanned forms, decision trees — is locked in unstructured visual formats general-purpose AI cannot reliably read at scale. The *data comprehension gap* blocks AI from the use cases that matter most.
-- **The platform.** Valantor closes the gap. The GroundX platform converts raw visual data into trusted, structured, model-ready intelligence. GroundX Studio extends it through Document Plug-ins and Function Plug-ins. Outcome Plug-ins productize the intelligence into repeatable vertical solutions (FraudX, ExtractX shipping today). The Operational Layer pairs AI agents with human-in-the-loop oversight for outcomes-as-a-service.
+- **The platform.** Valantor closes the gap. The GroundX platform converts raw
+  visual data into trusted, structured, model-ready intelligence. GroundX
+  Studio extends it through Document Plug-ins and Function Plug-ins. Outcome
+  Plug-ins productize the intelligence into repeatable vertical solutions, and
+  the Operational Layer describes AI plus human accountability. Use
+  `product.md` for current lifecycle and promise boundaries.
 - **The accountability.** AI alone is not what enterprises buy at scale; what they buy is **AI + Humans accountability** orchestrated into trusted operational outcomes. Valantor is the infrastructure-grade partner — not a tool vendor.
 
 ## 4. The data comprehension gap
@@ -31,7 +38,8 @@ Use *"the data comprehension gap"* as the named enterprise problem at master-bra
 Three forces compound:
 
 - **AI-native transformation mandate.** Boards are putting it in writing across every sector.
-- **Hundreds of AI use cases per enterprise.** Companies are not doing one AI thing; they are racing across an enormous backlog of use cases simultaneously.
+- **A large AI use-case backlog.** Companies are pursuing many use cases at
+  once rather than one isolated AI project.
 - **Most of the data is locked in visual formats.** The implementation-scale pain meets the data-comprehension barrier; together they define the bottleneck that no general-purpose AI tool has solved.
 
 Visual Intelligence is the foundational capability required to close it.
@@ -40,7 +48,10 @@ Visual Intelligence is the foundational capability required to close it.
 
 The narrative is *we have been doing this longer than anyone, and built the system that was always going to be needed.* At master-brand altitude, the heritage compresses:
 
-- The Valantor / GroundX team came out of IBM Research, helped lead the formation of IBM Watson, did consumer-scale AI at the Weather Company, and spent years before the AI craze on this specific problem. Built from first principles. User approximately #20 of ChatGPT.
+- The Valantor / GroundX team came out of IBM Research, helped lead the
+  formation of IBM Watson, did consumer-scale AI at the Weather Company, and
+  spent years before the current AI boom on this specific problem. Built from
+  first principles.
 
 Use the full version in analyst briefings and category-creation white papers. Compress to a sentence in shorter formats. The full product-altitude arc lives in `../../product-brand-gtm/references/narrative.md` § 4 — re-cite from there rather than restate.
 
@@ -66,10 +77,17 @@ For enterprise / regulated buyers, lead with assured intelligence and infrastruc
 
 For investors and analysts:
 
-> Valantor defines and owns the Visual Intelligence category — the enterprise capability to operationalize unstructured visual data at scale. The data comprehension gap is the structural barrier no general-purpose AI tool has solved. Visual Intelligence is the foundational layer enterprises must standardize on to deploy AI thoughtfully across hundreds of use cases. Valantor is positioned as the control plane: where understanding, governance, execution, and accountability converge.
+> Valantor defines and owns the Visual Intelligence category — the enterprise
+> capability to operationalize unstructured visual data at scale. The data
+> comprehension gap is a structural barrier for general-purpose AI. Visual
+> Intelligence is the foundational layer for deploying AI across a large
+> portfolio of document-intensive use cases. Valantor is positioned as the
+> control plane where understanding, governance, execution, and accountability
+> converge.
 
 ## 10. What the narrative does not claim
 
 - Not a tool vendor. Not an AI-craze startup. Not a model company.
 - Not the product brand. *GroundX is the platform; Valantor is the company.* Product positioning lives in `../../product-brand-gtm/`.
-- Not all outcomes today. FraudX and ExtractX are the shipping vertical proofs; the rest of the Outcome Plug-in family is illustrative until productized. The Operational Layer is concept-only. See `product.md`.
+- Not every strategy is a current product promise. Apply the lifecycle,
+  promise, source, and recheck record from `product.md`.

@@ -22,7 +22,11 @@ RFP/message review, EyeLevel heritage questions, and public product/company ques
   MCP setup/tool use routes to `groundx-mcp`; REST/SDK API semantics route to
   `groundx-api`; extraction workflow authoring routes to `groundx-extraction-workflows`;
   deployment details route to `groundx-on-prem`.
-- **Before producing output:** read the relevant reference from `references/README.md`.
+- **Before producing output:** read the relevant reference from
+  `references/README.md`. Neutral explanations use stable narrative without
+  unsolicited volatile proof. One-pagers, RFPs, objection responses, and other
+  evidence-bearing work also loads `references/proof-points.md` automatically
+  and applies its audience, source, qualifier, and freshness rules.
 - **Misuse cases:** do not invent proof points, accuracy numbers, logos, or product
   capabilities not present in the references.
 
@@ -34,6 +38,7 @@ RFP/message review, EyeLevel heritage questions, and public product/company ques
   `references/capabilities-and-surfaces.md`
 - Proof points: `references/proof-points.md`
 - Objections: `references/objections.md`
-- Harness positioning: `references/harness-pitch.md`
+- Public Agent Harness, private Studio Harness, MCP, and host capability
+  attribution: `references/harness-pitch.md`
 - GroundX / EyeLevel / Valantor relationship and integration mental model:
   `references/brand-relationship.md`

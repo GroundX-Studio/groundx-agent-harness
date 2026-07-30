@@ -239,6 +239,6 @@ The chart itself doesn't depend on these tools. They exist to make first-install
 - **AKS / GKE / OpenShift / on-prem provisioning** → these Terraform modules are AWS-specific. See `deployment-options.md`.
 - **Generic Terraform best practices** (state management, remote state, Terragrunt) → upstream Terraform docs.
 - **AWS pricing / instance selection for the chart's workloads** → `cost-estimation.md` § 4 + AWS instance pricing pages.
-- **Backup / restore for the EKS-side data layer** → `dr-cross-region-runbook.md` (planned).
+- **Backup / restore for the EKS-side data layer** → `dr-cross-region-runbook.md`.
 - **GPU instance availability per region** → AWS docs; varies.
 - **VPC peering, transit gateway, multi-account setups** → consult AWS networking docs; out of chart scope.

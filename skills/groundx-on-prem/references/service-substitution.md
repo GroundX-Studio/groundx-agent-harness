@@ -2,7 +2,7 @@
 
 This file documents **the chart's primary integration knob: each major dependency subsystem (cache/Redis, db/MySQL, file/MinIO-S3, search/OpenSearch, stream/Kafka, summary/LLM) can be either chart-deployed in-cluster or routed to a deployer-supplied existing instance**. The mechanism is the same shape across all six subsystems: an `existing:` sub-block whose discriminator field, when non-empty, flips the chart's `create` helper to false.
 
-For the related question of *which operators* the chart provisions when chart-deploying (Strimzi, Percona, MinIO operator, NVIDIA), route to `services-operators.md` (planned). For per-subsystem credentials and how secrets are wired in either mode, route to `credentials.md`. For the architectural picture, route to `groundx-architecture/references/data-flow.md`.
+For the related question of *which operators* the chart provisions when chart-deploying (Strimzi, Percona, MinIO operator, NVIDIA), route to `services-operators.md`. For per-subsystem credentials and how secrets are wired in either mode, route to `credentials.md`. For the architectural picture, route to `groundx-architecture/references/data-flow.md`.
 
 ## 1. The pattern
 
@@ -325,7 +325,7 @@ Despite the "chart-deployed" terminology, the GroundX Helm chart only renders Ku
 
 So the install ordering matters: **the prerequisite operator Helm releases must come first**, otherwise the GroundX chart's CRD references (e.g., `KafkaTopic`) and connection-string assumptions will fail. See `install-flow.md` for the recommended sequence and `services-prereqs.md` for the operator inventory.
 
-See `services-operators.md` (planned) for per-operator installation specifics.
+See `services-operators.md` for per-operator installation specifics.
 
 ## 10. Authoring discipline
 
@@ -339,11 +339,11 @@ When designing a values.yaml for a new deployment:
 
 ## 11. What this file does not cover
 
-- **Operator installation specifics (Strimzi, Percona, MinIO operator, NVIDIA operator)** → `services-operators.md` (planned).
+- **Operator installation specifics (Strimzi, Percona, MinIO operator, NVIDIA operator)** → `services-operators.md`.
 - **Per-subsystem credential mechanics** → `credentials.md`.
 - **Field-by-field schema for `<svc>` blocks** → `values-yaml.md`.
 - **Discovery questionnaire for substitution decisions at install time** → `values-authoring.md`.
 - **Summary engine semantics (allowed serviceTypes, vision flag, reasoningEffort)** → `engines.md`.
 - **TLS / certificate handling for substituted services** → `tls-and-certs.md`.
 - **Deployment-mode interactions (`mode: ingest` forcing search.create to false)** → `deployment-modes.md`.
-- **Cost implications of chart-deployed vs cloud-managed** → `cost-estimation.md` (planned).
+- **Cost implications of chart-deployed vs cloud-managed** → `cost-estimation.md`.

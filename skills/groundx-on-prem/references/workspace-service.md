@@ -1,6 +1,6 @@
 # Workspace Service — Optional Managed-Project Runner
 
-This file documents **the optional `workspace` service family** the GroundX Helm chart deploys when Agent Harness publishing is in scope — what it is, how to enable it, the credential and storage surfaces it exposes, the Python-microservice deployment pattern it follows, and the failure modes deployers should plan for.
+This file documents **the optional `workspace` service family** the GroundX Helm chart deploys when Studio Harness publishing is in scope — what it is, how to enable it, the credential and storage surfaces it exposes, the Python-microservice deployment pattern it follows, and the failure modes deployers should plan for.
 
 For the Workspace API endpoints that drive the workspace runner from outside the cluster,
 route to the `groundx-api` skill's Workspace endpoint reference. For Partner account or
@@ -12,18 +12,18 @@ route to `values-yaml.md`.
 
 ## 1. What it is
 
-The workspace runner is an **internal-only** service family that provisions, edits, and publishes managed code projects on behalf of GroundX Agent Harness agents. Agents call the GroundX API Workspace facade; the GroundX API service calls the workspace runner; the runner owns the actual managed-repository operations.
+The workspace runner is an **internal-only** service family that provisions, edits, and publishes managed code projects on behalf of GroundX Studio Harness agents. Agents call the GroundX API Workspace facade; the GroundX API service calls the workspace runner; the runner owns the actual managed-repository operations.
 
 The runner is **disabled by default**. The chart's `groundx.workspace.create` helper (`_helpers/app/workspace.tpl:10–22`) returns `false` unless the deployer explicitly sets `workspace.enabled: true` and supplies either `workspace.token` or `workspace.existingSecret`. If `workspace.enabled: true` is set without one of those secret sources, the chart hard-fails at `helm install` with the message `"workspace requires workspace.token or workspace.existingSecret when enabled"` (`_helpers/app/workspace.tpl:15`).
 
 Enable the runner when:
 
 - The deployment exposes the Workspace API to agents that need to materialize, edit, build, or publish managed code projects.
-- Agent Harness managed-project publishing (create UI / clone repo / publish) is in use.
+- Studio Harness managed-project publishing (create UI / clone repo / publish) is in use.
 
 Skip it when:
 
-- The deployment only handles ingest + search + RAG. There's no Agent Harness use case.
+- The deployment only handles ingest + search + RAG. There's no Studio Harness use case.
 - The Partner API is exposed but only for customer / project / bucket lifecycle (no managed-project provisioning).
 
 ## 2. Subsystem layout
@@ -80,7 +80,7 @@ workspace:
   allowedCommands: "go,npm,pytest,python,node,git"   # chart default
 ```
 
-Comma-separated allowlist of executables the runner's `command` worker may invoke. Default matches the most common Agent Harness build / test / publish flows. Restrict for hardened deployments (e.g., `"git"` only) or broaden for custom workflows.
+Comma-separated allowlist of executables the runner's `command` worker may invoke. Default matches the most common Studio Harness build / test / publish flows. Restrict for hardened deployments (e.g., `"git"` only) or broaden for custom workflows.
 
 ### 4.2 Celery broker
 
@@ -247,7 +247,7 @@ workspace:
 
 Per-worker HPAs emit `workspace-<worker>:task` queue-depth metrics. Chart-defaults for the five workspace workers (`_helpers/app/workspace-{cleanup,command,provision,publish,workspace}.tpl:32–43`): **threshold 10** (queue message backlog), **target 1** (fraction of threshold the HPA aims for), **throughput 9000** (tokens/min per worker per thread). The API has materially higher defaults — threshold 4000 and throughput 50000 — because it serves request-time traffic, not queue work. Per-component overrides keep custom worker queue names in values (so the HPA and metrics-server config stay in sync — do not edit templates).
 
-For the full autoscaling story, route to `autoscaling.md` (planned).
+For the full autoscaling story, route to `autoscaling.md`.
 
 ## 9. Disabling — turning off the runner cleanly
 
@@ -284,12 +284,12 @@ All 6 deployments should have `READY 1/1` (or higher under HPA). For end-to-end 
 ## 12. What this file does not cover
 
 - **Workspace API endpoints driving the runner** → the GroundX API skill's Workspace endpoint guidance.
-- **Agent Harness publish workflow that consumes the runner** → Agent Harness publish guidance.
+- **Studio Harness publish workflow that consumes the runner** → Studio Harness publish guidance.
 - **Architectural picture of the workspace runner** → `groundx-architecture/references/workspace-architecture.md`.
 - **`workspace.token` / `WORKSPACE_RUNNER_TOKEN` credential mechanics** → `credentials.md` § 9.
 - **Field-by-field schema for `workspace.*`** → `values-yaml.md`.
 - **Discovery questionnaire for workspace at install time** → `values-authoring.md`.
 - **Operator dependencies (no operator required for workspace itself; depends on MySQL, Redis, and the chart's standard backing services)** → `services-operators.md`.
-- **HPA / metrics-server config** → `autoscaling.md` (planned).
+- **HPA / metrics-server config** → `autoscaling.md`.
 - **TLS / certs for the internal workspace API** → `tls-and-certs.md`.
 - **Backup / disaster-recovery for workspace records in MySQL** → `groundx-architecture/references/disaster-recovery.md`.

@@ -154,5 +154,5 @@ On AWS EKS and Azure AKS, workload-identity-to-GCP federation is also possible b
 - **Architectural picture of OCR in the layout pipeline** → `groundx-architecture/references/layout-ocr.md`.
 - **Tesseract vs GCV quality benchmarks** → out of scope; benchmark against the deployer's specific document mix.
 - **GCV pricing details** → consult Google Cloud Vision pricing page.
-- **NetworkPolicy authoring for egress** → `troubleshooting.md` (planned) when it ships.
+- **NetworkPolicy authoring for egress** → `troubleshooting.md`.
 - **Per-pod resource sizing for layout-ocr** → `cluster-requirements.md` § 6 + `node-groups.md`.

@@ -10,7 +10,9 @@ AI alone fails at enterprise scale. The reasons compound:
 
 - **Trust deficit.** AI hallucinations, brittle parsing, and inconsistent performance make general-purpose AI unsuitable for high-stakes work (regulated industries, compliance-sensitive workflows, customer-facing accuracy bars).
 - **Accountability gap.** When AI produces a wrong answer, who is accountable? A tool vendor cannot accept the SLA an enterprise needs.
-- **Adoption ceiling.** Internal AI teams cannot industrialize hundreds of use cases simultaneously. Even with the right tools, the implementation-scale pain ceilings throughput.
+- **Adoption ceiling.** Internal AI teams can accumulate more use cases than
+  they can industrialize simultaneously. Even with the right tools,
+  implementation capacity can limit throughput.
 
 What enterprises actually buy at scale is **AI + Humans accountability** — AI doing the work where it works reliably, paired with human-in-the-loop validation, governance, and outcome accountability where it matters.
 
@@ -34,11 +36,20 @@ The AI+humans framing carries three valuation signals into the investor narrativ
 
 ## 4. The outcomes-vs-tools posture (master-brand altitude)
 
-At master-brand altitude the outcomes-vs-tools posture is more than a tactical sales move — it is the **strategic positioning of the Operational Layer as a product**. The pitch shape:
+At master-brand altitude the outcomes-vs-tools posture is more than a tactical
+sales move. It is the **strategic positioning of the Operational Layer**, within
+the current promise boundary in `product.md`. The pitch shape:
 
-> *"Enterprises racing on hundreds of AI use cases face two failure modes: (1) general-purpose AI fails on the data that matters, (2) internal teams cannot industrialize the implementation at the necessary pace. Valantor's response is to sell the **outcome**, not the **tool** — to deliver extracted data, processed claims, detected fraud, completed compliance reports as a managed service on enterprise SLAs. The platform underneath is GroundX; the productized verticals are Outcome Plug-ins; the operational layer is Valantor agents and human-in-the-loop oversight."*
+> *"Enterprises with a large AI use-case backlog face two failure modes:
+> general-purpose AI fails on the data that matters, and internal teams cannot
+> industrialize implementation at the required pace. Valantor's strategy is to
+> sell the outcome, not another tool. GroundX supplies the platform, Outcome
+> Plug-ins productize vertical workflows, and the Operational Layer describes
+> agent and human accountability."*
 
-Note: **the Operational Layer is concept-only today** (see `product.md` § 9). The strategic posture lands; the operational reality is *we have the offshore infrastructure ready, no customer yet*. Investor narrative articulates the posture; customer-facing surfaces stay at *"available on request"* or *"engagement-based"* until the first customer is landed.
+Before using that pitch, read `product.md` § Operational Layer and apply the canonical lifecycle,
+promise boundary, source, verification event, and recheck trigger. Do not expose
+staffing, readiness, or customer anecdotes from internal collateral.
 
 ## 5. Use this narrative when
 
@@ -50,7 +61,9 @@ Note: **the Operational Layer is concept-only today** (see `product.md` § 9). T
 
 ## 6. Use this narrative carefully when
 
-- The Operational Layer is involved in a specific customer commitment — flag the concept-only state and route the conversation toward Hosted GroundX, On-Prem, FraudX, ExtractX, or Harness as the live delivery surfaces today.
+- The Operational Layer is involved in a specific customer commitment — state
+  only what `product.md` currently permits and route to the products it
+  currently marks available.
 - The audience is technical (CIO, VP Eng) and not the right outcome-buyer — soft-pedal the *outcomes-vs-tools* framing and pivot toward the platform + Harness productivity story (see `../../product-brand-gtm/references/audiences.md` and `../../product-brand-gtm/references/buyer.md`).
 
 ## 7. The investor one-liner
@@ -61,4 +74,5 @@ Note: **the Operational Layer is concept-only today** (see `product.md` § 9). T
 
 - Not that Valantor replaces all internal AI teams. The Operational Layer augments enterprise-internal teams (industrialization, accountability, adoption); it does not eliminate them.
 - Not that AI is unsafe without humans. The framing is *AI + humans is what enterprises buy at scale* — not *AI alone is dangerous*.
-- Not that the Operational Layer is GA. It is concept-only. Repeat: investor narrative can articulate the strategic posture; product positioning cannot claim GA.
+- Not that strategy language changes product state. `product.md` controls the
+  current lifecycle and customer promise.

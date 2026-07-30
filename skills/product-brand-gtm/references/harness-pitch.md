@@ -1,49 +1,92 @@
-# GroundX Agent Harness Pitch
+# GroundX Harness Positioning
 
-Use this reference when copy needs to explain GroundX Agent Harness, especially on one-sheeters, technical references, leave-behinds, sales decks, product overviews, or internal enablement. This file is intentionally short-form. It gives agents the words to describe the Harness without drifting into generic agent-platform language.
+Use this reference when copy needs to explain the public GroundX Agent Harness,
+the private GroundX Studio Harness, GroundX MCP, or capabilities supplied by the
+host AI client. Keep capability attribution clear without turning repository
+generation topology into buyer-facing product value.
 
-## Canonical short pitch
+## Capability attribution
 
-GroundX Agent Harness is an **AI Agent Harness**: a plugin of skills, connectors, and design patterns that gives AI agents fluency in the GroundX platform. Load it into Claude, ChatGPT Codex, Replit, Cursor, openclaw, or any plugin-supporting agent runtime, and agents can implement RAG, extraction, smart reports, classification, Studio UIs, portals, review workflows, and integrations directly against GroundX.
+| Surface | User-facing definition | Do not attribute |
+| --- | --- | --- |
+| **GroundX Agent Harness** | The public GroundX knowledge and workflow bundle. It gives compatible agents portable guidance for GroundX APIs, MCP, extraction, architecture, on-prem deployment, SDKs, and approved product messaging. | Private prebuilt Studio authoring, publishing, administration, or partner-lifecycle workflows, or a host client's general creation tools |
+| **GroundX Studio Harness** | The private expanded AI Agent Harness with prebuilt workflows for Studio production, authoring, publishing, administration, and operational work in addition to the shared GroundX knowledge layer. | Public availability, universal runtime support, or exclusive ownership of the underlying workspace service |
+| **GroundX MCP** | Optional connected execution for live GroundX operations when the server and tools are available. | The installed knowledge layer or a requirement for the Harness to remain useful |
+| **Host AI client** | Capabilities supplied by Claude, Codex, ChatGPT, Gemini, or another client independently of a GroundX bundle. | A GroundX Harness capability unless the relevant GroundX skill actually ships in that bundle |
 
-For connected agent execution, GroundX MCP is the preferred path when available.
-The Harness makes the agent fluent in what to do and which references to load;
-MCP tools execute GroundX operations; REST APIs and SDKs remain the direct
-integration and fallback surfaces.
+For exact file or skill membership, public/private emission, or source
+generation, route contributors to bundle policy and generated manifests. Do not
+copy an exhaustive inventory into product copy.
 
-## One-sentence form
+## On-Prem workspace service and Studio workflows
 
-GroundX Agent Harness gives AI agents the GroundX-specific skills, connectors, and design patterns they need to build document intelligence workflows in days instead of months.
+On-Prem customers can enable and operate the workspace service using the public
+deployment, configuration, architecture, and operator guidance. GroundX Studio
+Harness is separate: it supplies prebuilt Studio authoring and publishing
+workflows that use the service. Do not infer that the service requires the
+private bundle, and do not attribute the private workflow skills to GroundX
+Agent Harness.
+
+## Canonical short pitches
+
+### GroundX Agent Harness
+
+GroundX Agent Harness is the public knowledge and workflow bundle that makes
+compatible AI agents fluent in GroundX, so teams can plan and implement grounded
+document workflows without rediscovering the platform from scratch.
+
+### GroundX Studio Harness
+
+GroundX Studio Harness is the private expanded AI Agent Harness for producing
+and operating GroundX Studio work, including prebuilt authoring, application
+production, publishing, administration, and internal operational workflows.
+
+### Execution relationship
+
+The Harness supplies GroundX knowledge and workflow guidance. GroundX MCP can
+execute live GroundX operations when connected. REST APIs and SDKs remain direct
+application integration paths. The host client may separately supply artifact
+creation or research capabilities.
 
 ## What it is
 
 - **Category:** AI Agent Harness.
-- **Form:** a plugin of skills, references, templates, connectors, and design patterns.
-- **Job:** make AI agents fluent in GroundX so they can implement useful work instead of rediscovering product, API, design, and workflow rules from scratch.
-- **Audience:** executives and IT teams asking how to scale many GroundX-backed AI use cases without a one-by-one engineering build.
-- **Status:** alpha. Use product-state claims from `product.md` before promising customer availability or runtime support.
+- **Form:** installed skills and references, with optional connected execution.
+- **Job:** make agents fluent in GroundX so they can produce useful work without
+  rediscovering product, API, design, and workflow rules.
+- **Audience:** teams scaling GroundX-backed use cases beyond a one-by-one
+  engineering build.
+- **Status:** use `product.md` before promising availability, lifecycle, or
+  runtime support for either bundle.
 
 ## Buyer-facing pattern descriptions
 
-| Pattern | Say | Do not say |
-| --- | --- | --- |
-| Document RAG | Ask questions over complex documents and get grounded answers with citations back to the source material. | "Hybrid search over buckets with element-level citations" as the whole description. That is mechanism, not buyer value. |
-| Data Extraction | Turn varied document formats into consistent structured fields, records, and reviewable outputs. | "No LLM in the loop", "QA-reconciled across agents", or claims that extraction is deterministic in every context. |
-| Smart Reports | Run a defined set of grounded questions and assemble the answers into a source-backed report that can be reviewed or extended. | "Pre-compiled RAG queries" without explaining the report outcome. |
-| Document Classification | Route documents by type, intent, or workflow need so the right extraction, review, or answer path runs next. | Narrow the audience with words like "scan" unless the source material is specifically scanned documents. |
-| Studio UIs | Build guided GroundX product experiences for extraction, chat, reporting, review, and demo workflows. | Treat every Studio-shaped surface as a full dashboard or admin workspace. |
-| Customer-facing portals | Give end users a focused GroundX-backed interface for uploading, asking, reviewing, or receiving document outputs. | Promise account, billing, or workspace controls unless the product spec calls for them. |
-| Operator review UIs | Let human reviewers inspect extracted values, source evidence, confidence, and warnings before handoff. | Imply the agent removes human review where the workflow needs accountability. |
-| Integrations | Connect GroundX workflows to an application's existing API, storage, callback, or review path. | Invent custom webhook behavior or claim unsupported handoffs without checking the relevant API skill. |
+| Pattern | Capability supplier | Say | Do not say |
+| --- | --- | --- | --- |
+| Document RAG | Agent Harness knowledge plus MCP or REST/SDK execution | Ask questions over complex documents and get grounded answers with citations back to the source material. | Describe the mechanism as the whole buyer value. |
+| Data Extraction | Agent Harness knowledge plus MCP, SDK, or REST execution | Turn varied document formats into structured fields, records, and reviewable outputs. | Claim extraction is deterministic in every context. |
+| Smart Reports | GroundX workflow knowledge plus a Studio Harness or host artifact capability | Run grounded questions and assemble answers into a source-backed report that can be reviewed or extended. | Attribute report production to the public Agent Harness when the relevant producer does not ship there. |
+| Document Classification | Agent Harness knowledge plus a supported execution path | Route documents by type, intent, or workflow need so the right extraction, review, or answer path runs next. | Claim unsupported runtime behavior. |
+| Studio UIs | Studio Harness, or a separately labeled host-client capability | Build guided GroundX product experiences for extraction, chat, reporting, review, and demos. | Attribute Studio UI production to the public Agent Harness. |
+| Customer-facing portals | Studio Harness, or a separately labeled host-client capability | Give end users a focused GroundX-backed interface for uploading, asking, reviewing, or receiving document outputs. | Promise account, billing, or workspace controls unless the product spec calls for them. |
+| Operator review UIs | Studio Harness, or a separately labeled host-client capability | Let human reviewers inspect extracted values, source evidence, confidence, and warnings before handoff. | Imply the agent removes human review where accountability is required. |
+| Integrations | Agent Harness knowledge plus MCP or REST/SDK execution | Connect GroundX workflows to an application's existing API, storage, callback, or review path. | Invent webhook behavior or unsupported handoffs. |
 
 ## Claim boundaries
 
 - Use the patterns above as supported implementation categories.
 - Use `product.md` for product state and lifecycle claims.
-- Use `proof-points.md` for numbers, customer outcomes, benchmarks, and logos.
+- Use `proof-points.md` for eligible customer outcomes, benchmarks,
+  technical-corpus evidence, and partner validation. Customer-count, adoption,
+  and logo claims require a current approved source supplied for the job.
 - Do not claim bulk reprocessing of historical documents under a new extraction schema with no re-ingest unless an authoritative product or API reference explicitly supports it.
 - Do not say a runtime is certified or officially supported unless a current source says so. For broad compatibility, say "plugin-supporting agent runtime" or "agent surfaces such as..." rather than promising every runtime behaves identically.
-- Do not imply the Harness is the exclusive GroundX integration path. Co-list MCP for connected agents and REST/SDKs for direct application integration when the surface needs the full integration landscape.
+- Do not imply either Harness is the exclusive GroundX integration path. Co-list
+  MCP for connected agents and REST/SDKs for direct application integration when
+  the surface needs the full landscape.
+- Do not use GroundX Agent Harness and GroundX Studio Harness as synonyms.
+- Do not attribute a host-client capability to a GroundX bundle without checking
+  that the relevant GroundX skill ships there.
 
 ## Register
 

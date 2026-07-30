@@ -68,7 +68,7 @@ Each GPU microservice has a worker+thread model. Resource sizing is per worker+t
 - **24 GB GPU total**, **12 GB per worker+thread**.
 - Disable this microservice by setting `summary.api.enabled: false` + `summary.inference.enabled: false` and pointing `summary-client` at an external LLM — see `groundx-architecture/references/summary-service.md` for the engine taxonomy and the trust-boundary implications.
 
-GPU choice is the **single largest cost lever in the cluster** — running self-hosted summary alone is more GPU memory than the rest combined. For the cost-shape story see `groundx-architecture/references/data-flow.md` § 9; deployment-level cost framing is documented in `references/cost-estimation.md` (planned).
+GPU choice is the **single largest cost lever in the cluster** — running self-hosted summary alone is more GPU memory than the rest combined. For the cost-shape story see `groundx-architecture/references/data-flow.md` § 9; deployment-level cost framing is documented in `references/cost-estimation.md`.
 
 ## 5. Opt-in toggles
 
@@ -81,7 +81,7 @@ The deployer's main configuration choices, and what each one turns on or off:
 | `workspace.enabled` | Workspace runner subsystem | `false` | When `true`, the workspace runner microservices deploy and a workspace token must be provided. When `false`, the runner is not present and GroundX Workspace facade endpoints return errors. |
 | `metrics.enabled` + `cluster.hpa` | Autoscaling | both `false` by default; enable for HPA | When enabled, the `metrics` microservice publishes HPA signals (per `groundx-architecture/references/observability.md` § 5.1) and every other pod scales against them. When disabled, replicas are fixed at the configured count. |
 | OCR backend | Tesseract vs Google Cloud Vision | Tesseract | Default is in-cluster Tesseract. Providing a `gcv.json` GCP service account file switches `layout-ocr` to GCV; document page images then leave the cluster on each OCR call. See `groundx-architecture/references/layout-ocr.md` § 5.2. |
-| Image variants | Chainguard hardened distroless vs default | Default | Chainguard variant for FedRAMP / security-compliance deployments. See `references/image-variants.md` (planned). |
+| Image variants | Chainguard hardened distroless vs default | Default | Chainguard variant for FedRAMP / security-compliance deployments. See `references/image-variants.md`. |
 
 ## 6. External connections
 
@@ -98,7 +98,7 @@ What leaves the cluster at runtime — this is the deployer's network-policy / e
 | **Google Cloud Vision API** | When `gcv.json` is provided | Page images leave the cluster on each OCR call. Trust-boundary crossing. |
 | **GitHub or GitLab** | When `workspace.enabled=true` and managed projects publish code | Git push to whatever remote is configured. See `groundx-architecture/references/workspace-architecture.md` § 5.3. |
 | Model-weight downloads from S3 | At inference-pod startup or on version change | `layout-inference` and `ranker-inference` pull model blobs from S3 on init / when `config.py` target changes. See `groundx-architecture/references/ai-ml-lifecycle.md` § 5.1. |
-| Container image registry | At pod start | Image pulls. Air-gapped deployments mirror images locally — see `references/air-gapped.md` (planned). |
+| Container image registry | At pod start | Image pulls. Air-gapped deployments mirror images locally — see `references/air-gapped.md`. |
 
 ## 7. What a vanilla deployment looks like
 
@@ -122,9 +122,9 @@ With no overrides, a default deployment lands:
 - **The pipeline shape** (groundx → upload → queue → pre-process → process; layout sub-pipeline; summary triple) → `groundx-architecture/references/data-flow.md`.
 - **Trust boundaries, identity model, audit log** → `groundx-architecture/references/identity-and-trust.md`.
 - **Customer isolation enforcement** at the store layer → `groundx-architecture/references/multi-tenancy.md`.
-- **Per-store backing-service selection mechanics** (field-by-field `values.yaml`) → `references/services-prereqs.md` (planned) + `references/values-yaml.md` (planned).
-- **Per-node-group resource profiles** in depth → `references/cluster-requirements.md` (planned) + `references/node-groups.md` (planned).
-- **Install workflow** (ordered prereqs → services → application → verify) → `references/install-flow.md` (planned).
-- **GPU operator setup, NVIDIA Operator install, AKS runtimeClass** → `references/gpu-operator.md` (planned).
-- **Cost estimation** (`bin/estimate`) → `references/cost-estimation.md` (planned).
+- **Per-store backing-service selection mechanics** (field-by-field `values.yaml`) → `references/services-prereqs.md` + `references/values-yaml.md`.
+- **Per-node-group resource profiles** in depth → `references/cluster-requirements.md` + `references/node-groups.md`.
+- **Install workflow** (ordered prereqs → services → application → verify) → `references/install-flow.md`.
+- **GPU operator setup, NVIDIA Operator install, AKS runtimeClass** → `references/gpu-operator.md`.
+- **Cost estimation** (`bin/estimate`) → `references/cost-estimation.md`.
 - **Marketing or positioning** about why on-prem → `product-brand-gtm` (product altitude) or `master-brand-gtm` (master-brand altitude).
