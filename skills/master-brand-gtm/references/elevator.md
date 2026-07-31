@@ -9,7 +9,11 @@ answer and does not specify investor, analyst, board, or category-creation altit
 Use this for CEO, COO, CFO, line-of-business, and generic executive-altitude prompts.
 This is the default when the user asks what Valantor is or what Valantor's goal is.
 
-> Valantor's goal is to close the data comprehension gap - the chasm between the unstructured documents enterprises run on and the structured understanding AI systems need to act on them reliably. It sells business outcomes directly to executives in regulated, high-stakes workflows - fraud stopped, claims resolved, compliance met - not tools for IT to assemble. The how is AI that comprehends enterprise documents like humans, paired with humans Valantor brings in to execute and manage the work - not more SaaS, tools, and failed projects.
+> Valantor helps enterprises turn difficult documents into information people
+> and AI systems can use reliably. It works with executives on accountable
+> outcomes in regulated, high-stakes workflows—not just tools for IT to
+> assemble—using GroundX document intelligence plus people Valantor provides to
+> help operate and oversee the work.
 
 ### 1.1 Use When
 
@@ -25,9 +29,14 @@ This is the default when the user asks what Valantor is or what Valantor's goal 
   investor, or analyst framing.
 - Say Valantor brings the humans or provides the human accountability. Do not imply the
   customer must staff the human loop with "your people", "your experts", or "your reviewers".
-- Use "comprehends" or "understands" for the solution verb. Avoid "reads", "parses", or
-  "processes" in short-form positioning because they undersell the data comprehension gap.
+- In novice answers, start with "turns difficult documents into usable
+  information." Introduce "comprehends" or "understands" only after the plain
+  explanation.
 - Keep the contrast clean: outcomes, not platforms; not more SaaS, tools, and failed projects.
+- "Assured," "accountable," and "outcome-oriented" are not contractual
+  guarantees. Do not rewrite them as "guaranteed result" or assert completed
+  outcomes such as fraud caught, claims resolved, or compliance achieved
+  without an eligible proof owner.
 
 ## 2. Investor / Analyst Variant
 
@@ -52,7 +61,8 @@ Use these as short-form anchors, not as mandatory boilerplate:
 - AI that comprehends enterprise documents like humans.
 - Humans Valantor brings in to execute and manage the work.
 - Not more SaaS, tools, and failed projects.
-- The customer buys the result, not a platform to staff and operate.
+- The engagement is organized around an accountable outcome, not only access to
+  a platform.
 
 ## 5. What This File Does Not Cover
 

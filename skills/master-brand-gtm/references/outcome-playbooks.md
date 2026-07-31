@@ -38,15 +38,21 @@ A productized four-surface AI investigator:
   ranked red flags, severity tiers (HIGH / MED / LOW), and the evidence behind
   each finding. Re-runs automatically when new documents arrive. Retrieve the
   current investigator-defined check set from `product.md`.
-- **Chat with Claims** — ask the case file anything in plain English; get source-linked answers with no hallucinations. *"Like a research assistant who never misses a detail."*
-- **Evidence Package** — source-cited dossier built for SIU referral, reservation of rights, or trial prep. Every red flag links to the exact page, line, and timestamp in the source document. Saves dozens of hours per claim.
+- **Chat with Claims** — ask the case file questions in plain English and get
+  source-linked answers for investigator review. Do not promise zero
+  hallucinations or that the system never misses a detail.
+- **Evidence Package** — source-cited dossier built for SIU referral,
+  reservation-of-rights review, or trial preparation. Describe the available
+  citation granularity from the current product owner; do not claim hours saved
+  without eligible proof.
 - **Network Analysis** — cross-references every actor in the claim (claimants, providers, attorneys, locations) against a network of flagged actors; surfaces organized rings by connecting actors across unrelated claims.
 
 ### How it works
 
 Three steps from a stack of unstructured documents to a defensible, source-cited fraud assessment:
 
-1. **Ingest the entire claim file** — medical records, bills, ISO reports, depositions, photos, site reports, recorded statements. Any format, any length.
+1. **Ingest the claim file** — use current supported input types and documented
+   limits from the product/API owners. Do not claim any format or any length.
 2. **Run investigator-defined fraud checks** — FraudX scores each claim against
    the current extensible indicator library recorded in `product.md`.
 3. **Deliver a cited, source-linked dossier** — every red flag links back to the exact page, line, and timestamp. Defensible from day one.

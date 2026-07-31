@@ -16,6 +16,24 @@ additional qualifier is recorded. Section 7 supplies the default recheck
 trigger. If allowed use, source, freshness, or a required qualifier is unclear,
 omit the claim rather than filling the gap from another reference.
 
+Treat every claim as a typed evidence record. Preserve its exact supported
+wording, **evidence scope** (industry, workflow, deployment mode, and allowed
+surface), required attribution/qualifier, source, and last-verified date. A
+buyer artifact may put the source and freshness record in a compact attached
+source note, but it may not discard the record. Before major external use,
+re-verify stale or unchecked proof.
+
+A broader platform capability may frame narrower proof, but the narrower proof
+does not prove the broader outcome. For example, FraudX evidence supports
+insurance-fraud investigation with its stated construction workers'
+compensation production anchor; it is not generic claims-processing outcome
+proof.
+
+Deployment, residency, Kubernetes, air-gap, and customer-controlled
+infrastructure claims require the current `groundx-on-prem` owner. Keep the
+language conditional on deployment mode rather than converting an option into
+an unconditional data-egress statement.
+
 ## 1. Accuracy claims
 
 ### 1.1 Up to 99% accuracy (headline real number)
@@ -26,6 +44,7 @@ omit the claim rather than filling the gap from another reference.
 - **Pair with:** the 96.2% Air France/KLM specific result (see § 1.2) as the defensible-against-skepticism number.
 - **Do not use:** comparative framings like *"more accurate than X"* as the headline. Real numbers beat relative claims.
 - **Source:** EyeLevel/GroundX 2026 sales deck.
+- **Source ID:** `SRC-GX-SALES-2026`.
 - **Last verified:** 2026-05-14.
 
 ### 1.2 Air France / KLM — 96.2% accuracy
@@ -37,6 +56,7 @@ omit the claim rather than filling the gap from another reference.
 - **Engagement length:** three-month engagement.
 - **Quote available:** Karin Oskam, Knowledge Management Manager at Air France/KLM — *"The Valantor platform delivered truly impressive results, and the bot's ability to improve over such a short period was amazing."*
 - **Source:** valantor.com Air France/KLM customer story.
+- **Source ID:** `SRC-AF-KLM-STORY`.
 - **Last verified:** 2026-05-14.
 
 ### 1.3 DocBench — superhuman performance
@@ -45,6 +65,7 @@ omit the claim rather than filling the gap from another reference.
 
 - **Use as:** third-party benchmark validation in technical sections.
 - **Source:** eyelevel.ai blog post — *"GroundX Achieves Superhuman Performance in Document Comprehension on DocBench."*
+- **Source ID:** `SRC-DOCBENCH`.
 - **Last verified:** 2026-05-14.
 
 ### 1.4 Head-to-head testing wins
@@ -56,6 +77,8 @@ omit the claim rather than filling the gap from another reference.
   - `eyelevel.ai/post/most-accurate-rag`
   - `eyelevel.ai/post/guide-to-document-parsing`
   - `eyelevel.ai/post/do-vector-databases-lose-accuracy-at-scale`
+- **Source IDs:** `SRC-MOST-ACCURATE-RAG`, `SRC-PARSING-GUIDE`,
+  `SRC-VECTOR-SCALE`.
 - **Last verified:** 2026-05-14.
 
 ## 2. Business outcomes
@@ -68,6 +91,7 @@ omit the claim rather than filling the gap from another reference.
 - **Outcome:** VERA™ digital veterinarian, operationalized as a turnkey enterprise platform spanning companion and farm animal verticals.
 - **Quote available:** Cal Lai, Founder and CEO of AskVet — *"Valantor created foundational technology that allowed us to very quickly and rapidly scale up this virtual veterinarian. We couldn't have done it without the underlying technology that we built around Valantor's platform."*
 - **Source:** valantor.com AskVet customer story.
+- **Source ID:** `SRC-ASKVET-STORY`.
 - **Last verified:** 2026-05-14.
 
 ### 2.2 FraudX — insurance-fraud Outcome Plug-in (operational ROI)
@@ -79,6 +103,7 @@ omit the claim rather than filling the gap from another reference.
 - **Buyer voices:** Kirk Willis (CEO, Willis Law Group); Andriana Vamvakas (President, Andromeda Advantage); Dan Hickey (CEO, Tradesman/Roosevelt Road). Full quotes in § 5 quote bank.
 - **Required qualifier:** the 40× and 10× claims must carry *EyeLevel internal benchmark* attribution and the *"Actual results vary"* qualifier in every external use. Do not strip the qualifier in collateral.
 - **Source:** FraudX 2026 May sales deck.
+- **Source ID:** `SRC-FRAUDX-DECK-2026-05`.
 - **Last verified:** 2026-05-17.
 
 ## 3. Technical corpus
@@ -93,6 +118,7 @@ from a current, approved source supplied for the specific communication job.
 
 - **Use as:** technical credibility anchor for the vision-model claim.
 - **Source:** GroundX On-Prem Helm chart repo README.
+- **Source ID:** `SRC-GX-ONPREM-README`.
 - **Last verified:** 2026-05-14.
 
 ## 4. Partnerships and third-party validation
@@ -104,6 +130,7 @@ from a current, approved source supplied for the specific communication job.
 - **Use as:** third-party validation of the on-prem deployment story. Especially powerful for regulated-industry buyers and OpenShift shops.
 - **State note:** GroundX On-Prem itself is **GA**. The public Helm chart README (`github.com/eyelevelai/groundx-on-prem`) carries an "Open Beta" tag that is stale; treat the README as authoritative for capabilities and dependencies, not lifecycle state. See `../sources/README.md` § 1.
 - **Source:** Red Hat AI quickstarts repo.
+- **Source ID:** `SRC-REDHAT-QUICKSTART`.
 - **Last verified:** 2026-05-14.
 
 ### 4.2 Seamless Partners coverage
@@ -112,6 +139,7 @@ from a current, approved source supplied for the specific communication job.
 
 - **Use as:** analyst-style third-party coverage.
 - **Source:** Seamless Partners article summarized on valantor.com.
+- **Source ID:** `SRC-SEAMLESS-COVERAGE`.
 - **Last verified:** 2026-05-14.
 
 ## 5. Quote bank

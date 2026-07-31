@@ -24,16 +24,31 @@ RFP/message review, EyeLevel heritage questions, and public product/company ques
   deployment details route to `groundx-on-prem`.
 - **Before producing output:** read the relevant reference from
   `references/README.md`. Neutral explanations use stable narrative without
-  unsolicited volatile proof. One-pagers, RFPs, objection responses, and other
-  evidence-bearing work also loads `references/proof-points.md` automatically
-  and applies its audience, source, qualifier, and freshness rules.
+  unsolicited volatile proof. One-pagers, RFPs, and other evidence-bearing work
+  also load `references/proof-points.md` automatically and apply its audience,
+  source, qualifier, and freshness rules. Broad objections diagnose from
+  `references/objections.md` first; load proof only if the selected answer uses
+  customer, benchmark, partner, or quantitative evidence.
+- **Mixed company/product jobs:** a mixed Valantor/GroundX explanation, pitch,
+  or one-line description loads both `master-brand-gtm` and
+  `product-brand-gtm`. Union the references required by every requested output
+  shape; master brand owns Valantor and this skill owns GroundX.
+- **Insurance claims jobs:** insurance claims, ClaimsX, or FraudX positioning
+  loads both messaging skills, then the master-brand product-state and outcome
+  playbook owners. Keep generic claims processing separate from
+  insurance-fraud investigation.
 - **Misuse cases:** do not invent proof points, accuracy numbers, logos, or product
-  capabilities not present in the references.
+  capabilities not present in the references. If a requested named-customer
+  case study has no approved source in `references/proof-points.md`, inspect no
+  private customer material, state only that no approved external source is
+  available, and do not reconstruct or characterize the story.
 
 ## Quick Map
 
 - Product narrative and differentiators: `references/narrative.md`,
   `references/differentiation.md`
+- Compact one-pagers, battlecards, novice explainers, and first-meeting deck
+  content: `references/artifact-recipes.md`
 - Product surfaces and capabilities: `references/product.md`,
   `references/capabilities-and-surfaces.md`
 - Proof points: `references/proof-points.md`

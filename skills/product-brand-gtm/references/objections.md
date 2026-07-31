@@ -4,34 +4,71 @@ Common objections, the reframe that opens the conversation back up, and the proo
 
 For the differentiator pillars these anchors live in, see `differentiation.md`. For the proof citations, see `proof-points.md`.
 
+## 0. Diagnose before answering
+
+A broad alternative such as "we will use a general-purpose model directly" is
+not enough evidence for one hardcoded rebuttal. Select one or two lenses closest
+to the buyer's stated signal:
+
+| Buyer signal | Lead lens | Card |
+| --- | --- | --- |
+| No signal beyond direct-model sufficiency | Concede possible fit; ask one useful question | § 1.1 |
+| Simple text, small corpus, current quality bar met | Honest no-current-fit | § 1.4 |
+| Tables, decision trees, layouts, or observed document failures | Document comprehension | § 1.1 |
+| Large corpus, document selection, retrieval, grounding, or search failure | Retrieval | § 4.1 |
+| Stated residency, sensitivity, or customer-controlled deployment | Deployment control | § 2.1 |
+| Stated internal-build plan | Full-system scope and collaboration | §§ 1.2–1.3 |
+| Stated model-usage or processing-cost pain | Focused processing and model choice | § 3.1 |
+| Two or more explicit signals | The one or two closest lenses | The corresponding cards only |
+
+Read this file first. Then load only the selected mechanism, deployment, buyer,
+or differentiation owner. Load `proof-points.md` only when the answer will
+actually use customer, benchmark, partner, or quantitative evidence. No-signal
+and confirmed-simple-fit answers do not preload proof.
+
 ## 1. Capability and accuracy
 
 ### 1.1 "We'll just use OpenAI / Claude / Gemini directly."
 
-- **Reframe:** General-purpose AI fails on the documents that actually matter — visually complex policies, claims, contracts, technical diagrams, tables, decision trees. The failure rate is not a feature gap; it is structural. General-purpose models don't see document structure before they reason about it.
-- **Proof:** Select the current eligible customer and benchmark claims from
-  `proof-points.md` § 1; preserve their source, qualifier, and freshness rules.
+- **Use when:** start here for the broad objection. Use the comprehension lens
+  only when the buyer names visual structure or an observed document failure.
+- **Lead:** Direct model use can be enough for simple documents and small
+  corpora. GroundX becomes relevant when visual document structure, corpus
+  retrieval, deployment control, repeatability, or operating scale creates a
+  problem.
+- **Ask or verify:** "Where does the current approach break: understanding a
+  page, finding the right document, deployment control, repeatability, or
+  model usage?"
+- **Support:** for confirmed visual complexity, use
+  `technical-architecture.md` §§ 2–3. Load eligible proof only if it will be
+  cited.
+- **If deflected:** follow the new explicit signal. If the buyer says page
+  answers are good but file selection is hard, move to retrieval (§ 4.1).
+- **Avoid:** assuming every document is visually complex, reciting every
+  differentiator, claiming a model vendor trains on or leaks the buyer's
+  documents, or volunteering proof before fit is known.
 
 ### 1.2 "We can build this ourselves."
 
-- **Reframe:** Probably — eventually. The question is the math. The team that
-  built GroundX has been at this since IBM Research, helped lead Watson, did
-  consumer-scale AI at the Weather Company, and spent years on this exact
-  problem. The architecture combines specialized document understanding,
-  focused processing, and hybrid retrieval. Compare the internal build against
-  that full system, not against a single API call.
-- **Read the room.** Treat the internal effort as legitimate. If the buyer
-  explicitly raises displacement, job-security, control, or internal-program
-  ownership concerns, acknowledge the stated concern and position GroundX as a
-  force multiplier. Involve an LOB sponsor when that person owns the business
-  outcome or budget; do not bypass the technical buyer based on role alone.
-- **Proof:** Use the heritage arc from `narrative.md`, the mechanism from
-  `technical-architecture.md`, and any current training-corpus or benchmark
-  claims from `proof-points.md`.
+- **Use when:** the buyer states an internal-build plan.
+- **Lead:** Treat the build as legitimate. Compare its intended scope with the
+  full document-understanding, focused-processing, retrieval, deployment, and
+  operating system—not with one API call.
+- **Ask or verify:** "Which parts does the team plan to own, and where would a
+  proven component accelerate the roadmap?"
+- **Support:** `technical-architecture.md`, `buyer.md` §§ 1–2, and
+  `differentiation.md` §§ 4–5. Use the exact heritage language from
+  `narrative.md` only when relevant.
+- **If deflected:** if the team already covers the full scope, ask where
+  backlog or document complexity remains rather than predicting failure.
+- **Avoid:** "probably—eventually," staffing guesses, build-duration promises,
+  challenging competence, or changing "helped lead Watson's strategy and
+  formation" into "built Watson."
 
 ### 1.3 "Our internal AI team is already building this."
 
-- **Reframe.** Start by asking what the internal program is intended to deliver,
+- **Use when:** an internal AI program already exists.
+- **Lead:** Start by asking what the internal program is intended to deliver,
   where it is working, and where capacity or document complexity creates a gap.
   Do not assume the program exists to protect jobs or justify headcount. Two
   responses, by decision ownership:
@@ -40,25 +77,49 @@ For the differentiator pillars these anchors live in, see `differentiation.md`. 
     wasted. Position the Harness as a force multiplier that makes their team
     more productive across a large use-case backlog. Apply job-security framing
     only if the buyer explicitly supplies that signal (`buyer.md` § 1).
-- **Proof:** The implementation-scale pain framing in `buyer.md` § 2; the Harness positioning in `differentiation.md` § 5.
+- **Ask or verify:** "Which outcomes is the program accountable for, and where
+  is the current backlog or quality gap?"
+- **Support:** `buyer.md` § 2 and `differentiation.md` § 5.
+- **If deflected:** if there is no gap, do not manufacture one. If the signal is
+  backlog, position GroundX as a force multiplier.
+- **Avoid:** assuming job protection, bypassing the technical owner, or saying
+  the internal program is wasted.
 
 ### 1.4 "Our documents aren't that complex; basic RAG works fine."
 
-- **Reframe:** Two scenarios. If that is true and the corpus is small, you may
+- **Use when:** the buyer says the current simple-document path works.
+- **Lead:** Two scenarios. If that is true and the corpus is small, you may
   not need GroundX yet. If the corpus is large or spans many document variants,
   basic RAG can fail quietly through degraded retrieval, omissions, and
   hard-to-detect edge cases.
-- **Proof:** The eyelevel.ai head-to-head on vector-DB-loses-accuracy-at-scale; AskVet's data trove was unlocked only after specialized document handling.
+- **Ask or verify:** "Does the current quality bar hold as the corpus and format
+  diversity grow?"
+- **Support:** stop without proof when the simple fit is confirmed. If the buyer
+  supplies retrieval or scale pain, use § 4.1 and eligible proof.
+- **If deflected:** keep the honest no-current-fit answer and offer a future
+  trigger, not a manufactured present problem.
+- **Avoid:** attaching unrelated customer stories or claiming hidden failure
+  without evidence.
 
 ## 2. Deployment and security
 
 ### 2.1 "We can't send our data to a vendor."
 
-- **Reframe:** Then deploy GroundX inside your own environment. For buyer and
+- **Use when:** the buyer explicitly requires residency, sensitivity, or
+  customer-controlled deployment.
+- **Lead:** GroundX supports deployment in customer-controlled environments.
+  For buyer and
   trust conversations, lead with on-prem, private-cloud, residency-control, or
   supported air-gapped operation. Route platform engineers to
   `groundx-on-prem` for current Kubernetes, Helm, and runtime requirements.
-- **Proof:** Retrieve eligible third-party validation from `proof-points.md` § 4.
+- **Ask or verify:** "Which deployment mode and data boundary does the security
+  team require?"
+- **Support:** load `groundx-on-prem`; retrieve eligible third-party validation
+  only if it will be used.
+- **If deflected:** if data control is not the problem, return to the buyer's
+  stated comprehension, retrieval, build, or cost signal.
+- **Avoid:** unconditional "your data never leaves," unsupported vendor-risk
+  claims, or implying every deployment mode has the same boundary.
 
 ### 2.2 "We need full data sovereignty."
 
@@ -77,10 +138,19 @@ For the differentiator pillars these anchors live in, see `differentiation.md`. 
 
 ### 3.1 "This is expensive vs free open-source tools."
 
-- **Reframe:** Free open-source tools become expensive at scale — vendor stitching, accuracy degradation, hallucination cleanup, multiple tools to maintain. GroundX's agentic pipeline was designed around focused element-level tasks, so many steps can use smaller, easier-to-self-host models instead of sending whole documents to one frontier model. The premium pays back on accuracy that reduces manual review and on an integrated deployment that avoids a multi-vendor stitching project. Do not promise total cost stops scaling; deployment-level cost still depends on volume, storage, retained artifacts, and model choices.
-- **Proof:** Select a current eligible business-outcome claim from
-  `proof-points.md`; pair it with the architecture-level cost argument in
-  `technical-architecture.md` § 3.
+- **Use when:** the buyer explicitly raises model usage, processing cost, or the
+  operating scope of a stitched stack.
+- **Lead:** GroundX's focused processing lets the deployment choose an
+  appropriate model per task instead of sending every whole document to one
+  frontier model. Compare the full operating scope, not license price alone.
+- **Ask or verify:** "Is the cost pressure model usage, manual review, vendor
+  integration, or ongoing operations?"
+- **Support:** `technical-architecture.md` § 3. Load a business-outcome proof
+  only when it is eligible and directly relevant.
+- **If deflected:** follow the named cost driver; do not substitute a different
+  objection.
+- **Avoid:** saying free tools inevitably become expensive, promising payback,
+  quoting price, or claiming total cost stops scaling.
 
 ### 3.2 "We have a large use-case backlog — how do we afford the integration cost?"
 
@@ -95,8 +165,25 @@ For the differentiator pillars these anchors live in, see `differentiation.md`. 
 
 ### 4.1 "Why not just use a vector database?"
 
-- **Reframe:** Pure similarity matching loses relevance at scale. GroundX's hybrid search uses a weighted relevance pre-filter (OpenSearch on rich metadata chunks) plus semantic similarity scoring, then blends both. The integrated design — ingest that produces objects the search was built for — is the moat.
-- **Proof:** `eyelevel.ai/post/do-vector-databases-lose-accuracy-at-scale`. Technical detail in `technical-architecture.md` § 4.
+- **Use when:** the buyer has a large corpus, cannot reliably select the right
+  document, or reports search, grounding, or retrieval failures. Do not use this
+  merely because a vector database appears in the architecture.
+- **Lead:** Uploading one known PDF hides the retrieval problem because the user
+  has already selected the document. At corpus scale, GroundX combines weighted
+  relevance over rich document metadata with semantic scoring so the model
+  receives the right evidence, not merely similar text.
+- **Ask or verify:** "How is the current system choosing which documents and
+  sections reach the model when the answer could be anywhere in the corpus?"
+- **Support:** use `technical-architecture.md` § 4 for the mechanism. Load the
+  eligible retrieval proof from `proof-points.md` only when the response will
+  cite it.
+- **If deflected:** if the buyer says retrieval already meets its quality bar,
+  follow the next explicit signal or keep the honest fit answer. If the buyer
+  says it will add a vector database, compare the required ingest metadata,
+  ranking, grounding, and evaluation scope rather than dismissing that plan.
+- **Avoid:** treating a small hand-selected pilot as corpus-scale evidence,
+  claiming every vector database fails, saying hybrid search alone is the moat,
+  or attaching an unrelated accuracy story.
 
 ### 4.2 "Why OpenSearch and not [vector DB X]?"
 

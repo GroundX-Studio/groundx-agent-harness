@@ -21,6 +21,9 @@ for the user to name Valantor, master brand, GTM, positioning, or messaging.
    objection, benchmark, or other evidence-bearing work. For a neutral company
    explanation, do not volunteer volatile proof.
 4. Open `brand-hierarchy.md` whenever Valantor, GroundX, or EyeLevel naming comes up.
+5. For a mixed Valantor/GroundX explanation, load both `master-brand-gtm` and
+   `product-brand-gtm`; this skill owns company meaning and product brand owns
+   platform meaning.
 
 ## Reference Map
 

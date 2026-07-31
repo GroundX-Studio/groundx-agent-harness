@@ -30,6 +30,12 @@ For public extraction documentation and installed-agent runtime guidance, read
 including `client.ingest(...)`, and keep harness/compiler internals out unless
 the user explicitly asks for SDK internals.
 
+Before authoring or running a demo, confirm the source document is attached or
+at a path the user explicitly supplied. Do not search ambient files for it. If
+it is missing, ask for a secure attachment or approved private path and the
+desired fields. Do not guess a schema, populate results, claim execution, or
+claim accuracy.
+
 ## Routing Contract
 
 - **Role:** `artifact`.
@@ -54,6 +60,8 @@ the user explicitly asks for SDK internals.
 3. For public extraction docs, read `references/public-docs.md`.
 4. For a new customer or serious pilot, read `references/customer-onboarding.md` and
    optionally `references/openspec-pilots.md`.
+   If the source document is missing, stop before drafting and use
+   `references/13_customer_intake.md`.
 5. Draft or revise `prompt.yaml` using `references/16_prompt_writing.md`,
    `references/prompt-quality.md`, `references/prompt-improvement-loop.md`,
    `references/2_schema_design.md`, and `references/3_prompt_pipeline.md`.

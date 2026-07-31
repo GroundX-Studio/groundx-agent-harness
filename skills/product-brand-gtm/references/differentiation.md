@@ -1,6 +1,10 @@
 # Differentiation: The Five Pillars
 
-GroundX has five differentiator pillars. Order matters — pillars 1 and 2 are the lead arguments for most buyers; pillars 3 and 4 reinforce; pillar 5 is the ease-of-use bet against the implementation-scale pain.
+GroundX has five differentiator pillars. General pitch order matters, but it
+does not override objection diagnosis. For an objection, use
+`objections.md`'s buyer-signal map and select only the one or two relevant
+lenses. In a broader pitch, pillars 1 and 2 lead for most buyers; pillars 3 and
+4 reinforce; pillar 5 addresses implementation-scale pain.
 
 For the master pain context that frames all five pillars, see `buyer.md` § 1.
 
@@ -11,7 +15,11 @@ environments, or in the cloud. For regulated, data-sensitive, and
 sovereignty-constrained buyers, customer-controlled deployment can be a
 prerequisite.
 
-**Why it's a moat.** Very little competition exists in either document understanding or RAG when deploying on-prem. Most competitors are SaaS-only or hybrid. Building a hardened, air-gapped, Kubernetes-native deployment is a multi-year engineering investment, not a feature flag.
+**Why it matters.** Self-hosting is full architecture and operations scope:
+Kubernetes packaging, backing services, model serving, storage, upgrades,
+observability, and supported air-gap behavior. Compare that scope, using
+current facts from `groundx-on-prem`, rather than asserting a universal build
+duration or how many competitors can deliver it.
 
 **Proof anchors.** Use `groundx-on-prem` for current deployment facts. For
 evidence-bearing work, retrieve any eligible partner or third-party validation

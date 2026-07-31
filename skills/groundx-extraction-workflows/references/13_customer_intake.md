@@ -11,6 +11,31 @@ This is methodology, not a platform-operation guide. Keep YAML the durable
 artifact; route workflow registration, ingest, polling, and extract retrieval to
 `groundx-api` (see `customer-onboarding.md` §API handoff).
 
+## Missing source document: stop before results
+
+Check only conversation attachments and paths the user explicitly supplied.
+Do not search the ambient workspace, repository, home directory, or temporary
+directories for a customer or prospect document.
+
+If no source document is available:
+
+- ask for a secure direct attachment or an approved private location; do not
+  ask the customer to make a confidential document publicly reachable;
+- ask which fields the prospect wants back;
+- request reviewer-approved expected answers when the user wants a numerical
+  accuracy demo;
+- do not draft runnable YAML or guess a "standard" contract/schema;
+- do not populate sample values or label invented values as GroundX output;
+- do not claim a workflow ran or report accuracy; and
+- if useful, show only an explicitly empty shape such as
+  `"<not extracted — source missing>"`.
+
+Once the source and approved fields exist, compile with
+`compile_workflow.py` and validate with `validate_workflow_json.py` before
+calling the YAML runnable. Use `score_extraction.py` or
+`run_extraction_loop.py --expected-json` for scoring;
+`run_extraction.py` does not accept `--expected-json`.
+
 ## Minimal schema-first request
 
 The user should not need to know the v1 YAML mechanics or the live-run

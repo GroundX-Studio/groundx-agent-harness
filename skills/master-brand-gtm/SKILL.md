@@ -30,6 +30,14 @@ executive descriptors, and EyeLevel/GroundX/Valantor brand hierarchy questions.
   other evidence-bearing work also loads `references/proof-points.md`
   automatically and applies its audience, source, qualifier, and freshness
   rules.
+- **Mixed company/product jobs:** a mixed Valantor/GroundX explanation, pitch,
+  or one-line description loads both `master-brand-gtm` and
+  `product-brand-gtm`. This skill owns Valantor/company meaning; product brand
+  owns GroundX/platform meaning.
+- **Insurance claims jobs:** insurance claims, ClaimsX, or FraudX positioning
+  loads both messaging owners plus this skill's product-state and outcome
+  playbook references. Never present FraudX evidence as generic
+  claims-processing proof.
 - **Misuse cases:** do not claim illustrative products are shipping; do not invent
   customer outcomes or proof points.
 
