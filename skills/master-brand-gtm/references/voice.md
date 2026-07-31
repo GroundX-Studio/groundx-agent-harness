@@ -1,29 +1,40 @@
 # Voice (master-brand narrative)
 
-How Valantor master-brand prose sounds — sentence shape, vocabulary, do/don't words, register. This file owns **narrative** voice at master-brand altitude. The visual-surface voice (headline shape, eyebrow casing, ALL-CAPS rules) is in `../../master-brand-design-standards/references/voice.md` — that split mirrors the EyeLevel pack.
+How Valantor master-brand prose sounds: sentence shape, vocabulary, and register.
+This file owns narrative voice at master-brand altitude. The visual-surface voice
+lives in `../../master-brand-design-standards/references/voice.md`.
 
-For product-altitude narrative voice (GroundX product pitches, customer outcomes at product level, sales-deck language), see `../../product-brand-gtm/` — particularly `narrative.md`, `objections.md`, and the references under it.
+For every external Valantor or GroundX artifact, first apply
+`../../RESPONSE_STYLE.md`. Write for a busy reader. Every word must earn its
+place.
+
+For product-altitude narrative voice, see `../../product-brand-gtm/`.
 
 ## 1. Register: composed, infrastructure-grade
 
-Valantor master-brand voice is **composed, declarative, and infrastructure-grade**. The audience is senior — CEO, CFO, Board, investor, analyst, industry leader — and the voice meets them at that altitude. Three adjectives anchor decisions:
+Valantor master-brand voice is composed, direct, and specific. The audience is
+senior and short on time.
 
 - **Composed.** Sentences land flat and certain. No exclamation marks. No question marks as rhetorical devices. The voice asserts.
 - **Declarative.** State the position directly. *"Valantor is the Visual Intelligence Company."* *"GroundX is never optional."* *"The data comprehension gap is structural, not a tooling problem."*
-- **Infrastructure-grade.** Vocabulary leans toward the language of enterprise infrastructure — *platform*, *control plane*, *operating layer*, *system of record*, *standardize on*, *infrastructure-tier*, *multi-year contract*, *embedded position*. Not the language of startups, not the language of consumer SaaS.
+- **Specific.** Use an approved company term only when it helps this audience.
+  Explain it in ordinary words on first use.
 
 Adjectives that do not describe the voice: *playful*, *cheeky*, *casual*, *aspirational-with-energy*. If a draft reads as playful or cheeky, it has drifted out of the master-brand altitude.
 
 ## 2. Sentence shape
 
 - **Short declarative sentences for headlines.** *"Valantor is the Visual Intelligence Company."* No qualifiers, no hedges.
-- **Long compound-complex sentences for explanatory paragraphs.** Master-brand prose is allowed to be dense, but external prose still avoids em dashes. If the aside is doing real work, rewrite it into a second sentence or introduce it with a colon.
+- **Short explanatory sentences.** Put one main idea in each sentence. Split a
+  dense sentence unless its clauses must stay together for accuracy.
 - **No mechanical punctuation swaps.** Removing an em dash should not create a comma splice, dangling modifier, or awkward appositive. Rewrite the sentence until it sounds composed again.
 - **Title case for h1, h2, h3.** Section eyebrows are uppercase (per `../../master-brand-design-standards/references/voice.md` § 2); body sentences are sentence case.
 
 ## 3. Vocabulary anchors
 
-Use these terms; they signal master-brand altitude:
+These terms are available when the audience and message require them. Use one
+unfamiliar term at a time. Define it in ordinary words. Do not stack several
+abstract category terms in one sentence:
 
 - *Visual Intelligence* — the category.
 - *Data comprehension gap* — the named enterprise problem.
@@ -47,15 +58,17 @@ Use these terms; they signal master-brand altitude:
 - *Excited*, *thrilled*, *delighted*. Emotional verbs at master-brand altitude read as press-release boilerplate.
 - *AI-powered*, *AI-driven*. Generic; Valantor is more specific (*Visual-Intelligence-powered* is closer; *GroundX-powered* is the literal product fact for Outcome Plug-ins).
 
-## 5. Short-Form Contrast Lines
+## 5. Approved contrast lines
 
-Use these as approved contrast lines for executive-altitude short-form descriptors. They
-should sharpen the outcome-vs-tools posture, not become repetitive boilerplate:
+These lines exist on approved surfaces. Preserve them only when the user asks for
+the exact wording or the selected source requires it. Do not use them as a
+general-purpose writing formula:
 
 - *Outcomes, not platforms.*
 - *Not more SaaS, tools, and failed projects.*
 - *We bring the AI and the humans. You buy the result.*
-- *The customer buys the outcome, not a platform to staff and operate.*
+- *Valantor organizes the engagement around a specific business outcome and
+  provides the people needed to run the work.*
 
 ## 6. Hedging rules
 
@@ -90,9 +103,9 @@ differ in altitude:
 | Dimension | `product-brand-gtm` (product) | `master-brand-gtm` (master-brand) |
 | --- | --- | --- |
 | Tone | Direct, capability-confident | Composed, infrastructure-grade |
-| Headline shape | *"Unlock the data trapped in your most complex documents."* | *"Valantor is the Visual Intelligence Company."* |
+| Headline shape | *"GroundX reads complex documents and returns usable information."* | *"Valantor is the Visual Intelligence Company."* |
 | Vocabulary anchor | *Vision Model, Agentic Pipeline, Hybrid Search, accuracy, on-prem* | *Visual Intelligence, data comprehension gap, control plane, infrastructure-grade* |
-| Sentence shape | Mix of short headlines and tight three-line explanations | Short declarative headlines + long compound-complex explanatory paragraphs |
+| Sentence shape | Short headlines and tight explanations | Short declarative headlines and plain explanations |
 | Audience | CIO, VP Eng, Data Lead, LOB, developer | CEO, CFO, Board, investor, analyst, industry leader |
 | Forbidden | Hype, fabricated proof, EyeLevel-by-Valantor construction | Same plus: SaaS-tier vocabulary or any lifecycle claim that exceeds `product.md` |
 

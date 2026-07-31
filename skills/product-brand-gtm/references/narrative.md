@@ -4,7 +4,7 @@ The EyeLevel + GroundX product story. Headline, heritage arc, and one-line / thr
 
 ## 1. Headline
 
-> **Unlock the data trapped in your most complex documents.**
+> **GroundX reads complex documents and returns usable information.**
 
 This is the headline for product-altitude surfaces. Evidence-bearing artifacts
 pair it with an eligible current claim from `proof-points.md`; neutral
@@ -12,12 +12,16 @@ explanations do not volunteer volatile proof.
 
 ## 2. The one-line pitch
 
-GroundX is the most accurate document intelligence platform for complex enterprise documents: it extracts reliable structured data, powers grounded answers with citations, and deploys cloud, on-prem, or air-gapped for the documents that defeat general-purpose AI.
+GroundX reads complex enterprise documents and returns structured data, grounded
+answers, and source-backed reports in the deployment model the customer needs.
 
 ## 3. The three-line pitch
 
-- **The problem.** Most enterprise value is locked in visually complex documents — contracts, claims, policies, technical diagrams, scanned forms, decision trees, tables. General-purpose AI tools fail on this material at scale.
-- **The system.** GroundX turns those documents into reliable, structured intelligence — clean extracted data, grounded answers, source-backed reports, and RAG systems when the buyer is explicitly building that pattern. A fine-tuned vision model identifies tables, paragraphs, and figures on every page; a stack of focused agents reasons about each element; a proprietary hybrid search is designed to return strong context for grounded answers.
+- **The problem.** Complex enterprise documents contain tables, forms, diagrams,
+  and layouts that general-purpose AI often misses.
+- **The system.** GroundX reads the page structure before extracting data or
+  answering questions. It can return structured data, grounded answers, and
+  source-backed reports.
 - **The deployment.** Cloud, on-prem, or supported air-gapped deployment via
   Helm charts. This gives regulated and data-sovereignty buyers a
   customer-controlled path. Retrieve current partner validation from
@@ -29,7 +33,7 @@ External executive and sales copy should not lead with "RAG" unless the buyer ha
 
 ## 4. The heritage arc
 
-The product story is *we have been doing this longer than anyone, and built the system that was always going to be needed.*
+The team's experience predates the current AI boom.
 
 - **Origin: IBM Research.** Helped lead the strategy and formation of IBM Watson. Product and technical leadership at Watson.
 - **Consumer-scale AI: Weather Company.** Moved into the Weather Company acquisition to do "AI at consumer scale." Decades dealing with adding private corporate knowledge — specifically unstructured documents — to consumer-scaled AI systems.

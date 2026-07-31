@@ -18,6 +18,22 @@
   "publicArtifacts": {
     "static": [
       {
+        "source": "skills/RESPONSE_STYLE.md",
+        "dest": "skills/RESPONSE_STYLE.md"
+      },
+      {
+        "source": "hooks/hooks.json",
+        "dest": "hooks/hooks.json"
+      },
+      {
+        "source": "scripts/hooks/enforce-human-writing.mjs",
+        "dest": "scripts/hooks/enforce-human-writing.mjs"
+      },
+      {
+        "source": "scripts/hooks/inject-human-writing-style.mjs",
+        "dest": "scripts/hooks/inject-human-writing-style.mjs"
+      },
+      {
         "source": "docs/public-harness/README.md",
         "dest": "README.md"
       },

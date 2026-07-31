@@ -1,8 +1,11 @@
 # Buyer: Sweet Spot vs. Broader Universe
 
-The buyer universe is broad — anyone with substantial document understanding or RAG needs is in scope. Inside that universe there is a distinct ideal-customer profile (ICP) where the pitch lands sharpest and conversion is highest.
+The buyer universe includes anyone with substantial document-understanding or
+RAG needs. The ideal-customer profile identifies where the product usually fits
+best.
 
-Do not write language that excludes the broader buyer base. *"This is for [archetype]"* and *"Not X, specifically Y"* phrasings collapse ICP into buyer universe. Use *"the sweet spot is..."*, *"we win obviously when..."*, *"most interested are..."* instead.
+Do not write language that excludes the broader buyer base. Describe the
+strongest fit without claiming that other buyers do not qualify.
 
 ## 1. Conditional organizational-risk signal
 
@@ -17,8 +20,8 @@ or more of these concerns:
 - an internal program's ownership or standing is at risk;
 - job security, control, or organizational politics will affect the decision.
 
-When a signal is present, acknowledge it without diagnosing motives. Position
-GroundX and the Harness as force multipliers, clarify decision ownership, and
+When a signal is present, acknowledge it without diagnosing motives. Explain
+how GroundX and the Harness can shorten implementation work, clarify decision ownership, and
 connect the technical buyer with the line-of-business sponsor when that sponsor
 owns the business outcome or budget. Do not bypass a technical stakeholder
 merely because of their role.
@@ -84,7 +87,7 @@ Broader-universe pitch shape: lead with capability, accuracy, and on-prem option
 | Signal in the conversation | Use this pitch shape |
 | --- | --- |
 | User is an LOB owner asking about business outcomes (cost, resolution rate, margin) | **Outcome-buyer** / lead with proof points and the Operational Layer concept (see `product.md` § 9) |
-| User explicitly raises displacement, job-security, control, or internal-program ownership concerns | Acknowledge the stated concern, position GroundX as a force multiplier, and involve the LOB sponsor when that person owns the outcome or budget |
+| User explicitly raises displacement, job-security, control, or internal-program ownership concerns | Acknowledge the stated concern, explain how GroundX can shorten implementation work, and involve the LOB sponsor when that person owns the outcome or budget |
 | User mentions tried-and-failed RAG, hallucinations, brittle parsing, frustrating accuracy | ICP / sharp |
 | User mentions on-prem requirement, air-gapped, data sovereignty, regulated industry | ICP-adjacent / lead with on-prem |
 | User mentions hundreds of AI use cases, agent fatigue, can't keep up with use case backlog | Master-context pain / lead with Harness |

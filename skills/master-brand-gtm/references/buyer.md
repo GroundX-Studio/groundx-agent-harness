@@ -1,8 +1,11 @@
 # Buyer: Master-Brand Altitude
 
-The buyer universe at Valantor master-brand altitude is broad — any enterprise pursuing AI-native transformation is in scope. Inside that universe there is a distinct ideal-customer profile (ICP) where the master-brand pitch lands sharpest.
+The buyer universe at Valantor master-brand altitude includes enterprises
+pursuing AI transformation. The ideal-customer profile identifies where the
+offer usually fits best.
 
-Do not write language that excludes the broader buyer base. *"This is for [archetype]"* and *"Not X, specifically Y"* phrasings collapse ICP into buyer universe. Use *"the sweet spot is..."*, *"we win obviously when..."*, *"most interested are..."* instead.
+Do not write language that excludes the broader buyer base. Describe the
+strongest fit without claiming that other buyers do not qualify.
 
 ## 1. Conditional organizational-risk signal
 
@@ -13,7 +16,7 @@ engineering leaders as legitimate collaborators and buyers.
 If a buyer explicitly raises displacement, internal-program ownership, job
 security, control, or organizational politics, apply the conditional response
 in `../../product-brand-gtm/references/buyer.md` § 1: acknowledge the stated
-concern, position Valantor as a force multiplier, clarify decision ownership,
+concern, explain how Valantor can shorten implementation work, clarify decision ownership,
 and involve an outcome sponsor when that person owns the result or budget.
 
 Investors and analysts may also be tired of generic AI claims. Make category
@@ -58,7 +61,7 @@ Broader-universe pitch shape: lead with the category (Visual Intelligence), the 
 | Signal in the conversation | Use this pitch shape |
 | --- | --- |
 | LOB owner / outcome-buyer asking about business metrics, cost, resolution rate, margin | **Outcome-buyer / lead with the outcomes-not-tools posture within the current `product.md` boundary** — see `ai-and-humans.md` |
-| IT / engineering executive explicitly raises displacement, job-security, control, or internal-program ownership concerns | Acknowledge the concern, position Valantor as a force multiplier, and involve the outcome owner without bypassing the technical buyer |
+| IT / engineering executive explicitly raises displacement, job-security, control, or internal-program ownership concerns | Acknowledge the concern, explain how Valantor can shorten implementation work, and involve the outcome owner without bypassing the technical buyer |
 | Investor or analyst asking about category, defensibility, valuation | **Investor narrative** — see `investor-narrative.md` |
 | Board member or CEO asking about enterprise AI strategy | **Category + AI+humans + Operational Layer strategic posture** — see `narrative.md` and `ai-and-humans.md` |
 | Regulated-vertical leader (insurance, financial services, healthcare, public sector, energy) | **Vertical thesis + Outcome Plug-in proof** — see `verticals.md` and `outcome-playbooks.md` |

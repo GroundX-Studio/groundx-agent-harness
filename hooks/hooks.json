@@ -1,0 +1,25 @@
+{
+  "description": "Load and enforce the GroundX plain-English response style.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/inject-human-writing-style.mjs\" \"${CLAUDE_PLUGIN_ROOT}/skills/RESPONSE_STYLE.md\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/enforce-human-writing.mjs\""
+          }
+        ]
+      }
+    ]
+  }
+}

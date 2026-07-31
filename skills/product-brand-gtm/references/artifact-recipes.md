@@ -4,6 +4,9 @@ Use these recipes after selecting the audience, message axis, and eligible
 proof. They constrain shape and source discipline; they do not supply new
 claims.
 
+Before drafting any external artifact, read `../../RESPONSE_STYLE.md`. Write for
+a busy reader. Use succinct, plain English. Make every word count.
+
 ## 1. Retrieval rule for mixed jobs
 
 Treat every requested output shape as part of one job and **union** its required
@@ -58,6 +61,9 @@ Target **at most 500 visible words**:
 - one proof block using only eligible records;
 - one CTA.
 
+Each block should make one point. Remove any sentence that repeats the heading or
+the prior block. Do not append a second CTA, a process note, or an unasked offer.
+
 Visible-word count includes headings, body copy, proof qualifiers, source notes,
 and the CTA. Report the count during validation. Load `sales-motion.md` for a
 persona-appropriate CTA.
@@ -67,6 +73,11 @@ metadata would make the buyer copy unreadable. A one-pager without an output
 medium is a copy-ready Markdown artifact, not a rendered PDF. If the user asks
 for a designed or send-ready PDF, route to the slide/PDF producer available in
 the installed environment.
+
+Do not volunteer financial, traction, adoption, usage, or customer-count figures
+in a generic external artifact. These figures rot quickly. Use one only when the
+user explicitly asks for that class of evidence and provides a current approved
+source for the communication job.
 
 ## 4. Battlecard
 
@@ -79,12 +90,36 @@ Target **at most 500 visible words**:
 - exactly three differentiators;
 - four or five objections;
 - each spoken objection response at most **35 words**; and
-- optional discovery cues in a separate column, not inside spoken copy.
+- discovery cues only when the user asks for them.
 
-When no buyer signal is available, label the objections a **default
-cross-enterprise set** (the literal label "default cross-enterprise set" is
-acceptable), not "the most common" or "top objections." Select four or five from
-this default pool:
+Write value propositions as direct buyer outcomes. Write each differentiator as
+one claim and one short explanation. Write objection responses so they sound
+natural when spoken. Answer the objection before naming the mechanism. Do not
+append a generic CTA, process note, or unasked offer.
+Write the exact words the salesperson should say. Do not leave directions such
+as "ask the buyer," "verify," or "route to" inside the spoken response.
+
+The final response must start with the artifact title. Put no status, reference,
+or process sentence before it. Do not announce that the artifact follows.
+Do not print internal selection notes such as "default cross-enterprise set" or
+"audience assumption." The artifact should contain only material the salesperson
+or buyer will use.
+
+If a selected value proposition, differentiator, or objection mentions on-prem,
+air-gapped, residency, data location, Kubernetes, or customer-controlled
+deployment, load `groundx-on-prem` before drafting. Keep the statement
+conditional on the supported deployment mode. Do not say "your data stays" or
+"your data never leaves" without an owner-backed boundary for that mode.
+This is a hard gate. If `groundx-on-prem` has not been loaded, omit deployment
+details from the artifact.
+
+For the real-document demo objection, describe the approved MNDA and sample-data
+process from `sales-motion.md`. Do not attach a named customer unless that
+customer's proof record explicitly says it followed that process.
+
+When no buyer signal is available, select four or five objections from this
+default pool. It spans common enterprise concerns without claiming a ranking.
+Do not call them "the most common" or "top objections":
 
 - "We can build this ourselves."
 - "Our documents aren't that complex; basic RAG works fine."
@@ -95,10 +130,21 @@ this default pool:
 Order the selected objections by the audience's stated pain, deployment
 constraints, build posture, sales stage, and likely decision owner. Swap in
 technical, regulated, build, cost, or outcome objections only when the context
-supplies those signals. With no signal, state the audience assumption and do not
-claim the pool is frequency-ranked. Use `objections.md` to diagnose before
+supplies those signals. With no signal, do not claim the pool is
+frequency-ranked. Use `objections.md` to diagnose before
 selecting proof. Define value propositions as buyer outcomes and differentiators
 as reasons GroundX can deliver them; remove duplicated phrasing before returning.
+
+Before returning the battlecard, run a literal final pass:
+
+1. Remove every `—`, `–`, and `→` character.
+2. Remove internal labels, process notes, and audience assumptions.
+3. Replace jargon a non-technical buyer would need explained.
+4. Remove any sentence that repeats the heading above it.
+5. Remove instructions to the salesperson. Turn any useful discovery cue into a
+   direct question.
+6. Read each objection answer aloud. If it sounds scripted, rewrite it.
+7. Remove discovery cues unless the user requested them.
 
 ## 5. First non-technical buyer meeting
 
@@ -123,6 +169,9 @@ out of the main arc unless the buyer asks; move technical depth to a follow-up
 or appendix. The cover is not a proof slide; do not repeat quantitative proof
 there. A source/freshness note accompanies **every slide instance** of a proof,
 not merely the first occurrence.
+
+Write each title as a point a human presenter would say aloud. Use short,
+audience-facing sentences. Do not use slogans to fill space.
 
 Load `product.md` or `capabilities-and-surfaces.md` before asserting product
 workflow behavior. Load `groundx-api` before naming connectors, interfaces, or

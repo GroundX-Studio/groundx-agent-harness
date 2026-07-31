@@ -11,9 +11,14 @@ description: >
   backend integration, and fallback. Keep raw keys out of tool arguments, browser code,
   logs, transcripts, examples, and generated files. For MCP client setup, connection, and auth, see the
   `groundx-mcp` skill.
+  A buyer or prospect response, objection, comparison, or product-positioning
+  request starts in `product-brand-gtm`, not this API reference.
 ---
 
 # GroundX API Skill
+
+Before returning prose to a human, read `../RESPONSE_STYLE.md`. Use its external-writing
+section for Valantor or GroundX collateral and its default rules for technical answers.
 
 Use this skill for customer-scoped GroundX platform operations: ingest,
 processing status, search, document lookup, source retrieval, buckets, groups,

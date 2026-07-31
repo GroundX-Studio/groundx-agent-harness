@@ -4,9 +4,14 @@ description: >
   Installed-agent source of truth for GroundX architecture facts: pipeline,
   components, trust model, data flow, search, extraction architecture, observability,
   residency, and deployment-invariant system behavior.
+  A buyer or prospect response, objection, comparison, or positioning request
+  starts in `product-brand-gtm`, which returns here only for architecture facts.
 ---
 
 # GroundX Architecture
+
+Before returning prose to a human, read `../RESPONSE_STYLE.md`. Use its external-writing
+section for Valantor or GroundX collateral and its default rules for technical answers.
 
 Use this skill for architecture-shaped questions about GroundX: how the system works,
 pipeline shape, trust model, data residency, observability, data flow, extraction QA,

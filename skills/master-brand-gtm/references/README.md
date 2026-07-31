@@ -16,14 +16,20 @@ for the user to name Valantor, master brand, GTM, positioning, or messaging.
 ## Fast Path
 
 1. Start in `../SKILL.md` for the public routing contract.
-2. Pick one reference from the map below.
-3. Open `proof-points.md` automatically for investor, board, RFP, one-pager,
+2. For external Valantor or GroundX artifacts, read
+   `../../RESPONSE_STYLE.md` before drafting.
+3. Pick one reference from the map below.
+4. Open `proof-points.md` automatically for investor, board, RFP, one-pager,
    objection, benchmark, or other evidence-bearing work. For a neutral company
    explanation, do not volunteer volatile proof.
-4. Open `brand-hierarchy.md` whenever Valantor, GroundX, or EyeLevel naming comes up.
-5. For a mixed Valantor/GroundX explanation, load both `master-brand-gtm` and
+5. Open `brand-hierarchy.md` whenever Valantor, GroundX, or EyeLevel naming comes up.
+6. For a mixed Valantor/GroundX explanation, load both `master-brand-gtm` and
    `product-brand-gtm`; this skill owns company meaning and product brand owns
    platform meaning.
+7. Current customers, partner targets, pipeline, quarterly goals, contract
+   targets, and internal business strategy are not public positioning. Return
+   only the approval boundary from `../SKILL.md`; do not infer details from
+   these references.
 
 ## Reference Map
 
