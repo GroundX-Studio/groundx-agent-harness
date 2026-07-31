@@ -95,12 +95,12 @@ Structure each entry as **Objection → Reframe → Proof**.
 
 - **Reframe.** Internal programs are effective for the AI use cases their teams
   can sustain. The implementation-scale problem appears when the backlog grows
-  faster than internal delivery capacity. Position GroundX and the Harness as
-  force multipliers, and keep the Operational Layer within its current
+  faster than internal delivery capacity. Explain how GroundX and the Harness
+  can shorten implementation work. Keep the Operational Layer within its current
   promise boundary from `product.md`.
 - **Read the room.** Treat the internal program as legitimate. If the buyer
   explicitly raises displacement, ownership, or political concerns, acknowledge
-  them and position Valantor as a force multiplier. Bring in an LOB sponsor when
+  them and explain how Valantor can shorten the work. Bring in an LOB sponsor when
   that person owns the business outcome, not as a way to bypass the technical
   buyer. See `buyer.md` § 1 and
   `../../product-brand-gtm/references/objections.md` § 1.3.

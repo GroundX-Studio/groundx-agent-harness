@@ -9,11 +9,11 @@ answer and does not specify investor, analyst, board, or category-creation altit
 Use this for CEO, COO, CFO, line-of-business, and generic executive-altitude prompts.
 This is the default when the user asks what Valantor is or what Valantor's goal is.
 
-> Valantor helps enterprises turn difficult documents into information people
-> and AI systems can use reliably. It works with executives on accountable
-> outcomes in regulated, high-stakes workflows—not just tools for IT to
-> assemble—using GroundX document intelligence plus people Valantor provides to
-> help operate and oversee the work.
+> Valantor helps companies use information trapped in complex documents,
+> including contracts, claims, policies, forms, and diagrams. GroundX reads the
+> documents, and Valantor provides the people needed to run and oversee the
+> work. Customers use Valantor to improve a specific business process, with a
+> team accountable for the work.
 
 ### 1.1 Use When
 
@@ -32,7 +32,8 @@ This is the default when the user asks what Valantor is or what Valantor's goal 
 - In novice answers, start with "turns difficult documents into usable
   information." Introduce "comprehends" or "understands" only after the plain
   explanation.
-- Keep the contrast clean: outcomes, not platforms; not more SaaS, tools, and failed projects.
+- State what Valantor does directly. Do not build the description around
+  contrasts with tools, platforms, SaaS, or failed projects.
 - "Assured," "accountable," and "outcome-oriented" are not contractual
   guarantees. Do not rewrite them as "guaranteed result" or assert completed
   outcomes such as fraud caught, claims resolved, or compliance achieved
@@ -43,26 +44,30 @@ This is the default when the user asks what Valantor is or what Valantor's goal 
 Use this when the user explicitly asks for investors, analysts, category creation, or market
 positioning. This is where Visual Intelligence belongs as the named category.
 
-> Valantor defines the Visual Intelligence category: the enterprise capability to turn unstructured documents and other visual data into trusted, operational intelligence. It closes the data comprehension gap with GroundX, productizes repeatable outcomes through Outcome Plug-ins, and compounds into the control plane where understanding, governance, execution, and accountability converge. The strategic bet is infrastructure-grade: enterprises standardize on the layer that makes their highest-stakes AI workflows reliable.
+> Valantor helps enterprises use information trapped in documents and other
+> visual data. GroundX turns that data into reliable information for AI and
+> business workflows. Valantor packages the technology and operational support
+> around repeatable business outcomes in regulated industries.
 
 ## 3. Board / Governance Variant
 
 Use this when the user asks for board, governance, regulated-industry, or accountability
 language and wants the risk posture more than the category claim.
 
-> Valantor gives regulated enterprises a way to make AI useful on the documents that carry their real risk: claims, contracts, policies, records, forms, and compliance evidence. It pairs document-comprehending AI with human accountability Valantor provides, so the buyer gets assured outcomes rather than another platform to operate. The result is a governed operating layer for high-stakes workflows where accuracy, auditability, and ownership matter.
+> Valantor helps regulated companies use AI in document-heavy work such as
+> claims, contracts, policies, and compliance. GroundX reads the documents,
+> while people provided by Valantor oversee the work and handle cases that need
+> judgment. Each engagement has a defined process, controls, and owner.
 
 ## 4. Phrase Bank
 
 Use these as short-form anchors, not as mandatory boilerplate:
 
 - Data comprehension gap.
-- Outcomes, not platforms.
 - AI that comprehends enterprise documents like humans.
 - Humans Valantor brings in to execute and manage the work.
-- Not more SaaS, tools, and failed projects.
-- The engagement is organized around an accountable outcome, not only access to
-  a platform.
+- A team accountable for the work.
+- An engagement organized around a specific business process and result.
 
 ## 5. What This File Does Not Cover
 

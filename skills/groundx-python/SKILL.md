@@ -13,6 +13,9 @@ description: >
 
 # GroundX Python SDK Contribution
 
+Before returning prose to a human, read `../RESPONSE_STYLE.md`. Use its external-writing
+section for Valantor or GroundX collateral and its default rules for technical answers.
+
 Use this skill for **contributing to the `eyelevelai/groundx-python` repo**.
 The repo's own [`AGENTS.md`](https://github.com/eyelevelai/groundx-python/blob/main/AGENTS.md)
 is the canonical contribution guide. This skill helps agents decide whether the

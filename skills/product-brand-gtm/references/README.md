@@ -7,17 +7,19 @@ buyer framing, objections, or product descriptions.
 ## Fast Path
 
 1. Start in `../SKILL.md` for the public routing contract.
-2. Pick one primary reference from the map below as a starting point. Load the
+2. For external Valantor or GroundX artifacts, read
+   `../../RESPONSE_STYLE.md` before drafting.
+3. Pick one primary reference from the map below as a starting point. Load the
    additional owner it names when the selected decision spans another axis.
-3. Open `proof-points.md` automatically for one-pagers, RFPs, sales
+4. Open `proof-points.md` automatically for one-pagers, RFPs, sales
    substantiation, benchmarks, or other evidence-bearing work. For broad
    objections, diagnose in `objections.md` first and load proof only when the
    selected answer will use customer, benchmark, partner, or quantitative
    evidence.
    For a neutral product explanation, do not volunteer volatile proof.
-4. Open `brand-relationship.md` whenever GroundX, EyeLevel, and Valantor naming or
+5. Open `brand-relationship.md` whenever GroundX, EyeLevel, and Valantor naming or
    hierarchy comes up.
-5. For a mixed Valantor/GroundX job, load both `master-brand-gtm` and
+6. For a mixed Valantor/GroundX job, load both `master-brand-gtm` and
    `product-brand-gtm`; union the references required by every requested output
    shape and use `artifact-recipes.md` for compact formats.
 
@@ -31,6 +33,7 @@ buyer framing, objections, or product descriptions.
 | Product surfaces and capabilities | `capabilities-and-surfaces.md`, `product.md` |
 | Public Agent Harness, private Studio Harness, MCP, and host capability attribution | `harness-pitch.md` |
 | Proof points and outcomes | `proof-points.md` |
+| Named-customer external-use decision | `customer-disclosure.md`, then search only that name in `proof-points.md` |
 | Buyer-specific framing | `audiences.md`, `buyer.md` |
 | Objections | `objections.md` |
 | Brand hierarchy, naming, and agent integration mental model | `brand-relationship.md` |

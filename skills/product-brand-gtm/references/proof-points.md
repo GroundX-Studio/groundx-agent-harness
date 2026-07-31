@@ -1,5 +1,8 @@
 # Proof Points
 
+Before drafting from this file, read `../../RESPONSE_STYLE.md` and apply it to
+the complete response.
+
 Customer outcomes, benchmarks, technical-corpus evidence, partner validation,
 and quotes that can be cited in external content. Every claim carries `Source:`
 and `Last verified:` lines. If a claim is not in this file, do not assert it
@@ -15,6 +18,10 @@ claim-specific qualifier is mandatory when the record lists one; otherwise no
 additional qualifier is recorded. Section 7 supplies the default recheck
 trigger. If allowed use, source, freshness, or a required qualifier is unclear,
 omit the claim rather than filling the gap from another reference.
+
+When a requested named customer is absent, state that no approved external
+source is available and request customer or owner approval. Do not offer
+unrelated customer stories unless the user asks for alternatives.
 
 Treat every claim as a typed evidence record. Preserve its exact supported
 wording, **evidence scope** (industry, workflow, deployment mode, and allowed
@@ -83,12 +90,12 @@ an unconditional data-egress statement.
 
 ## 2. Business outcomes
 
-### 2.1 AskVet — margin doubling, autonomous resolution
-
-> AskVet **doubled gross margin from 40% to 80%** by operationalizing a decade of veterinary data on GroundX. **VERA™, the world's first digital veterinarian, autonomously handles 70–85% of user questions.** Trained on 2 million+ chats, scanned medical records, diagnostic photos, and consult notes.
+### 2.1 AskVet customer story
 
 - **Industry:** animal health.
-- **Outcome:** VERA™ digital veterinarian, operationalized as a turnkey enterprise platform spanning companion and farm animal verticals.
+- **Use as:** public customer validation that AskVet built its virtual
+  veterinarian on GroundX. Do not volunteer financial, usage, adoption, or
+  training-corpus figures.
 - **Quote available:** Cal Lai, Founder and CEO of AskVet — *"Valantor created foundational technology that allowed us to very quickly and rapidly scale up this virtual veterinarian. We couldn't have done it without the underlying technology that we built around Valantor's platform."*
 - **Source:** valantor.com AskVet customer story.
 - **Source ID:** `SRC-ASKVET-STORY`.
@@ -108,9 +115,10 @@ an unconditional data-egress statement.
 
 ## 3. Technical corpus
 
-Developer-adoption, platform-usage, and customer-count figures are intentionally
-not maintained as default GTM proof. They become stale quickly and must come
-from a current, approved source supplied for the specific communication job.
+Financial, traction, developer-adoption, platform-usage, and customer-count
+figures are intentionally not maintained as default GTM proof. They become
+stale quickly and must come from a current, approved source supplied for the
+specific communication job after the user explicitly asks for them.
 
 ### 3.1 Training corpus
 

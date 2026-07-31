@@ -8,6 +8,16 @@ human engineer, apply [`RESPONSE_STYLE.md`](./RESPONSE_STYLE.md): lead with the 
 keep it brief by default, use plain English, and omit internal harness logistics unless
 they are the work.
 
+For external Valantor and GroundX artifacts, use the external-writing section in
+`RESPONSE_STYLE.md`. When both Harness plugins are available, defer to the Studio
+counterpart for overlapping product and master-brand GTM work. This public Harness
+remains the owner when Studio is not installed.
+
+A bare sales-artifact request such as a battlecard, one-pager, or intro deck
+defaults to `product-brand-gtm`. Use `master-brand-gtm` only when the request
+explicitly names Valantor company positioning, category work, an investor or
+board audience, an analyst briefing, or Outcome Plug-in strategy.
+
 ## Debugging And Triage
 
 Start with the skill that owns the broken surface. Collect identifiers, current status,
