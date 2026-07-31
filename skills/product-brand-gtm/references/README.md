@@ -7,12 +7,19 @@ buyer framing, objections, or product descriptions.
 ## Fast Path
 
 1. Start in `../SKILL.md` for the public routing contract.
-2. Pick one reference from the map below.
-3. Open `proof-points.md` automatically for one-pagers, RFPs, objection
-   responses, sales substantiation, benchmarks, or other evidence-bearing work.
+2. Pick one primary reference from the map below as a starting point. Load the
+   additional owner it names when the selected decision spans another axis.
+3. Open `proof-points.md` automatically for one-pagers, RFPs, sales
+   substantiation, benchmarks, or other evidence-bearing work. For broad
+   objections, diagnose in `objections.md` first and load proof only when the
+   selected answer will use customer, benchmark, partner, or quantitative
+   evidence.
    For a neutral product explanation, do not volunteer volatile proof.
 4. Open `brand-relationship.md` whenever GroundX, EyeLevel, and Valantor naming or
    hierarchy comes up.
+5. For a mixed Valantor/GroundX job, load both `master-brand-gtm` and
+   `product-brand-gtm`; union the references required by every requested output
+   shape and use `artifact-recipes.md` for compact formats.
 
 ## Reference Map
 
@@ -27,6 +34,7 @@ buyer framing, objections, or product descriptions.
 | Buyer-specific framing | `audiences.md`, `buyer.md` |
 | Objections | `objections.md` |
 | Brand hierarchy, naming, and agent integration mental model | `brand-relationship.md` |
+| Compact novice explainer, one-pager, battlecard, or first-meeting deck content | `artifact-recipes.md` |
 
 ## Deferrals
 

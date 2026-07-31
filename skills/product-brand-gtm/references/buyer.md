@@ -66,7 +66,10 @@ The ICP is teams that have already tried RAG or LLM use cases on unstructured do
 - **Volume** — a corpus large enough that manual review or fragile
   per-document handling no longer scales.
 - **Visual complexity** — graphics, tables, schematics, decision trees, scanned content, handwritten notes, multi-column layouts.
-- **A regulated context, a data-sensitivity concern, or both** — they cannot or will not feed their corpus to a vendor that trains on or could leak it.
+- **A regulated context, a data-sensitivity concern, or both** — they state
+  residency, confidentiality, or customer-controlled-deployment requirements.
+  Describe the stated boundary without claiming another vendor trains on,
+  retains, or could leak their documents.
 
 ICP pitch shape: *"You tried, it didn't work, here's why, here's the system actually built for this."*
 

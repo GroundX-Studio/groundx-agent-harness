@@ -1,7 +1,7 @@
 # Functional Capabilities and Consumption Surfaces
 
-GroundX has two functional capabilities and three buyer-facing consumption
-surfaces: the Harness knowledge layer, Studio UI, and direct integrations.
+GroundX has two functional capabilities and three consumption-surface patterns:
+the Harness knowledge layer, the intended Studio UI, and direct integrations.
 GroundX MCP is optional connected execution inside the direct-integration
 surface. These are independent axes — a buyer picks one or both capabilities and
 uses one or more surfaces.
@@ -11,6 +11,8 @@ private expanded GroundX Studio Harness. The host AI client may supply separate
 creation capabilities; do not attribute those to a GroundX bundle.
 
 For the technical mechanism that powers both capabilities, see `technical-architecture.md`.
+For availability and promise boundaries, read `product.md` before using this
+file in external copy. Lifecycle state overrides the descriptive patterns below.
 
 ## 1. The two functional capabilities
 
@@ -42,8 +44,9 @@ GroundX's RAG accuracy comes from the intentional design of the ingest to produc
 ## 2. The three buyer-facing consumption surfaces
 
 Pick by where the user touches the work; this is not a universal priority order.
-Lead with the Harness when the pain is implementation velocity, Studio when a business user
-wants a ready UI, and APIs/SDKs when an engineering team is embedding GroundX directly. In
+Lead with the Harness when the pain is implementation velocity. Discuss Studio
+as an intended business-user UI only within the current lifecycle boundary in
+`product.md`. Lead with APIs/SDKs when an engineering team is embedding GroundX directly. In
 the direct-integration surface, use MCP when a connected agent operates GroundX tools; use
 REST/SDKs for direct app/backend integration, development targets, and fallback paths.
 
@@ -69,13 +72,15 @@ and generated manifests, not GTM prose, for exact membership.
 
 ### 2.2 GroundX Studio — the no-code single UI
 
-A single web product with three common use cases ready out of the box:
+An in-development web product designed around three intended use cases:
 
 - **Extract** — data extraction.
 - **Interact** — chat interactions / RAG.
 - **Report** — smart pre-compiled RAG queries assembled into a report, with follow-up chat.
 
-For non-technical immediate use. Zero engineering lift. Live in days. Built for business users, ops teams, departmental users — the buyer who wants a working tool, not a platform.
+Intended for business users, operations teams, and departmental users who want
+a guided product surface. Do not promise immediate use, zero engineering lift,
+implementation timing, or general availability until `product.md` permits it.
 
 Use *Extract*, *Interact*, *Report* as the canonical product names. Do not invent alternates.
 
@@ -93,8 +98,8 @@ You can mix any capability with any surface.
 
 | Capability \ Surface | Harness knowledge layer | Studio (UI) | Direct Integration (API / SDK / MCP) |
 | --- | --- | --- | --- |
-| Document understanding | Guide agents to ingest and extract through a supported execution path; prebuilt Studio production workflows require the private bundle or a separately labeled host capability | Extract use case in the UI | REST/SDK ingest + extraction API; MCP ingest when connected |
-| Full end-to-end RAG | Guide agents to ingest, retrieve, and ground answers through a supported execution path | Interact and Report use cases in the UI | REST/SDK search + retrieval API; MCP search when connected |
+| Document understanding | Guide agents to ingest and extract through a supported execution path; prebuilt Studio production workflows require the private bundle or a separately labeled host capability | Intended Extract use case; availability follows `product.md` | REST/SDK ingest + extraction API; MCP ingest when connected |
+| Full end-to-end RAG | Guide agents to ingest, retrieve, and ground answers through a supported execution path | Intended Interact and Report use cases; availability follows `product.md` | REST/SDK search + retrieval API; MCP search when connected |
 
 ## 4. How to talk about the matrix in a pitch
 

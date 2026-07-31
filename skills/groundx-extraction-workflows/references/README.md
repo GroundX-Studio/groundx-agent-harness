@@ -43,6 +43,7 @@ a field, or planning a serious extraction pilot.
 | Iteration budget and non-convergence signals | `8_iteration_and_feedback.md` |
 | Skill testing methodology | `9_testing_methodology.md` |
 | Diagnosing why extraction failed or regressed | `10_debugging_methodology.md` |
+| Demo request with a missing source document or expected answers | `13_customer_intake.md`; never invent schema, results, or accuracy |
 
 ## Default Decisions
 

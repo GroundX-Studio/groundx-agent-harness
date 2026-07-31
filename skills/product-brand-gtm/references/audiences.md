@@ -90,7 +90,10 @@ evidence.
 **What they care about:** vendor risk, security posture, deployment options, terms, references.
 
 **Pitch shape:**
-- Lead with on-prem / air-gapped optionality (pillar 1) — *we can deploy inside your perimeter; you do not have to send data anywhere.*
+- Lead with on-prem / supported air-gapped optionality (pillar 1): GroundX can
+  run in a customer-controlled environment when that deployment mode and its
+  operating requirements fit. Load `groundx-on-prem`; do not turn the option
+  into a universal no-egress promise.
 - Pillar order: 1 → 3 (heritage as trust signal) → 4 → 2 → 5.
 - Reference current eligible third-party validation from `proof-points.md`.
 - Emphasize: deployment options, customer control, model-agnostic posture, and
@@ -135,7 +138,10 @@ insurance-fraud value chain. Treat these as vertical-specific instances of § 1
 
 **Pitch hook.** *"Build your cross-examination off the record. Surface contradictions before deposition. Win on facts."*
 
-**What they want.** Defensible evidence with citations that hold up in court. The Evidence Package surface is the lead value; *"no hallucinations, every finding linked to page, line, timestamp"* is the unlock.
+**What they want.** Reviewable evidence with source links. The Evidence Package
+surface is the lead value; describe findings as linked to their source and
+subject to human review. Do not promise zero hallucinations or legal
+admissibility without an eligible proof owner.
 
 ### 7.4 General Contractors & GC / law firms
 
