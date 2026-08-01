@@ -9,7 +9,11 @@ without paying for re-ingest. Only re-ingest when YAML or prompts actually
 change.
 
 Usage:
-    python xray_to_extract.py xray.json > extract-from-xray.json
+    python xray_to_extract.py xray.json > "$RUN_ROOT/extract-from-xray.json"
+
+Local output lifecycle: follow `references/local-artifact-closeout.md`; planned
+callers keep the captured X-Ray and synthesized output below the initialized
+absolute run root.
 
 Or import as a module:
     from xray_to_extract import xray_to_extract

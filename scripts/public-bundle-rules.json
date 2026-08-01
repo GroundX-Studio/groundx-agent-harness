@@ -253,7 +253,9 @@
       "runtimeAddOns": [
         "requirements:skills/groundx-extraction-workflows/templates/requirements.txt"
       ],
-      "commandPrefixes": [],
+      "commandPrefixes": [
+        "node"
+      ],
       "requiredGates": [
         "node scripts/validate.mjs",
         "node scripts/tests/test-groundx-extraction-workflows.mjs"

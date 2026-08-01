@@ -1,5 +1,7 @@
 # 5. Validation
 
+Before any command here creates local output, read [`local-artifact-closeout.md`](./local-artifact-closeout.md). Planned work must initialize and use its exact absolute run root. Ad-hoc work uses one dedicated root. Settle or hand off useful results, delete raw evidence, verify absence, and report what remains.
+
 How the comparison harness scores extraction output against expected answers,
 how to map reviewer-provided expected answers before scoring, and how to read
 its report.

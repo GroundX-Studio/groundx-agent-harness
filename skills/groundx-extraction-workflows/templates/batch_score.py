@@ -8,7 +8,10 @@ times as you like — after fixing an expected-answer mapping, the
 comparison/aliasing logic, or just to score the same run on another machine —
 without paying for ingest again.
 
-    python batch_score.py <run_dir> --keys-dir expected_answers/ [--manifest m.csv] [--out run_dir]
+Local output lifecycle: follow `references/local-artifact-closeout.md`; planned
+callers keep captured input and scoring output below the initialized absolute run root.
+
+    python batch_score.py <run_dir> --keys-dir expected_answers/ [--manifest m.csv] [--out "$RUN_ROOT/scoring"]
     python batch_score.py <run_dir> --keys-dir expected_answers/ --artifact-kind final
 
 By default, reads each raw `<doc>.extracted.json` in <run_dir> and its mapped

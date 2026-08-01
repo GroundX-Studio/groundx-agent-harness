@@ -1,5 +1,7 @@
 # Prompt Improvement Loop
 
+Before any command here creates local output, read [`local-artifact-closeout.md`](./local-artifact-closeout.md). Planned work must initialize and use its exact absolute run root. Ad-hoc work uses one dedicated root. Settle or hand off useful results, delete raw evidence, verify absence, and report what remains.
+
 Use this guide when extraction output is missing, wrong, or weaker than the expected
 quality bar.
 

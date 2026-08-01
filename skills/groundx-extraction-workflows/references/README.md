@@ -1,5 +1,7 @@
 # GroundX Extraction Workflows Reference Index
 
+Before any command here creates local output, read [`local-artifact-closeout.md`](./local-artifact-closeout.md). Planned work must initialize and use its exact absolute run root. Ad-hoc work uses one dedicated root. Settle or hand off useful results, delete raw evidence, verify absence, and report what remains.
+
 Use this index when the work involves drafting or iterating an extraction YAML schema,
 compiling YAML to GroundX workflow JSON, running an extraction against a PDF or other
 document, comparing extraction output to reviewer-provided expected answers, debugging

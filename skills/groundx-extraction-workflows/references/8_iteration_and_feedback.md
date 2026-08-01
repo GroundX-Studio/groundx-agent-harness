@@ -1,5 +1,7 @@
 # 8. Iteration lifecycle and compounding feedback
 
+Before any command here creates local output, read [`local-artifact-closeout.md`](./local-artifact-closeout.md). Planned work must initialize and use its exact absolute run root. Ad-hoc work uses one dedicated root. Settle or hand off useful results, delete raw evidence, verify absence, and report what remains.
+
 How to manage the YAML through iteration, where to store the journey,
 and how lessons from each customer feed back into the skill so future
 customers benefit. This reference is the operational layer on top of
@@ -111,21 +113,17 @@ iteration. Instead:
    Repeated prompt tightening on an unclear root cause burns quota and
    corrupts the journey record.
 
-## 3. Journey storage
+## 3. Temporary run storage and durable handoff
 
-Each customer's iteration history lives **outside the skill
-directory**, in a location the team picks. The skill does not
-prescribe an absolute path because storage location is a team
-operational decision (privacy, retention, access control).
+Keep each customer's raw iteration history below the initialized absolute run root while
+the plan is active. Keep user-owned documents and expected answers outside that root; pass
+their original paths to the tools rather than copying them into a durable journey folder.
 
 ### 3.1 Recommended structure per run
 
 ```
-<storage-root>/extractx-runs/<customer>-<run-number>/
-├── run.md                         summary, hypothesis, iteration log, verdict, lessons
-├── inputs/
-│   ├── <document>.pdf             customer-supplied document (subject to customer permissions)
-│   └── <expected-answers>.*       customer-supplied expected answers or reviewer notes
+<absolute-run-root>/
+├── run.md                         temporary working notes; sanitize before any handoff
 ├── v1/
 │   ├── prompt.yaml                first-draft schema
 │   ├── workflow.json              compiled workflow JSON
@@ -139,13 +137,14 @@ operational decision (privacy, retention, access control).
 └── v2/                            second iteration (same shape) — only if needed
 ```
 
-A team using `notes/extractx-runs/` adjacent to their repo is one
-example. Cloud storage with appropriate access control is another.
-The skill cares about the structure, not the location.
+Do not default to `notes/extractx-runs/` or another broad ignored directory. On finalization,
+move only reviewed deliverables to a named approved destination, retain only the bounded
+lifecycle summary and tracked receipt, and remove the exact run root. A hosted handoff must
+have an owner and lifecycle or deletion proof.
 
 ### 3.2 What `run.md` contains
 
-A single durable record per run with these sections:
+A temporary working record per run may use these sections:
 
 - **Inputs** — customer name, document type, expected-answer format, field
   count, run date.
@@ -153,18 +152,18 @@ A single durable record per run with these sections:
   shape, likely hard fields).
 - **Iteration log** — for each iteration: what changed, what passed
   before vs. after, accuracy delta.
-- **Verdict** — final accuracy, what shipped to `examples/<customer>/`,
-  what stayed in journey storage.
+- **Verdict** — final accuracy and the explicitly approved handoff, if any.
 - **Lessons** — see §5 for what gets promoted.
 
 ### 3.3 Customer permissions
 
-Documents and expected answers are typically customer-confidential. Before
-storing inputs anywhere persistent:
+Documents and expected answers are typically customer-confidential. Keep user-owned inputs
+outside the run root and do not move or delete them during closeout. Before handing any input
+or derivative artifact to persistent storage:
 
 - Confirm the customer permits storage in the team's chosen location.
-- Default to journey-storage-only (not committed to a public-facing
-  repo) unless the customer has explicitly granted broader rights.
+- Do not treat an ignored journey folder as durable storage. Require a named approved
+  destination, owner, and retention decision.
 - Finalized YAMLs are generally derivative artifacts (the schema is
   the team's IP), but the document content is the customer's. Store
   documents separately from the YAML where possible.
@@ -346,13 +345,16 @@ meters = c.subscription.meters
 # meters.searches.value, meters.searches.max
 ```
 
-Save the meters dict before and after each iteration:
+Save the meters dict below the initialized run root before and after each iteration:
 
 ```python
-with open('v1/quota-before.json', 'w') as f:
+import json
+import os
+
+with open(os.path.join(os.environ["RUN_ROOT"], "v1/quota-before.json"), "w") as f:
     json.dump(meters.dict(), f, indent=2)
 # ... run iteration ...
-with open('v1/quota-after.json', 'w') as f:
+with open(os.path.join(os.environ["RUN_ROOT"], "v1/quota-after.json"), "w") as f:
     json.dump(meters.dict(), f, indent=2)
 ```
 
@@ -408,17 +410,17 @@ A condensed map for an agent invoking this skill on a new customer:
 
 1. **Inputs available?** Confirm document + expected answers in hand. If
    not, surface to the user.
-2. **Storage location agreed?** Confirm where journey storage lives
-   for this customer. Default to a team `notes/extractx-runs/`
-   location if not specified.
+2. **Run root initialized?** Use the exact absolute root printed by the Harness initializer,
+   or one dedicated owning-repository root for linked/ad-hoc work.
 3. **Existing examples to learn from?** Read `examples/*/prompt.yaml`
    and `examples/*/LESSONS.md`. Adjacent-domain patterns help.
 4. **Author v1.** Use `2_schema_design.md` + `3_prompt_pipeline.md`.
 5. **Run iteration 1.** Compile → register → ingest → extract →
-   compare. Save artifacts to journey storage.
+   compare. Save temporary artifacts only below the run root.
 6. **Decide: budget remaining?** If yes and accuracy is below bar,
    tighten and iterate. If budget exhausted or bar met, go to step 7.
 7. **Decide: finalize or escalate?** Per §4. If finalizing, run the
    compounding feedback flow (§5).
-8. **Write `run.md`.** Always. Even runs that didn't finalize need
-   the journey record.
+8. **Close out.** Settle or explicitly leave the run open with owner/reason/expiry. For a
+   settled run, hand off reviewed deliverables, generate the bounded summary/receipt, remove
+   the exact run root, verify absence, and report what remains.

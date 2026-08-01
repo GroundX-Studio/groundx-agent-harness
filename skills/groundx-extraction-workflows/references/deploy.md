@@ -1,5 +1,7 @@
 # Deploy A Finished YAML
 
+Before any command here creates local output, read [`local-artifact-closeout.md`](./local-artifact-closeout.md). Planned work must initialize and use its exact absolute run root. Ad-hoc work uses one dedicated root. Settle or hand off useful results, delete raw evidence, verify absence, and report what remains.
+
 Use this when `prompt.yaml` is finished and the next step is registering or
 attaching the workflow.
 
@@ -49,7 +51,7 @@ Create a new workflow from the extraction work directory:
 ```bash
 python deploy_workflow.py \
   --yaml prompt.yaml \
-  --out deploy/ \
+  --out "$RUN_ROOT/deploy" \
   --workflow-name customer-workflow-v1 \
   --create-bucket-name customer-bucket-v1
 ```
@@ -59,7 +61,7 @@ Update an existing workflow:
 ```bash
 python deploy_workflow.py \
   --yaml prompt.yaml \
-  --out deploy/ \
+  --out "$RUN_ROOT/deploy" \
   --workflow-id workflow-123 \
   --bucket-id 12345
 ```
@@ -182,7 +184,7 @@ Before making live changes:
 ```bash
 python deploy_workflow.py \
   --yaml prompt.yaml \
-  --out deploy/ \
+  --out "$RUN_ROOT/deploy" \
   --workflow-name customer-workflow-v1 \
   --dry-run
 ```

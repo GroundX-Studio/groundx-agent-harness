@@ -7,6 +7,9 @@ reconcile, and QA prompts. The future direction is for `groundx-python/extract`
 to own more of this behavior directly; this file is the practical bridge for
 projects that need a working flow now.
 
+Local output lifecycle: follow `references/local-artifact-closeout.md`; planned
+callers put manager output below the initialized absolute run root.
+
 Expected wrapper convention:
 
 - `prompt_statement_extract_request(field_specs: str) -> str`

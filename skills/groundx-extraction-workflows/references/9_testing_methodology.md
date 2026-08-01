@@ -1,5 +1,7 @@
 # 9. Testing methodology
 
+Before any command here creates local output, read [`local-artifact-closeout.md`](./local-artifact-closeout.md). Planned work must initialize and use its exact absolute run root. Ad-hoc work uses one dedicated root. Settle or hand off useful results, delete raw evidence, verify absence, and report what remains.
+
 How to validate that a `groundx-extraction-workflows` skill change works — for both
 customers authoring new YAMLs and maintainers of the skill itself.
 
