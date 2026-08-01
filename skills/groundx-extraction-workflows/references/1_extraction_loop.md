@@ -1,5 +1,7 @@
 # 1. The extraction loop
 
+Before any command here creates local output, read [`local-artifact-closeout.md`](./local-artifact-closeout.md). Planned work must initialize and use its exact absolute run root. Ad-hoc work uses one dedicated root. Settle or hand off useful results, delete raw evidence, verify absence, and report what remains.
+
 This is the default end-to-end loop the skill walks through. It is
 single-file at the YAML layer, delegates execution to the GroundX API
 (via the `groundx-api` skill), and is reproducible: same YAML + same
@@ -105,8 +107,8 @@ lists, see `2_schema_design.md` §1.5.
 ### 3.2 Compile to workflow JSON
 
 ```bash
-python compile_workflow.py prompt.yaml > workflow.json
-python validate_workflow_json.py workflow.json
+python compile_workflow.py prompt.yaml > "$RUN_ROOT/workflow.json"
+python validate_workflow_json.py "$RUN_ROOT/workflow.json"
 ```
 
 `compile_workflow.py` is offline — it does not call any GroundX API.
@@ -129,7 +131,7 @@ or attach the workflow, use the local SDK deploy command:
 ```bash
 python deploy_workflow.py \
   --yaml prompt.yaml \
-  --out deploy/ \
+  --out "$RUN_ROOT/deploy" \
   --workflow-name customer-workflow-v1 \
   --create-bucket-name customer-bucket-v1
 ```
@@ -189,7 +191,7 @@ python run_extraction_loop.py \
   --yaml prompt.yaml \
   --pdf sample.pdf \
   --expected-json expected_answers.json \
-  --out runs/sample-loop \
+  --out "$RUN_ROOT/loop" \
   --iteration-schema-dir iterations/
 ```
 
@@ -295,31 +297,27 @@ Do not stop early because the loop is "good enough" — track every FAIL
 or WARN until it is either fixed in the YAML or explicitly accepted
 with a note.
 
-## 5. What you keep at the end
+## 5. What remains after closeout
 
-- `prompt.yaml` — the durable artifact. Version it, share it, fork it
-  as the starting point for related document types.
-- `output.json` — the raw GroundX extraction for this specific PDF, when
-  `get_extract` is available.
-- `output_provenance.json` — confirms which process and document produced the
-  raw `output.json`.
-- `xray.json` — the raw X-Ray evidence captured by the runner.
-- `xray_diagnostic.json` — local reconstruction from X-Ray, written only when
-  raw extract is unavailable.
-- `xray_reassembly_diagnostic.json` — full SDK readback envelope, including
-  final output, workflow debug output, relationship output when present, and
-  diagnostics, written with X-Ray reconstruction when available.
-- `final_output.json` — local diagnostic/business-logic output, written only
-  when produced.
-- `business_logic_metadata.json` — run-local final-group metadata used so
-  `--resume` applies the same local business logic as the original run.
-- `timeout_summary.json` and `timeout_history.json` — written only when local
-  polling times out; use the resume command before starting another live run.
-- The accuracy report — captures the field-by-field state at the time
-  the YAML was finalized.
+During the run, keep `output.json`, provenance, X-Ray, diagnostics,
+`final_output.json`, business-logic metadata, timeout history, comparison reports, and
+the reproducible `workflow.json` only below the initialized run root. They are temporary
+evidence, not durable plan output.
 
-The intermediate `workflow.json` is reproducible from the YAML at any
-time via `compile_workflow.py`; it is not a primary artifact.
+At closeout:
+
+- hand off the reviewed `prompt.yaml` to a named, nonignored tracked location when it is
+  the accepted deliverable;
+- hand off a reviewed final JSON or accuracy decision only when the user requested it and
+  selected an approved destination;
+- retain bounded outcomes, provenance, the first failing stage, cleanup counts, and an
+  aggregate digest in the lifecycle-only summary and tracked receipt; and
+- delete the raw extraction, X-Ray, prompt/model response, diagnostics, timeout history,
+  intermediate workflow, and comparison bundle with the exact run root.
+
+Do not preserve raw evidence in another broad ignored directory. Follow
+[`local-artifact-closeout.md`](./local-artifact-closeout.md), verify the run root is absent,
+and report every durable handoff and anything intentionally left open.
 
 ## 6. What you don't keep — by design
 

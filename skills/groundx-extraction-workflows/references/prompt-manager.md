@@ -1,5 +1,7 @@
 # Prompt Manager Today Path
 
+Before any command here creates local output, read [`local-artifact-closeout.md`](./local-artifact-closeout.md). Planned work must initialize and use its exact absolute run root. Ad-hoc work uses one dedicated root. Settle or hand off useful results, delete raw evidence, verify absence, and report what remains.
+
 This is the practical bridge for extraction pilots that need to work now. The
 longer-term direction is for `groundx-python/extract` to turn one YAML into the
 full extraction flow. Until that abstraction exists, use this convention to keep

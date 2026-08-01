@@ -2,7 +2,10 @@
 """Compile a YAML extraction schema into a GroundX workflow JSON.
 
 Usage:
-    python compile_workflow.py <prompt.yaml> [--name NAME] > workflow.json
+    python compile_workflow.py <prompt.yaml> [--name NAME] > "$RUN_ROOT/workflow.json"
+
+Local output lifecycle: follow `references/local-artifact-closeout.md`; planned
+callers redirect output only below the initialized absolute run root.
 
 Outputs the workflow JSON to stdout. Does NOT call any GroundX API —
 this is a pure offline transformation. The output is the exact body

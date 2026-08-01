@@ -1,5 +1,7 @@
 # 10. Debugging methodology
 
+Before any command here creates local output, read [`local-artifact-closeout.md`](./local-artifact-closeout.md). Planned work must initialize and use its exact absolute run root. Ad-hoc work uses one dedicated root. Settle or hand off useful results, delete raw evidence, verify absence, and report what remains.
+
 How to investigate failures in `groundx-extraction-workflows` skill output or
 customer extractions. Complements `references/9_testing_methodology.md`,
 which covers verifying that changes work in the first place — debugging

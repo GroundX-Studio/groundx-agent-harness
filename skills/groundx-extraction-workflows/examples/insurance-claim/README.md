@@ -24,9 +24,13 @@ and scoring for a non-invoice final object. The invoice-domain fixture
 
 ## The proof
 
+This command writes a temporary compiled workflow. Before running it, follow
+[`local-artifact-closeout.md`](../../references/local-artifact-closeout.md), initialize a
+planned run or choose one dedicated ad-hoc root, and export its absolute path as `RUN_ROOT`.
+
 ```bash
-python ../../templates/compile_workflow.py prompt.yaml > workflow.json
-python ../../templates/validate_workflow_json.py workflow.json
+python ../../templates/compile_workflow.py prompt.yaml > "$RUN_ROOT/workflow.json"
+python ../../templates/validate_workflow_json.py "$RUN_ROOT/workflow.json"
 python ../../templates/score_extraction.py data/answer_key.json data/answer_key.json
 ```
 
@@ -37,3 +41,5 @@ singleton fields and `line_items` repeating records are valid runner output
 shape. The compiler uses `workflow.custom_steps`, `workflow_step:`, and
 `workflow_output_key` to emit `customSteps`, `outputRoutes`, and `leafFields`; see
 `../../templates/compile_workflow.py` and `../../references/2_schema_design.md`.
+Delete the compiled workflow with the settled run root; retain only the bounded summary and
+any explicitly approved reviewed handoff.

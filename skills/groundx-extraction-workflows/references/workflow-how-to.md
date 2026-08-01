@@ -1,5 +1,7 @@
 # Workflow How-To
 
+Before any command here creates local output, read [`local-artifact-closeout.md`](./local-artifact-closeout.md). Planned work must initialize and use its exact absolute run root. Ad-hoc work uses one dedicated root. Settle or hand off useful results, delete raw evidence, verify absence, and report what remains.
+
 Use this guide as the ordered path for a schema-first extraction job. It routes
 each stage to the reference that owns the details instead of duplicating every
 rule here.
@@ -74,8 +76,8 @@ source compiler.
 Run:
 
 ```bash
-python skills/groundx-extraction-workflows/templates/compile_workflow.py prompt.yaml > workflow.json
-python skills/groundx-extraction-workflows/templates/validate_workflow_json.py workflow.json
+python skills/groundx-extraction-workflows/templates/compile_workflow.py prompt.yaml > "$RUN_ROOT/workflow.json"
+python skills/groundx-extraction-workflows/templates/validate_workflow_json.py "$RUN_ROOT/workflow.json"
 ```
 
 For script-based compile/run/deploy paths, use `deploy_workflow.py`,

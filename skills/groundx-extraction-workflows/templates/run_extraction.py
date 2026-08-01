@@ -7,13 +7,16 @@ polls to completion, captures X-Ray and extract, and writes everything
 to the configured run directory. Emits structured JSONL events to
 `<out>/run.log` so the run can be inspected after the script exits.
 
+Local output lifecycle: follow `references/local-artifact-closeout.md`; planned
+callers pass the initialized absolute run root or its dedicated child to `--out`.
+
 Replaces ~80 lines of repeated per-customer SDK orchestration code.
 Customer run scripts can usually be a single invocation:
 
     python run_extraction.py \\
         --yaml prompt.yaml \\
         --pdf invoice.pdf \\
-        --out v1/ \\
+        --out "$RUN_ROOT/extraction" \\
         --bucket-name extract-customer-v1
 
 Reads `.env` (current directory) for `GROUNDX_API_KEY` and optional

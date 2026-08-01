@@ -7,11 +7,14 @@ optionally attaches it to a bucket or the account default. This is a
 deploy-only command; use `run_extraction.py` when you also need ingest,
 polling, X-Ray, and extraction output.
 
+Local output lifecycle: follow `references/local-artifact-closeout.md`; planned
+callers pass a child of the initialized absolute run root to `--out`.
+
 Example:
 
     python deploy_workflow.py \
         --yaml prompt.yaml \
-        --out deploy/ \
+        --out "$RUN_ROOT/deploy" \
         --workflow-name customer-workflow-v1 \
         --create-bucket-name customer-bucket-v1
 

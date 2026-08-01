@@ -1,5 +1,7 @@
 # OpenSpec Pilots
 
+Before any command here creates local output, read [`local-artifact-closeout.md`](./local-artifact-closeout.md). Planned work must initialize and use its exact absolute run root. Ad-hoc work uses one dedicated root. Settle or hand off useful results, delete raw evidence, verify absence, and report what remains.
+
 OpenSpec is optional for quick extraction tasks. Use it for serious pilots when the
 work needs durable requirements, acceptance criteria, sample inventory, schema decisions,
 comparison reports, or iteration notes that multiple agents or people will revisit.

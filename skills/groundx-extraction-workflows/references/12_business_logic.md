@@ -1,5 +1,7 @@
 # 12. Post-extraction business logic
 
+Before any command here creates local output, read [`local-artifact-closeout.md`](./local-artifact-closeout.md). Planned work must initialize and use its exact absolute run root. Ad-hoc work uses one dedicated root. Settle or hand off useful results, delete raw evidence, verify absence, and report what remains.
+
 GroundX extracts records. It does not dedup them, link them across groups,
 surface their conflicts, or copy parent fields onto children. Customers
 routinely need that. This skill supplies it as a small set of declarative,

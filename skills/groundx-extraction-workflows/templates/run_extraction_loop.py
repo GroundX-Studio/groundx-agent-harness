@@ -10,6 +10,9 @@ stops at the target accuracy or the iteration cap.
 The script does not rewrite prompts by itself. When a run scores below target,
 the agent should inspect the PDF, X-Ray, raw output, and score report, then add
 the next YAML revision in `--iteration-schema-dir` before continuing.
+
+Local output lifecycle: follow `references/local-artifact-closeout.md`; planned
+callers pass the initialized absolute run root before the loop creates iterations.
 """
 
 from __future__ import annotations

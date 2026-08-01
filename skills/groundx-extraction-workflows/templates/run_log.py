@@ -5,16 +5,20 @@ terminates mid-run does not lose inspection context. The resulting
 `run.log` is a JSONL file — read with `jq`, `tail -f`, or any
 line-oriented tool after the run.
 
+Log files follow `references/local-artifact-closeout.md`; planned callers place
+them below the initialized absolute run root and remove them with settled raw evidence.
+
 Usage:
     from run_log import RunLog
-    rl = RunLog("notes/extractx-runs/customer-001/v1/run.log")
+    run_root = os.environ["RUN_ROOT"]
+    rl = RunLog(os.path.join(run_root, "v1", "run.log"))
     rl.event("workflow.create", workflow_id=wid)
     rl.event("ingest.poll", status="training", poll=3)
     rl.quota_snapshot(gx_client, label="after-v1")
     rl.close()
 
 Or as a context manager:
-    with RunLog("v1/run.log") as rl:
+    with RunLog(os.path.join(run_root, "v1", "run.log")) as rl:
         rl.event("workflow.create", workflow_id=wid)
         ...
 

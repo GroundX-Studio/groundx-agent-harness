@@ -1,5 +1,7 @@
 # 4. SDK integration
 
+Before any command here creates local output, read [`local-artifact-closeout.md`](./local-artifact-closeout.md). Planned work must initialize and use its exact absolute run root. Ad-hoc work uses one dedicated root. Settle or hand off useful results, delete raw evidence, verify absence, and report what remains.
+
 How `compile_workflow.py` produces the workflow JSON, what
 `groundx-api` does with it, and how to extend the boundary for
 non-default cases.
@@ -55,7 +57,7 @@ normalization.
 
 The script (`skills/groundx-extraction-workflows/templates/compile_workflow.py`)
 executes the following sequence when invoked as
-`python compile_workflow.py prompt.yaml > workflow.json`:
+`python compile_workflow.py prompt.yaml > "$RUN_ROOT/workflow.json"`:
 
 1. **Load env.** Reads `.env` for `EXTRACT_MODEL_*` engine settings when
    `python-dotenv` is installed; otherwise it uses the process environment and

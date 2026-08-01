@@ -59,7 +59,10 @@ claim accuracy.
 ## Fast Path
 
 1. Read `references/README.md`.
-2. For the broad ordered workflow path, read `references/workflow-how-to.md`.
+2. Before any local run or output is created, read
+   `references/local-artifact-closeout.md`. Planned work uses its initialized absolute
+   run root; ad-hoc work uses one dedicated root and the manual closeout checklist.
+3. For the broad ordered workflow path, read `references/workflow-how-to.md`.
 3. For public extraction docs, read `references/public-docs.md`.
 4. For a new customer or serious pilot, read `references/customer-onboarding.md` and
    optionally `references/openspec-pilots.md`.
@@ -98,6 +101,8 @@ full deployable project scaffold is not part of the default deliverable.
 
 ## Pre-return Checklist
 
+- [ ] Local artifacts passed `references/local-artifact-closeout.md`; report the exact
+      removed root plus every durable handoff or intentionally unresolved run.
 - [ ] YAML remains the durable source of truth.
 - [ ] Workflow JSON is reproducible from YAML.
 - [ ] Finished-YAML deploy uses `deploy_workflow.py`; interactive platform execution

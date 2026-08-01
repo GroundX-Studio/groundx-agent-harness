@@ -9,11 +9,14 @@ runner-shaped JSON files with the same base filename, authors a `prompt.yaml`,
 and this command answers "how accurate is the extraction, field by field, across
 the set — and where does it miss?".
 
+Local output lifecycle: follow `references/local-artifact-closeout.md`; planned
+callers pass the initialized absolute run root to `--out` before this script writes.
+
     python batch_extraction.py \\
         --yaml prompt.yaml \\
         --docs-dir docs/ \\
         --keys-dir expected_answers/ \\
-        --out run/ \\
+        --out "$RUN_ROOT/batch" \\
         --bucket-name verify-customer-v1 \\
         --limit 5            # economical: score a representative subset first
 
