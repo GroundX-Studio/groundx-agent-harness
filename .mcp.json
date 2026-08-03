@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "groundx": {
+      "type": "http",
+      "url": "https://api.groundx.ai/mcp",
+      "headers": {
+        "X-API-Key": "${GROUNDX_API_KEY:-}"
+      },
+      "env_http_headers": {
+        "X-API-Key": "GROUNDX_API_KEY"
+      }
+    }
+  }
+}

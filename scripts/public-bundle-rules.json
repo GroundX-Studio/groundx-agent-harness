@@ -42,6 +42,10 @@
         "dest": ".gitignore"
       },
       {
+        "source": "scripts/public-harness/mcp.json",
+        "dest": ".mcp.json"
+      },
+      {
         "source": "skills/ROUTING.public.md",
         "dest": "skills/ROUTING.md"
       },

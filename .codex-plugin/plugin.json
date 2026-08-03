@@ -1,6 +1,6 @@
 {
   "name": "groundx-agent-harness",
-  "version": "2.2.28",
+  "version": "2.2.29",
   "description": "GroundX agent runtime harness for API use, schema-first extraction, on-prem deployment, architecture, and supported GTM guidance.",
   "author": {
     "name": "Ben Fletcher",
@@ -17,6 +17,7 @@
     "on-prem"
   ],
   "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "GroundX Agent Harness",
     "shortDescription": "GroundX API, extraction, on-prem, architecture, and GTM guidance for installed agents.",

@@ -166,9 +166,52 @@ if (!ALLOW_MISSING_PROVENANCE) {
   requireFile(join(ROOT, ".groundx-generated.json"), "public release provenance is missing");
 }
 
-ensureNoPath(".mcp.json", "public bundle must not include local MCP config");
 ensureNoPath(".app.json", "public bundle must not include placeholder Codex app bindings; use custom MCP setup docs");
 ensureNoPath("servers/groundx-studio", "public bundle must not include local groundx-studio MCP server");
+
+// The bundled .mcp.json declares the hosted GroundX server only — never a local
+// command server, which would reintroduce the internal lifecycle surface.
+//
+// This validator ships inside the public repo and must not import from the
+// generating harness, so the hosted contract is restated here. It is kept in sync
+// with scripts/plugin/public-bundle-policy.mjs by scan-plugin-bundles.
+const HOSTED_MCP_SERVER_NAME = "groundx";
+const HOSTED_MCP_URL = "https://api.groundx.ai/mcp";
+const HOSTED_MCP_KEY_HEADER = "X-API-Key";
+const HOSTED_MCP_KEY_ENV = "GROUNDX_API_KEY";
+const HOSTED_MCP_KEY_HEADER_VALUE = `\${${HOSTED_MCP_KEY_ENV}:-}`;
+requireFile(join(ROOT, ".mcp.json"), "public bundle must include the hosted GroundX .mcp.json");
+const bundledMcp = existsSync(join(ROOT, ".mcp.json")) ? readJson(join(ROOT, ".mcp.json")) : null;
+if (bundledMcp) {
+  const mcpFile = join(ROOT, ".mcp.json");
+  const servers = bundledMcp.mcpServers ?? {};
+  const hosted = servers[HOSTED_MCP_SERVER_NAME];
+  if (!hosted) {
+    flag(mcpFile, `bundled MCP config must expose the hosted ${HOSTED_MCP_SERVER_NAME} server`);
+  } else {
+    if (hosted.command !== undefined || hosted.args !== undefined) {
+      flag(mcpFile, `hosted ${HOSTED_MCP_SERVER_NAME} server must not run local commands`);
+    }
+    if (hosted.type !== "http" || hosted.url !== HOSTED_MCP_URL) {
+      flag(mcpFile, `hosted ${HOSTED_MCP_SERVER_NAME} server must be the HTTP endpoint ${HOSTED_MCP_URL}`);
+    }
+    // A bare ${VAR} is sent literally when unset and trips the API's
+    // invalid-credential path; the :- default sends empty so OAuth can take over.
+    if (hosted.headers?.[HOSTED_MCP_KEY_HEADER] !== HOSTED_MCP_KEY_HEADER_VALUE) {
+      flag(mcpFile, `hosted ${HOSTED_MCP_SERVER_NAME} ${HOSTED_MCP_KEY_HEADER} header must be "${HOSTED_MCP_KEY_HEADER_VALUE}"`);
+    }
+    // Codex ignores `headers` entirely and reads env_http_headers.
+    if (hosted.env_http_headers?.[HOSTED_MCP_KEY_HEADER] !== HOSTED_MCP_KEY_ENV) {
+      flag(mcpFile, `hosted ${HOSTED_MCP_SERVER_NAME} must map env_http_headers.${HOSTED_MCP_KEY_HEADER} to ${HOSTED_MCP_KEY_ENV} for Codex`);
+    }
+  }
+  for (const serverName of Object.keys(servers)) {
+    if (serverName !== HOSTED_MCP_SERVER_NAME) {
+      flag(mcpFile, `bundled MCP config must not declare ${serverName}; only the hosted ${HOSTED_MCP_SERVER_NAME} server belongs here`);
+    }
+  }
+}
+ensureNoPath(".mcp.codex.json", "public bundle must not include the internal Codex-only MCP config");
 ensureNoPath("openspec/work", "public bundle must not include OpenSpec work products");
 ensureNoPath("openspec/private", "public bundle must not include private OpenSpec content");
 ensureNoPath("openspec/runs", "public bundle must not include OpenSpec run outputs");
@@ -178,7 +221,7 @@ const codex = readJson(join(ROOT, ".codex-plugin/plugin.json"));
 if (codex) {
   if (codex.name !== EXPECTED_NAME) flag(join(ROOT, ".codex-plugin/plugin.json"), `expected name ${EXPECTED_NAME}`);
   if (codex.skills !== "./skills/") flag(join(ROOT, ".codex-plugin/plugin.json"), 'skills must be "./skills/"');
-  if (codex.mcpServers !== undefined) flag(join(ROOT, ".codex-plugin/plugin.json"), "public Codex manifest must not expose mcpServers");
+  if (codex.mcpServers !== "./.mcp.json") flag(join(ROOT, ".codex-plugin/plugin.json"), 'mcpServers must be the string path "./.mcp.json"');
   if (codex.apps !== undefined) flag(join(ROOT, ".codex-plugin/plugin.json"), "public Codex manifest must not expose placeholder app bindings");
 }
 
@@ -196,7 +239,7 @@ if (claude) {
     if (!bundle.author?.name) {
       flag(join(ROOT, ".claude-plugin/marketplace.json"), "plugin author.name is required");
     }
-    if (bundle.mcpServers !== undefined) flag(join(ROOT, ".claude-plugin/marketplace.json"), "public Claude manifest must not expose mcpServers");
+    if (bundle.mcpServers !== undefined) flag(join(ROOT, ".claude-plugin/marketplace.json"), "public Claude manifest must not use inline mcpServers (not honored by Claude Code; the bundled .mcp.json is authoritative)");
     for (const skillPath of bundle.skills ?? []) {
       const normalized = String(skillPath).replace(/^\.\//, "");
       requireFile(join(ROOT, normalized, "SKILL.md"), `Claude-listed skill ${skillPath} is missing SKILL.md`);
