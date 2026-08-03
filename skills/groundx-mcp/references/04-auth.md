@@ -11,7 +11,18 @@ MCP server URL, and how to diagnose the three most common failures.
 1. Create or sign in to your account at `https://dashboard.groundx.ai`.
 2. Navigate to **API Keys** in the left sidebar.
 3. Generate a new key and copy it immediately — the dashboard does not display it again.
-4. Store the key in an environment variable. The conventional name is `GROUNDX_API_KEY`.
+4. Store the key. Prefer, in this order:
+   - **Complete the OAuth sign-in instead of storing a key at all** (`/mcp` in Claude Code,
+     `codex mcp login groundx` in Codex). The client keeps the resulting tokens in the OS
+     keychain, so no long-lived key is written anywhere. This is the safest option and the
+     only interactive one that behaves the same on both clients.
+   - **A secret manager or your client's own credential store.** Claude Code plugins can hold
+     a key in the OS keychain via plugin `userConfig` with `sensitive: true`; Codex has no
+     equivalent.
+   - **An environment variable named `GROUNDX_API_KEY`,** exported from your shell for
+     interactive use or injected as a CI secret. This is the portable path that works on both
+     clients, but note that a key exported from a shell profile sits in a plaintext file — use
+     it for CI and short-lived shells rather than as long-term storage on a workstation.
 
 ```sh
 export GROUNDX_API_KEY="YOUR_API_KEY"

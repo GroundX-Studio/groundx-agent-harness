@@ -22,12 +22,40 @@ This repository is **GroundX Agent Harness**. It does not include the internal
 partner-admin production), which are intentionally kept out of this agent
 harness.
 
-The hosted MCP server is optional. Connect it when your agent supports remote
-MCP:
+The hosted MCP server is optional. The plugin bundles it, so current Claude Code
+and Codex plugin installs register it for you — you do **not** need to add it by
+hand on those clients. It picks up `GROUNDX_API_KEY` from your environment if you
+have set it; otherwise sign in once (below) and your agent stores the credential
+for you. On other agents, or older plugin runtimes, connect it manually when your
+agent supports remote MCP:
 
 ```text
 https://api.groundx.ai/mcp
 ```
+
+If you connected GroundX by hand following an earlier version of this guide, remove
+that connection after installing the plugin — otherwise the same server is attached
+twice, which shows up as duplicated tools and repeated approval prompts. Run
+`claude mcp list` (or `codex mcp list`) first and remove whichever form you have:
+
+- **A custom connector added in the Claude apps** — it is listed with a `claude.ai`
+  prefix, such as `claude.ai GroundX`, because it lives on your Claude account
+  rather than in this machine's config. `claude mcp remove` cannot touch it and will
+  report that no such server exists. Remove or disable it in **Settings ->
+  Connectors** in the Claude app, or toggle it off for the session under `/mcp`.
+- **A terminal-added server**, listed as a bare `groundx`:
+
+  ```sh
+  claude mcp remove groundx
+  ```
+
+- **A Codex server**, listed as a bare `groundx`:
+
+  ```sh
+  codex mcp remove groundx
+  ```
+
+A server shown with a `plugin:` prefix is the one the plugin provides — keep that one.
 
 ## Requirements
 
@@ -153,22 +181,18 @@ The public repo is not supported as the direct organization marketplace sync tar
    plugin -> GroundX Agent Harness**), then run `/reload-plugins` or start a new
    session.
 
-**Connect the hosted MCP tools (optional).** Use the command line:
-
-```sh
-claude mcp add --transport http groundx https://api.groundx.ai/mcp
-```
-
-Run `/mcp`, connect `groundx`, enter your key on the GroundX sign-in page, and
-start a new Claude Code session.
-
-Or connect through the Claude Desktop UI: open **Customize -> Connectors -> +
--> Add custom connector** and enter `Name: GroundX API` with the MCP URL
-`https://api.groundx.ai/mcp`. Leave advanced OAuth fields empty unless Claude
-asks you to review discovered settings. Click **Add**, then **Connect** on the
-next screen, and enter your key on the GroundX sign-in page. Connector tool calls
-may default to per-tool approval prompts; choose **Always allow** only after
+**Connect the hosted MCP tools (optional).** Cowork does not read plugin MCP
+config, so add the connector through the Claude Desktop UI: open **Customize ->
+Connectors -> + -> Add custom connector** and enter `Name: GroundX API` with the
+MCP URL `https://api.groundx.ai/mcp`. Leave advanced OAuth fields empty unless
+Claude asks you to review discovered settings. Click **Add**, then **Connect** on
+the next screen, and enter your key on the GroundX sign-in page. Connector tool
+calls may default to per-tool approval prompts; choose **Always allow** only after
 accepting the broader connector permission.
+
+In Claude **Code** sessions the plugin already registers the server, so no
+`claude mcp add` is needed there — run `/mcp`, connect `groundx`, and enter your
+key on the GroundX sign-in page.
 
 ### Claude Code Desktop
 
@@ -180,7 +204,9 @@ claude plugin marketplace add GroundX-Studio/groundx-agent-harness
 claude plugin install groundx-agent-harness@groundx-agent-harness
 ```
 
-Run `/reload-plugins` or start a new session. Connecting MCP is optional:
+Run `/reload-plugins` or start a new session. Connecting MCP is optional. The
+plugin already bundles the hosted `groundx` server on current Claude Code
+versions; on older versions add it manually:
 
 ```sh
 claude mcp add --transport http groundx https://api.groundx.ai/mcp
@@ -191,7 +217,8 @@ start a new session.
 
 ### Codex Desktop
 
-Install the plugin first, then add the MCP app.
+Installing the plugin also registers the hosted `groundx` MCP server, so there is
+no separate "add the MCP app" step.
 
 Install the plugin:
 
@@ -205,18 +232,25 @@ Install the plugin:
 
 3. Install **GroundX Agent Harness** and start a new Codex session.
 
-Connect MCP (optional):
+Authenticate the server (optional — only needed to use the hosted tools):
 
-4. Open **Settings -> MCP servers**, toggle the server type to **Streamable
-   HTTP**, and enter:
+4. Confirm it registered. In a terminal, `codex mcp list` should show `groundx`
+   with status `enabled` and auth `Not logged in`.
+5. Sign in once, which stores the credential in your OS keychain:
 
-   ```text
-   https://api.groundx.ai/mcp
+   ```sh
+   codex mcp login groundx
    ```
 
-5. Click **Save**. The saved MCP server entry in the MCP server list should show
-   an **Authenticate** button; click it and enter your key on the GroundX sign-in
-   page.
+   Alternatively, export `GROUNDX_API_KEY` in the environment Codex runs in and
+   the server picks it up on connect; no sign-in needed.
+
+Only add a server by hand if `groundx` is missing from the MCP server list — for
+example on an older Codex build that does not read plugin MCP config. In that case
+open **Settings -> MCP servers**, toggle the server type to **Streamable HTTP**,
+enter `https://api.groundx.ai/mcp`, and click **Save**; the new MCP server entry
+then shows an **Authenticate** button. Adding it while the plugin's entry already
+exists attaches the same server twice.
 
 ### Claude CLI
 
@@ -230,14 +264,16 @@ claude plugin install groundx-agent-harness@groundx-agent-harness
 Then run `/reload-plugins` inside Claude Code, or start a new session. If
 `claude plugin` is not found, update Claude Code first.
 
-Connect MCP (optional):
+Authenticate MCP (optional). The plugin already registers the hosted `groundx`
+server, listed as `plugin:groundx-agent-harness:groundx`. Run `/mcp`, connect
+`groundx`, enter your key on the GroundX sign-in page, and start a new session.
+Exporting `GROUNDX_API_KEY` before starting Claude Code works instead of signing
+in. Only on older Claude Code versions that do not read plugin MCP config do you
+need to add it yourself:
 
 ```sh
 claude mcp add --transport http groundx https://api.groundx.ai/mcp
 ```
-
-Run `/mcp`, connect `groundx`, enter your key on the GroundX sign-in page, and
-start a new session.
 
 ### Codex CLI
 
@@ -248,19 +284,24 @@ codex plugin marketplace add GroundX-Studio/groundx-agent-harness --ref main
 codex plugin add groundx-agent-harness@groundx-agent-harness
 ```
 
-Connect MCP (optional):
+Authenticate MCP (optional). The plugin registers the hosted `groundx` server on
+install, so sign in rather than adding it:
 
 ```sh
-codex mcp add groundx --url https://api.groundx.ai/mcp
 codex mcp login groundx
 ```
 
-Verify and start a new Codex session:
+Exporting `GROUNDX_API_KEY` in the environment Codex runs in works instead of
+signing in. Verify and start a new Codex session:
 
 ```sh
 codex plugin list
 codex mcp list
 ```
+
+`codex mcp list` should show `groundx` as `enabled`. If it does not appear, you are
+on an older Codex build; add it yourself with
+`codex mcp add groundx --url https://api.groundx.ai/mcp`.
 
 ### VS Code
 
@@ -284,21 +325,16 @@ codex plugin add groundx-agent-harness@groundx-agent-harness
 Then reload plugins or start a new session. If `claude plugin` is not found,
 update Claude Code first.
 
-Connect MCP (optional), in the same terminal. Claude Code:
+Authenticate MCP (optional). Both plugins register the hosted `groundx` server on
+install, so you only need to sign in. Claude Code: run `/mcp`, connect `groundx`,
+and enter your key on the GroundX sign-in page. Codex:
 
 ```sh
-claude mcp add --transport http groundx https://api.groundx.ai/mcp
-```
-
-Codex:
-
-```sh
-codex mcp add groundx --url https://api.groundx.ai/mcp
 codex mcp login groundx
 ```
 
-Connect (`/mcp` for Claude Code), then enter your key on the GroundX sign-in
-page.
+Either way, exporting `GROUNDX_API_KEY` in the environment your agent runs in also
+works and skips the sign-in.
 
 ### Everything else
 

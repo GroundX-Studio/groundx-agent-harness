@@ -9,6 +9,44 @@ For key acquisition, OAuth detail, and troubleshooting, see `references/04-auth.
 
 ## 1. Before you start
 
+**Check first: the harness plugin may already have connected this server.** Skipping this
+check is the most common cause of attaching the same server twice, which shows up as
+duplicated tools and repeated approval prompts.
+
+The harness plugin declares the hosted `groundx` server in its bundled MCP config, so
+current Claude Code and Codex plugin installs register it on install. List the client's MCP
+servers before following any per-client setup below:
+
+- **Claude Code** — run `/mcp` or `claude mcp list`. A plugin-provided server is **not**
+  named bare `groundx`; it appears as `plugin:<plugin-name>:groundx` (for example
+  `plugin:groundx-agent-harness:groundx`), and its tools are named
+  `mcp__plugin_<plugin_name>_groundx__<tool>` rather than `mcp__groundx__<tool>`. Match on
+  the `groundx` suffix, not an exact string.
+- **Codex** — run `codex mcp list`. The entry is named `groundx`.
+
+If the server is already present, do not add it again. Go straight to authentication
+(`references/04-auth.md`). Only follow the per-client setup below when the server is absent —
+for example on an agent without plugin MCP support, or an older client that does not read
+plugin MCP config.
+
+**How the key reaches an already-registered server differs by client.** Both clients read
+the same `GROUNDX_API_KEY` environment variable, but through different config fields, so
+what you can tell a user to do differs:
+
+- **Claude Code** reads the config's `headers`. An exported `GROUNDX_API_KEY` is sent as
+  `X-API-Key`. If unset, an empty value is sent, the server answers
+  `401 authorization_required`, and the client offers the OAuth sign-in.
+- **Codex ignores `headers` entirely** and reads `env_http_headers`, which names the
+  environment variable to resolve at connect time. An exported `GROUNDX_API_KEY` works; an
+  unset one means the header is omitted and `codex mcp login groundx` is the way in. Do not
+  tell a Codex user that a `headers` entry or a `${GROUNDX_API_KEY}` placeholder will work —
+  Codex does not expand `${...}` in header values and would transmit the literal text.
+
+OAuth is the only path that prompts the user interactively and stores the credential in the
+OS keychain on both clients, so prefer it when the user has no key exported. Claude Code
+plugins can also prompt once for a keychain-stored key via plugin `userConfig`; Codex has no
+equivalent, so treat that as a Claude-only convenience rather than shared guidance.
+
 **Server URL.** The GroundX MCP server is at:
 
 ```
