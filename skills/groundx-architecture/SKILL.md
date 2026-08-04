@@ -10,8 +10,9 @@ description: >
 
 # GroundX Architecture
 
-Before returning prose to a human, read `../RESPONSE_STYLE.md`. Use its external-writing
-section for Valantor or GroundX collateral and its default rules for technical answers.
+Before returning prose to a human, read `../RESPONSE_STYLE.md`. Its base rules apply to
+everything you write. Add its external-writing section on top for Valantor or GroundX
+collateral.
 
 Use this skill for architecture-shaped questions about GroundX: how the system works,
 pipeline shape, trust model, data residency, observability, data flow, extraction QA,

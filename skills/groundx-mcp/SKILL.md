@@ -17,8 +17,9 @@ description: >
 
 # GroundX MCP Skill
 
-Before returning prose to a human, read `../RESPONSE_STYLE.md`. Use its external-writing
-section for Valantor or GroundX collateral and its default rules for technical answers.
+Before returning prose to a human, read `../RESPONSE_STYLE.md`. Its base rules apply to
+everything you write. Add its external-writing section on top for Valantor or GroundX
+collateral.
 
 Standalone reference for connecting an MCP client to the GroundX MCP server and using its
 tools. For an installed agent with GroundX MCP connected, this is the preferred execution
