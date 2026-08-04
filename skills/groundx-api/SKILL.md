@@ -17,8 +17,9 @@ description: >
 
 # GroundX API Skill
 
-Before returning prose to a human, read `../RESPONSE_STYLE.md`. Use its external-writing
-section for Valantor or GroundX collateral and its default rules for technical answers.
+Before returning prose to a human, read `../RESPONSE_STYLE.md`. Its base rules apply to
+everything you write. Add its external-writing section on top for Valantor or GroundX
+collateral.
 
 Use this skill for customer-scoped GroundX platform operations: ingest,
 processing status, search, document lookup, source retrieval, buckets, groups,

@@ -12,8 +12,9 @@ description: >
 
 # GroundX Extraction Workflows
 
-Before returning prose to a human, read `../RESPONSE_STYLE.md`. Use its external-writing
-section for Valantor or GroundX collateral and its default rules for technical answers.
+Before returning prose to a human, read `../RESPONSE_STYLE.md`. Its base rules apply to
+everything you write. Add its external-writing section on top for Valantor or GroundX
+collateral.
 
 This skill is schema-first: the durable artifact is a YAML schema;
 `compile_workflow.py` translates it into workflow JSON; `deploy_workflow.py`

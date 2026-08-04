@@ -14,8 +14,9 @@ description: >
 First action after this skill loads: use Read to open `../RESPONSE_STYLE.md`, resolved
 from the skill base directory. Do this before opening any messaging reference.
 
-Before returning prose to a human, read `../RESPONSE_STYLE.md`. Use its external-writing
-section for Valantor or GroundX collateral and its default rules for technical handoffs.
+Before returning prose to a human, read `../RESPONSE_STYLE.md`. Its base rules apply to
+everything you write. Add its external-writing section on top for Valantor or GroundX
+collateral.
 
 Immediately before sending, search the complete output for `—`, `–`, and `→`. Replace
 every match, including punctuation copied with a quote or source attribution.

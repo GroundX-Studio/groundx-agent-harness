@@ -3,15 +3,15 @@
 Use this file as the public installed-agent routing tree. Pick the first-entry skill
 here, then open that skill's `SKILL.md` and follow its reference map.
 
-For any answer, ticket, install guide, RFP response, or technical handoff written to a
-human engineer, apply [`RESPONSE_STYLE.md`](./RESPONSE_STYLE.md): lead with the answer,
-keep it brief by default, use plain English, and omit internal harness logistics unless
-they are the work.
+Apply [`RESPONSE_STYLE.md`](./RESPONSE_STYLE.md) to everything you write to a person:
+lead with the answer, keep it brief, use plain English, and omit internal harness
+logistics unless they are the work. This holds for every surface, including chat,
+tickets, PR notes, code review, install guides, and RFP responses.
 
-For external Valantor and GroundX artifacts, use the external-writing section in
-`RESPONSE_STYLE.md`. When both Harness plugins are available, defer to the Studio
-counterpart for overlapping product and master-brand GTM work. This public Harness
-remains the owner when Studio is not installed.
+For external Valantor and GroundX artifacts, add the external-writing section in
+`RESPONSE_STYLE.md` on top of those base rules. When both Harness plugins are
+available, defer to the Studio counterpart for overlapping product and master-brand
+GTM work. This public Harness remains the owner when Studio is not installed.
 
 A bare sales-artifact request such as a battlecard, one-pager, or intro deck
 defaults to `product-brand-gtm`. Use `master-brand-gtm` only when the request

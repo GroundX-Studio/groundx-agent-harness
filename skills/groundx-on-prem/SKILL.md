@@ -11,8 +11,9 @@ description: >
 
 # GroundX On-Prem
 
-Before returning prose to a human, read `../RESPONSE_STYLE.md`. Use its external-writing
-section for Valantor or GroundX collateral and its default rules for technical answers.
+Before returning prose to a human, read `../RESPONSE_STYLE.md`. Its base rules apply to
+everything you write. Add its external-writing section on top for Valantor or GroundX
+collateral.
 
 When a buyer asks about residency, use this order: state that GroundX can run fully
 inside the customer's environment as a supported configuration; state that self-hosted
