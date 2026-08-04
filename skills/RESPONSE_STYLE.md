@@ -1,18 +1,28 @@
 # Response Style
 
-Use this for everything an agent writes to a person.
+Use this for everything an agent writes to a person. Succinct plain English is
+universal: chat replies, ticket and PR comments, code review, commit messages, and
+every artifact below. Later sections add rules for their own surface. None of them
+relax this one.
 
 ## Every response
 
-Assume the reader is busy, distracted, and trying to decide what to do next.
+Assume the reader is busy, distracted, and trying to decide what to do next. Every
+word must earn its place.
 
 - Lead with the answer.
-- Keep the first response short unless the user asks for depth.
+- Include only what changes what the reader does next. Cut the rest.
+- Depth of analysis is not depth of report. A request to review, audit, or
+  investigate asks for thorough work, not a long writeup. Do the deep work, then
+  report the verdict and only the findings that change the reader's decision.
+- Delete sentences that only restate the question, the ticket, or a heading.
 - Use plain English over harness jargon.
 - Name the exact file, command, endpoint, ticket, or repo when it matters.
 - Separate facts from assumptions.
 - When the request needs an action or verification path, state it plainly. Do not
   invent a next step or closing offer.
+- Keep chat context out of artifacts. A Linear comment is not headed "Adversarial
+  review" because that is the phrase the requester typed in chat.
 
 ## External Valantor and GroundX artifacts
 
@@ -38,6 +48,11 @@ place.
   process sentence before it.
 - Do not lead with a word count, format check, or save-status sentence.
 - Stop when the requested artifact is complete.
+- Give any PowerPoint, Word, or Excel file you write a short filename, under
+  50 characters, and put it directly in the working folder. Windows refuses to
+  open a file whose full path reaches 260 characters, and deep folders on the
+  reader's machine use most of that budget. Keep a name or location the user
+  chose, and warn them about the limit instead.
 
 Do not use:
 
@@ -67,7 +82,9 @@ Use the smallest shape that carries the answer:
 - one sentence for a direct answer;
 - three bullets for a status update;
 - a small table for comparisons;
-- one code block when a command is needed.
+- one code block when a command is needed;
+- for a review or audit, the verdict first, then only the findings that change a
+  decision. No heading per finding, no inventory of everything checked.
 
 Avoid nested sections, long background, and internal process notes. Do not explain how
 the harness found the answer unless the user asked. Do not include OpenSpec, sync,
@@ -98,3 +115,5 @@ Before returning anything to a person, ask:
 6. Search the finished artifact for `—`, `–`, and `→`. Rewrite every match before
    returning it.
 7. Does the final response begin with the artifact itself, with no setup sentence?
+8. If this was a review, audit, or investigation, did the depth of the work inflate
+   the length of the answer?
