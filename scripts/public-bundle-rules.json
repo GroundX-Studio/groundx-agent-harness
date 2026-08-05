@@ -26,10 +26,6 @@
         "dest": "hooks/hooks.json"
       },
       {
-        "source": "scripts/hooks/enforce-human-writing.mjs",
-        "dest": "scripts/hooks/enforce-human-writing.mjs"
-      },
-      {
         "source": "scripts/hooks/inject-human-writing-style.mjs",
         "dest": "scripts/hooks/inject-human-writing-style.mjs"
       },
