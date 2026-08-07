@@ -128,44 +128,52 @@ available tools to confirm the `groundx` MCP server appears.
 
 ## 3. Claude Desktop
 
-### 3.1 Config file location
+### 3.1 Add the connector
 
-| OS | Path |
-|---|---|
-| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
-| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+1. Open **Settings -> Connectors -> + -> Add custom connector**. From the Code tab the
+   route is **Customize -> Connectors**.
+2. Enter `Name: GroundX API`.
+3. Enter the MCP server URL `https://api.groundx.ai/mcp`.
+4. Leave the advanced OAuth fields empty unless Claude asks you to review discovered
+   settings.
+5. Click **Add**, then **Connect** on the next screen.
+6. Enter your key on the GroundX sign-in page.
 
-### 3.2 Add the mcpServers entry
+Connector tool calls may default to per-tool approval prompts. Choose **Always allow**
+only after accepting the broader connector permission.
 
-Open the config file and add (or merge) the `mcpServers` block:
+### 3.2 Verify
 
-```json
-{
-  "mcpServers": {
-    "groundx": {
-      "type": "http",
-      "url": "https://api.groundx.ai/mcp",
-      "headers": {
-        "X-API-Key": "${GROUNDX_API_KEY}"
-      }
-    }
-  }
-}
-```
+Enable the connector in a conversation and ask the client to list its tools.
 
-Set `GROUNDX_API_KEY` in the environment where Claude Desktop starts, or use the client's
-supported secret-reference syntax. Do not paste a raw key into this config file, and do not
-commit or share a config profile that contains credentials.
-
-### 3.3 Restart and verify
-
-Fully quit and relaunch Claude Desktop. The GroundX tools should appear in the tools panel.
+If GroundX tools appear twice in a later Claude Code session, keep the plugin entry and
+disable the connector under `/mcp`.
 
 ---
 
 ## 4. Codex CLI
 
-### 4.1 Config block
+### 4.1 Sign in
+
+Confirm `groundx` is listed with `codex mcp list`, then sign in once:
+
+```sh
+codex mcp login groundx
+```
+
+Prefer this: the credential goes to the OS keychain, not a config file.
+
+### 4.2 Environment variable
+
+Exporting the key authenticates without signing in:
+
+```sh
+export GROUNDX_API_KEY=YOUR_GROUNDX_API_KEY
+```
+
+Add this to your shell profile so it persists across sessions.
+
+### 4.3 Config block, when `groundx` is absent from `codex mcp list`
 
 Add a `groundx` entry under `mcpServers` in the Codex CLI MCP config file. The exact config
 file path depends on your Codex CLI version — check the Codex CLI documentation for the
@@ -178,26 +186,19 @@ directory):
     "groundx": {
       "type": "http",
       "url": "https://api.groundx.ai/mcp",
-      "headers": {
-        "X-API-Key": "${GROUNDX_API_KEY}"
+      "env_http_headers": {
+        "X-API-Key": "GROUNDX_API_KEY"
       }
     }
   }
 }
 ```
 
-### 4.2 Environment variable
+Codex reads `env_http_headers`, which names the environment variable to resolve at connect
+time. A `headers` entry does not authenticate on Codex. Never paste a raw key into the
+config file.
 
-Set `GROUNDX_API_KEY` in the environment where Codex CLI runs:
-
-```sh
-export GROUNDX_API_KEY=YOUR_GROUNDX_API_KEY
-```
-
-Add this to your shell profile or `.env` file so it persists across sessions. Never paste a
-raw key into the config file — use the variable reference.
-
-### 4.3 Verify
+### 4.4 Verify
 
 After restarting Codex CLI, list available tools to confirm the `groundx` server and its
 default tools appear.
@@ -206,24 +207,27 @@ default tools appear.
 
 ## 5. Codex Desktop
 
-### 5.1 Add via Settings
+Codex Desktop setup needs no terminal commands.
 
-1. Open **Settings** in Codex Desktop.
-2. Navigate to **MCP Servers** (or **Integrations → MCP Servers**).
-3. Click **Add Server**.
-4. Set the URL to `https://api.groundx.ai/mcp`.
-5. Add a header: key `X-API-Key`, value `${GROUNDX_API_KEY}` or the client's supported
-   secret-reference syntax.
-6. Save.
+### 5.1 Authenticate the registered server
 
-### 5.2 OAuth alternative
+1. Open **Settings -> Plugins** in Codex Desktop.
+2. Find `groundx` in the list.
+3. Click **Authenticate**.
+4. Enter your key on the GroundX sign-in page.
 
-If Codex Desktop supports OAuth for remote MCP servers, select the OAuth option when adding
-the server. Authorize in the browser when prompted. No key is entered manually.
+### 5.2 Add it by hand, when `groundx` is not in the list
+
+1. Go to **Settings -> Plugins -> Add -> Add MCP server**.
+2. Set the type to **Streamable HTTP**.
+3. Set the URL to `https://api.groundx.ai/mcp`.
+4. Click **Save**, then **Authenticate** on the new entry.
+
+A second entry alongside the plugin's attaches the same server twice.
 
 ### 5.3 Verify
 
-After saving, the GroundX tools should appear in the tool list for new conversations.
+The GroundX tools should appear in the tool list for new conversations.
 
 ---
 

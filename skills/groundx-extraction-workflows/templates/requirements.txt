@@ -1,4 +1,8 @@
-groundx[extract]>=3.7.7
+# Held below 3.9.1. From that release, groundx.extract.reassemble_custom_outputs_from_xray
+# returns flat dicts per group instead of list-valued groups with nested relationships,
+# which breaks xray_to_extract reassembly and its tests. Lift the ceiling once a release
+# restores the nested list shape.
+groundx[extract]>=3.7.7,<3.9.1
 pypdf>=5.0.0
 pytest>=8.0.0
 python-dotenv>=1.0.0
