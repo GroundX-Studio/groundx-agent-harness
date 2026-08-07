@@ -157,7 +157,7 @@ only `groundx:read`:
 - `health_get`
 
 Plus the 4 always-present tools (`groundx_account_context`, `list_operations`,
-`describe_operation`, `call_operation`) regardless of scope.
+`describe_operation`, `call_operation`) and `report_issue`, regardless of scope.
 
 Note: `search_content` and `search_documents` use POST, so they are `groundx:write` — they are
 **not** visible in a read-only session. This is intentional.

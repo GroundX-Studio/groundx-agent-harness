@@ -69,8 +69,9 @@ you authorize in a browser and no header is needed. See `references/04-auth.md` 
 obtain a key from `https://dashboard.groundx.ai` (API Keys section).
 
 **Confirm tools are visible.** After connecting, ask your client to list available tools.
-You should see 12 default tools (scoped by your API key's permissions) plus 4 always-present
-tools (`groundx_account_context`, `list_operations`, `describe_operation`, `call_operation`).
+You should see 12 default tools (scoped by your API key's permissions), plus 4 always-present
+tools (`groundx_account_context`, `list_operations`, `describe_operation`, `call_operation`),
+plus `report_issue`.
 If you see fewer default tools, check the scope on your key — a read-only key shows only
 `bucket_list`, `group_list`, and `health_get` from the default set. For a full tool reference,
 see `references/02-default-tools.md`.
