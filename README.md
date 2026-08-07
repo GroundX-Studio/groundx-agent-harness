@@ -181,18 +181,17 @@ The public repo is not supported as the direct organization marketplace sync tar
    plugin -> GroundX Agent Harness**), then run `/reload-plugins` or start a new
    session.
 
-**Connect the hosted MCP tools (optional).** Cowork does not read plugin MCP
-config, so add the connector through the Claude Desktop UI: open **Customize ->
-Connectors -> + -> Add custom connector** and enter `Name: GroundX API` with the
+**Connect the hosted MCP tools (optional).** Open **Settings -> Connectors -> +
+-> Add custom connector**, or **Customize -> Connectors** from the Code tab, and
+enter `Name: GroundX API` with the
 MCP URL `https://api.groundx.ai/mcp`. Leave advanced OAuth fields empty unless
 Claude asks you to review discovered settings. Click **Add**, then **Connect** on
 the next screen, and enter your key on the GroundX sign-in page. Connector tool
 calls may default to per-tool approval prompts; choose **Always allow** only after
 accepting the broader connector permission.
 
-In Claude **Code** sessions the plugin already registers the server, so no
-`claude mcp add` is needed there — run `/mcp`, connect `groundx`, and enter your
-key on the GroundX sign-in page.
+In Claude **Code** sessions the plugin already adds the server: run `/mcp`,
+connect `groundx`, and enter your key on the GroundX sign-in page.
 
 ### Claude Code Desktop
 
@@ -232,25 +231,20 @@ Install the plugin:
 
 3. Install **GroundX Agent Harness** and start a new Codex session.
 
-Authenticate the server (optional — only needed to use the hosted tools):
+Authenticate the server (optional — only needed to use the hosted tools),
+entirely in the app:
 
-4. Confirm it registered. In a terminal, `codex mcp list` should show `groundx`
-   with status `enabled` and auth `Not logged in`.
-5. Sign in once, which stores the credential in your OS keychain:
+4. Open **Settings -> Plugins** and find `groundx` in the list.
+5. Click **Authenticate**, then enter your key on the GroundX sign-in page.
 
-   ```sh
-   codex mcp login groundx
-   ```
+Exporting `GROUNDX_API_KEY` in the environment Codex runs in authenticates
+instead, with no sign-in.
 
-   Alternatively, export `GROUNDX_API_KEY` in the environment Codex runs in and
-   the server picks it up on connect; no sign-in needed.
-
-Only add a server by hand if `groundx` is missing from the MCP server list — for
-example on an older Codex build that does not read plugin MCP config. In that case
-open **Settings -> MCP servers**, toggle the server type to **Streamable HTTP**,
-enter `https://api.groundx.ai/mcp`, and click **Save**; the new MCP server entry
-then shows an **Authenticate** button. Adding it while the plugin's entry already
-exists attaches the same server twice.
+Only add a server by hand if `groundx` is missing from that list. In that case go
+to **Settings -> Plugins -> Add -> Add MCP server**, toggle the server type to
+**Streamable HTTP**, enter `https://api.groundx.ai/mcp`, and click **Save**; the
+new MCP server entry then shows an **Authenticate** button. Adding it while the
+plugin's entry already exists attaches the same server twice.
 
 ### Claude CLI
 
