@@ -48,6 +48,24 @@ Language note: there are **3 discovery meta-tools** (`list_operations`, `describ
 `call_operation`) **plus** the always-present `groundx_account_context` — together these are the
 **4 always-present tools**. Never say "3 meta-tools" without this clarification.
 
+## 2a. Reporting Tool
+
+`report_issue` is also registered unconditionally, for every account and every scope.
+It is counted separately from the 4 above because it is not an API operation: it files
+a GroundX harness issue rather than reaching the GroundX API.
+
+| tool | input | output |
+|---|---|---|
+| `report_issue` | `{ title, narrative, confirm, classification?, harness?, client?, events?, projectId?, environment?, sessionId? }` | `{ issueKey, issueUrl, reporter, fingerprint, duplicate }`, or the drafted report on failure |
+
+`confirm` must be `true` and the tool refuses without it. Show the user the drafted
+report first. `narrative` is one markdown document, not a set of fields — see
+`references/07-issue-report-template.md` for what it should cover and for the
+writing rules.
+
+Repeat reports of one defect are folded onto a single issue server-side, so filing
+a duplicate is harmless.
+
 Both `describe_operation` and `call_operation` use the argument name `operationId` (not
 `operation_id`). This is the same name used by `pkg/model/mcp/endpoint.go` in the MCP server.
 

@@ -51,6 +51,42 @@ const validClients = new Set([
   "skills",
 ]);
 
+// --report exists for the install that cannot reach report_issue: no MCP
+// connected, or the tools that would file a report are the ones failing.
+if (process.argv.includes("--report")) {
+  let version = null;
+  for (const rel of [".claude-plugin/marketplace.json", ".codex-plugin/plugin.json"]) {
+    const path = join(ROOT, rel);
+    if (!existsSync(path)) continue;
+    const raw = JSON.parse(readFileSync(path, "utf8"));
+    version = raw.metadata?.version ?? raw.version ?? version;
+    if (version) break;
+  }
+
+  const payload = {
+    report: {
+      title: "",
+      narrative: "",
+      confirm: false,
+      classification: "bug",
+      harness: { name: "groundx-agent-harness", version, observed: true },
+    },
+    template: "skills/groundx-mcp/references/07-issue-report-template.md",
+  };
+
+  if (process.argv.includes("--json")) {
+    console.log(JSON.stringify(payload, null, 2));
+  } else {
+    console.log("Harness issue report payload\n");
+    console.log("Fill in title and narrative, then POST to /api/v1/report with your GroundX API key,");
+    console.log("or paste it to whoever is helping you. Read the template first:");
+    console.log(`  ${payload.template}\n`);
+    console.log(JSON.stringify(payload.report, null, 2));
+    console.log("\nconfirm stays false until a person has read the report and agreed to send it.");
+  }
+  process.exit(0);
+}
+
 if (!validClients.has(client)) {
   console.error(`Unknown client "${requestedClient}". Use one of: ${[...validClients].join(", ")}`);
   process.exit(2);
