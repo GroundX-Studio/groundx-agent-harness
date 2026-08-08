@@ -195,3 +195,30 @@ found" or "unknown tool".
    by name, the server may have been updated to the 12-tool default set. There is no
    restore/opt-in flag — advanced ops move permanently to the `call_operation` path. Migration
    guidance is in `references/06-migration.md`.
+
+### 5.4 Arguments Rejected Against A Schema That Contradicts The Docs
+
+The symptom is a tool call refused on a type, where the type the server names is not the
+type the tool published. The clearest form is an error naming the schema the server
+validated against:
+
+```
+/properties/confirm: type: true has type "string", want "boolean"
+```
+
+Read that as: the value arrived as a string, and the server wants a boolean. If the tool
+list you are working from says that field is a string, your cached copy is stale. The
+client serializes against the schema it holds, so every value you try fails the same way
+and no retry helps.
+
+**Confirm it before concluding the tool is broken.** Call `groundx_account_context` and
+compare `serverVersion` against the version your tool list came from. A mismatch settles
+it.
+
+**The fix is a reconnect, not a retry.** Remove and re-add the connector so the client
+refetches the tool list. Restarting the application is not enough when the connector
+definition is cached outside it.
+
+The server cannot push a tool-list update to clients it is not connected to, so this
+recurs whenever a tool changes shape. Reporting it as a server defect wastes a report:
+check the version first.
