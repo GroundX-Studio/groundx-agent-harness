@@ -35,7 +35,7 @@ skill.
 - Auth and troubleshooting → `references/04-auth.md`
 - Common workflows (bucket → ingest → poll → search) → `references/05-workflows.md`
 - Breaking-change migration notes → `references/06-migration.md`
-- Reporting a harness defect: when to offer, what a report covers → `references/07-issue-report-template.md`
+- Reporting a harness defect: use the `harness-feedback` skill
 
 ## Routing Contract
 
@@ -90,8 +90,8 @@ the reference the task needs:
 - `references/04-auth.md` — obtaining a key, OAuth, the `X-API-Key` transport, the MCP server
   URL, and 401 / scope / tool-not-found troubleshooting.
 - `references/05-workflows.md` — the end-to-end workflow: bucket → group → ingest → poll → search.
-- `references/07-issue-report-template.md` — when to offer a report, and what the
-  narrative should cover. Read it before calling `report_issue`.
+- The `harness-feedback` skill owns when to offer a report and what the narrative
+  covers. Read it before calling `report_issue`.
 - `references/06-migration.md` — breaking-change migration from the old direct tool names.
 
 Point broad or ambiguous tasks to `references/README.md` for routing to the right file.

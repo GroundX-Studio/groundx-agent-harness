@@ -417,6 +417,31 @@
         "SKILL.md",
         "references/README.md"
       ]
+    },
+    "harness-feedback": {
+      "mode": "public-profile",
+      "reason": "Harness defect reporting for installed agents; public wrapper omits contributor maintenance and internal eval files.",
+      "runtimeFamily": "reference",
+      "runtimeAddOns": [],
+      "commandPrefixes": [],
+      "requiredGates": [
+        "node scripts/validate.mjs"
+      ],
+      "entrypoint": {
+        "source": "SKILL.public.md",
+        "dest": "SKILL.md"
+      },
+      "readme": {
+        "source": "references/README.public.md",
+        "dest": "references/README.md"
+      },
+      "includeGlobs": [
+        "references/*.md"
+      ],
+      "requiredFiles": [
+        "SKILL.md",
+        "references/README.md"
+      ]
     }
   }
 }

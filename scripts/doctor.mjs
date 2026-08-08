@@ -71,7 +71,7 @@ if (process.argv.includes("--report")) {
       classification: "bug",
       harness: { name: "groundx-agent-harness", version, observed: true },
     },
-    template: "skills/groundx-mcp/references/07-issue-report-template.md",
+    template: "skills/harness-feedback/references/report-template.md",
   };
 
   if (process.argv.includes("--json")) {

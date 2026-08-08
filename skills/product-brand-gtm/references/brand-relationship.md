@@ -2,7 +2,7 @@
 
 How EyeLevel, GroundX, GroundX Studio, and Valantor relate as brands and what to say (and not say) about each. The authoritative source for master-brand altitude rules is now `../../master-brand-gtm/references/brand-hierarchy.md`. This file restates the rules at product-altitude framing for `product-brand-gtm` use; when rules disagree, the `master-brand-gtm` version wins.
 
-For visual logo and lockup rules, see `../product-brand-design-standards/references/logos.md`.
+For visual logo and lockup rules, see `../../product-brand-design-standards/references/logos.md`.
 
 ## 1. The hierarchy in one line
 
@@ -43,7 +43,7 @@ GroundX path an agent should use:
 ## 4. EyeLevel (acquired company / technology heritage)
 
 - **Role:** the company that built GroundX before Valantor acquired the work. Now the heritage / origin-story brand and the lockup co-sign.
-- **Where EyeLevel appears:** on the lockup as the visible mark, with *"A VALANTOR COMPANY"* baked into the PNG asset. This is governed by `../product-brand-design-standards/references/logos.md`.
+- **Where EyeLevel appears:** on the lockup as the visible mark, with *"A VALANTOR COMPANY"* baked into the PNG asset. This is governed by `../../product-brand-design-standards/references/logos.md`.
 - **What to say externally:** *"EyeLevel — A Valantor Company."* Use when describing the team's heritage (Watson, Weather Company, 2019 spinout — see `narrative.md` § 4).
 - **What not to say:** *"EyeLevel by Valantor"* (wrong construction — see § 3). Do not re-typeset the "A VALANTOR COMPANY" co-sign as separate text; it is part of the lockup asset.
 
@@ -110,6 +110,6 @@ GroundX path an agent should use:
 
 ## 10. What this file does not own
 
-- The visual lockup and logo rules — see `../product-brand-design-standards/references/logos.md`.
+- The visual lockup and logo rules — see `../../product-brand-design-standards/references/logos.md`.
 - The master-brand category narrative — defer to `master-brand-gtm`.
 - The Valantor visual system (Jim Anderson's brand) — lives in `master-brand-design-standards`.
