@@ -119,6 +119,38 @@ report to the user first, in full, and set it only after they agree. If the
 submission fails, the response carries the draft back so the user still has the
 text.
 
+## Filing without a connected client
+
+When `report_issue` is absent from the tool list, a `bug` or an `improvement`
+files with a credential-free request. Everything above still applies: the same
+narrative, the same confirmation shown to the user first, the same 60000
+character cap.
+
+Write the payload to a file, the same shape the tool takes, wrapped in `report`:
+
+```json
+{"report": {"title": "...", "narrative": "...", "confirm": true,
+ "classification": "bug",
+ "harness": {"name": "groundx-agent-harness", "version": "x.y.z", "observed": true}}}
+```
+
+```bash
+curl -sS -X POST https://api.groundx.ai/api/v1/report -H 'Content-Type: application/json' -d @report.json
+```
+
+No key header. The ticket is labelled as anonymous, so send the harness version:
+it is the only identifying evidence the report will carry.
+
+Two rejections mean stop, not retry. A `403` means this deployment has reporting
+turned off. A `406` naming `report.classification` means the report needs the
+authenticated path.
+
+A `knowledge` report cannot be filed this way. Write it into the conversation so
+the finding survives, and tell the user that filing it needs a connected GroundX
+MCP client; see the `groundx-mcp` skill for connecting one. A rejected
+credential-free submission naming `report.classification` means the report needs
+that authenticated path.
+
 ## The narrative
 
 Write it as one markdown document. These are its sections, not separate fields.
@@ -127,13 +159,18 @@ Write it as one markdown document. These are its sections, not separate fields.
 
 **Title.** One line naming the defect, not the symptom.
 
-**Classification.** `bug`, `improvement`, or `limitation`:
+**Classification.** `bug`, `improvement`, `knowledge`, or `limitation`:
 
 - `bug` — the harness stated something false, or something broke.
-- `improvement` — the harness was missing knowledge, or it works but cost time
-  it should not have.
+- `improvement` — it works, but it cost time it should not have.
+- `knowledge` — the harness was missing knowledge, or states something
+  incorrect. This is the second reportability test's category.
 - `limitation` — the harness cannot do the thing, and that is a known boundary
   rather than a defect.
+
+Classification decides what can be filed without an account: `bug` and
+`improvement` can go credential-free, `knowledge` and everything else cannot,
+because an unattributable claim about product behavior cannot be followed up.
 
 **What was being attempted.** The user's goal and the steps up to the failure,
 including which skills, tools, and repositories were in play. A defect is only

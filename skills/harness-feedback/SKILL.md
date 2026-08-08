@@ -83,9 +83,12 @@ in full, and set `confirm: true` only after they agree. The platform attaches th
 reporter, and the client and session tool failures when a local harness server is
 running. Never ask the user for those.
 
-**Without it:** write the report into the conversation so the finding survives, and
-tell the user that filing needs a connected GroundX MCP client. See the
-`groundx-mcp` skill for connecting one. Do not invent another submission route.
+**Without it:** a bug or an improvement files with a credential-free POST to the
+report endpoint; `references/report-template.md` carries the request. Show the
+draft to the user first, exactly as with the tool. A knowledge report cannot go
+that way: write it into the conversation so the finding survives, and tell the
+user that filing it needs a connected GroundX MCP client. See the `groundx-mcp`
+skill for connecting one.
 
 ## Routing Contract
 

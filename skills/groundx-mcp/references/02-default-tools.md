@@ -50,9 +50,12 @@ Language note: there are **3 discovery meta-tools** (`list_operations`, `describ
 
 ## 2a. Reporting Tool
 
-`report_issue` is also registered unconditionally, for every account and every scope.
-It is counted separately from the 4 above because it is not an API operation: it files
-a GroundX harness issue rather than reaching the GroundX API.
+`report_issue` is present for every account and every scope when the deployment has
+reporting enabled, which is the hosted default. It is absent from the tool list, not
+broken, when a deployment turns reporting off or has no issue tracker configured; do
+not treat its absence as a defect. It is counted separately from the 4 above because
+it is not an API operation: it files a GroundX harness issue rather than reaching the
+GroundX API.
 
 | tool | input | output |
 |---|---|---|
