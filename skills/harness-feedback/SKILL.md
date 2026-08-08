@@ -72,10 +72,16 @@ harness having nothing is not a gap and there is nothing to file.
 Read `references/report-template.md` before drafting. It carries what a report
 covers, the writing rules, and a worked example.
 
+**Always send `harness: {name, version, observed}`.** The version is the most
+useful fact in a report and the one the platform cannot supply: a hosted server
+cannot read the version installed on the user's machine. Without it a maintainer
+cannot tell whether the defect is already fixed. Read it from the installed
+plugin's manifest, or send what you can infer with `observed: false`.
+
 **With `report_issue` in your tool list:** draft the narrative, show it to the user
 in full, and set `confirm: true` only after they agree. The platform attaches the
-reporter, client, versions, and session tool failures. Never ask the user for
-those.
+reporter, and the client and session tool failures when a local harness server is
+running. Never ask the user for those.
 
 **Without it:** write the report into the conversation so the finding survives, and
 tell the user that filing needs a connected GroundX MCP client. See the
@@ -112,6 +118,7 @@ what is reportable change, and a remembered version files noise.
 - [ ] The finding passes one of the two tests, and the everyone-or-one-user filter.
 - [ ] For a gap, the skill's reference index was consulted before calling it
       silent.
+- [ ] `harness.version` was sent. A report without it is usually not actionable.
 - [ ] The draft was shown to the user in full before `confirm` was set.
 - [ ] The report stands alone for a reader who never saw the session.
 - [ ] No credential, key, or token appears in the narrative.
