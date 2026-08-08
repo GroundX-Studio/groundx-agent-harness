@@ -26,7 +26,7 @@ producing output.
 | Auth (OAuth, X-API-Key), MCP server URL, troubleshooting | `references/04-auth.md` | Obtaining a key, diagnosing 401 / scope / tool-not-found |
 | End-to-end workflow (bucket → group → ingest → poll → search) | `references/05-workflows.md` | Running a complete ingest-to-search workflow |
 | Breaking-change migration (full → 12, no restore switch) | `references/06-migration.md` | Migrating from old direct tool names |
-| Reporting a harness defect: when to offer, what a report covers, writing rules | `references/07-issue-report-template.md` | A skill or tool misled you, a diagnostic path is exhausted, or the user asks to file a bug |
+| Reporting a harness defect: when to offer, what a report covers, writing rules | the `harness-feedback` skill | A skill or tool misled you, a diagnostic path is exhausted, or the user asks to file a bug |
 
 ## Fast Path
 

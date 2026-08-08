@@ -20,6 +20,11 @@ board audience, an analyst briefing, or Outcome Plug-in strategy.
 
 ## Debugging And Triage
 
+When the harness itself is the problem, Start with `harness-feedback`. That covers
+guidance contradicted by what you observe, a skill silent on a subject it claims,
+a listed tool that is absent, and a user correcting a claim an agent made from a
+reference. Reporting is the outcome; the harness is fixed elsewhere.
+
 Start with the skill that owns the broken surface. Collect identifiers, current status,
 error text, and the smallest evidence bundle before proposing a fix, rerun, repair, or
 handoff.
@@ -34,6 +39,7 @@ handoff.
 | SDK contribution inside `eyelevelai/groundx-python` | `groundx-python` | repo path, generated vs handwritten boundary, failing test, SDK version |
 | GroundX backend pod, Helm, values.yaml, Kubernetes runtime failure | `groundx-on-prem` | deployment mode, values file, namespace, pod/log/status evidence, cluster constraints |
 | Architecture-layer ambiguity or "where in the system is this failing?" | `groundx-architecture` | symptom, user-visible surface, known component/status IDs, deployment mode |
+| Harness guidance that is wrong, missing, or misleading: a documented endpoint or field that does not behave as described, a listed tool that is absent, a skill silent on a subject it claims, or a user correcting a skill-derived claim | `harness-feedback` | which skill or reference said it, what you observed instead, and what you were trying to do |
 
 When the next step requires hosted-service operator access, stop at a sanitized evidence
 bundle and ask the user to involve GroundX operations. Do not invent private cloud

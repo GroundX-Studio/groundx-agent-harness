@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "GroundX agent runtime harness for API use, schema-first extraction, on-prem deployment, architecture, and supported GTM guidance.",
-    "version": "2.2.39"
+    "version": "2.2.40"
   },
   "plugins": [
     {
@@ -26,7 +26,8 @@
         "./skills/groundx-architecture",
         "./skills/product-brand-gtm",
         "./skills/master-brand-gtm",
-        "./skills/groundx-python"
+        "./skills/groundx-python",
+        "./skills/harness-feedback"
       ]
     }
   ]

@@ -60,7 +60,7 @@ a GroundX harness issue rather than reaching the GroundX API.
 
 `confirm` must be `true` and the tool refuses without it. Show the user the drafted
 report first. `narrative` is one markdown document, not a set of fields — see
-`references/07-issue-report-template.md` for what it should cover and for the
+`../../harness-feedback/references/report-template.md` for what it should cover and for the
 writing rules.
 
 Repeat reports of one defect are folded onto a single issue server-side, so filing

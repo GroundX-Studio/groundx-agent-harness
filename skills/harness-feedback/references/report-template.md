@@ -1,6 +1,7 @@
 # Issue Report Template
 
-Use this when filing a GroundX harness issue with the `report_issue` tool.
+Use this when reporting a defect in the harness, whether you file it with the
+`report_issue` tool or write it into the conversation for the user to file.
 
 The sections below are guidance, not a form. Nothing rejects a report for
 missing one, and a thin report is worth more than one nobody filed. Cover what
