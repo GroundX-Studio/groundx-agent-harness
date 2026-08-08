@@ -7,6 +7,25 @@ The sections below are guidance, not a form. Nothing rejects a report for
 missing one, and a thin report is worth more than one nobody filed. Cover what
 you can and say so where you cannot.
 
+One field is not optional.
+
+## Always send the harness version
+
+**`harness: {name, version, observed}` is the single most useful fact in a
+report.** Without it a maintainer cannot tell whether the defect is already
+fixed, which build to reproduce against, or whether the report is about a version
+still in use. A report missing it often cannot be actioned at all, however good
+the narrative is.
+
+Nothing else fills the gap. A hosted server runs nowhere near the user's machine
+and cannot read the installed version, so it prints "version not supplied" when
+you leave it out. That line in a ticket means the evidence is gone, not that
+nobody needed it.
+
+Read the version from the installed plugin's manifest and send
+`observed: true`. If you can only infer it, send what you have with
+`observed: false`. Sending an uncertain version beats sending none.
+
 ## When to offer a report
 
 The harness is the company's shared knowledge. A report is how something one
@@ -88,9 +107,9 @@ defect. Report it against the message, not against the user.
 
 ## What the tool does with it
 
-You write the narrative. The platform attaches the facts it can observe: the
-reporter from the API key, the client, the versions, and the session tool
-failures when a local harness server is running. Never ask the user for those.
+You write the narrative. The platform attaches the reporter from the credential,
+and the client and session tool failures when a local harness server is running.
+Never ask the user for those.
 
 The whole report is capped at 60000 characters. That is the only hard limit;
 nothing else here is a size rule.
