@@ -423,7 +423,9 @@
       "reason": "Harness defect reporting for installed agents; public wrapper omits contributor maintenance and internal eval files.",
       "runtimeFamily": "reference",
       "runtimeAddOns": [],
-      "commandPrefixes": [],
+      "commandPrefixes": [
+        "curl"
+      ],
       "requiredGates": [
         "node scripts/validate.mjs"
       ],
