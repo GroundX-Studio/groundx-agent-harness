@@ -20,18 +20,21 @@ A good extraction prompt is:
 
 Use every part for a reason:
 
-- `description`: the business meaning of the field, not a copy of the field name.
-- `identifiers`: representative identifiers and labels that help locate the field.
-  Include labels with the same meaning, not every nearby phrase.
-- `instructions`: decision rules, exclusions, null rules, and normalization rules.
+- `description`: the field's meaning and scope, not a copy of the field name or a
+  selection rule.
+- `identifiers`: one to three representative visible labels or stable source cues that
+  help locate evidence for the field.
+- `instructions`: rules for choosing, rejecting, normalizing, or returning a value.
 - `type`: the JSON value shape.
 - `format`: required formatting such as `YYYY-MM-DD`, currency, percentage, enum, or
   JSON object string.
 
 ## Representative identifiers
 
-Identifiers should help find the field when labels vary. Good identifiers describe the
-meaning of the label, not only the exact words seen once.
+Identifiers help find possible evidence. They do not prove that a nearby value is the
+answer. Use one to three common labels with the same meaning as the field, or stable
+source cues that reliably locate it. Do not use output values, whitelists, conflicting
+labels, invalid candidates, or unrelated nearby phrases as identifiers.
 
 Example:
 
@@ -44,6 +47,20 @@ identifiers:
 
 This tells the agent to look for labels that mean "the date this thing starts". Do not
 add unrelated nearby labels just because they appear on the same page.
+
+If a value is rarely labeled, a reusable source cue may be an identifier. Put the rule
+for inferring the value from that cue in `instructions`.
+
+## Instructions
+
+Instructions define extraction behavior. Use them for selection and precedence rules,
+exclusions, null handling, normalization, enum mapping, and output contracts. State the
+positive rule first, then exclusions or fallbacks. Write one short behavior-changing
+directive per line. Do not accumulate background material that does not change a
+decision.
+
+Put a rule in group-level `prompt.instructions` when it applies to every field or record
+in the group.
 
 ## Output shape
 
@@ -109,7 +126,10 @@ effective_date:
       - Effective Date
       - Start Date
       - Begins on
-    instructions: Use the date tied to the selected or marked effective-date option. Do not use signature date, revision date, print date, or an unselected option's date. Return null if no selected effective date is shown.
+    instructions: |
+      Use the date tied to the selected or marked effective-date option.
+      Do not use a signature date, revision date, print date, or an unselected option's date.
+      Return null if no selected effective date is shown.
     format: YYYY-MM-DD
     type: str
 ```

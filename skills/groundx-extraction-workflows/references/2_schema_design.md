@@ -394,16 +394,17 @@ that safe key in the pseudo field name and route it with `path`.
 | Key | What it does | Required? |
 |---|---|---|
 | `workflow_output_key` | Safe internal key used by direct custom workflow output routing | Yes for direct routed fields; no for pseudo-routed final fields |
-| `description` | Plain-language description of what the field represents | Yes |
+| `description` | Plain-language meaning and scope of the field | Yes |
 | `format` | Output format constraint | Optional but strongly recommended for dates and codes |
-| `identifiers` | Label hints — where to look on the document | Yes |
-| `instructions` | Extraction rules and edge cases | Yes |
+| `identifiers` | One to three labels or stable source cues that help locate evidence | Yes |
+| `instructions` | Rules for choosing, rejecting, normalizing, or returning a value | Yes |
 | `type` | JSON value type: `str`, `int`, `float`, or `[int, float]` | Yes |
 
 ### 2.2 description
 
-A short, factual sentence about what this value represents. The model uses
-this as the field's purpose statement. Avoid restating the YAML key.
+A short, factual sentence about the field's meaning and scope. The model uses
+this as the field's purpose statement. Avoid restating the YAML key or putting
+selection and output rules here.
 
 ```yaml
 description: the primary customer account identifier assigned by the provider
@@ -423,9 +424,12 @@ format: YYYY-mm-dd date string
 
 ### 2.4 identifiers
 
-A list of labels or phrases that appear next to this value on the document.
-The model uses these to locate the value on the page. Include the most
-common 1–3 phrasings; do not enumerate exhaustively.
+A list of one to three representative visible labels or stable source cues.
+The model uses these to locate possible evidence on the page. An identifier
+does not prove that a nearby value is the answer. Use labels with the same
+meaning as the field, or stable source cues that reliably locate it. Do not add
+output values, whitelists, conflicting labels, invalid candidates, or unrelated
+nearby phrases.
 
 ```yaml
 identifiers:
@@ -433,17 +437,20 @@ identifiers:
   - Acct #
 ```
 
-If a value is rarely labeled (e.g. inferred from context), add one
-identifier and explain the inference in `instructions`.
+If a value is rarely labeled, a reusable source cue may be an identifier. Put
+the rule for inferring the value from that cue in `instructions`.
 
 ### 2.5 instructions
 
-The most important key. A bulleted list of extraction rules, edge cases,
-and negative examples. Each line is a directive to the model.
+The most important key. It defines how to choose, reject, normalize, or return
+a value. Use it for precedence, exclusions, null behavior, inference,
+normalization, enum mapping, and output contracts. State the positive rule
+first, followed by exclusions or fallbacks. Each line should be a short
+behavior-changing directive.
 
 Patterns that produce reliable extractions:
 
-- One concrete rule per line (model handles short directives better than
+- One concrete rule per line (the model handles short directives better than
   long paragraphs)
 - A formatting rule: "Strip any spaces or formatting characters"
 - A disambiguation rule when the value collides with similar values on the
@@ -457,11 +464,13 @@ Patterns that produce reliable extractions:
 
 ```yaml
 instructions: |
-  - Capture the full account number exactly as labeled
-  - Strip any spaces or formatting characters
-  - This must have an explicit "Account Number" label nearby
-  - Do not confuse with invoice numbers, telephone numbers, or barcodes
+  Capture the full account number with an explicit account-number label nearby.
+  Strip spaces and formatting characters.
+  Do not use invoice numbers, telephone numbers, or barcodes.
 ```
+
+Put a rule in group-level `prompt.instructions` when it applies to every field
+or record in the group. Do not copy shared logic into each field.
 
 ### 2.6 type
 
