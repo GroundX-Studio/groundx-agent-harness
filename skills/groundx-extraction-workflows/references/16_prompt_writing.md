@@ -41,10 +41,16 @@ field evidence, X-Ray, scoring, and iteration.
 
 Each field prompt should answer four questions:
 
-1. What value is this? Put that in `description`.
-2. Where does it appear? Put representative visible labels in `identifiers`.
-3. How should the model choose between similar values? Put that in `instructions`.
+1. What does this field mean, and what is in scope? Put that in `description`.
+2. Where can evidence for it be found? Put one to three representative visible labels
+   or stable source cues in `identifiers`. These are location hints, not proof.
+3. How should the model choose, reject, normalize, or return a value? Put short
+   behavior-changing directives in `instructions`, with the positive rule first.
 4. What shape should the value have? Put that in `type` and `format`.
+
+Do not use output values, whitelists, conflicting labels, or negative examples as
+identifiers. If an inferred value has a reusable source cue, the cue may be an
+identifier, but the inference rule belongs in `instructions`.
 
 Good field prompt:
 
@@ -57,7 +63,10 @@ event_date:
       - Event Date
       - Date of Event
       - Occurrence Date
-    instructions: Use the date labeled as the covered event or occurrence date. Do not use report date, signature date, received date, or revision date. Return null if no event date is shown.
+    instructions: |
+      Use the date labeled as the covered event or occurrence date.
+      Do not use a report date, signature date, received date, or revision date.
+      Return null if no event date is shown.
     format: YYYY-MM-DD
     type: str
 ```
