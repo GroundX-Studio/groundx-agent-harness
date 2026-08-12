@@ -13,6 +13,9 @@ a coherent iteration milestone informed by real customer use cases. The
 
 ## Unreleased
 
+- **Fixed: string prompt JSON validation.** String fields may explicitly request
+  JSON-encoded array or object strings and may forbid native JSON. Validation is
+  clause-aware, so safe wording cannot hide a separate native JSON request.
 - **Fixed: `repetitionScope` enum for repeated leaves.** `compile_workflow.py`
   emitted path-format `repetitionScope` values (e.g. `/meters/*`) for repeated
   `leafFields`, which the live GroundX API rejects (`unsupported

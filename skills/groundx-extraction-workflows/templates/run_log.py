@@ -110,7 +110,12 @@ class RunLog:
         record.update(_sanitize_for_log(kwargs))
         self._file.write(json.dumps(record, default=str) + "\n")
 
-    def quota_snapshot(self, gx_client: typing.Any, label: str = "") -> None:
+    def quota_snapshot(
+        self,
+        gx_client: typing.Any,
+        label: str = "",
+        request_options: typing.Optional[dict[str, typing.Any]] = None,
+    ) -> None:
         """Capture current quota via `gx.customer.get()` and log it.
 
         Records `file_tokens.value` and `searches.value` plus their max
@@ -118,7 +123,8 @@ class RunLog:
         iteration to track per-iteration consumption.
         """
         try:
-            c = gx_client.customer.get()
+            kwargs = {"request_options": request_options} if request_options is not None else {}
+            c = gx_client.customer.get(**kwargs)
             meters = getattr(c.customer.subscription, "meters", None)
         except Exception as exc:
             self.event(

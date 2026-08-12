@@ -20,7 +20,9 @@ Customer run scripts can usually be a single invocation:
         --bucket-name extract-customer-v1
 
 Reads `.env` (current directory) for `GROUNDX_API_KEY` and optional
-`GROUNDX_BASE_URL`.
+`GROUNDX_BASE_URL`. Delegated runs instead require `PARTNER_API_KEY` plus
+`CUSTOMER_USERNAME`; the runner applies that customer selector to every
+GroundX SDK request, never to a presigned object-store upload.
 
 Optional flags:
     --reuse-workflow <id>  Skip workflow creation; attach existing workflow.
@@ -76,6 +78,33 @@ TRANSIENT_STATUS_ERROR_NAMES = {
     "WriteError",
     "WriteTimeout",
 }
+
+
+def _credential_context() -> tuple[str, typing.Optional[dict[str, typing.Any]]]:
+    customer_api_key = os.environ.get("GROUNDX_API_KEY")
+    partner_api_key = os.environ.get("PARTNER_API_KEY")
+    customer_username = os.environ.get("CUSTOMER_USERNAME")
+
+    if partner_api_key or customer_username:
+        if customer_api_key:
+            raise SystemExit(
+                "ERROR: delegated PARTNER_API_KEY/CUSTOMER_USERNAME cannot be combined with GROUNDX_API_KEY"
+            )
+        if not partner_api_key or not customer_username:
+            raise SystemExit(
+                "ERROR: delegated runs require both PARTNER_API_KEY and CUSTOMER_USERNAME"
+            )
+        return partner_api_key, {"additional_headers": {"X-Customer-Key": customer_username}}
+
+    if customer_api_key:
+        return customer_api_key, None
+    raise SystemExit("ERROR: GROUNDX_API_KEY is not set")
+
+
+def _request_options_kwargs(
+    request_options: typing.Optional[dict[str, typing.Any]],
+) -> dict[str, typing.Any]:
+    return {"request_options": request_options} if request_options is not None else {}
 
 
 def _is_transient_status_error(exc: Exception) -> bool:
@@ -226,15 +255,19 @@ def _request_estimate_preflight(
 def _load_reused_workflow_extract(
     gx: GroundX,
     workflow_id: str,
+    request_options: typing.Optional[dict[str, typing.Any]] = None,
 ) -> typing.Optional[dict]:
     definition_loader = getattr(gx, "load_extraction_definition", None)
     if callable(definition_loader):
-        definition = definition_loader(workflow_id=workflow_id)
+        definition = definition_loader(
+            workflow_id=workflow_id,
+            **_request_options_kwargs(request_options),
+        )
         workflow_extract = getattr(definition, "extract", None)
         return workflow_extract if isinstance(workflow_extract, dict) else None
     workflow_loader = getattr(gx, "load_extraction_definition_from_workflow", None)
     if callable(workflow_loader):
-        definition = workflow_loader(workflow_id)
+        definition = workflow_loader(workflow_id, **_request_options_kwargs(request_options))
         workflow_extract = getattr(definition, "extract", None)
         return workflow_extract if isinstance(workflow_extract, dict) else None
     return None
@@ -491,8 +524,12 @@ def _create_workflow(
     yaml_path: str,
     workflow: dict,
     workflow_name: str,
+    request_options: typing.Optional[dict[str, typing.Any]] = None,
 ) -> typing.Any:
-    return gx.workflows.create(**workflow_sdk_kwargs(workflow))
+    return gx.workflows.create(
+        **workflow_sdk_kwargs(workflow),
+        **_request_options_kwargs(request_options),
+    )
 
 
 def _safe_delete(rl: RunLog, kind: str, fn: typing.Callable[[], typing.Any], **ids: typing.Any) -> None:
@@ -515,6 +552,7 @@ def _poll(
     bucket_id: typing.Optional[typing.Union[int, str]] = None,
     started_at: typing.Optional[float] = None,
     now_fn: typing.Callable[[], float] = time.time,
+    request_options: typing.Optional[dict[str, typing.Any]] = None,
 ) -> str:
     document_id: typing.Optional[str] = None
     start = started_at if started_at is not None else now_fn()
@@ -522,7 +560,10 @@ def _poll(
     last_progress_counts = {"complete": 0, "processing": 0, "errors": 0}
     for i in range(max_polls):
         try:
-            st = gx.documents.get_processing_status_by_id(process_id=process_id)
+            st = gx.documents.get_processing_status_by_id(
+                process_id=process_id,
+                **_request_options_kwargs(request_options),
+            )
         except Exception as exc:
             if not _is_transient_status_error(exc):
                 raise
@@ -605,9 +646,15 @@ def derive_extraction_artifacts(
     bl_metadata: typing.Optional[dict] = None,
     rl: typing.Optional[RunLog] = None,
     workflow_extract: typing.Optional[dict] = None,
+    request_options: typing.Optional[dict[str, typing.Any]] = None,
 ) -> dict:
     """Capture raw extract, X-Ray diagnostics, and final local output separately."""
-    xray = _to_plain_dict(gx.documents.get_xray(document_id=document_id))
+    xray = _to_plain_dict(
+        gx.documents.get_xray(
+            document_id=document_id,
+            **_request_options_kwargs(request_options),
+        )
+    )
     raw_extract = None
     diagnostic_extract = None
     reassembly_diagnostic = None
@@ -615,7 +662,12 @@ def derive_extraction_artifacts(
     source = "get_extract"
 
     try:
-        fetched = _to_plain_dict(gx.documents.get_extract(document_id=document_id))
+        fetched = _to_plain_dict(
+            gx.documents.get_extract(
+                document_id=document_id,
+                **_request_options_kwargs(request_options),
+            )
+        )
     except Exception as e:
         fetched = None
         if rl:
@@ -663,6 +715,7 @@ def extract_from_document(
     bl_metadata: typing.Optional[dict] = None,
     rl: typing.Optional[RunLog] = None,
     workflow_extract: typing.Optional[dict] = None,
+    request_options: typing.Optional[dict[str, typing.Any]] = None,
 ) -> typing.Tuple[dict, dict, str]:
     """Compatibility wrapper returning the best usable local output."""
     artifacts = derive_extraction_artifacts(
@@ -671,6 +724,7 @@ def extract_from_document(
         bl_metadata,
         rl,
         workflow_extract=workflow_extract,
+        request_options=request_options,
     )
     extract = (
         artifacts["final_output"]
@@ -734,6 +788,7 @@ def _write_completed_artifacts(
     bl_metadata: typing.Optional[dict],
     rl: RunLog,
     workflow_extract: typing.Optional[dict],
+    request_options: typing.Optional[dict[str, typing.Any]] = None,
 ) -> tuple[dict, dict[str, int]]:
     xray_path = _abs(out_dir, "xray.json")
     extract_path = _abs(out_dir, "output.json")
@@ -747,6 +802,7 @@ def _write_completed_artifacts(
         bl_metadata,
         rl,
         workflow_extract=workflow_extract,
+        request_options=request_options,
     )
     xray_dict = artifacts["xray"]
     _write_json(xray_path, xray_dict)
@@ -854,9 +910,10 @@ def main() -> int:
     diagnostic_path = _abs(args.out, "xray_diagnostic.json")
     final_output_path = _abs(args.out, "final_output.json")
 
-    api_key = os.environ.get("GROUNDX_API_KEY")
-    if not api_key:
-        print("ERROR: GROUNDX_API_KEY is not set", file=sys.stderr)
+    try:
+        api_key, request_options = _credential_context()
+    except SystemExit as exc:
+        print(exc, file=sys.stderr)
         return 2
 
     gx = GroundX(
@@ -893,6 +950,7 @@ def main() -> int:
                 workflow_id=workflow_id,
                 bucket_id=bucket_id,
                 started_at=time.time(),
+                request_options=request_options,
             )
             rl.event("ingest.complete", document_id=document_id)
             if document_id:
@@ -907,6 +965,7 @@ def main() -> int:
                 bl_metadata=bl_metadata,
                 rl=rl,
                 workflow_extract=workflow_extract,
+                request_options=request_options,
             )
             raw_extract = artifacts["raw_extract"]
             diagnostic_extract = artifacts["diagnostic_extract"]
@@ -923,7 +982,7 @@ def main() -> int:
                 )
                 return 1
 
-            rl.quota_snapshot(gx, label="run.end")
+            rl.quota_snapshot(gx, label="run.end", request_options=request_options)
             rl.event("run.done", group_counts=group_counts)
             print(
                 _completion_message(
@@ -937,14 +996,18 @@ def main() -> int:
             return 0
 
         rl.event("run.start", yaml=args.yaml, pdf=args.pdf, out=args.out, bucket_name=args.bucket_name)
-        rl.quota_snapshot(gx, label="run.start")
+        rl.quota_snapshot(gx, label="run.start", request_options=request_options)
 
         wf_body: typing.Optional[dict] = None
         workflow_extract: typing.Optional[dict] = None
         if args.reuse_workflow:
             workflow_extract = (
                 _load_workflow_extract_from_run(args.out)
-                or _load_reused_workflow_extract(gx, args.reuse_workflow)
+                or _load_reused_workflow_extract(
+                    gx,
+                    args.reuse_workflow,
+                    request_options=request_options,
+                )
             )
             if workflow_extract is None:
                 report = {
@@ -1004,7 +1067,13 @@ def main() -> int:
                     f.write(workflow_id)
             else:
                 assert wf_body is not None
-                create_resp = _create_workflow(gx, args.yaml, wf_body, workflow_name)
+                create_resp = _create_workflow(
+                    gx,
+                    args.yaml,
+                    wf_body,
+                    workflow_name,
+                    request_options=request_options,
+                )
                 workflow_id = _workflow_id(create_resp)
                 created_workflow_id = workflow_id
                 rl.event("workflow.create", workflow_id=workflow_id, workflow_name=wf_body["name"])
@@ -1012,14 +1081,20 @@ def main() -> int:
                     f.write(workflow_id)
 
             if args.add_to_account:
-                resp = gx.workflows.add_to_account(workflow_id=workflow_id)
+                resp = gx.workflows.add_to_account(
+                    workflow_id=workflow_id,
+                    **_request_options_kwargs(request_options),
+                )
                 rl.event("workflow.add_to_account", result=str(resp))
 
             if args.reuse_bucket:
                 bucket_id = args.reuse_bucket
                 rl.event("bucket.reuse", bucket_id=bucket_id)
             else:
-                bk = gx.buckets.create(name=args.bucket_name)
+                bk = gx.buckets.create(
+                    name=args.bucket_name,
+                    **_request_options_kwargs(request_options),
+                )
                 bucket_id = bk.bucket.bucket_id
                 created_bucket_id = bucket_id
                 rl.event("bucket.create", bucket_id=bucket_id, bucket_name=args.bucket_name)
@@ -1027,13 +1102,34 @@ def main() -> int:
                     f.write(str(bucket_id))
 
             # Past this point, resources are attached and no longer orphans.
-            gx.workflows.add_to_id(id=bucket_id, workflow_id=workflow_id)
+            try:
+                gx.workflows.add_to_id(
+                    id=bucket_id,
+                    workflow_id=workflow_id,
+                    **_request_options_kwargs(request_options),
+                )
+            except Exception as exc:
+                rl.event(
+                    "workflow.add_to_bucket.failed",
+                    bucket_id=bucket_id,
+                    workflow_id=workflow_id,
+                    error=str(exc),
+                )
+                raise
             rl.event("workflow.add_to_bucket", bucket_id=bucket_id, workflow_id=workflow_id)
 
         except BaseException as setup_exc:
             rl.event("setup.failed", error=str(setup_exc), error_type=type(setup_exc).__name__)
             if created_workflow_id:
-                _safe_delete(rl, "workflow", lambda: gx.workflows.delete(id=created_workflow_id), workflow_id=created_workflow_id)
+                _safe_delete(
+                    rl,
+                    "workflow",
+                    lambda: gx.workflows.delete(
+                        id=created_workflow_id,
+                        **_request_options_kwargs(request_options),
+                    ),
+                    workflow_id=created_workflow_id,
+                )
             if created_bucket_id:
                 rl.event(
                     "cleanup.bucket.preserved",
@@ -1054,6 +1150,7 @@ def main() -> int:
             ],
             callback_url=args.callback_url,
             callback_data=args.callback_data,
+            **_request_options_kwargs(request_options),
         )
         process_id = ingest_resp.ingest.process_id
         rl.event(
@@ -1079,6 +1176,7 @@ def main() -> int:
             workflow_id=workflow_id,
             bucket_id=bucket_id,
             started_at=time.time(),
+            request_options=request_options,
         )
         rl.event("ingest.complete", document_id=document_id)
         if document_id:
@@ -1093,6 +1191,7 @@ def main() -> int:
             bl_metadata=bl_metadata,
             rl=rl,
             workflow_extract=workflow_extract,
+            request_options=request_options,
         )
         raw_extract = artifacts["raw_extract"]
         diagnostic_extract = artifacts["diagnostic_extract"]
@@ -1110,7 +1209,7 @@ def main() -> int:
             )
             return 1
 
-        rl.quota_snapshot(gx, label="run.end")
+        rl.quota_snapshot(gx, label="run.end", request_options=request_options)
         rl.event("run.done", group_counts=group_counts)
 
     print(
