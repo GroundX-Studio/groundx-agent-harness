@@ -19,8 +19,9 @@ Example:
         --create-bucket-name customer-bucket-v1
 
 Reads `.env` from the current working directory and the YAML directory for
-`GROUNDX_API_KEY` and optional `GROUNDX_BASE_URL`. Do not pass API keys as
-command arguments.
+`GROUNDX_API_KEY` and optional `GROUNDX_BASE_URL`. Delegated runs instead
+require `PARTNER_API_KEY` plus `CUSTOMER_USERNAME`; the customer selector is
+passed to every GroundX SDK request. Do not pass API keys as command arguments.
 """
 
 from __future__ import annotations
@@ -119,14 +120,36 @@ def _load_environment(yaml_path: str) -> None:
         dotenv.load_dotenv(yaml_env)
 
 
-def _load_client(yaml_path: str) -> GroundX:
+def _credential_context() -> tuple[str, typing.Optional[dict[str, typing.Any]]]:
+    customer_api_key = os.environ.get("GROUNDX_API_KEY")
+    partner_api_key = os.environ.get("PARTNER_API_KEY")
+    customer_username = os.environ.get("CUSTOMER_USERNAME")
+
+    if partner_api_key or customer_username:
+        if customer_api_key:
+            raise SystemExit(
+                "ERROR: delegated PARTNER_API_KEY/CUSTOMER_USERNAME cannot be combined with GROUNDX_API_KEY"
+            )
+        if not partner_api_key or not customer_username:
+            raise SystemExit(
+                "ERROR: delegated runs require both PARTNER_API_KEY and CUSTOMER_USERNAME"
+            )
+        return partner_api_key, {"additional_headers": {"X-Customer-Key": customer_username}}
+
+    if customer_api_key:
+        return customer_api_key, None
+    raise SystemExit("ERROR: GROUNDX_API_KEY is not set")
+
+
+def _load_client(yaml_path: str) -> tuple[GroundX, typing.Optional[dict[str, typing.Any]]]:
     _load_environment(yaml_path)
-    api_key = os.environ.get("GROUNDX_API_KEY")
-    if not api_key:
-        raise SystemExit("ERROR: GROUNDX_API_KEY is not set")
-    return GroundX(
-        api_key=api_key,
-        base_url=os.environ.get("GROUNDX_BASE_URL", "https://api.groundx.ai/api"),
+    api_key, request_options = _credential_context()
+    return (
+        GroundX(
+            api_key=api_key,
+            base_url=os.environ.get("GROUNDX_BASE_URL", "https://api.groundx.ai/api"),
+        ),
+        request_options,
     )
 
 
@@ -149,23 +172,31 @@ def _compile_workflow(yaml_path: str, workflow_name: str, out: str, skip_validat
     return workflow
 
 
-def _list_buckets_page(gx: GroundX, next_token: str | None) -> typing.Any:
+def _list_buckets_page(
+    gx: GroundX,
+    next_token: str | None,
+    request_options: typing.Optional[dict[str, typing.Any]] = None,
+) -> typing.Any:
     try:
         if next_token:
-            return gx.buckets.list(n=100, next_token=next_token)
-        return gx.buckets.list(n=100)
+            return gx.buckets.list(n=100, next_token=next_token, request_options=request_options)
+        return gx.buckets.list(n=100, request_options=request_options)
     except TypeError:
         if next_token:
-            return gx.buckets.list(n=100, nextToken=next_token)
-        return gx.buckets.list(n=100)
+            return gx.buckets.list(n=100, nextToken=next_token, request_options=request_options)
+        return gx.buckets.list(n=100, request_options=request_options)
 
 
-def _find_bucket_id_by_name(gx: GroundX, bucket_name: str) -> int:
+def _find_bucket_id_by_name(
+    gx: GroundX,
+    bucket_name: str,
+    request_options: typing.Optional[dict[str, typing.Any]] = None,
+) -> int:
     matches: list[int] = []
     next_token: str | None = None
 
     while True:
-        response = _list_buckets_page(gx, next_token)
+        response = _list_buckets_page(gx, next_token, request_options=request_options)
         for bucket in _bucket_list_items(response):
             if _bucket_item_name(bucket) == bucket_name:
                 bucket_id = _bucket_item_id(bucket)
@@ -194,16 +225,18 @@ def _create_or_update_workflow(
     workflow: dict[str, typing.Any],
     yaml_path: str,
     workflow_id: str | None,
+    request_options: typing.Optional[dict[str, typing.Any]] = None,
 ) -> tuple[str, str, typing.Any]:
     kwargs = workflow_sdk_kwargs(workflow)
     if workflow_id:
         response = gx.workflows.update(
             workflow_id,
             **kwargs,
+            request_options=request_options,
         )
         return workflow_id, "updated", response
 
-    response = gx.workflows.create(**kwargs)
+    response = gx.workflows.create(**kwargs, request_options=request_options)
     return _workflow_id(response), "created", response
 
 
@@ -317,16 +350,17 @@ def main() -> int:
         )
         return 0
 
-    gx = _load_client(args.yaml)
+    gx, request_options = _load_client(args.yaml)
     bucket_id: int | None = args.bucket_id
     if args.bucket_name:
-        bucket_id = _find_bucket_id_by_name(gx, args.bucket_name)
+        bucket_id = _find_bucket_id_by_name(gx, args.bucket_name, request_options=request_options)
 
     workflow_id, workflow_action, workflow_response = _create_or_update_workflow(
         gx,
         workflow,
         args.yaml,
         args.workflow_id,
+        request_options=request_options,
     )
 
     created_bucket = False
@@ -335,16 +369,23 @@ def main() -> int:
 
     try:
         if args.add_to_account:
-            gx.workflows.add_to_account(workflow_id=workflow_id)
+            gx.workflows.add_to_account(workflow_id=workflow_id, request_options=request_options)
             account_assigned = True
 
         if args.create_bucket_name:
-            bucket_response = gx.buckets.create(name=args.create_bucket_name)
+            bucket_response = gx.buckets.create(
+                name=args.create_bucket_name,
+                request_options=request_options,
+            )
             bucket_id = _bucket_id(bucket_response)
             created_bucket = True
 
         if bucket_id is not None:
-            gx.workflows.add_to_id(id=bucket_id, workflow_id=workflow_id)
+            gx.workflows.add_to_id(
+                id=bucket_id,
+                workflow_id=workflow_id,
+                request_options=request_options,
+            )
 
     except Exception as exc:
         attachment_error = str(exc)

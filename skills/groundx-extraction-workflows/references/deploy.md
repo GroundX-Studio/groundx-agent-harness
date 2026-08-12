@@ -37,8 +37,14 @@ cp "$SKILL_DIR/templates/.env.sample" .env
 python -m pip install -r requirements.txt
 ```
 
-Set `GROUNDX_API_KEY` in `.env` or in the shell environment. Use a prod API key
-for live structured extraction. Dev extraction does not currently work; only use
+Use one credential mode in `.env` or the shell environment. Ordinary runs use
+`GROUNDX_API_KEY`. Delegated runs use `PARTNER_API_KEY` plus
+`CUSTOMER_USERNAME`; the partner key identifies the privileged actor and the
+customer username owns the workflow, bucket, ingest, and readback. Do not set
+`GROUNDX_API_KEY` with either delegated variable. The templates reject missing
+or mixed mode configuration before calling the SDK.
+
+Use a prod key for live structured extraction. Dev extraction does not currently work; only use
 dev for deploy/run/extract if an operator explicitly confirms it is available.
 For dev non-extraction API/debug calls, also set
 `GROUNDX_BASE_URL=https://devapi.groundx.ai/api`. For prod, leave
@@ -217,11 +223,14 @@ For exact remove/detach arguments, use `groundx-api/references/06-workflows.md`.
 
 ## Credentials
 
-The script reads `GROUNDX_API_KEY` and optional `GROUNDX_BASE_URL` from the
-process environment, `.env` in the current directory, or `.env` beside the YAML
-file. Do not pass API keys as command-line arguments.
+The script reads credentials and optional `GROUNDX_BASE_URL` from the process
+environment, `.env` in the current directory, or `.env` beside the YAML file.
+Use either `GROUNDX_API_KEY`, or both `PARTNER_API_KEY` and
+`CUSTOMER_USERNAME`. In delegated mode, one SDK request-options value adds
+`X-Customer-Key` to every customer-scoped API call. The object-store presigned
+upload does not receive that header. Do not pass API keys as command-line arguments.
 
-Use a different `GROUNDX_API_KEY` per environment. Prod live extraction leaves
+Use a different `GROUNDX_API_KEY` or `PARTNER_API_KEY` per environment. Prod live extraction leaves
 `GROUNDX_BASE_URL` unset or sets `https://api.groundx.ai/api`. Dev API/debug
 calls use `GROUNDX_BASE_URL=https://devapi.groundx.ai/api`, but dev structured
 extraction is unavailable unless an operator confirms otherwise.

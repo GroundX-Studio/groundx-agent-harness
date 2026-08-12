@@ -48,7 +48,8 @@ Before the loop runs, the working directory must have:
    `skills/groundx-extraction-workflows/templates/prompt.yaml` and edited for the
    target document type
 2. `.env` — copied from `skills/groundx-extraction-workflows/templates/.env.sample`
-   and populated with `GROUNDX_API_KEY`
+   and populated with either `GROUNDX_API_KEY`, or both `PARTNER_API_KEY` and
+   `CUSTOMER_USERNAME` for a delegated customer-owned run. Do not mix modes.
 3. `compile_workflow.py` — copied from
    `skills/groundx-extraction-workflows/templates/compile_workflow.py`
 4. `validate_workflow_json.py` — copied from
@@ -203,7 +204,9 @@ when no next revision is available.
 
 **Interactive agent path:** when an agent is operating inside Claude or
 Codex, follow `groundx-api` operation semantics with the selected
-environment's `GROUNDX_API_KEY`. Use the GroundX Python SDK by default.
+environment's `GROUNDX_API_KEY`. A partner acting for a customer instead uses
+`PARTNER_API_KEY` plus `CUSTOMER_USERNAME`; the actor is privileged, while the
+selected customer owns every workflow relationship and document operation. Use the GroundX Python SDK by default.
 Full live extraction should target prod unless an operator confirms dev
 extraction is available. For dev non-extraction API/debug calls, set
 `GROUNDX_BASE_URL=https://devapi.groundx.ai/api`; for prod, leave it unset.

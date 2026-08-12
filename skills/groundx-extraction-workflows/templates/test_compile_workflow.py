@@ -487,6 +487,66 @@ def test_str_field_rejects_native_json_array_instruction(monkeypatch):
     assert "JSON-encoded string" in message
 
 
+@pytest.mark.parametrize(
+    "instruction",
+    [
+        "Return a JSON-encoded array string containing the selected values.",
+        "Return one plain string. Do not return a JSON object.",
+        "Return one plain string. Never return a native JSON array.",
+        "Return one plain string. Never return null or a native JSON array.",
+        "Return one required plain string and never return null or a JSON object.",
+    ],
+)
+def test_str_field_accepts_encoded_or_native_json_prohibition(
+    monkeypatch,
+    instruction,
+):
+    """Encoded strings and native-JSON prohibitions are valid str prompts."""
+    monkeypatch.setattr(compile_workflow, "_sdk_prepare_extraction_yaml", None, raising=False)
+    y = _custom_yaml().replace("instructions: extract account", f"instructions: {instruction}")
+
+    workflow = build_workflow(_write(y))
+
+    assert workflow["leafFields"][0]["fieldType"] == "str"
+
+
+def test_str_field_rejects_native_json_request_on_separate_line(monkeypatch):
+    """Safe wording elsewhere must not hide a native JSON request."""
+    monkeypatch.setattr(compile_workflow, "_sdk_prepare_extraction_yaml", None, raising=False)
+    y = _custom_yaml().replace(
+        "instructions: extract account",
+        "instructions:\n"
+        "          - Return a JSON-encoded string when values are present.\n"
+        "          - Return a JSON array of the selected values.",
+    )
+
+    with pytest.raises(ValueError) as exc:
+        build_workflow(_write(y))
+
+    assert "statement.account_number" in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    "instruction",
+    [
+        "Do not return a JSON object; return a JSON array of values.",
+        "Do not return null, return a JSON array of values.",
+    ],
+)
+def test_str_field_rejects_native_json_request_after_safe_clause(monkeypatch, instruction):
+    """A prohibition must not hide a later native JSON request."""
+    monkeypatch.setattr(compile_workflow, "_sdk_prepare_extraction_yaml", None, raising=False)
+    y = _custom_yaml().replace(
+        "instructions: extract account",
+        f"instructions: {instruction}",
+    )
+
+    with pytest.raises(ValueError) as exc:
+        build_workflow(_write(y))
+
+    assert "statement.account_number" in str(exc.value)
+
+
 def test_custom_workflow_rejects_unrouted_workflow_group():
     """Custom-step YAML must not silently leave a workflow group unrouted."""
     y = """

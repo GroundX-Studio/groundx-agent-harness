@@ -10,11 +10,13 @@ import os
 import sys
 import types
 import json
+import importlib
 
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+groundx_module = None
 try:
     import groundx as groundx_module  # noqa: F401
     import groundx.extract  # noqa: F401
@@ -148,6 +150,310 @@ class FreshNoRawGroundX(ResumeNoRawGroundX):
 
     def ingest(self, **kwargs):
         return ns(ingest=ns(process_id="process-1"))
+
+
+class DelegatedGroundX:
+    def __init__(self, **kwargs):
+        self.init_kwargs = kwargs
+        self.calls = []
+        self.workflows = ns(
+            create=self._workflow_create,
+            add_to_account=self._workflow_add_to_account,
+            add_to_id=self._workflow_add_to_id,
+            delete=self._workflow_delete,
+        )
+        self.buckets = ns(create=self._bucket_create)
+        self.documents = ns(
+            get_processing_status_by_id=self._status,
+            get_xray=self._xray,
+            get_extract=self._extract,
+        )
+        self.customer = ns(get=self._customer_get)
+
+    def _record(self, op, **kwargs):
+        self.calls.append((op, kwargs))
+
+    def _workflow_create(self, **kwargs):
+        self._record("workflow_create", **kwargs)
+        return ns(workflow=ns(workflow_id="workflow-1"))
+
+    def _workflow_add_to_account(self, **kwargs):
+        self._record("workflow_add_to_account", **kwargs)
+        return ns(ok=True)
+
+    def _workflow_add_to_id(self, **kwargs):
+        self._record("workflow_add_to_id", **kwargs)
+        return ns(ok=True)
+
+    def _workflow_delete(self, **kwargs):
+        self._record("workflow_delete", **kwargs)
+        return ns(ok=True)
+
+    def _bucket_create(self, **kwargs):
+        self._record("bucket_create", **kwargs)
+        return ns(bucket=ns(bucket_id=101))
+
+    def ingest(self, **kwargs):
+        self._record("ingest", **kwargs)
+        return ns(ingest=ns(process_id="process-1"))
+
+    def _status(self, **kwargs):
+        self._record("status", **kwargs)
+        return ns(
+            ingest=ns(
+                status="complete",
+                progress=ns(
+                    complete=ns(documents=[ns(document_id="doc-1")]),
+                    processing=ns(documents=[]),
+                    errors=ns(total=0, documents=[]),
+                ),
+            )
+        )
+
+    def _xray(self, **kwargs):
+        self._record("xray", **kwargs)
+        return {"chunks": []}
+
+    def _extract(self, **kwargs):
+        self._record("extract", **kwargs)
+        return {"statement": {"account_number": "A-1"}}
+
+    def _customer_get(self, **kwargs):
+        self._record("customer_get", **kwargs)
+        return ns(customer=ns(subscription=ns(meters=None)))
+
+
+def test_delegated_run_reuses_one_customer_request_options_for_every_sdk_call(tmp_path, monkeypatch):
+    created_clients = []
+
+    class CapturingGroundX(DelegatedGroundX):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            created_clients.append(self)
+
+    monkeypatch.delenv("GROUNDX_API_KEY", raising=False)
+    monkeypatch.setenv("PARTNER_API_KEY", "partner-key")
+    monkeypatch.setenv("CUSTOMER_USERNAME", "customer-b")
+    monkeypatch.setattr(run_extraction, "GroundX", CapturingGroundX)
+    monkeypatch.setattr(run_extraction, "Document", lambda **kwargs: kwargs)
+    monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
+    monkeypatch.setattr(
+        run_extraction,
+        "_compile",
+        lambda *args, **kwargs: {
+            "name": "workflow-name",
+            "extract": {"workflow": {"output_routes": []}},
+        },
+    )
+    monkeypatch.setattr(run_extraction, "_validate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", lambda yaml_path: {})
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_extraction.py",
+            "--yaml",
+            "prompt.yaml",
+            "--pdf",
+            "sample.pdf",
+            "--out",
+            str(tmp_path),
+            "--bucket-name",
+            "bucket",
+            "--add-to-account",
+            "--poll-interval",
+            "0",
+            "--max-polls",
+            "1",
+        ],
+    )
+
+    assert run_extraction.main() == 0
+
+    gx = created_clients[0]
+    expected = {"additional_headers": {"X-Customer-Key": "customer-b"}}
+    assert gx.init_kwargs["api_key"] == "partner-key"
+    assert [name for name, _ in gx.calls] == [
+        "customer_get",
+        "workflow_create",
+        "workflow_add_to_account",
+        "bucket_create",
+        "workflow_add_to_id",
+        "ingest",
+        "status",
+        "xray",
+        "extract",
+        "customer_get",
+    ]
+    assert all(kwargs.get("request_options") == expected for _, kwargs in gx.calls)
+
+
+def test_real_sdk_ingest_keeps_customer_selector_off_object_store_upload(tmp_path, monkeypatch):
+    if groundx_module is None or getattr(groundx_module, "GroundX", object) is object:
+        pytest.skip("groundx SDK is not installed")
+
+    sdk_ingest = importlib.import_module("groundx.ingest")
+    pdf_path = tmp_path / "sample.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4\nfixture\n")
+    presign_calls = []
+    upload_calls = []
+    ingest_calls = []
+
+    class FakeResponse:
+        def __init__(self, *, payload=None, status_code=200, headers=None):
+            self._payload = payload
+            self.status_code = status_code
+            self.headers = headers or {}
+            self.text = ""
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self._payload
+
+    def fake_presign_get(url, params=None, **kwargs):
+        presign_calls.append({"url": url, "params": params, **kwargs})
+        return FakeResponse(
+            payload={
+                "URL": "https://objects.example.test/sample.pdf?signature=test",
+                "Header": {"Content-Type": "application/pdf"},
+            }
+        )
+
+    def fake_object_store_put(url, *, data, headers, timeout):
+        upload_calls.append(
+            {"url": url, "data": data, "headers": headers, "timeout": timeout}
+        )
+        return FakeResponse()
+
+    client = groundx_module.GroundX(api_key="partner-key")
+
+    def fake_ingest_remote(**kwargs):
+        ingest_calls.append(kwargs)
+        return ns(ingest=ns(process_id="process-1"))
+
+    monkeypatch.setattr(sdk_ingest.requests, "get", fake_presign_get)
+    monkeypatch.setattr(sdk_ingest.requests, "put", fake_object_store_put)
+    monkeypatch.setattr(client.documents, "ingest_remote", fake_ingest_remote)
+
+    request_options = {
+        "additional_headers": {"X-Customer-Key": "customer-b"}
+    }
+    result = client.ingest(
+        documents=[
+            groundx_module.Document(
+                bucket_id=101,
+                file_name="sample.pdf",
+                file_path=str(pdf_path),
+                file_type="pdf",
+                process_level="full",
+            )
+        ],
+        request_options=request_options,
+    )
+
+    assert result.ingest.process_id == "process-1"
+    assert presign_calls == [
+        {
+            "url": "https://api.eyelevel.ai/upload/file",
+            "params": {"name": "sample.pdf", "type": "pdf"},
+        }
+    ]
+    assert upload_calls[0]["url"].startswith("https://objects.example.test/")
+    assert upload_calls[0]["data"] == b"%PDF-1.4\nfixture\n"
+    assert upload_calls[0]["headers"] == {"Content-Type": "application/pdf"}
+    assert all(
+        name.lower() != "x-customer-key"
+        for name in upload_calls[0]["headers"]
+    )
+    assert ingest_calls[0]["request_options"] is request_options
+
+
+def test_cross_owner_attachment_records_the_http_400_and_does_not_ingest(tmp_path, monkeypatch):
+    message = (
+        "Workflow and bucket must belong to the same customer. "
+        "Create the workflow in the bucket customer's context before attaching it."
+    )
+    created_clients = []
+
+    class AttachmentRejectedGroundX(DelegatedGroundX):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.workflows.add_to_id = self._reject_attachment
+            created_clients.append(self)
+
+        def _reject_attachment(self, **kwargs):
+            self._record("workflow_add_to_id", **kwargs)
+            raise RuntimeError(f"HTTP 400: {message}")
+
+    monkeypatch.delenv("GROUNDX_API_KEY", raising=False)
+    monkeypatch.setenv("PARTNER_API_KEY", "partner-key")
+    monkeypatch.setenv("CUSTOMER_USERNAME", "customer-b")
+    monkeypatch.setattr(run_extraction, "GroundX", AttachmentRejectedGroundX)
+    monkeypatch.setattr(run_extraction, "Document", lambda **kwargs: kwargs)
+    monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
+    monkeypatch.setattr(
+        run_extraction,
+        "_compile",
+        lambda *args, **kwargs: {
+            "name": "workflow-name",
+            "extract": {"workflow": {"output_routes": []}},
+        },
+    )
+    monkeypatch.setattr(run_extraction, "_validate", lambda *args, **kwargs: None)
+    monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", lambda yaml_path: {})
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_extraction.py",
+            "--yaml",
+            "prompt.yaml",
+            "--pdf",
+            "sample.pdf",
+            "--out",
+            str(tmp_path),
+            "--bucket-name",
+            "bucket",
+        ],
+    )
+
+    with pytest.raises(RuntimeError, match="HTTP 400"):
+        run_extraction.main()
+
+    events = [json.loads(line) for line in (tmp_path / "run.log").read_text().splitlines()]
+    assert any(
+        event["event"] == "workflow.add_to_bucket.failed" and event["error"] == f"HTTP 400: {message}"
+        for event in events
+    )
+    assert "ingest" not in [name for name, _ in created_clients[0].calls]
+    assert next(
+        kwargs for name, kwargs in created_clients[0].calls if name == "workflow_delete"
+    )["request_options"] == {"additional_headers": {"X-Customer-Key": "customer-b"}}
+
+
+def test_delegated_workflow_readback_uses_the_customer_request_options():
+    gx = DelegatedGroundX()
+
+    def load_extraction_definition(**kwargs):
+        gx._record("workflow_readback", **kwargs)
+        return ns(extract={"workflow": {}})
+
+    gx.load_extraction_definition = load_extraction_definition
+    request_options = {"additional_headers": {"X-Customer-Key": "customer-b"}}
+
+    assert run_extraction._load_reused_workflow_extract(
+        gx,
+        "workflow-1",
+        request_options=request_options,
+    ) == {"workflow": {}}
+    assert gx.calls == [
+        (
+            "workflow_readback",
+            {"workflow_id": "workflow-1", "request_options": request_options},
+        )
+    ]
 
 
 def test_poll_fails_when_progress_errors_exist_even_if_status_is_complete():
@@ -388,6 +694,93 @@ def test_resume_does_not_compile_deploy_attach_or_ingest(tmp_path, monkeypatch):
     assert resume_start["process_id"] == "process-1"
     assert resume_start["workflow_id"] == "workflow-1"
     assert resume_start["bucket_id"] == 101
+
+
+def test_delegated_resume_reuses_customer_request_options_for_status_xray_and_extract(
+    tmp_path, monkeypatch
+):
+    (tmp_path / "process_id.txt").write_text("process-1")
+    (tmp_path / "workflow_id.txt").write_text("workflow-1")
+    (tmp_path / "bucket_id.txt").write_text("101")
+    (tmp_path / "workflow.json").write_text(
+        json.dumps({"extract": {"outputRoutes": []}})
+    )
+    created_clients = []
+
+    class CapturingResumeGroundX(DelegatedGroundX):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.workflows = ExplodingWorkflows()
+            self.buckets = ExplodingBuckets()
+            created_clients.append(self)
+
+        def ingest(self, **kwargs):
+            raise AssertionError("resume must not ingest documents")
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("resume must not run setup helpers")
+
+    monkeypatch.delenv("GROUNDX_API_KEY", raising=False)
+    monkeypatch.setenv("PARTNER_API_KEY", "partner-key")
+    monkeypatch.setenv("CUSTOMER_USERNAME", "customer-b")
+    monkeypatch.setattr(run_extraction, "GroundX", CapturingResumeGroundX)
+    monkeypatch.setattr(run_extraction, "_compile", forbidden)
+    monkeypatch.setattr(run_extraction, "_validate", forbidden)
+    monkeypatch.setattr(run_extraction, "_create_workflow", forbidden)
+    monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", forbidden)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_extraction.py",
+            "--resume",
+            "--out",
+            str(tmp_path),
+            "--poll-interval",
+            "0",
+            "--max-polls",
+            "1",
+        ],
+    )
+
+    assert run_extraction.main() == 0
+
+    gx = created_clients[0]
+    assert gx.init_kwargs["api_key"] == "partner-key"
+    expected = {"additional_headers": {"X-Customer-Key": "customer-b"}}
+    customer_calls = [
+        (name, kwargs.get("request_options"))
+        for name, kwargs in gx.calls
+        if name in ("status", "xray", "extract")
+    ]
+    assert customer_calls == [
+        ("status", expected),
+        ("xray", expected),
+        ("extract", expected),
+    ]
+    assert len({id(options) for _, options in customer_calls}) == 1
+
+
+def test_resume_rejects_mixed_credentials_before_sdk_initialization(
+    tmp_path, monkeypatch, capsys
+):
+    (tmp_path / "process_id.txt").write_text("process-1")
+
+    def forbidden_client(**kwargs):
+        raise AssertionError("mixed credentials must fail before SDK initialization")
+
+    monkeypatch.setenv("GROUNDX_API_KEY", "customer-key")
+    monkeypatch.setenv("PARTNER_API_KEY", "partner-key")
+    monkeypatch.setenv("CUSTOMER_USERNAME", "customer-b")
+    monkeypatch.setattr(run_extraction, "GroundX", forbidden_client)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["run_extraction.py", "--resume", "--out", str(tmp_path)],
+    )
+
+    assert run_extraction.main() == 2
+    assert "cannot be combined" in capsys.readouterr().err
 
 
 def test_fresh_run_persists_business_logic_metadata_for_resume(tmp_path, monkeypatch):

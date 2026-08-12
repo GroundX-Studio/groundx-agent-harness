@@ -39,6 +39,7 @@ import dataclasses
 import hashlib
 import json
 import os
+import re
 import sys
 import typing
 
@@ -762,6 +763,8 @@ def _assert_str_json_prompts_are_encoded_strings(raw: dict, source: str) -> None
     encoded_markers = (
         "json array string",
         "json object string",
+        "json-encoded array string",
+        "json-encoded object string",
         "json-encoded string",
         "json encoded string",
         "encoded as a string",
@@ -769,6 +772,11 @@ def _assert_str_json_prompts_are_encoded_strings(raw: dict, source: str) -> None
         "string containing json",
     )
     json_markers = ("json array", "json object")
+    prohibition_pattern = re.compile(r"^(?:do not|never|must not) return\b")
+    return_boundary = re.compile(
+        r"(?=\b(?:do not return|never return|must not return)\b)"
+        r"|(?<!do not )(?<!never )(?<!must not )(?=\breturn\b)"
+    )
 
     def check_field(group_name: str, field_path: tuple[str, ...], field_data: dict) -> None:
         prompt = field_data.get("prompt")
@@ -777,9 +785,23 @@ def _assert_str_json_prompts_are_encoded_strings(raw: dict, source: str) -> None
         if str(prompt.get("type", "")).lower() != "str":
             return
         prompt_text = _prompt_text_for_validation(prompt)
-        if not any(marker in prompt_text for marker in json_markers):
+        prompt_segments: list[str] = []
+        for sentence in re.split(r"\n+|[;.!?]\s+", prompt_text):
+            prompt_segments.extend(return_boundary.split(sentence))
+        json_segments = [
+            segment.strip()
+            for segment in prompt_segments
+            if any(marker in segment for marker in json_markers)
+        ]
+        if not json_segments:
             return
-        if any(marker in prompt_text for marker in encoded_markers):
+        unsafe_segments = [
+            segment
+            for segment in json_segments
+            if not any(marker in segment for marker in encoded_markers)
+            and not prohibition_pattern.match(segment)
+        ]
+        if not unsafe_segments:
             return
         dotted_path = ".".join((group_name, *field_path))
         raise ValueError(
