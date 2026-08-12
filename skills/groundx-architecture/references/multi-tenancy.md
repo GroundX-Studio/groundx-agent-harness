@@ -57,7 +57,7 @@ Every customer-owned record carries the **owner username**. For the customer-tie
 
 ### 5.3 Bucket transfer
 
-Bucket transfer is supported through the partner API (`POST /bucket/transfer/<bucketId>`). The mechanism is straightforward: **the owner username on the bucket changes to the receiving customer**. No artifacts move physically; no document records get re-tagged; the documents continue to live in the same bucket, and the bucket's owner is now a different customer. This is what makes bucket transfer cheap — it's a metadata update, not a data migration.
+Bucket transfer is supported through the partner API (`POST /bucket/transfer/<bucketId>`). The bucket and its documents remain physically in place, and the bucket owner changes to the receiving customer. Workflow assignments must be disconnected first. A real ownership change clears all bucket pre-processors and post-processors and detaches the bucket from every source project and group. Workflow definitions, processor dependencies, and project or group membership are not copied; the destination configures them separately. Other bucket settings and document state remain unchanged. If the receiving customer already owns the bucket, the request succeeds without changing its current state.
 
 ### 5.4 Partner accounts as tenants
 
