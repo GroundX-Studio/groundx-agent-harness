@@ -48,6 +48,14 @@ Each field prompt should answer four questions:
    behavior-changing directives in `instructions`, with the positive rule first.
 4. What shape should the value have? Put that in `type` and `format`.
 
+Ask for the declared JSON shape directly. For a `str` boolean flag, require the
+exact lowercase text `"true"` or `"false"`. For `list` or `dict`, require a
+native JSON array or object. If structured data must live in a `str`, say
+"JSON-encoded string" and explicitly reject a native array or object. Runtime
+coercion can safely normalize compatible mismatches, but it is not a substitute
+for a clear output contract. Impossible values become null rather than failing
+the document or becoming empty placeholders.
+
 Do not use output values, whitelists, conflicting labels, or negative examples as
 identifiers. If an inferred value has a reusable source cue, the cue may be an
 identifier, but the inference rule belongs in `instructions`.
@@ -118,6 +126,13 @@ Custom extract, reconcile, and QA wrappers should stay thin.
 
 Do not put customer business logic only in wrapper prose when it belongs in `prompt.yaml`
 metadata or group instructions. YAML should remain the durable source.
+
+When configured by the runner, response parsing gets one bounded retry for
+malformed JSON or a wrong final response type. The second failure remains
+terminal. Keep wrappers strictly JSON-only and do not add transport or stage
+retry instructions to the prompt. Ordinary logs and terminal exception messages
+omit provider content. The SDK trace callback retains exact parser evidence for
+an authorized private diagnostic path.
 
 ## Iteration rules
 

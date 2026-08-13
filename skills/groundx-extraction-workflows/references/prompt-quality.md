@@ -73,6 +73,18 @@ The prompt must state the output shape when ambiguity exists:
 - JSON object string with `value` and `_raw_text`
 - null when the source does not support an answer
 
+Match `type` and instructions exactly:
+
+- For a string flag, require lowercase `"true"` or `"false"`.
+- For `list` or `dict`, require a native JSON array or object.
+- For structured data stored in `str`, require a JSON-encoded string and reject
+  a native array or object.
+
+The runtime safely converts compatible mismatches through one SDK contract and
+uses null for impossible conversions. It does not replace impossible values
+with empty strings, arrays, or objects, and sibling fields continue. Write the
+prompt for the correct declared type instead of depending on conversion.
+
 For enum fields, list the valid choices in the field instructions. If the source text
 does not exactly match an enum value and an `Other` choice exists, return `Other` and
 put the printed source value in `_raw_text`.

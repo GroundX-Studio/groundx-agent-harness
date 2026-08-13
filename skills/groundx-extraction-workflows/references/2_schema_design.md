@@ -398,7 +398,7 @@ that safe key in the pseudo field name and route it with `path`.
 | `format` | Output format constraint | Optional but strongly recommended for dates and codes |
 | `identifiers` | One to three labels or stable source cues that help locate evidence | Yes |
 | `instructions` | Rules for choosing, rejecting, normalizing, or returning a value | Yes |
-| `type` | JSON value type: `str`, `int`, `float`, or `[int, float]` | Yes |
+| `type` | JSON value type: `str`, `int`, `float`, `list`, `dict`, or a list of allowed types | Yes |
 
 ### 2.2 description
 
@@ -474,13 +474,15 @@ or record in the group. Do not copy shared logic into each field.
 
 ### 2.6 type
 
-The expected JSON value type. The model uses this to know whether to
-return a string, integer, float, or numeric (either int or float).
+The expected JSON value type. The model uses this to know whether to return a
+string, integer, float, list, dict, or one of several allowed types.
 
 ```yaml
 type: str          # for strings
 type: int          # for integers only
 type: float        # for floats only
+type: list         # for a native JSON array
+type: dict         # for a native JSON object
 type:              # for "either int or float" (most numeric fields)
   - int
   - float
@@ -490,6 +492,14 @@ If a `str` field needs to carry structured JSON, the prompt must say that the
 JSON is encoded as a string. For example, use "Return a JSON-encoded string
 representing an array of objects. Do not return an actual JSON array." Do not
 write `type: str` with instructions that ask for a native JSON array or object.
+
+The extraction runtime uses the GroundX Python SDK's shared conversion contract.
+Exact values are preserved. Compatible mismatches are converted without an
+ordinary log: native booleans become lowercase `"true"` or `"false"` for `str`,
+numbers become JSON scalar text, native lists and dicts become compact JSON text
+for `str`, and JSON text can become a declared `list` or `dict`. An impossible
+conversion becomes null and does not fail sibling fields. Do not rely on this as
+prompt logic. Ask for the declared shape so conversion remains a safety boundary.
 
 ## 3. Group-level prompts
 
