@@ -106,6 +106,7 @@ Custom LLM endpoint configuration for a workflow step. Used inside
 | `apiKey` | `api_key` | `Optional[str]` | no | Bearer token sent as `Authorization` to the LLM endpoint. |
 | `baseURL` | `base_url` | `Optional[str]` | no | Base URL preceding `/chat/completion`. |
 | `engineID` | `engine_id` | `Optional[str]` | no | Model name placed in the request. |
+| `maxImages` | `max_images` | `Optional[int]` | no | Positive limit for the combined image attachments in each provider request using this engine. Page and crop images share the same request-wide count. Earlier images are removed first; text remains. If omitted, the workflow adds no image-count cap, although a lower exact-route platform limit may apply. |
 | `reasoningEffort` | `reasoning_effort` | `Optional[Literal["minimal", "low", "medium", "high"]]` | no | OpenAI reasoning-effort value. |
 | `service` | `service` | `Optional[Literal["openai", "openai-base64", "azure", "deep-infra", "hosted"]]` | no | Endpoint kind. **Note:** the field is `service`, not `serviceType` — passing `serviceType` to the server is silently ignored and the actual `service` value gets stored as `""`. The SDK literal lists the canonical values above; the server still accepts the legacy `eyelevel` value but the SDK literal removed it, so pass `hosted` (with an explicit `baseURL`) for forward-compatibility. The `reasoning_effort` literal similarly omits `max`, which the server still accepts. |
 
@@ -119,6 +120,11 @@ engine = WorkflowEngine(
     service="openai",   # not service_type, not serviceType
 )
 ```
+
+`maxImages` is scoped to the selected model engine, so it applies to every request that
+uses that engine and does not cap unrelated steps or models. The `max_images` argument
+requires a Python SDK release generated from a Fern contract containing the field. Use
+the REST wire key `maxImages` with older SDK versions.
 
 ## 4. WorkflowPrompt
 

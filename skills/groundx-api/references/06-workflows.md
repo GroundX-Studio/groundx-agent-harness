@@ -103,8 +103,18 @@ supply an `engine` object. The same field exists on the wire and on the
 | `apiKey` | `api_key` | Bearer token for the custom LLM endpoint. |
 | `baseURL` | `base_url` | Base URL of an OpenAI chat completion-compatible endpoint. |
 | `engineID` | `engine_id` | Model name to include in the request. |
+| `maxImages` | `max_images` | Optional positive limit for the combined image attachments in each provider request using this engine. |
 | `service` | `service` | Identifies the kind of endpoint — see §1.3.1 below. The field name is `service` on **both** wire and SDK; earlier versions of this reference incorrectly called it `serviceType`. |
 | `reasoningEffort` | `reasoning_effort` | One of: `minimal`, `low`, `medium`, `high`. |
+
+`maxImages` follows the selected model engine, not the workflow step type. Set it only
+on routes whose provider or model has an image limit. Page images and crop images share
+one combined request-wide count. If the count is exceeded, GroundX removes earlier
+images first and preserves all text; later crop images therefore survive in the current
+summary request layout. If omitted, the workflow adds no image-count cap, although
+GroundX may enforce a lower platform limit for the exact provider route. The Python
+`max_images` attribute requires an SDK release generated from the Fern contract that
+contains this field; use the REST `maxImages` key with older SDK versions.
 
 See `references/12-python-sdk-objects.md` §3 for the `WorkflowEngine` constructor
 example.
