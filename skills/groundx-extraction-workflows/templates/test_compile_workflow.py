@@ -684,6 +684,44 @@ _pseudo_groups:
     }
 
 
+def test_custom_workflow_preserves_pseudo_group_role():
+    """Pseudo-group roles reach both runtime and persisted workflow metadata."""
+    y = """
+extraction_policy_version: v1
+workflow:
+  custom_steps:
+    - name: statement_labels
+      level: section
+      kind: instruct
+  agent_chain:
+    - parallel:
+        - group: statement_identity
+          chain: [reconcile_statement, qa_statement]
+    - save_statement
+statement:
+  fields:
+    account_number:
+      prompt:
+        description: account
+        type: str
+        identifiers: ["Account"]
+        instructions: extract account
+_pseudo_groups:
+  statement_identity:
+    role: statement
+    workflow_step: statement_labels
+    fields:
+      account_number:
+        path: /statement/account_number
+"""
+
+    wf = build_workflow(_write(y))
+
+    assert wf["extract"]["statement_identity"]["role"] == "statement"
+    authored = wf["extract"]["_groundx_persisted_extract"]
+    assert authored["_pseudo_groups"]["statement_identity"]["role"] == "statement"
+
+
 def test_custom_workflow_routes_statement_role_group_to_document_root():
     """Statement-role workflow groups are document fields, not group-nested rows."""
     y = """

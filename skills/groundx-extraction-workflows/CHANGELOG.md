@@ -13,6 +13,10 @@ a coherent iteration milestone informed by real customer use cases. The
 
 ## Unreleased
 
+- **Fixed: pseudo-group processing roles.** Extraction YAML may declare an
+  optional `role` on `_pseudo_groups`; the compiler preserves it in the runtime
+  and persisted extraction mappings so current workflow validation can identify
+  internal statement groups.
 - **Fixed: string prompt JSON validation.** String fields may explicitly request
   JSON-encoded array or object strings and may forbid native JSON. Validation is
   clause-aware, so safe wording cannot hide a separate native JSON request.
