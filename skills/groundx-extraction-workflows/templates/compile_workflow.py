@@ -563,7 +563,13 @@ def _assert_source_group_shapes(raw: dict, source: str) -> None:
         path = f"_pseudo_groups.{group_name}"
         if not isinstance(group_data, dict):
             raise ValueError(f"{source}: {path} must be a mapping")
-        unsupported = set(group_data) - {"fields", "include", "prompt", "workflow_step"}
+        unsupported = set(group_data) - {
+            "fields",
+            "include",
+            "prompt",
+            "role",
+            "workflow_step",
+        }
         if unsupported:
             raise ValueError(f"{source}: unsupported {path} keys: {sorted(unsupported)}")
         _assert_group_prompt_shape(group_data.get("prompt"), path, source)

@@ -98,7 +98,7 @@ fallback compile:
 | `workflow.custom_steps[]` | `name`, `level`, `kind`, optional `config`, optional `required_template_keys` |
 | Direct final group | `fields`, optional `include`, optional `prompt`, optional `workflow_step`, and supported final-group business-logic metadata |
 | `_defs.*` | required `fields`, optional `include`; no prompt or group metadata |
-| `_pseudo_groups.*` | `workflow_step`, `fields`, and optional group `prompt`; no `include` |
+| `_pseudo_groups.*` | `workflow_step`, `fields`, optional group `prompt`, and optional processing `role`; no `include` |
 | Direct leaf field | `prompt`, plus `workflow_output_key` when the final group has direct `workflow_step` |
 | Pseudo field | `path`, plus optional full `prompt` override; the pseudo field key is the workflow output key |
 | Field `prompt` | required `description`, `identifiers`, `instructions`, and `type`; optional `format` |
