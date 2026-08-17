@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Deploy a finished extraction YAML as a GroundX workflow.
 
-Compiles a YAML with `compile_workflow.py`, validates the workflow JSON,
+Validates a YAML with the server (`workflows.validate`), submits the source
+YAML so the GroundX API compiles it,
 creates or updates the workflow through the GroundX Python SDK, and
 optionally attaches it to a bucket or the account default. This is a
 deploy-only command; use `run_extraction.py` when you also need ingest,
@@ -36,9 +37,8 @@ import typing
 import dotenv
 from groundx import GroundX
 
-from compile_workflow import build_workflow_artifacts, workflow_sdk_kwargs
+from _workflow_topology import build_workflow_artifacts
 from estimate_workflow_requests import count_pdf_pages, estimate_request_fanout
-from validate_workflow_json import validate
 
 
 def _abs(out: str, name: str) -> str:
@@ -153,21 +153,15 @@ def _load_client(yaml_path: str) -> tuple[GroundX, typing.Optional[dict[str, typ
     )
 
 
-def _compile_workflow(yaml_path: str, workflow_name: str, out: str, skip_validate: bool) -> dict[str, typing.Any]:
+def _workflow_topology(yaml_path: str, workflow_name: str, out: str) -> dict[str, typing.Any]:
     if not os.path.exists(yaml_path):
         raise SystemExit(f"ERROR: YAML file not found: {yaml_path}")
 
     workflow, extraction_metadata = build_workflow_artifacts(yaml_path, name=workflow_name)
-    workflow_json_path = _abs(out, "workflow.json")
-    with open(workflow_json_path, "w", encoding="utf-8") as f:
+    with open(_abs(out, "fanout_topology.json"), "w", encoding="utf-8") as f:
         json.dump(workflow, f, indent=2, default=str)
     with open(_abs(out, "extraction_workflow_metadata_v1.json"), "w", encoding="utf-8") as f:
         json.dump(extraction_metadata, f, indent=2, default=str)
-
-    if not skip_validate:
-        errors = validate(workflow)
-        if errors:
-            raise SystemExit("workflow validation failed:\n  - " + "\n  - ".join(errors))
 
     return workflow
 
@@ -222,21 +216,25 @@ def _find_bucket_id_by_name(
 
 def _create_or_update_workflow(
     gx: GroundX,
-    workflow: dict[str, typing.Any],
-    yaml_path: str,
+    yaml_text: str,
+    workflow_name: str,
     workflow_id: str | None,
     request_options: typing.Optional[dict[str, typing.Any]] = None,
 ) -> tuple[str, str, typing.Any]:
-    kwargs = workflow_sdk_kwargs(workflow)
     if workflow_id:
         response = gx.workflows.update(
             workflow_id,
-            **kwargs,
+            name=workflow_name,
+            yaml=yaml_text,
             request_options=request_options,
         )
         return workflow_id, "updated", response
 
-    response = gx.workflows.create(**kwargs, request_options=request_options)
+    response = gx.workflows.create(
+        name=workflow_name,
+        yaml=yaml_text,
+        request_options=request_options,
+    )
     return _workflow_id(response), "created", response
 
 
@@ -311,7 +309,9 @@ def main() -> int:
 
     os.makedirs(args.out, exist_ok=True)
     workflow_name = args.workflow_name or os.path.splitext(os.path.basename(args.yaml))[0]
-    workflow = _compile_workflow(args.yaml, workflow_name, args.out, args.skip_validate)
+    workflow = _workflow_topology(args.yaml, workflow_name, args.out)
+    with open(args.yaml, "r", encoding="utf-8") as f:
+        yaml_text = f.read()
     request_risk = _request_risk_report(
         workflow,
         args.out,
@@ -336,7 +336,7 @@ def main() -> int:
             "workflowId": args.workflow_id,
             "workflowAction": "update" if args.workflow_id else "create",
             "workflowName": workflow["name"],
-            "workflowJson": _abs(args.out, "workflow.json"),
+            "fanoutTopology": _abs(args.out, "fanout_topology.json"),
             "plannedAttachment": planned_attachment,
             "requestRisk": request_risk,
         }
@@ -351,14 +351,23 @@ def main() -> int:
         return 0
 
     gx, request_options = _load_client(args.yaml)
+    if not args.skip_validate:
+        try:
+            gx.workflows.validate(
+                name=workflow_name,
+                yaml=yaml_text,
+                request_options=request_options,
+            )
+        except Exception as exc:
+            raise SystemExit(f"workflow validation failed: {exc}")
     bucket_id: int | None = args.bucket_id
     if args.bucket_name:
         bucket_id = _find_bucket_id_by_name(gx, args.bucket_name, request_options=request_options)
 
     workflow_id, workflow_action, workflow_response = _create_or_update_workflow(
         gx,
-        workflow,
-        args.yaml,
+        yaml_text,
+        workflow_name,
         args.workflow_id,
         request_options=request_options,
     )

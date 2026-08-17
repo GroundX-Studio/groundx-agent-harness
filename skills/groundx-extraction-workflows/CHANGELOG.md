@@ -13,6 +13,60 @@ a coherent iteration milestone informed by real customer use cases. The
 
 ## Unreleased
 
+- **The backend is the only workflow compiler (AGE-285).** Locally compiled
+  workflow bodies are rejected by the live API ("served reassembly field does
+  not match the extraction field"), so the structured client compile path is
+  retired. `run_extraction.py`, `deploy_workflow.py`, `batch_extraction.py`,
+  and `prompt_manager.py` now register and update workflows by submitting the
+  author's source YAML; preflight is the server's `workflows.validate`.
+  `compile_workflow.py` is renamed `_workflow_topology.py` and survives only
+  as a non-authoritative offline topology model for fanout estimation and
+  coverage checks (its `workflow_sdk_kwargs` deployable-body surface and CLI
+  are deleted, so legacy instructions that invoke `compile_workflow.py`
+  fail fast). `validate_workflow_json.py` is deleted. The SDK/harness parity
+  guard retires with the path it guarded. References, examples, and
+  `6_known_limitations.md` §§5-6 now document the YAML-only flow.
+
+- **Scope by printed position (AGE-284).** `16_prompt_writing.md` warns that
+  category-name scoping rules ("taxes are account-level") mis-scope categories
+  that also print per-entity; scope from the line's printed position instead.
+- **`unique_attrs` is record identity (AGE-286).** `12_business_logic.md` now
+  states that dedup identity must include a genuine per-record key and names
+  the failure mode (448 records silently collapsed to 28 when identity was
+  description+date+amount+class); `13_customer_intake.md` adds record identity
+  as an intake question with a record-count verification step.
+- **AGE-285 closed.** The platform now never classifies a submission as a
+  historical stored row, owns the stored schema hash on every write, and
+  stamps guard-matching submissions with server provenance. Compiled-JSON and
+  server-YAML creates both work end to end for `match_attrs` schemas;
+  `6_known_limitations.md` §6 rewritten accordingly.
+- **AGE-285 narrowed and re-documented.** The historical-legacy create
+  rejection is fixed platform-side (a client submission is never a stored
+  row). `6_known_limitations.md` §6 now records the remaining limitation:
+  compiled-JSON create fails the schema-hash check for schemas declaring
+  `match_attrs` linking, because the platform synthesizes and hashes
+  `output_relationships` that the local compile path does not; use the
+  server-side YAML create path for those schemas until the canonical-compiler
+  migration makes the server the sole hash authority.
+- **Group-naming guidance for the legacy-provenance create rejection.** A new
+  v1 workflow whose groups are literally `statement` + `meters` + `charges`
+  without `unique_attrs` on both repeating groups is rejected at create as a
+  historical legacy workflow (`missing legacy policy provenance`, AGE-285
+  class). `2_schema_design.md` now recommends domain group names with explicit
+  `role:`, `6_known_limitations.md` §6 records the signature and workarounds,
+  and `templates/prompt.yaml` declares `role:` on its groups.
+- **Compiler parity guard.** `compile_workflow.py` no longer silently rewrites
+  SDK-prepared workflow metadata. When the installed SDK emits the
+  `repetitionScope` enum (probed at compile time), any divergence between SDK
+  output and harness normalization fails compile naming the field and both
+  values; on pre-fix SDKs (3.9.0–3.9.7 emit pointer-format scopes, rejected by
+  the API and fixed in eyelevelai/groundx-python#68) the rewrite is kept with an
+  upgrade warning. A shared repeating-group golden is asserted by both the
+  harness template tests and the SDK's own tests. The canonical
+  workflow-authoring statement (one compile entrypoint, surface ownership,
+  sunset with the API-owned compiler migration) is
+  `references/4_sdk_integration.md` §6; the pre-fix create rejection is
+  recorded as `references/6_known_limitations.md` §5.
 - **Fixed: pseudo-group processing roles.** Extraction YAML may declare an
   optional `role` on `_pseudo_groups`; the compiler preserves it in the runtime
   and persisted extraction mappings so current workflow validation can identify

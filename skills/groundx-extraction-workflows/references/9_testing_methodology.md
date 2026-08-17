@@ -80,7 +80,7 @@ For routine maintainer changes:
 
 1. **`node scripts/validate.mjs`** from repo root — every check must pass.
 2. **Smoke the iteration aids** if any was touched:
-   - `compile_workflow.py` → `validate_workflow_json.py` on output
+   - `gx.workflows.validate(name=..., yaml=...)` on the source YAML
    - `run_extraction.py` → end-to-end against a known fixture
    - `xray_to_extract.py` → on a captured X-Ray
    - `cleanup_orphans.py --dry-run`

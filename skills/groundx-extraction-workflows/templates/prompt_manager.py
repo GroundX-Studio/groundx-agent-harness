@@ -33,10 +33,7 @@ from dataclasses import dataclass
 
 from groundx import Document, GroundX
 
-from compile_workflow import (
-    build_workflow,
-    workflow_sdk_kwargs,
-)
+from _workflow_topology import build_workflow
 
 
 @dataclass
@@ -106,6 +103,15 @@ def _repeating_request(group_name: str, field_specs: str, group_definition: str)
         f"{group_definition}\n\n"
         f"{field_specs}"
     )
+
+
+def _read_yaml_text(yaml_path: str) -> str:
+    with open(yaml_path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
+def _resolved_workflow_name(yaml_path: str, workflow_name: str | None) -> str:
+    return workflow_name or os.path.splitext(os.path.basename(yaml_path))[0]
 
 
 def _repeating_task(group_name: str, field_descriptions: str) -> str:
@@ -196,8 +202,10 @@ class ExtractionWorkflowManager:
         )
 
     def init_prompts(self, *, yaml_path: str, workflow_name: str | None = None) -> str:
-        workflow = self.workflow_body(yaml_path=yaml_path, workflow_name=workflow_name)
-        response = self.gx_client.workflows.create(**workflow_sdk_kwargs(workflow))
+        response = self.gx_client.workflows.create(
+            name=_resolved_workflow_name(yaml_path, workflow_name),
+            yaml=_read_yaml_text(yaml_path),
+        )
         return _workflow_id(response)
 
     def update_prompts(
@@ -207,10 +215,10 @@ class ExtractionWorkflowManager:
         yaml_path: str,
         workflow_name: str | None = None,
     ) -> str:
-        workflow = self.workflow_body(yaml_path=yaml_path, workflow_name=workflow_name)
         self.gx_client.workflows.update(
             id=workflow_id,
-            **workflow_sdk_kwargs(workflow),
+            name=_resolved_workflow_name(yaml_path, workflow_name),
+            yaml=_read_yaml_text(yaml_path),
         )
         return workflow_id
 

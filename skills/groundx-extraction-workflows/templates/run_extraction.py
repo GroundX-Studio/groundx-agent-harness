@@ -27,7 +27,7 @@ GroundX SDK request, never to a presigned object-store upload.
 Optional flags:
     --reuse-workflow <id>  Skip workflow creation; attach existing workflow.
     --reuse-bucket <id>    Skip bucket creation; use existing bucket.
-    --skip-validate        Skip validate_workflow_json check. Not recommended.
+    --skip-validate        Skip the server-side workflows.validate preflight. Not recommended.
     --add-to-account       Also set the workflow as the account default
                            (some platform aggregations are gated on this).
     --require-raw-extract  Fail if GroundX get_extract is unavailable. The
@@ -57,10 +57,9 @@ from groundx import Document, GroundX
 
 # Sibling template imports (in-process — no subprocess overhead).
 from business_logic import apply_business_logic
-from compile_workflow import build_workflow_artifacts, workflow_sdk_kwargs
+from _workflow_topology import build_workflow_artifacts
 from estimate_workflow_requests import DEFAULT_CAP, count_pdf_pages, estimate_request_fanout
 from run_log import RunLog
-from validate_workflow_json import validate as validate_workflow
 from xray_to_extract import xray_reassembly_artifacts
 
 
@@ -274,7 +273,7 @@ def _load_reused_workflow_extract(
 
 
 def _load_workflow_extract_from_run(out_dir: str) -> typing.Optional[dict]:
-    workflow = _read_json(_abs(out_dir, "workflow.json"))
+    workflow = _read_json(_abs(out_dir, "fanout_topology.json"))
     if not isinstance(workflow, dict):
         return None
     extract = workflow.get("extract")
@@ -493,41 +492,40 @@ def _workflow_id(response: typing.Any) -> str:
     return str(workflow_id)
 
 
-def _compile(yaml_path: str, workflow_json_path: str, name: str, rl: RunLog) -> dict:
+def _topology(yaml_path: str, topology_json_path: str, name: str, rl: RunLog) -> dict:
     rl.event("compile.start", yaml_path=yaml_path)
     workflow, metadata = build_workflow_artifacts(yaml_path, name=name)
-    with open(workflow_json_path, "w") as f:
+    with open(topology_json_path, "w") as f:
         json.dump(workflow, f, indent=2, default=str)
     metadata_path = os.path.join(
-        os.path.dirname(workflow_json_path),
+        os.path.dirname(topology_json_path),
         "extraction_workflow_metadata_v1.json",
     )
     with open(metadata_path, "w") as f:
         json.dump(metadata, f, indent=2, default=str)
-    rl.event("compile.done", workflow_json=workflow_json_path, metadata_json=metadata_path)
+    rl.event("topology.done", fanout_topology=topology_json_path, metadata_json=metadata_path)
     return workflow
 
 
-def _validate(workflow: dict, workflow_json_path: str, rl: RunLog) -> None:
-    rl.event("validate.start", workflow_json=workflow_json_path)
-    errors = validate_workflow(workflow)
-    if errors:
-        rl.event("validate.error", error_count=len(errors), errors=errors)
-        raise SystemExit(
-            "workflow validation failed:\n  - " + "\n  - ".join(errors)
-        )
+def _validate(gx: GroundX, yaml_text: str, name: str, rl: RunLog) -> None:
+    rl.event("validate.start", validator="workflows.validate")
+    try:
+        gx.workflows.validate(name=name, yaml=yaml_text)
+    except Exception as exc:
+        rl.event("validate.error", error=str(exc))
+        raise SystemExit(f"workflow validation failed: {exc}")
     rl.event("validate.done")
 
 
 def _create_workflow(
     gx: GroundX,
-    yaml_path: str,
-    workflow: dict,
+    yaml_text: str,
     workflow_name: str,
     request_options: typing.Optional[dict[str, typing.Any]] = None,
 ) -> typing.Any:
     return gx.workflows.create(
-        **workflow_sdk_kwargs(workflow),
+        name=workflow_name,
+        yaml=yaml_text,
         **_request_options_kwargs(request_options),
     )
 
@@ -906,7 +904,7 @@ def main() -> int:
     workflow_name = args.workflow_name or (
         os.path.splitext(os.path.basename(args.yaml))[0] if args.yaml else "resumed-workflow"
     )
-    workflow_json_path = _abs(args.out, "workflow.json")
+    topology_json_path = _abs(args.out, "fanout_topology.json")
     diagnostic_path = _abs(args.out, "xray_diagnostic.json")
     final_output_path = _abs(args.out, "final_output.json")
 
@@ -1037,10 +1035,12 @@ def main() -> int:
                 ):
                     return 2
         else:
-            wf_body = _compile(args.yaml, workflow_json_path, workflow_name, rl)
+            wf_body = _topology(args.yaml, topology_json_path, workflow_name, rl)
             workflow_extract = wf_body.get("extract")
+            with open(args.yaml, "r", encoding="utf-8") as f:
+                yaml_text = f.read()
             if not args.skip_validate:
-                _validate(wf_body, workflow_json_path, rl)
+                _validate(gx, yaml_text, workflow_name, rl)
             if not _request_estimate_preflight(
                 rl,
                 args.out,
@@ -1069,8 +1069,7 @@ def main() -> int:
                 assert wf_body is not None
                 create_resp = _create_workflow(
                     gx,
-                    args.yaml,
-                    wf_body,
+                    yaml_text,
                     workflow_name,
                     request_options=request_options,
                 )

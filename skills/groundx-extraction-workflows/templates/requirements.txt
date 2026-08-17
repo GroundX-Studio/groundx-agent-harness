@@ -1,8 +1,11 @@
-# Held below 3.9.1. From that release, groundx.extract.reassemble_custom_outputs_from_xray
-# returns flat dicts per group instead of list-valued groups with nested relationships,
-# which breaks xray_to_extract reassembly and its tests. Lift the ceiling once a release
-# restores the nested list shape.
-groundx[extract]>=3.7.7,<3.9.1
+# Floor 3.9.8: first release with the repetitionScope fix (AGE-279,
+# eyelevelai/groundx-python#68); 3.9.0-3.9.7 derive it wrong in
+# prepare_extraction_yaml. Ceiling 3.9.11: newest release verified against the
+# full template suite. The ceiling is exact on purpose - a patch release
+# (3.9.1) once broke xray reassembly inside an open range - and moves only
+# after the full suite passes on the new release. scan-extract-sdk-ceiling.mjs
+# reports when PyPI publishes above it.
+groundx[extract]>=3.9.8,<=3.9.11
 pypdf>=5.0.0
 pytest>=8.0.0
 python-dotenv>=1.0.0

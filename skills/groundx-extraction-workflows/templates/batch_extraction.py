@@ -61,7 +61,7 @@ dotenv.load_dotenv(dotenv.find_dotenv(usecwd=True))
 
 from groundx import Document, GroundX  # noqa: E402
 
-from compile_workflow import build_workflow_artifacts, workflow_sdk_kwargs  # noqa: E402
+from _workflow_topology import build_workflow_artifacts  # noqa: E402
 import score_extraction as cmp  # noqa: E402
 from batch_score import aggregate_reports  # noqa: E402
 from run_extraction import (  # noqa: E402
@@ -71,7 +71,6 @@ from run_extraction import (  # noqa: E402
     derive_extraction_artifacts,
 )
 from run_log import RunLog  # noqa: E402
-from validate_workflow_json import validate as validate_workflow  # noqa: E402
 
 
 # ── live batch orchestration ────────────────────────────────────────────────
@@ -107,7 +106,8 @@ def _create_workflow(
     workflow: dict[str, typing.Any],
     workflow_name: str,
 ) -> typing.Any:
-    return gx.workflows.create(**workflow_sdk_kwargs(workflow))
+    with open(yaml_path, "r", encoding="utf-8") as f:
+        return gx.workflows.create(name=workflow_name, yaml=f.read())
 
 
 def main() -> int:
@@ -179,16 +179,18 @@ def main() -> int:
         for base in skipped_docs:
             rl.event("verify.doc.skip", doc=base, reason="no expected-answer JSON")
         wf, extraction_metadata = build_workflow_artifacts(args.yaml, name=workflow_name)
-        errors = validate_workflow(wf)
-        if errors:
-            rl.event("validate.error", errors=errors)
-            raise SystemExit("workflow validation failed:\n  - " + "\n  - ".join(errors))
+        with open(args.yaml, "r", encoding="utf-8") as src:
+            yaml_text = src.read()
+        try:
+            gx.workflows.validate(name=workflow_name, yaml=yaml_text)
+        except Exception as exc:
+            rl.event("validate.error", error=str(exc))
+            raise SystemExit(f"workflow validation failed: {exc}")
         # Snapshot the run inputs so the out dir is a self-contained, reproducible
-        # artifact set (prompt schema + the exact compiled workflow it ran).
+        # artifact set (prompt schema + the offline topology used for estimation).
         with open(os.path.join(args.out, "prompt.yaml"), "w") as f:
-            with open(args.yaml) as src:
-                f.write(src.read())
-        with open(os.path.join(args.out, "workflow.json"), "w") as f:
+            f.write(yaml_text)
+        with open(os.path.join(args.out, "fanout_topology.json"), "w") as f:
             json.dump(wf, f, indent=2, default=str)
         with open(os.path.join(args.out, "extraction_workflow_metadata_v1.json"), "w") as f:
             json.dump(extraction_metadata, f, indent=2, default=str)

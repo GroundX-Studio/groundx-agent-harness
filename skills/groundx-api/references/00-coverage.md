@@ -86,6 +86,7 @@ _No individual operations — cross-cutting content._
 | ✓ | `apikey_list` | `GET /v1/apikey` |
 | ✓ | `apikey_update` | `PUT /v1/apikey/{apiKey}` |
 | ✓ | `customer_get` | `GET /v1/customer` |
+| ☐ | (no first-class tool; use `list_operations`/`call_operation`) | `GET /v1/customer/usage` |
 | ✓ | `health_list` | `GET /v1/health` |
 | ✓ | `health_get` | `GET /v1/health/{service}` |
 

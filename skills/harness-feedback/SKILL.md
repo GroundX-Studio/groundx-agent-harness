@@ -75,8 +75,13 @@ covers, the writing rules, and a worked example.
 **Always send `harness: {name, version, observed}`.** The version is the most
 useful fact in a report and the one the platform cannot supply: a hosted server
 cannot read the version installed on the user's machine. Without it a maintainer
-cannot tell whether the defect is already fixed. Read it from the installed
-plugin's manifest, or send what you can infer with `observed: false`.
+cannot tell whether the defect is already fixed. The installed version lives in
+the plugin's `.claude-plugin/marketplace.json` under `metadata.version` (the
+Codex mirror carries it as `version` in `.codex-plugin/plugin.json`). Read it
+from that file, or send what you can infer with `observed: false`. Before
+filing, check whether a newer plugin version exists; if the install is stale,
+update it and reproduce the defect first, so the report describes the current
+harness.
 
 **With `report_issue` in your tool list:** draft the narrative, show it to the user
 in full, and set `confirm: true` only after they agree. The platform attaches the

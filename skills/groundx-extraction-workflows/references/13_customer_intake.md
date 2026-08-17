@@ -31,7 +31,7 @@ If no source document is available:
   `"<not extracted — source missing>"`.
 
 Once the source and approved fields exist, compile with
-`compile_workflow.py` and validate with `validate_workflow_json.py` before
+the server (`gx.workflows.validate(name=..., yaml=...)`) before
 calling the YAML runnable. Use `score_extraction.py` or
 `run_extraction_loop.py --expected-json` for scoring;
 `run_extraction.py` does not accept `--expected-json`.
@@ -237,3 +237,14 @@ field (`6_known_limitations.md` §1).
 - Skip the coverage check; a silently uncovered catalog field is the common pilot miss.
 - Commit customer catalogs, samples, or expected-answer artifacts to tracked paths without
   explicit permission (`customer-onboarding.md` §Do not).
+
+## Record identity is an intake question
+
+For every repeating group, ask the customer or the document: what uniquely
+identifies one record? That field (or combination) becomes `unique_attrs`.
+If the only candidate fields are descriptive (description, date, amount,
+category), distinct records that share them will be silently merged; find the
+printed identifier (claim number, circuit id, site id, line id) before
+authoring the schema, and verify after the first run that the returned record
+count matches the document's printed count.
+

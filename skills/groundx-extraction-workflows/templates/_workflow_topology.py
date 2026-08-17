@@ -1,24 +1,20 @@
 #!/usr/bin/env python3
-"""Compile a YAML extraction schema into a GroundX workflow JSON.
+"""Internal, non-authoritative workflow topology model for offline estimation.
 
-Usage:
-    python compile_workflow.py <prompt.yaml> [--name NAME] > "$RUN_ROOT/workflow.json"
-
-Local output lifecycle: follow `references/local-artifact-closeout.md`; planned
-callers redirect output only below the initialized absolute run root.
-
-Outputs the workflow JSON to stdout. Does NOT call any GroundX API —
-this is a pure offline transformation. The output is the exact body
-shape you POST to `/v1/workflow` (or pass to `gx.workflows.create()`,
-or to the `workflow_create` MCP tool from the groundx-api skill).
+The GroundX API is the only workflow compiler. This module exists solely so
+`estimate_workflow_requests.py`, `check_field_coverage.py`, and
+`prompt_manager.py` can reason about group and field topology offline, before
+ingest. Its output MUST NEVER be submitted to `workflows.create()` or
+`workflows.update()`; register workflows by sending the author's source YAML
+and let the server compile.
 
 Domain-agnostic custom workflow mapping
 ---------------------------------------
-The compiler carries no hardcoded final group names. Top-level real YAML groups
-define the final data object. Harness-authored YAML has two workflow shapes:
-direct real groups with group-level `workflow_step:`, or `_pseudo_groups` that
-split oversized final groups into smaller workflow-only groups and route back
-to final fields with `path`.
+The topology model carries no hardcoded final group names. Top-level real YAML
+groups define the final data object. Harness-authored YAML has two workflow
+shapes: direct real groups with group-level `workflow_step:`, or
+`_pseudo_groups` that split oversized final groups into smaller workflow-only
+groups and route back to final fields with `path`.
 
 Older `domain:` and `slot:` YAMLs are intentionally rejected here. Harness
 templates author the v1 shape only. Field-level `workflow_step` is also rejected
@@ -27,10 +23,6 @@ because split/recombine belongs in `_pseudo_groups`.
 Reads .env for EXTRACT_MODEL_* (engine config) when python-dotenv is installed.
 No real GROUNDX_API_KEY is needed because no API calls are made; a placeholder
 is acceptable.
-
-For the actual API calls (workflow create, attach to bucket, ingest,
-poll, retrieve extract), use the groundx-api skill — that is the
-source of truth for those operations.
 """
 
 import argparse
@@ -132,23 +124,32 @@ _GROUP_METADATA_KEYS = {
     "exclude_dict_attrs",
     "explanation_attrs",
     "fill_rules",
-    "final_value_aliases",
+    "identity_match",
     "match_attrs",
     "not_required_service_types",
+    "normalization_profiles",
+    "output_scope",
     "partial_pair_attrs",
     "passthrough",
     "passthrough_attrs",
     "passthrough_pair_attrs",
+    "passthrough_transform",
     "remaining_attrs",
     "required_any_attrs",
     "required_attrs",
     "role",
+    "service_type_attrs",
     "unique_attrs",
 }
 
 _TOP_LEVEL_METADATA_KEYS = {"extraction_policy_version"}
-_WORKFLOW_GROUP_METADATA_KEYS = {"workflow_step"}
+_WORKFLOW_GROUP_METADATA_KEYS = {"output_scope", "workflow_step"}
 _FINAL_GROUP_METADATA_KEYS = _GROUP_METADATA_KEYS - _WORKFLOW_GROUP_METADATA_KEYS
+_SUPPORTED_NORMALIZATION_PROFILES = {
+    "currency_code",
+    "currency_label",
+    "unit_of_measurement",
+}
 _PERSISTED_EXTRACT_REQUIRED_GROUP_KEYS = _GROUP_METADATA_KEYS
 _CUSTOM_WORKFLOW_FIELD_METADATA_KEY = "workflow_output_key"
 _DIRECT_FIELD_KEYS = {
@@ -529,7 +530,7 @@ def _assert_pseudo_field_shape(
 
 
 def _assert_source_group_shapes(raw: dict, source: str) -> None:
-    allowed_group_keys = {"fields", "include", "prompt", "workflow_step"} | _FINAL_GROUP_METADATA_KEYS
+    allowed_group_keys = {"fields", "include", "prompt"} | _GROUP_METADATA_KEYS
     for group_name, group_data in _workflow_group_items(raw):
         unsupported = set(group_data) - allowed_group_keys
         if unsupported:
@@ -635,6 +636,45 @@ def _assert_no_nested_final_fields(raw: dict, source: str) -> None:
                 )
 
 
+def _assert_normalization_profiles(raw: dict, source: str) -> None:
+    for group_name, group_data in _workflow_group_items(raw):
+        profiles = group_data.get("normalization_profiles")
+        if profiles is None:
+            continue
+        if not isinstance(profiles, dict):
+            raise ValueError(
+                f"{source}: {group_name}.normalization_profiles must be a mapping"
+            )
+        for attr, profile in profiles.items():
+            if not isinstance(attr, str) or not attr:
+                raise ValueError(
+                    f"{source}: {group_name}.normalization_profiles attributes "
+                    "must be non-empty strings"
+                )
+            if profile not in _SUPPORTED_NORMALIZATION_PROFILES:
+                raise ValueError(
+                    f"{source}: unsupported normalization profile '{profile}' "
+                    f"in group '{group_name}'"
+                )
+
+
+def _assert_output_scopes(raw: dict, source: str) -> None:
+    for group_name, group_data in _workflow_group_items(raw):
+        scope = group_data.get("output_scope")
+        if scope is None:
+            continue
+        if scope != "document_root":
+            raise ValueError(
+                f"{source}: final group '{group_name}' output_scope must be "
+                "document_root when set"
+            )
+        if "workflow_step" not in group_data:
+            raise ValueError(
+                f"{source}: final group '{group_name}' output_scope is only valid "
+                "on a direct group with workflow_step"
+            )
+
+
 def _normalize_source_yaml(raw: dict, source: str) -> dict:
     _assert_required_v1_source_metadata(raw, source)
     _assert_source_top_level_shape(raw, source)
@@ -655,6 +695,8 @@ def _normalize_source_yaml(raw: dict, source: str) -> dict:
     for group_name, group_data in list(_workflow_group_items(normalized)):
         normalized[group_name] = _compose_group_fields(group_name, group_data, defs)
     _assert_source_group_shapes(normalized, source)
+    _assert_normalization_profiles(normalized, source)
+    _assert_output_scopes(normalized, source)
     _assert_no_nested_final_fields(normalized, source)
     return normalized
 
@@ -1578,11 +1620,8 @@ def _agent_chain_group_roles(raw_chain: typing.Any) -> dict[str, str]:
     return roles
 
 
-def _is_document_root_statement_group(group_data: dict) -> bool:
-    return isinstance(group_data.get("final_value_aliases"), dict) or isinstance(
-        group_data.get("fill_rules"),
-        list,
-    )
+def _uses_document_root_output_scope(group_data: dict) -> bool:
+    return group_data.get("output_scope") == "document_root"
 
 
 def _prepare_extraction_yaml_fallback(raw: dict, source: str) -> _PreparedExtractionYaml:
@@ -1621,7 +1660,6 @@ def _prepare_extraction_yaml_fallback(raw: dict, source: str) -> _PreparedExtrac
         if key in raw
     }
     agent_chain = workflow.get("agent_chain")
-    workflow_group_roles = _agent_chain_group_roles(agent_chain)
     document_root_groups: set[str] = set()
     groups: dict[str, dict] = {}
     final_group_metadata: dict[str, dict] = {}
@@ -1655,10 +1693,13 @@ def _prepare_extraction_yaml_fallback(raw: dict, source: str) -> _PreparedExtrac
 
         workflow_groups[group_name] = _strip_group_metadata(group_data)
         workflow_group_metadata[group_name] = {"workflow_step": step_name}
-        document_root = (
-            workflow_group_roles.get(group_name) == "statement"
-            and _is_document_root_statement_group(group_data)
-        )
+        if "output_scope" in group_data:
+            workflow_group_metadata[group_name]["output_scope"] = group_data["output_scope"]
+        document_root = _uses_document_root_output_scope(group_data)
+        if document_root and steps_by_name[step_name]["kind"] in {"keys", "summary"}:
+            raise ValueError(
+                f"repeating group [{group_name}] cannot use output_scope [document_root]"
+            )
         if document_root:
             document_root_groups.add(group_name)
         group_routes, group_leaves, group_paths = _collect_fallback_custom_routes(
@@ -1777,14 +1818,10 @@ def _prepare_extraction_yaml_fallback(raw: dict, source: str) -> _PreparedExtrac
 
 
 def _normalize_prepared_document_root_routes(prepared: typing.Any, raw: dict) -> typing.Any:
-    workflow = raw.get("workflow")
-    agent_chain = workflow.get("agent_chain") if isinstance(workflow, dict) else None
-    roles = _agent_chain_group_roles(agent_chain)
     document_root_groups = {
         group_name
         for group_name, group_data in _workflow_group_items(raw)
-        if roles.get(group_name) == "statement"
-        and _is_document_root_statement_group(group_data)
+        if _uses_document_root_output_scope(group_data)
     }
     if not document_root_groups:
         return prepared
@@ -1972,6 +2009,9 @@ def _repetition_scope(pointer: typing.Any) -> str:
     return "item" if "*" in pointer.split("/") else "none"
 
 
+# Minimal repeated-group schema used to probe whether the installed SDK emits
+# the API's repetitionScope enum ("item") or the legacy pointer format that the
+# workflow API rejects (fixed in eyelevelai/groundx-python#68).
 def _normalized_custom_workflow_metadata(metadata: dict) -> dict:
     normalized = copy.deepcopy(metadata)
     repeated_steps = {
@@ -2438,26 +2478,6 @@ def _custom_workflow_body_fields(metadata: dict) -> dict:
     return body
 
 
-def workflow_sdk_kwargs(workflow: dict) -> dict:
-    kwargs = {
-        "name": workflow["name"],
-        "chunk_strategy": workflow.get("chunk_strategy"),
-        "section_strategy": workflow.get("section_strategy"),
-        "extract": workflow.get("extract"),
-        "steps": workflow.get("steps"),
-    }
-    optional_fields = {
-        "template": "template",
-        "custom_steps": "customSteps",
-        "output_routes": "outputRoutes",
-        "leaf_fields": "leafFields",
-    }
-    for sdk_key, workflow_key in optional_fields.items():
-        if workflow_key in workflow:
-            kwargs[sdk_key] = workflow.get(workflow_key)
-    return kwargs
-
-
 def _metadata_from_prepared(
     yaml_path: str,
     raw_yaml: str,
@@ -2527,23 +2547,3 @@ def build_workflow(yaml_path: str, name: typing.Optional[str] = None) -> dict:
     """Compile a YAML schema into a workflow JSON dict."""
     workflow, _ = build_workflow_artifacts(yaml_path, name=name)
     return workflow
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("yaml_path")
-    parser.add_argument(
-        "--name",
-        default=None,
-        help="Workflow name. Defaults to the YAML basename.",
-    )
-    args = parser.parse_args()
-
-    workflow = build_workflow(args.yaml_path, name=args.name)
-    sys.stdout.write(json.dumps(workflow, indent=2, default=str))
-    sys.stdout.write("\n")
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

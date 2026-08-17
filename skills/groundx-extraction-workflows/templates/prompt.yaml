@@ -51,8 +51,13 @@ workflow:
         # - group: meters
         #   chain: [reconcile_meters, qa_meters, save_meters]
 
+# Group names are yours: name them after the domain (claims, line_items) and
+# declare the processing role with `role:`. Do not combine the literal names
+# statement + meters + charges in one schema without unique_attrs on the
+# repeating groups; see 6_known_limitations.md §6.
 statement:
   workflow_step: statement_fields
+  role: statement
   fields:
     # Replace these illustrative entries with the fields you need to
     # extract. Each field's YAML key becomes the JSON key in the
@@ -72,6 +77,7 @@ statement:
 
 charges:
   workflow_step: charge_lines
+  role: charges
   fields:
     # Replace these illustrative entries with the fields that describe one
     # repeating record. The platform will produce an array of objects with

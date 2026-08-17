@@ -17,7 +17,7 @@ everything you write. Add its external-writing section on top for Valantor or Gr
 collateral.
 
 This skill is schema-first: the durable artifact is a YAML schema;
-`compile_workflow.py` translates it into workflow JSON; `deploy_workflow.py`
+the GroundX API compiles it server-side; `deploy_workflow.py`
 deploys a finished YAML through the GroundX Python SDK; `run_extraction.py`
 runs the full ingest/poll/X-Ray/extract loop and can resume a timed-out local
 poll with `--resume --out <run-dir>`. Interactive platform execution delegates
@@ -75,7 +75,7 @@ claim accuracy.
 6. If the domain needs custom extract/reconcile/QA prompt wrappers, read
    `references/prompt-manager.md` and use `templates/prompt_manager.py` as the
    minimal today-path manager.
-7. Compile the YAML into `workflow.json` with `templates/compile_workflow.py`.
+7. Validate the YAML with the server (`gx.workflows.validate(name=..., yaml=...)`).
 8. Estimate request fanout with `templates/estimate_workflow_requests.py` or
    live-run preflight before ingest.
 9. For a finished YAML, read `references/deploy.md`, then use
