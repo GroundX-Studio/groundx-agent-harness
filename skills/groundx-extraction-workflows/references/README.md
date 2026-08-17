@@ -15,7 +15,7 @@ a field, or planning a serious extraction pilot.
 3. For the broad ordered workflow path, read `workflow-how-to.md`.
 4. Draft or revise YAML with `16_prompt_writing.md`, `prompt-quality.md`,
    `prompt-improvement-loop.md`, `2_schema_design.md`, and `3_prompt_pipeline.md`.
-5. Compile with `templates/compile_workflow.py`.
+5. Validate with the server (`gx.workflows.validate`).
 6. Use `deploy.md` and `templates/deploy_workflow.py` for deploy-only local SDK
    execution, or `templates/run_extraction.py` for a full local run.
 7. Route interactive platform execution to `groundx-api`.

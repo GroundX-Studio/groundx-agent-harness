@@ -31,12 +31,12 @@ import typing
 
 import yaml
 
-import compile_workflow
+import _workflow_topology
 
 
 def yaml_field_names(doc: typing.Any) -> typing.Set[str]:
     """Collect final field keys after compiler source validation."""
-    return compile_workflow.source_yaml_field_names(doc)
+    return _workflow_topology.source_yaml_field_names(doc)
 
 
 def _catalog_from_json(data: typing.Any) -> typing.List[str]:

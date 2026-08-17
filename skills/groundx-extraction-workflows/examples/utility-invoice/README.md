@@ -22,11 +22,12 @@ live extraction against a real document runs out-of-repo with credentials.
 
 ## The end-to-end loop for this fixture
 
-1. **Compile** — prepare custom workflow metadata and emit workflow JSON. This
-   is the CI-safe step (no credentials, no network):
+1. **Author** — the YAML is the deployable artifact; the GroundX API
+   compiles it server-side at create time. The CI-safe offline check is the
+   topology model (no credentials, no network):
 
    ```bash
-   python ../../templates/compile_workflow.py prompt.yaml
+   python -c "from _workflow_topology import build_workflow; build_workflow('prompt.yaml')"
    ```
 
    `workflow.custom_steps` defines `statement_fields`, `charge_lines`, and

@@ -239,7 +239,7 @@ def test_delegated_run_reuses_one_customer_request_options_for_every_sdk_call(tm
     monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
     monkeypatch.setattr(
         run_extraction,
-        "_compile",
+        "_topology",
         lambda *args, **kwargs: {
             "name": "workflow-name",
             "extract": {"workflow": {"output_routes": []}},
@@ -395,7 +395,7 @@ def test_cross_owner_attachment_records_the_http_400_and_does_not_ingest(tmp_pat
     monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
     monkeypatch.setattr(
         run_extraction,
-        "_compile",
+        "_topology",
         lambda *args, **kwargs: {
             "name": "workflow-name",
             "extract": {"workflow": {"output_routes": []}},
@@ -650,14 +650,14 @@ def test_resume_does_not_compile_deploy_attach_or_ingest(tmp_path, monkeypatch):
     (tmp_path / "process_id.txt").write_text("process-1")
     (tmp_path / "workflow_id.txt").write_text("workflow-1")
     (tmp_path / "bucket_id.txt").write_text("101")
-    (tmp_path / "workflow.json").write_text(json.dumps({"extract": {"outputRoutes": []}}))
+    (tmp_path / "fanout_topology.json").write_text(json.dumps({"extract": {"outputRoutes": []}}))
 
     def forbidden(*args, **kwargs):
         raise AssertionError("resume must not run setup helpers")
 
     monkeypatch.setenv("GROUNDX_API_KEY", "test-key")
     monkeypatch.setattr(run_extraction, "GroundX", ResumeGroundX)
-    monkeypatch.setattr(run_extraction, "_compile", forbidden)
+    monkeypatch.setattr(run_extraction, "_topology", forbidden)
     monkeypatch.setattr(run_extraction, "_validate", forbidden)
     monkeypatch.setattr(run_extraction, "_create_workflow", forbidden)
     monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", forbidden)
@@ -702,7 +702,7 @@ def test_delegated_resume_reuses_customer_request_options_for_status_xray_and_ex
     (tmp_path / "process_id.txt").write_text("process-1")
     (tmp_path / "workflow_id.txt").write_text("workflow-1")
     (tmp_path / "bucket_id.txt").write_text("101")
-    (tmp_path / "workflow.json").write_text(
+    (tmp_path / "fanout_topology.json").write_text(
         json.dumps({"extract": {"outputRoutes": []}})
     )
     created_clients = []
@@ -724,7 +724,7 @@ def test_delegated_resume_reuses_customer_request_options_for_status_xray_and_ex
     monkeypatch.setenv("PARTNER_API_KEY", "partner-key")
     monkeypatch.setenv("CUSTOMER_USERNAME", "customer-b")
     monkeypatch.setattr(run_extraction, "GroundX", CapturingResumeGroundX)
-    monkeypatch.setattr(run_extraction, "_compile", forbidden)
+    monkeypatch.setattr(run_extraction, "_topology", forbidden)
     monkeypatch.setattr(run_extraction, "_validate", forbidden)
     monkeypatch.setattr(run_extraction, "_create_workflow", forbidden)
     monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", forbidden)
@@ -792,7 +792,7 @@ def test_fresh_run_persists_business_logic_metadata_for_resume(tmp_path, monkeyp
     monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
     monkeypatch.setattr(
         run_extraction,
-        "_compile",
+        "_topology",
         lambda *args, **kwargs: {
             "name": "workflow-name",
             "extract": {"workflow": {"output_routes": []}},
@@ -849,7 +849,7 @@ def test_fresh_run_ingests_with_process_level_full(tmp_path, monkeypatch):
     monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
     monkeypatch.setattr(
         run_extraction,
-        "_compile",
+        "_topology",
         lambda *args, **kwargs: {
             "name": "workflow-name",
             "extract": {"workflow": {"output_routes": []}},
@@ -895,7 +895,7 @@ def test_fresh_run_accepts_reuse_bucket_without_bucket_name(tmp_path, monkeypatc
     monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
     monkeypatch.setattr(
         run_extraction,
-        "_compile",
+        "_topology",
         lambda *args, **kwargs: {
             "name": "workflow-name",
             "extract": {"workflow": {"output_routes": []}},
@@ -935,7 +935,7 @@ def test_fresh_run_accepts_reuse_bucket_without_bucket_name(tmp_path, monkeypatc
 
 def test_reuse_workflow_prefers_run_local_workflow_json_for_fanout(tmp_path, monkeypatch):
     workflow_body = {"customSteps": []}
-    (tmp_path / "workflow.json").write_text(json.dumps(workflow_body))
+    (tmp_path / "fanout_topology.json").write_text(json.dumps(workflow_body))
     captured = {}
 
     def fake_request_estimate(rl, out_dir, workflow, pdf_paths, *, allow_high_request_estimate):
@@ -1002,7 +1002,7 @@ def test_fresh_run_persists_business_logic_metadata_before_poll_timeout(tmp_path
     monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
     monkeypatch.setattr(
         run_extraction,
-        "_compile",
+        "_topology",
         lambda *args, **kwargs: {
             "name": "workflow-name",
             "extract": {"workflow": {"output_routes": []}},
@@ -1048,7 +1048,7 @@ def test_resume_writes_diagnostic_and_final_artifacts_when_raw_extract_is_unavai
     (tmp_path / "process_id.txt").write_text("process-1")
     (tmp_path / "workflow_id.txt").write_text("workflow-1")
     (tmp_path / "bucket_id.txt").write_text("101")
-    (tmp_path / "workflow.json").write_text(
+    (tmp_path / "fanout_topology.json").write_text(
         json.dumps(
             {
                 "extract": {
@@ -1108,7 +1108,7 @@ def test_resume_applies_persisted_business_logic_metadata_to_diagnostic_output(t
     (tmp_path / "business_logic_metadata.json").write_text(
         json.dumps({"charges": {"unique_attrs": ["description"]}})
     )
-    (tmp_path / "workflow.json").write_text(
+    (tmp_path / "fanout_topology.json").write_text(
         json.dumps(
             {
                 "extract": {

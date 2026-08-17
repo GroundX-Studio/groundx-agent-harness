@@ -24,22 +24,23 @@ and scoring for a non-invoice final object. The invoice-domain fixture
 
 ## The proof
 
-This command writes a temporary compiled workflow. Before running it, follow
+This command writes a temporary offline topology model. Before running it, follow
 [`local-artifact-closeout.md`](../../references/local-artifact-closeout.md), initialize a
 planned run or choose one dedicated ad-hoc root, and export its absolute path as `RUN_ROOT`.
 
 ```bash
-python ../../templates/compile_workflow.py prompt.yaml > "$RUN_ROOT/workflow.json"
-python ../../templates/validate_workflow_json.py "$RUN_ROOT/workflow.json"
+python -c "import json, sys; sys.path.insert(0, '../../templates'); from _workflow_topology import build_workflow; json.dump(build_workflow('prompt.yaml'), sys.stdout, indent=2, default=str)" > "$RUN_ROOT/fanout_topology.json"
 python ../../templates/score_extraction.py data/answer_key.json data/answer_key.json
 ```
 
-Compile exits 0 with `claim` and `line_items` present in the workflow `extract`
-block. Validation proves the compiled `customSteps`, `outputRoutes`, and
-`leafFields` are structurally usable. The score command exits 0, proving `claim`
-singleton fields and `line_items` repeating records are valid runner output
-shape. The compiler uses `workflow.custom_steps`, `workflow_step:`, and
-`workflow_output_key` to emit `customSteps`, `outputRoutes`, and `leafFields`; see
-`../../templates/compile_workflow.py` and `../../references/2_schema_design.md`.
-Delete the compiled workflow with the settled run root; retain only the bounded summary and
-any explicitly approved reviewed handoff.
+The topology command exits 0 with `claim` and `line_items` present in the
+model's `extract` block, proving the YAML parses as a v1 custom workflow. It is
+non-authoritative: the GroundX API is the only workflow compiler, and
+registration submits `prompt.yaml` itself after
+`gx.workflows.validate(name=..., yaml=...)` passes (that check needs
+credentials, so it runs in the live lane, not CI). The score command exits 0,
+proving `claim` singleton fields and `line_items` repeating records are valid
+runner output shape. The YAML uses `workflow.custom_steps`, `workflow_step:`,
+and `workflow_output_key`; see `../../references/2_schema_design.md`.
+Delete the topology model with the settled run root; retain only the bounded
+summary and any explicitly approved reviewed handoff.

@@ -20,8 +20,7 @@ Before running the local command, copy these files from
 directory:
 
 - `deploy_workflow.py`
-- `compile_workflow.py`
-- `validate_workflow_json.py`
+- `_workflow_topology.py`
 - `requirements.txt`
 - `.env.sample` as `.env`
 
@@ -30,8 +29,7 @@ Concrete setup:
 ```bash
 SKILL_DIR=/absolute/path/to/groundx-extraction-workflows
 cp "$SKILL_DIR/templates/deploy_workflow.py" .
-cp "$SKILL_DIR/templates/compile_workflow.py" .
-cp "$SKILL_DIR/templates/validate_workflow_json.py" .
+cp "$SKILL_DIR/templates/_workflow_topology.py" .
 cp "$SKILL_DIR/templates/requirements.txt" .
 cp "$SKILL_DIR/templates/.env.sample" .env
 python -m pip install -r requirements.txt
@@ -142,7 +140,7 @@ For dev API/debug work, use the local Python SDK with
 extraction in dev unless an operator explicitly confirms it is available.
 
 1. Compile the YAML to `workflow.json`.
-2. Validate it with `python validate_workflow_json.py workflow.json`.
+2. Validate it with the server: `gx.workflows.validate(name=..., yaml=...)`.
 3. Use `groundx-api/references/06-workflows.md` for the exact
    `workflow_create` or `workflow_update` arguments. Pass the compiled workflow
    fields from `workflow.json`; do not hand-build a different schema. Use

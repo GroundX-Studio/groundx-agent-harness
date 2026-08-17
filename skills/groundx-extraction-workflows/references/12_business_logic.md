@@ -17,7 +17,7 @@ aggregates X-Ray output into the final customer-facing group shape such as
 payload when available. Run this logic on the final data shape unless a
 workflow-scoped primitive is
 explicitly documented. None of this metadata reaches the GroundX workflow:
-`compile_workflow.py` reads it from `PreparedExtractionYaml.final_group_metadata`
+`_workflow_topology.py` reads it from `PreparedExtractionYaml.final_group_metadata`
 and strips it from workflow groups, so the keys never become extract fields.
 `run_extraction.py` persists that final-group metadata as
 `business_logic_metadata.json` in the run directory so `--resume` can apply the
@@ -52,7 +52,7 @@ Declared per final group in the extraction YAML, all optional:
 
 | Key | Shape | Meaning |
 |---|---|---|
-| `unique_attrs` | `list[str]` | Records sharing normalized values of these fields are duplicates: keep the first, merge non-null fields from the dropped duplicates onto it. |
+| `unique_attrs` | `list[str]` | Records sharing normalized values of these fields are duplicates: keep the first, merge non-null fields from the dropped duplicates onto it. `unique_attrs` IS the record's identity, so it must include a field that genuinely distinguishes records (a claim number, circuit id, site id), not only descriptive fields. Identity built from description-like fields (description, date, amount, category) silently collapses distinct records that legitimately share those values: a live circuit bill lost 448 extracted records down to 28 because its identity was description+date+amount+class while the true per-record key (`site_a_id`) was omitted. The platform emits no warning when this happens; a successful extract with surprisingly few records is the only symptom. |
 | `match_attrs` | `list[str]` | Cross-group foreign key linking this (child) group's records to a parent group's record sharing the same normalized values. |
 | `conflict_attrs` | `list[str]` | When records that should agree disagree on these fields, surface every distinct value as `<field>__conflicts: [values]` instead of silently picking one. |
 | `passthrough` | `{"from": "<parent_group>", "fields": [...]}` | Copy those fields from the linked parent record onto each child record. Uses this group's `match_attrs` as the join key. |

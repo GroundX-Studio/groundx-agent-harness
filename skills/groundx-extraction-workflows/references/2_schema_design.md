@@ -21,7 +21,11 @@ top-level `workflow.custom_steps`. Direct workflow groups declare
 `workflow_step: <custom_step_name>` on the group and `workflow_output_key` on
 routed fields. Pseudo workflow groups declare `workflow_step` on the pseudo
 group; the pseudo field key is the workflow output key and `path` points back to
-the final field. Output keys must match `^[a-z][a-z0-9_]{0,63}$`. The compiler
+the final field. Output keys must match `^[a-z][a-z0-9_]{0,63}$`.
+
+The GroundX API is the only workflow compiler: register the YAML itself with
+`workflows.create(name=..., yaml=...)` after `workflows.validate` passes on the
+same text. Never submit a locally compiled body. Server-side, the compiler
 emits the public workflow fields `customSteps`, `outputRoutes`, `leafFields`,
 and optional workflow-level `template`; X-Ray readback uses
 `customChunkOutputs`, `customSectionOutputs`, and `customDocumentOutputs`.
@@ -96,7 +100,7 @@ fallback compile:
 | Top level | `extraction_policy_version`, `workflow`, `_defs`, `_pseudo_groups`, and real final group mappings |
 | `workflow` | `custom_steps`, `agent_chain`, optional `template`, optional `section_strategy` |
 | `workflow.custom_steps[]` | `name`, `level`, `kind`, optional `config`, optional `required_template_keys` |
-| Direct final group | `fields`, optional `include`, optional `prompt`, optional `workflow_step`, and supported final-group business-logic metadata |
+| Direct final group | `fields`, optional `include`, optional `prompt`, optional `workflow_step`, and supported final-group metadata |
 | `_defs.*` | required `fields`, optional `include`; no prompt or group metadata |
 | `_pseudo_groups.*` | `workflow_step`, `fields`, optional group `prompt`, and optional processing `role`; no `include` |
 | Direct leaf field | `prompt`, plus `workflow_output_key` when the final group has direct `workflow_step` |
@@ -107,13 +111,18 @@ Nested final fields are not supported yet. Model nested structures as flat
 fields or JSON-encoded string fields until route parsing supports paths deeper
 than `/group/field`.
 
-Supported final-group business-logic metadata keys are `always_check_attrs`,
+Supported final-group metadata keys are `always_check_attrs`,
 `conflict_attrs`, `deregulation_status_values`,
 `equivalent_service_types`, `exclude_dict_attrs`, `explanation_attrs`,
-`fill_rules`, `final_value_aliases`, `match_attrs`,
-`not_required_service_types`, `partial_pair_attrs`, `passthrough`,
-`passthrough_attrs`, `passthrough_pair_attrs`, `remaining_attrs`,
-`required_any_attrs`, `required_attrs`, and `unique_attrs`.
+`fill_rules`, `identity_match`, `match_attrs`, `normalization_profiles`,
+`not_required_service_types`, `output_scope`, `partial_pair_attrs`, `passthrough`,
+`passthrough_attrs`, `passthrough_pair_attrs`, `passthrough_transform`, `remaining_attrs`,
+`required_any_attrs`, `required_attrs`, `service_type_attrs`, and `unique_attrs`.
+
+`normalization_profiles` explicitly enables runtime normalization for named
+attributes. It maps each attribute to `currency_code`, `currency_label`, or
+`unit_of_measurement`. The compiler rejects invalid mappings or profile names
+and preserves the mapping as final-group metadata rather than an extraction field.
 
 ### Runtime role labels
 
@@ -130,6 +139,13 @@ Charges attach to meters through `match_attrs`; unmatched charges remain at
 statement level. Current runtime constraints allow only one `meters` group and
 one `charges` group, including pseudo groups. All other groups are `statement`.
 This is current implementation behavior, not a permanent product rule.
+
+Name groups after the domain (`claims`, `line_items`, `usage_records`) and
+declare the processing role explicitly with `role:` on the group. A group
+literally named `statement`, `meters`, or `charges` also takes that role
+implicitly, but domain names with explicit `role:` never collide with
+platform checks keyed on the literal names (one such rejection is recorded,
+with its fix, in `6_known_limitations.md` §6).
 
 For workflows where every workflow group uses the `statement` role, plan one
 `reconcile_statement -> qa_statement` branch per pseudo group, then

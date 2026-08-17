@@ -8,7 +8,7 @@ belong to runtime compatibility and SDK compatibility helpers, not the Studio
 Harness templates.
 
 Run (needs the groundx SDK + pytest installed; offline, no API calls):
-    python -m pytest templates/test_compile_workflow.py -q
+    python -m pytest templates/test_workflow_topology.py -q
 
 Lives with the templates so it shares their import path and SDK context.
 """
@@ -23,12 +23,12 @@ import types
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import compile_workflow  # noqa: E402
+import _workflow_topology as compile_workflow  # noqa: E402
 import batch_extraction  # noqa: E402
 import deploy_workflow  # noqa: E402
 import prompt_manager  # noqa: E402
 import run_extraction  # noqa: E402
-from compile_workflow import build_workflow  # noqa: E402
+from _workflow_topology import build_workflow  # noqa: E402
 
 # A minimal valid field block (the SDK requires prompt sub-keys).
 _F = (
@@ -360,6 +360,61 @@ def test_source_validation_runs_before_sdk_prepare(monkeypatch):
     )
 
     with pytest.raises(ValueError, match="workflow readback"):
+        build_workflow(_write(y))
+
+
+def test_normalization_profiles_are_preserved_by_fallback_compile(monkeypatch):
+    monkeypatch.setattr(compile_workflow, "_sdk_prepare_extraction_yaml", None, raising=False)
+    y = _custom_yaml().replace(
+        "statement:\n",
+        "statement:\n  normalization_profiles:\n    account_number: currency_label\n",
+        1,
+    )
+
+    workflow = build_workflow(_write(y))
+
+    statement = workflow["extract"]["_groundx_persisted_extract"]["statement"]
+    assert statement["normalization_profiles"] == {"account_number": "currency_label"}
+
+
+def test_supported_arcadia_v1_group_metadata_compiles_in_fallback(monkeypatch):
+    monkeypatch.setattr(compile_workflow, "_sdk_prepare_extraction_yaml", None, raising=False)
+    group_metadata = """  output_scope: document_root
+  unique_attrs: [account_number]
+  identity_match:
+    exact_attrs: [account_number]
+  passthrough_transform:
+    status_attr: account_number
+    provider_attr: account_number
+    passthrough_provider_attr: account_number
+  service_type_attrs: [account_number]
+"""
+    y = _custom_yaml().replace("statement:\n", "statement:\n" + group_metadata, 1)
+
+    workflow = build_workflow(_write(y))
+
+    assert workflow["outputRoutes"][0]["finalPath"] == "/account_number"
+    statement = workflow["extract"]["_groundx_persisted_extract"]["statement"]
+    assert statement["identity_match"] == {"exact_attrs": ["account_number"]}
+    assert statement["passthrough_transform"]["status_attr"] == "account_number"
+    assert statement["service_type_attrs"] == ["account_number"]
+
+
+@pytest.mark.parametrize(
+    ("profile_yaml", "message"),
+    [
+        ("  normalization_profiles: [currency_label]\n", "normalization_profiles must be a mapping"),
+        (
+            "  normalization_profiles:\n    account_number: guess_currency\n",
+            "unsupported normalization profile 'guess_currency'",
+        ),
+    ],
+)
+def test_normalization_profiles_reject_invalid_contracts(monkeypatch, profile_yaml, message):
+    monkeypatch.setattr(compile_workflow, "_sdk_prepare_extraction_yaml", None, raising=False)
+    y = _custom_yaml().replace("statement:\n", "statement:\n" + profile_yaml, 1)
+
+    with pytest.raises(ValueError, match=message):
         build_workflow(_write(y))
 
 
@@ -723,7 +778,7 @@ _pseudo_groups:
 
 
 def test_custom_workflow_routes_statement_role_group_to_document_root():
-    """Statement-role workflow groups are document fields, not group-nested rows."""
+    """Explicit output scope routes direct fields to the document root."""
     y = """
 extraction_policy_version: v1
 workflow:
@@ -733,13 +788,12 @@ workflow:
       kind: instruct
   agent_chain:
     - parallel:
-        - group: renamed_statement
+        - group: statement_summary
           chain: [reconcile_statement, qa_statement, save_statement]
-renamed_statement:
+statement_summary:
   workflow_step: statement_labels
   role: statement
-  final_value_aliases:
-    statement_period_start_date: measurement_period_start_date
+  output_scope: document_root
   fields:
     account_number:
       workflow_output_key: account_number
@@ -754,7 +808,7 @@ renamed_statement:
 
     assert wf["outputRoutes"] == [
         {
-            "workflowGroup": "renamed_statement",
+            "workflowGroup": "statement_summary",
             "workflowField": "account_number",
             "finalPath": "/account_number",
             "stepName": "statement_labels",
@@ -769,7 +823,38 @@ renamed_statement:
     assert metadata["output_routes"][0]["final_path"] == "/account_number"
     assert metadata["leaf_fields"][0]["final_path"] == "/account_number"
     authored = wf["extract"]["_groundx_persisted_extract"]
-    assert authored["renamed_statement"]["role"] == "statement"
+    assert authored["statement_summary"]["role"] == "statement"
+
+
+def test_fill_rules_do_not_select_document_root_without_output_scope():
+    y = """
+extraction_policy_version: v1
+workflow:
+  custom_steps:
+    - name: statement_labels
+      level: chunk
+      kind: instruct
+  agent_chain:
+    - parallel:
+        - group: statement_summary
+          chain: [reconcile_statement, qa_statement, save_statement]
+statement_summary:
+  workflow_step: statement_labels
+  role: statement
+  fill_rules: []
+  fields:
+    account_number:
+      workflow_output_key: account_number
+      prompt:
+        description: account
+        type: str
+        identifiers: ["Account"]
+        instructions: extract account
+"""
+
+    wf = build_workflow(_write(y))
+
+    assert wf["outputRoutes"][0]["finalPath"] == "/statement_summary/account_number"
 
 
 def _required_prompt_molecules() -> tuple[str, ...]:
@@ -2394,58 +2479,24 @@ charges:
         build_workflow(_write(yaml_text))
 
 
-def test_compile_cli_writes_sdk_persisted_extract(monkeypatch, capsys):
-    """The CLI stdout workflow JSON preserves and normalizes persisted extract."""
-    prepared = _custom_prepared()
-    workflow_metadata = copy.deepcopy(prepared.persisted_workflow_extract["workflow"])
-    prepared.persisted_workflow_extract = copy.deepcopy(prepared.workflow_groups)
-    prepared.persisted_workflow_extract["workflow"] = workflow_metadata
-    prepared.persisted_workflow_extract["_groundx_persisted_extract"] = {
-        "extraction_policy_version": "v1",
-        "workflow": copy.deepcopy(workflow_metadata),
-        "line_items": {"workflow_step": "line_item_labels"},
-    }
-    monkeypatch.setattr(
-        compile_workflow,
-        "_sdk_prepare_extraction_yaml",
-        lambda raw, **kwargs: prepared,
-        raising=False,
-    )
-    yaml_path = _write(_custom_yaml())
-    monkeypatch.setattr(sys, "argv", ["compile_workflow.py", yaml_path, "--name", "test"])
-
-    assert compile_workflow.main() == 0
-    workflow = json.loads(capsys.readouterr().out)
-
-    assert workflow["extract"]["line_items"] == prepared.persisted_workflow_extract["line_items"]
-    authored = workflow["extract"]["_groundx_persisted_extract"]
-    assert authored["line_items"] == {"workflow_step": "line_item_labels"}
-    assert authored["workflow"] == workflow["extract"]["workflow"]
-    persisted_step = workflow["extract"]["workflow"]["custom_steps"][0]
-    assert persisted_step["config"]["all"]["prompt"]["request"]
-    assert persisted_step["config"]["figure"]["prompt"]["request"]
-
-
-def test_deploy_compile_artifact_preserves_persisted_extract(tmp_path):
-    """Deploy dry-run compile writes the same persisted extract to workflow.json."""
+def test_deploy_topology_artifact_writes_fanout_topology(tmp_path):
+    """Deploy writes the offline topology to fanout_topology.json only."""
     yaml_path = _write(_custom_yaml())
 
-    workflow = deploy_workflow._compile_workflow(
+    workflow = deploy_workflow._workflow_topology(
         yaml_path,
         workflow_name="test",
         out=str(tmp_path),
-        skip_validate=True,
     )
-    with open(tmp_path / "workflow.json", encoding="utf-8") as f:
+    with open(tmp_path / "fanout_topology.json", encoding="utf-8") as f:
         written = json.load(f)
 
     assert written["extract"] == workflow["extract"]
-    assert "workflow" in written["extract"]
-    assert written["customSteps"]
+    assert not (tmp_path / "workflow.json").exists()
 
 
-def test_deploy_create_and_update_send_compiled_extract_verbatim():
-    """Deploy request bodies must use the compiled persisted extract unchanged."""
+def test_deploy_create_and_update_submit_source_yaml():
+    """Deploy request bodies are the author's source YAML; the server compiles."""
 
     class _Workflows:
         def __init__(self):
@@ -2460,33 +2511,19 @@ def test_deploy_create_and_update_send_compiled_extract_verbatim():
             return types.SimpleNamespace(workflow=types.SimpleNamespace(workflow_id=workflow_id))
 
     gx = types.SimpleNamespace(workflows=_Workflows())
-    workflow = _workflow_with_persisted_extract()
 
-    deploy_workflow._create_or_update_workflow(
-        gx,
-        workflow,
-        yaml_path="statement.yaml",
-        workflow_id=None,
-    )
-    deploy_workflow._create_or_update_workflow(
-        gx,
-        workflow,
-        yaml_path="statement.yaml",
-        workflow_id="wf-1",
-    )
+    deploy_workflow._create_or_update_workflow(gx, "statement: {}\n", "test", None)
+    deploy_workflow._create_or_update_workflow(gx, "statement: {}\n", "test", "wf-1")
 
-    assert gx.workflows.calls[0][1]["extract"] is workflow["extract"]
-    assert gx.workflows.calls[1][2]["extract"] is workflow["extract"]
-    assert gx.workflows.calls[0][1]["section_strategy"] == workflow["section_strategy"]
-    assert gx.workflows.calls[1][2]["section_strategy"] == workflow["section_strategy"]
-    assert gx.workflows.calls[0][1]["template"] is workflow["template"]
-    assert gx.workflows.calls[0][1]["custom_steps"] is workflow["customSteps"]
-    assert gx.workflows.calls[0][1]["output_routes"] is workflow["outputRoutes"]
-    assert gx.workflows.calls[0][1]["leaf_fields"] is workflow["leafFields"]
-    assert gx.workflows.calls[1][2]["template"] is workflow["template"]
-    assert gx.workflows.calls[1][2]["custom_steps"] is workflow["customSteps"]
-    assert gx.workflows.calls[1][2]["output_routes"] is workflow["outputRoutes"]
-    assert gx.workflows.calls[1][2]["leaf_fields"] is workflow["leafFields"]
+    create_kwargs = gx.workflows.calls[0][1]
+    update_kwargs = gx.workflows.calls[1][2]
+    for kwargs in (create_kwargs, update_kwargs):
+        assert kwargs["yaml"] == "statement: {}\n"
+        assert kwargs["name"] == "test"
+        assert "extract" not in kwargs
+        assert "custom_steps" not in kwargs
+        assert "output_routes" not in kwargs
+        assert "leaf_fields" not in kwargs
 
 
 def test_custom_workflow_preserves_section_strategy_in_workflow_and_extract():
@@ -2496,50 +2533,7 @@ def test_custom_workflow_preserves_section_strategy_in_workflow_and_extract():
     assert workflow["extract"]["workflow"]["section_strategy"] == "page"
 
 
-def test_deploy_create_and_update_use_compiled_payload_when_helpers_exist():
-    class _Workflows:
-        def __init__(self):
-            self.calls = []
-
-        def create(self, **kwargs):
-            self.calls.append(("create", kwargs))
-            return types.SimpleNamespace(workflow=types.SimpleNamespace(workflow_id="created"))
-
-        def update(self, workflow_id, **kwargs):
-            self.calls.append(("update", workflow_id, kwargs))
-            return types.SimpleNamespace(workflow=types.SimpleNamespace(workflow_id=workflow_id))
-
-    class _GroundX:
-        def __init__(self):
-            self.workflows = _Workflows()
-
-        def create_extraction_workflow(self, **kwargs):
-            raise AssertionError("compiled deploy path should not re-load raw YAML path")
-
-        def update_extraction_workflow(self, workflow_id, **kwargs):
-            raise AssertionError("compiled deploy path should not re-load raw YAML path")
-
-    gx = _GroundX()
-    workflow = _workflow_with_persisted_extract()
-
-    deploy_workflow._create_or_update_workflow(
-        gx,
-        workflow,
-        yaml_path="statement.yaml",
-        workflow_id=None,
-    )
-    deploy_workflow._create_or_update_workflow(
-        gx,
-        workflow,
-        yaml_path="statement.yaml",
-        workflow_id="wf-1",
-    )
-
-    assert gx.workflows.calls[0][1]["extract"] is workflow["extract"]
-    assert gx.workflows.calls[1][2]["extract"] is workflow["extract"]
-
-
-def test_run_and_batch_create_workflow_use_compiled_payload_when_helpers_exist():
+def test_run_and_batch_create_workflow_submit_source_yaml(tmp_path):
     class _Workflows:
         def __init__(self):
             self.calls = []
@@ -2548,31 +2542,23 @@ def test_run_and_batch_create_workflow_use_compiled_payload_when_helpers_exist()
             self.calls.append(kwargs)
             return types.SimpleNamespace(workflow=types.SimpleNamespace(workflow_id="created"))
 
-    class _GroundX:
-        def __init__(self):
-            self.workflows = _Workflows()
+    yaml_path = tmp_path / "statement.yaml"
+    yaml_path.write_text("statement: {}\n", encoding="utf-8")
 
-        def create_extraction_workflow(self, **kwargs):
-            raise AssertionError("compiled run path should not re-load raw YAML path")
+    run_gx = types.SimpleNamespace(workflows=_Workflows())
+    run_extraction._create_workflow(run_gx, yaml_path.read_text(encoding="utf-8"), "test")
+    batch_gx = types.SimpleNamespace(workflows=_Workflows())
+    batch_extraction._create_workflow(batch_gx, str(yaml_path), {}, "test")
 
-    workflow = _workflow_with_persisted_extract()
-
-    run_gx = _GroundX()
-    run_extraction._create_workflow(run_gx, "statement.yaml", workflow, "test")
-    batch_gx = _GroundX()
-    batch_extraction._create_workflow(batch_gx, "statement.yaml", workflow, "test")
-
-    assert run_gx.workflows.calls[0]["extract"] is workflow["extract"]
-    assert batch_gx.workflows.calls[0]["extract"] is workflow["extract"]
+    for calls in (run_gx.workflows.calls, batch_gx.workflows.calls):
+        assert calls[0]["yaml"] == "statement: {}\n"
+        assert calls[0]["name"] == "test"
+        assert "extract" not in calls[0]
 
 
-def test_prompt_manager_create_update_use_compiled_payload_when_helpers_exist(monkeypatch):
-    workflow = _workflow_with_persisted_extract()
-    monkeypatch.setattr(
-        prompt_manager,
-        "build_workflow",
-        lambda yaml_path, name=None: workflow,
-    )
+def test_prompt_manager_create_update_submit_source_yaml(tmp_path):
+    yaml_path = tmp_path / "statement.yaml"
+    yaml_path.write_text("statement: {}\n", encoding="utf-8")
 
     class _Workflows:
         def __init__(self):
@@ -2586,23 +2572,15 @@ def test_prompt_manager_create_update_use_compiled_payload_when_helpers_exist(mo
             self.calls.append(("update", id, kwargs))
             return types.SimpleNamespace(workflow=types.SimpleNamespace(workflow_id=id))
 
-    class _GroundX:
-        def __init__(self):
-            self.workflows = _Workflows()
-
-        def create_extraction_workflow(self, **kwargs):
-            raise AssertionError("compiled manager path should not re-load raw YAML path")
-
-        def update_extraction_workflow(self, workflow_id, **kwargs):
-            raise AssertionError("compiled manager path should not re-load raw YAML path")
-
-    gx = _GroundX()
+    gx = types.SimpleNamespace(workflows=_Workflows())
     manager = prompt_manager.ExtractionWorkflowManager(gx)
 
-    assert manager.init_prompts(yaml_path="statement.yaml") == "created"
-    assert manager.update_prompts(workflow_id="wf-1", yaml_path="statement.yaml") == "wf-1"
-    assert gx.workflows.calls[0][1]["extract"] is workflow["extract"]
-    assert gx.workflows.calls[1][2]["extract"] is workflow["extract"]
+    assert manager.init_prompts(yaml_path=str(yaml_path)) == "created"
+    assert manager.update_prompts(workflow_id="wf-1", yaml_path=str(yaml_path)) == "wf-1"
+    assert gx.workflows.calls[0][1]["yaml"] == "statement: {}\n"
+    assert gx.workflows.calls[0][1]["name"] == "statement"
+    assert gx.workflows.calls[1][2]["yaml"] == "statement: {}\n"
+    assert "extract" not in gx.workflows.calls[0][1]
 
 
 def test_prompt_manager_exposes_persisted_workflow_extract_dict(monkeypatch):
@@ -2621,28 +2599,64 @@ def test_prompt_manager_exposes_persisted_workflow_extract_dict(monkeypatch):
     )
 
 
-def test_run_compile_artifact_preserves_persisted_extract(tmp_path):
-    """Run path compile writes the same persisted extract to workflow.json."""
+def test_run_topology_artifact_writes_fanout_topology(tmp_path):
+    """Run path writes the offline topology to fanout_topology.json only."""
 
     class _RunLog:
         def event(self, *args, **kwargs):
             return None
 
     yaml_path = _write(_custom_yaml())
-    workflow_json_path = tmp_path / "workflow.json"
+    topology_json_path = tmp_path / "fanout_topology.json"
 
-    workflow = run_extraction._compile(
+    workflow = run_extraction._topology(
         yaml_path,
-        str(workflow_json_path),
+        str(topology_json_path),
         name="test",
         rl=_RunLog(),
     )
-    with open(workflow_json_path, encoding="utf-8") as f:
+    with open(topology_json_path, encoding="utf-8") as f:
         written = json.load(f)
 
     assert written["extract"] == workflow["extract"]
     assert "workflow" in written["extract"]
-    assert written["customSteps"]
+
+
+# Shared repeated-group golden: the same YAML is compiled by the GroundX
+# Python SDK's own tests, so the enum contract stays pinned on both sides.
+_PARITY_GOLDEN_YAML = """\
+extraction_policy_version: v1
+workflow:
+  custom_steps:
+    - name: claim_rows
+      level: chunk
+      kind: keys
+  agent_chain:
+    - parallel:
+        - group: claims
+          chain: [reconcile_charges, save_charges]
+claims:
+  workflow_step: claim_rows
+  role: charges
+  fields:
+    claim_number:
+      workflow_output_key: claim_number
+      prompt:
+        description: claim number
+        type: str
+        identifiers: ["Claim"]
+        instructions: Return the claim number.
+"""
+
+
+def test_parity_golden_repeated_group_emits_enum_scope():
+    wf = build_workflow(_write(_PARITY_GOLDEN_YAML))
+
+    assert [leaf["repetitionScope"] for leaf in wf["leafFields"]] == ["item"]
+    assert wf["leafFields"][0]["finalPath"] == "/claims/*/claim_number"
+    assert wf["leafFields"][0]["isRepeated"] is True
+    metadata = wf["extract"]["workflow"]
+    assert metadata["leaf_fields"][0]["repetition_scope"] == "item"
 
 
 if __name__ == "__main__":

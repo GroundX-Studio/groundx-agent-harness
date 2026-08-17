@@ -72,5 +72,5 @@ GroundX workflow API are the deployment.
 If a user explicitly needs a Python project — for example, to wrap the
 extraction in a customer-specific service with auth, batching, or
 custom output transformation — they can hand-author one off the YAML.
-The `compile_workflow.py` script in `templates/` produces the workflow
+The GroundX API compiles the YAML at create time and produces the workflow
 JSON the project would POST.

@@ -96,7 +96,7 @@ non-invoice scorer drift:
 3. **Field-coverage gate** — a YAML's fields must cover the target catalog's
    fields (YAML fields ⊇ catalog fields).
 
-Run `python templates/compile_workflow.py <prompt.yaml>` to compile a fixture
+Validate a fixture with the server (`gx.workflows.validate(name=..., yaml=...)`)
 offline (exit 0 = pass; missing custom workflow metadata is a hard error). The
 skill eval suite asserts the smoke compile, custom-step compile, field coverage,
 null-vs-miss classification, and at least one business-logic primitive changing

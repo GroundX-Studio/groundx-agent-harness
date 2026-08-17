@@ -36,8 +36,8 @@ applied to the same document — produces the same extraction.
                           pass/fail/warn report
 ```
 
-The user edits `prompt.yaml`. Everything downstream is mechanical:
-`compile_workflow.py` produces the workflow JSON, `groundx-api`
+The user edits `prompt.yaml`. Everything downstream is mechanical: the
+GroundX API compiles the YAML server-side at create time, `groundx-api`
 operations register and run it, `score_extraction.py` evaluates accuracy.
 
 ## 2. Setup
@@ -50,26 +50,25 @@ Before the loop runs, the working directory must have:
 2. `.env` — copied from `skills/groundx-extraction-workflows/templates/.env.sample`
    and populated with either `GROUNDX_API_KEY`, or both `PARTNER_API_KEY` and
    `CUSTOMER_USERNAME` for a delegated customer-owned run. Do not mix modes.
-3. `compile_workflow.py` — copied from
-   `skills/groundx-extraction-workflows/templates/compile_workflow.py`
-4. `validate_workflow_json.py` — copied from
-   `skills/groundx-extraction-workflows/templates/validate_workflow_json.py`
-5. `deploy_workflow.py` — copied from
+3. `_workflow_topology.py` — copied from
+   `skills/groundx-extraction-workflows/templates/_workflow_topology.py`
+   (offline fanout estimation only; never submitted to the API)
+4. `deploy_workflow.py` — copied from
    `skills/groundx-extraction-workflows/templates/deploy_workflow.py` when the
    finished YAML needs workflow create/update and attachment
-6. `run_extraction.py` — copied from
+5. `run_extraction.py` — copied from
    `skills/groundx-extraction-workflows/templates/run_extraction.py` when the
    same command should also ingest, poll, capture X-Ray, and retrieve extract
-7. `score_extraction.py` — copied from
+6. `score_extraction.py` — copied from
    `skills/groundx-extraction-workflows/templates/score_extraction.py`
-8. `run_extraction_loop.py` — copied from
+7. `run_extraction_loop.py` — copied from
    `skills/groundx-extraction-workflows/templates/run_extraction_loop.py` when
    the work is PDF plus desired schema plus expected answers and should iterate
    up to 10 times or until accuracy is at least 90%
-9. `requirements.txt` — copied from
+8. `requirements.txt` — copied from
    `skills/groundx-extraction-workflows/templates/requirements.txt`
-10. The input PDF (named anything; pass the path as needed)
-11. Expected answers for scoring. If they are already runner-shaped JSON, use
+9. The input PDF (named anything; pass the path as needed)
+10. Expected answers for scoring. If they are already runner-shaped JSON, use
     them directly as the expected-answer JSON file. If they arrive as a spreadsheet,
     document, text file, PDF, or human-review notes, create a source-backed
     mapping record before scoring.
@@ -105,18 +104,17 @@ group decomposition, and field anatomy. Author the YAML based on:
 If the document shape does not fit singleton objects or repeating record
 lists, see `2_schema_design.md` §1.5.
 
-### 3.2 Compile to workflow JSON
+### 3.2 Validate with the server
 
-```bash
-python compile_workflow.py prompt.yaml > "$RUN_ROOT/workflow.json"
-python validate_workflow_json.py "$RUN_ROOT/workflow.json"
+```python
+gx.workflows.validate(name=workflow_name, yaml=yaml_text)
 ```
 
-`compile_workflow.py` is offline — it does not call any GroundX API.
-It loads the YAML, renders the field-spec text, and emits the
-workflow JSON in the exact shape the GroundX workflow API accepts.
-`validate_workflow_json.py` must pass before workflow create/update, MCP
-registration, or ingest.
+The GroundX API is the only workflow compiler. Submit the source YAML
+(`workflows.create(name=..., yaml=...)`) and let the server compile;
+`workflows.validate` on the same YAML is the only preflight that predicts
+`create()` and must pass before workflow create/update, MCP registration, or
+ingest.
 
 The resulting `workflow.json` is the durable artifact for this run.
 Diff it across iterations to see exactly what the prompts look like

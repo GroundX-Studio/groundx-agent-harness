@@ -7,6 +7,17 @@ customer extractions. Complements `references/9_testing_methodology.md`,
 which covers verifying that changes work in the first place — debugging
 is what you reach for when a test reveals a problem.
 
+## 10.0 Currency first
+
+When observed behavior contradicts what this skill documents (the SDK rejects
+a documented key, an API accepts something the docs say it will not, a
+template behaves differently than described), run the local `groundx-studio`
+server's `harness_doctor` tool before forming any hypothesis. It reports
+whether the installed harness plugin is current and whether the venv's
+`groundx` SDK sits inside `templates/requirements.txt`'s verified pin. A stale
+install explains the mismatch more often than a defect does; update the stale
+surface and reproduce before continuing here, and before filing an issue.
+
 ## 10.1 Diff-before-debug discipline
 
 When a new customer onboarding or a regression produces unexpected
@@ -66,9 +77,9 @@ Debugging path the discipline would have taken (≈5 minutes, 0 ingests):
   Use `templates/xray_to_extract.py` for local aggregation that
   reproduces what `get_extract()` should return — divergence between
   the two is a strong signal of platform-side aggregation issues.
-- **Workflow JSON** (compiled output of `compile_workflow.py`) — what
-  was actually submitted to the platform. Use
-  `templates/validate_workflow_json.py` for structural shape checks.
+- **Workflow readback** (`gx.workflows.get(id, format="json")`) — what
+  the platform actually persisted. The API compiles the submitted YAML
+  server-side; there is no locally compiled submission body to inspect.
 - **`run.log`** — JSONL event timeline from a `run_extraction.py`
   invocation. Useful for reconstructing the timing and ordering of
   the run after a sub-agent terminates. It redacts obvious account identity,
@@ -138,8 +149,6 @@ one YAML-driven `groundx-python/extract` abstraction.
   proactively; this reference is for investigating why they don't
 - `references/6_known_limitations.md` — platform-locked field names
   (AGE-6) and convention ambiguities (AGE-7); escalation playbook
-- `templates/validate_workflow_json.py` — structural validator
-  codified from the v0.1.2 bug
 - `references/prompt-manager.md` — minimal today-path manager for
   quickstart-style prompt modules
 - `CHANGELOG.md` `[0.1.2]` entry — full bug narrative

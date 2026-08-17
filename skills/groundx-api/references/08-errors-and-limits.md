@@ -3,6 +3,14 @@
 Cross-cutting reference covering HTTP error codes, the async ingest pattern, pagination,
 and rate limits.
 
+When the API observably behaves differently from what this skill documents (a
+field it rejects, an endpoint it lacks, a default that does not match), check
+currency before deeper diagnosis: run the local `groundx-studio` server's
+`harness_doctor` tool when it is in your tool list. A stale harness install or
+an SDK outside the extraction templates' pin explains most
+documentation-versus-behavior mismatches; update the stale surface and
+reproduce before debugging the API or filing a report.
+
 ## 1. HTTP error codes
 
 All GroundX API endpoints use standard HTTP status codes. The three codes that appear

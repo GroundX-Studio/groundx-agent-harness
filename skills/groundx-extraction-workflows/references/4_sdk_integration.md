@@ -2,9 +2,9 @@
 
 Before any command here creates local output, read [`local-artifact-closeout.md`](./local-artifact-closeout.md). Planned work must initialize and use its exact absolute run root. Ad-hoc work uses one dedicated root. Settle or hand off useful results, delete raw evidence, verify absence, and report what remains.
 
-How `compile_workflow.py` produces the workflow JSON, what
-`groundx-api` does with it, and how to extend the boundary for
-non-default cases.
+How workflow YAML reaches the API (the server is the only compiler), what
+`_workflow_topology.py` models offline for estimation, and how to extend the
+boundary for non-default cases.
 
 ## 1. Two SDK layers
 
@@ -13,7 +13,7 @@ non-default cases.
 │  groundx.extract (hand-written extension)      │
 │   PromptManager, Source, Logger, Group,        │
 │   Prompt, ExtractedField                        │
-│   Used by: compile_workflow.py when installed   │
+│   Used by: _workflow_topology.py when installed │
 │   Installed via: pip install groundx[extract]  │
 ├────────────────────────────────────────────────┤
 │  groundx (Fern-generated core client)          │
@@ -27,11 +27,12 @@ non-default cases.
 └────────────────────────────────────────────────┘
 ```
 
-This skill uses the `[extract]` extra for deploy/run workflows and prefers it at
-compile time when installed. `compile_workflow.py` also carries a narrow
-SDK-free fallback for harness-authored `workflow.custom_steps` YAML so offline
-CI and plugin validation do not depend on the published SDK being installed.
-**No API calls happen during compile.**
+This skill uses the `[extract]` extra for deploy/run workflows and prefers it
+for offline topology modeling when installed. `_workflow_topology.py` also
+carries a narrow SDK-free fallback for harness-authored
+`workflow.custom_steps` YAML so offline CI and plugin validation do not depend
+on the published SDK being installed. **The topology model makes no API calls
+and is never submitted to the API.**
 
 For local deploy and run commands, this skill uses the GroundX Python
 SDK. For interactive agent API calls (workflow create/update/attach,
@@ -51,13 +52,13 @@ upload behavior, especially internal legacy YAML-to-v1 normalization. The local
 SDK paths below send compiled workflow bodies and cannot prove upload-time
 normalization.
 
-## 2. The compile script
+## 2. The offline topology model
 
-### 2.1 What compile_workflow.py does
+### 2.1 What _workflow_topology.py does
 
-The script (`skills/groundx-extraction-workflows/templates/compile_workflow.py`)
-executes the following sequence when invoked as
-`python compile_workflow.py prompt.yaml > "$RUN_ROOT/workflow.json"`:
+The module (`skills/groundx-extraction-workflows/templates/_workflow_topology.py`)
+is import-only (no CLI) and executes the following sequence when a template
+calls `build_workflow_artifacts(yaml_path)` for fanout estimation:
 
 1. **Load env.** Reads `.env` for `EXTRACT_MODEL_*` engine settings when
    `python-dotenv` is installed; otherwise it uses the process environment and
@@ -78,19 +79,16 @@ executes the following sequence when invoked as
    `extract.workflow` must carry the persisted `custom_steps`, `output_routes`,
    and `leaf_fields` metadata that matches those top-level fields. It also
    renders each custom step's prompt text into the custom step config.
-5. **Assemble the final dict.** The output is a Python dict with workflow create
-   or update settings. The deploy and run templates pass it through
-   `workflow_sdk_kwargs(workflow)`.
-6. **Emit JSON to stdout.** `json.dumps(workflow, indent=2)` is
-   written to stdout. Stderr is unused on success.
-
-The output is the exact body shape that POSTs to `/v1/workflow`.
+5. **Assemble the final dict.** The output is a Python dict the estimation
+   and coverage templates read for group and field topology. It is written to
+   `fanout_topology.json` for run provenance and is never submitted to the
+   API; registration always sends the author's source YAML.
 
 ### 2.2 Custom step templates
 
 The prompt text for custom workflow steps is prepared from the compiled YAML
 metadata. When the SDK is installed, `groundx.extract` owns the YAML
-preparation. When the SDK is absent, `compile_workflow.py` uses the same
+preparation. When the SDK is absent, `_workflow_topology.py` uses the same
 harness-specific metadata contract for offline validation. In both paths, the
 harness compiler renders the final custom step prompt wrappers before emitting
 workflow JSON. It does not load a second prompt-wrapper module or re-parse the
@@ -274,3 +272,45 @@ If GroundX changes the workflow API surface, only `groundx-api`
 updates. If the schema authoring conventions evolve (e.g. a new
 custom step kind, a new group name pattern), only this skill
 updates. Each skill stays in its lane.
+
+## 6. One workflow authoring path
+
+This section is the canonical statement of how agents create, update, and
+manage extraction workflows. Repo agent guides point here instead of restating
+it.
+
+- Author extraction YAML, data-shape v1. Never hand-write `leafFields`,
+  `outputRoutes`, `customSteps`, or `schemaHash` JSON, and never edit them in a
+  compiled artifact.
+- Register and update through `workflows.create(name=..., yaml=...)` /
+  `workflows.update(..., yaml=...)` after `workflows.validate` passes on the
+  same YAML. The server is the only compiler; this is the only registration
+  entrypoint
+  agents use.
+- Create and update through the SDK workflow helpers
+  (`create_extraction_workflow` / `update_extraction_workflow`,
+  `workflows.create/update` with `workflow_sdk_kwargs` as the fallback), per
+  §4 above.
+
+Ownership of the workflow surface:
+
+| Concern | Owner |
+| --- | --- |
+| Authoring semantics (YAML → workflow metadata) | GroundX Python SDK (`prepare_extraction_yaml`); server-owned after the canonical-compiler migration |
+| Orchestration, credentials, scoring, evidence | This skill and the harness |
+| Persistence, validation, canonical hash | The GroundX platform API |
+| Hosted runtime consumption | The hosted extraction runtime |
+| API shape, generated models, SDK generation | The API contract source (Fern/OpenAPI) |
+
+New compilation or normalization semantics land in the SDK first; harness
+templates only wrap them. `_workflow_topology.py` no longer silently rewrites
+SDK-prepared metadata: when the installed SDK emits the `repetitionScope` enum,
+any divergence between SDK output and harness normalization fails compile
+naming the field; on older SDKs that still emit pointer-format scopes, the
+compiler keeps the rewrite and warns to upgrade past
+`eyelevelai/groundx-python#68`.
+
+Sunset: when the platform's `complete-canonical-workflow-compiler-migration`
+change lands, authoring submits raw YAML to the API-owned compiler, this
+section is replaced by that path, and the parity guard retires with the client
+compilers.

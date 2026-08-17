@@ -18,8 +18,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 MODULES = [
-    "compile_workflow",
-    "validate_workflow_json",
+    "_workflow_topology",
     "xray_to_extract",
     "business_logic",
     "run_log",

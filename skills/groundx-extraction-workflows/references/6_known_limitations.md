@@ -158,3 +158,46 @@ diagnostic/business-logic output. Add `--require-raw-extract` when the absence
 of `output.json` should fail the run. `xray_to_extract.py` remains the
 canonical local aggregator for X-Ray-first diagnostics (see `references/README.md`
 and `10_debugging_methodology.md`).
+
+## 5. Pre-fix SDKs reject repeating-group creates (AGE-279)
+
+GroundX Python 3.9.0 through 3.9.7 derive `leafFields[].repetitionScope` as a
+JSON pointer prefix (for example `/charges/*`) in `prepare_extraction_yaml`.
+The workflow API accepts only `none`, `field`, or `item`, so any schema with a
+repeating group compiled through the raw SDK helper is rejected at create:
+
+```
+Invalid attribute 'workflow.leafFields': unsupported repetitionScope '/charges/*'
+```
+
+Scalar-only schemas are unaffected, and YAML submitted through
+`workflows.create(yaml=...)` compiles server-side, so harness-authored
+workflows create normally; only direct `prepare_extraction_yaml` +
+structured `workflows.create` callers hit the rejection.
+
+**Resolution:** fixed in the SDK by `eyelevelai/groundx-python#68`, first
+released in 3.9.8, and the structured client compile path has since been
+retired entirely: templates submit source YAML and the server compiles.
+`templates/requirements.txt` pins the floor at 3.9.8, so template venvs never
+see the affected releases; this caveat applies only to environments that
+ignore the pin. If a create rejection names `repetitionScope`, check the
+installed `groundx` version before touching the schema — the YAML is not the
+problem.
+
+## 6. Locally compiled workflow bodies are rejected at create (AGE-285)
+
+The server owns workflow compilation. The historical-classification and
+schema-hash parts of this class were fixed platform-side 2026-08-16 (client
+submissions are never classified as historical stored rows, and the server
+recomputes and owns the stored schema hash on every write). Locally compiled
+bodies remained rejected ("served reassembly field does not match the
+extraction field"), verified 2026-08-16 against the skill's own worked
+example, so that path is retired: register and update workflows by submitting
+source YAML (`workflows.create(name=..., yaml=...)`), which creates, attaches,
+runs, and returns correct records for statement + meters + charges schemas
+with `match_attrs` linking.
+
+If a `missing legacy policy provenance` or `caller schema hash` rejection
+still appears, the platform predates these fixes; report it rather than
+rewriting the schema. Client-side hash tuning remains wrong by design: the
+server is the schema-hash authority.

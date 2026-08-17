@@ -148,3 +148,16 @@ When a value is wrong:
 
 Do not tune prompts to match an expected answer until the source document proves that
 expected answer is correct.
+
+## Scope by printed position, not category name
+
+Before writing a rule like "taxes are account-level," check whether that
+category can also print inside one instance of the repeating entity (a
+per-meter tax line, a per-line-item fee). On multi-entity documents the same
+category often appears both ways, and a by-name rule mis-scopes the per-entity
+occurrences: on a live multi-meter bill, "taxes = account-level" stripped the
+meter tag from per-meter tax lines and left $274 permanently unattributable.
+Write the scoping rule from where the line is physically printed (which page,
+sub-page, or section it appears in), and use the category name only as a
+secondary signal.
+

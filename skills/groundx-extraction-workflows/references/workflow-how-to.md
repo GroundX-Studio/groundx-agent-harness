@@ -71,13 +71,14 @@ names such as `reconcile_statement`, `qa_statement`, `save_statement`,
 
 Compile from authored v1 source YAML only. Do not feed `workflow.json`,
 downloaded workflow readback, or `_groundx_persisted_extract` back into the
-source compiler.
+source compiler. This is the single client compile entrypoint; the canonical
+statement of the authoring path and surface ownership is
+[`4_sdk_integration.md`](./4_sdk_integration.md) §6.
 
 Run:
 
 ```bash
-python skills/groundx-extraction-workflows/templates/compile_workflow.py prompt.yaml > "$RUN_ROOT/workflow.json"
-python skills/groundx-extraction-workflows/templates/validate_workflow_json.py "$RUN_ROOT/workflow.json"
+python -c "import os; from groundx import GroundX; GroundX(api_key=os.environ['GROUNDX_API_KEY']).workflows.validate(name='pilot', yaml=open('prompt.yaml').read())"
 ```
 
 For script-based compile/run/deploy paths, use `deploy_workflow.py`,
