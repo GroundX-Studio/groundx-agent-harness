@@ -10,7 +10,13 @@ For per-microservice resource defaults and node-group targets, route to `node-gr
 
 The chart's `src/groundx/values.yaml` is the source of truth for per-microservice CPU / memory / replica defaults. To estimate cluster capacity:
 
-1. Render the merged values (chart defaults + your overrides): `helm template groundx ./src/groundx -f my-overrides.yaml > rendered.yaml`.
+1. Render the merged values (chart defaults + your overrides):
+
+   ```sh
+   helm template groundx ./src/groundx -f my-overrides.yaml > rendered.yaml
+   ```
+
+   When `metrics.enabled: true` (not the chart default), `rendered.yaml` also contains a chart-generated `metrics-tls` private key — redact before sharing, treat the file as secret, and delete it afterwards; see `references/credentials.md`.
 2. For each microservice (`groundx`, `layout.*`, `extract.*`, `summary.*`, `ranker.*`, `preProcess`, `process`, `queue`, `upload`, `summaryClient`, `layoutWebhook`, `metrics`, `workspace.*` when enabled), read:
    - `replicas.desired` (and `replicas.max` if `cluster.hpa: true`).
    - `resources.requests.{cpu, memory}` and `resources.limits.{cpu, memory}`.
@@ -44,7 +50,7 @@ The three inference deployments are the dominant cost driver on a vanilla deploy
 | Inference deployment | Default GPU memory per pod | Notes |
 | --- | --- | --- |
 | `summary-inference` | ~24 GB (Gemma 3 at default `1×1` workers/threads) | Disable via `summary.api.enabled: false` + `summary.inference.enabled: false` to drop this entirely and route to an external LLM (OpenAI / Azure / Bedrock). See `engines.md` and `service-substitution.md` § 4.6. |
-| `ranker-inference` | ~24 GB (sized for `14×1` workers/threads) | Cannot reasonably be disabled — search ranking is core to RAG quality. CPU fallback is unreliable. |
+| `ranker-inference` | ~17.5 GB estimated footprint at `14×1` workers/threads; budget a 24 GB card class | Cannot reasonably be disabled — search ranking is core to RAG quality. CPU fallback is unreliable. |
 | `layout-inference` | ~2.5 GB × `worker × thread` (default `1×6` ≈ 15 GB) | CPU fallback is possible via explicit override but degrades layout quality. |
 
 The cost levers:
@@ -134,7 +140,7 @@ When estimating cost for a new deployment:
 1. **Make the substitution decisions first** (see `service-substitution.md`). The chart-deployed vs cloud-managed split is the biggest single cost driver after GPU choice.
 2. **Decide on the summary engine** (see `engines.md`). Self-hosted gemma vs external LLM materially changes the GPU footprint and the per-call LLM cost.
 3. **Set HPA expectations.** Will the deployment run at low/medium/high throughput? Set `replicas.max` and `cluster.hpa` accordingly before estimating.
-4. **Sum the rendered values.** Render `helm template` against your overrides, walk per-microservice replicas/resources, sum per node group. (AWS deployers may use `bin/estimate` to automate this; non-AWS deployers do it manually or via their own tooling.)
+4. **Sum the rendered values.** Reuse the `rendered.yaml` from step 1 (or re-render), walk per-microservice replicas/resources, sum per node group. (AWS deployers may use `bin/estimate` to automate this; non-AWS deployers do it manually or via their own tooling.) When `metrics.enabled: true` (not the chart default), that render contains a chart-generated `metrics-tls` private key — read the resource figures off it, do not paste it into chat, logs, or a PR, and if you save it, treat that file as secret and delete it afterwards.
 5. **Add cloud-managed line items** for any externalized backing services. Get per-service pricing from the cloud provider.
 6. **Add storage** — sum the chart-deployed PVC defaults (or cloud-managed equivalent), plus the OpenSearch / MinIO scale factor over expected document volume.
 7. **Add egress** — only meaningful if external engines or cross-AZ cloud-managed services are in play.

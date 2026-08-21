@@ -216,15 +216,15 @@ The `cluster:` block configures the underlying Kubernetes assumptions.
 
 - **Type:** boolean.
 - **Default:** chart-default (typically `false`).
-- **Description:** Signals that the cluster has NVIDIA Multi-Instance GPU (MIG) partitioning configured. When `true`, GPU microservices schedule against MIG-partitioned device profiles instead of whole GPUs.
-- **When to change:** Set `true` for clusters running A100 / H100 GPUs partitioned via MIG to share physical cards across `layout-inference`, `ranker-inference`, and `summary-inference`.
+- **Description:** Accepted by the schema in chart 0.2.7, but no current template consumes it. It does not change rendered resources or GPU scheduling.
+- **When to change:** Do not set it expecting MIG behavior. Configure MIG profiles through the NVIDIA operator, then set the workload resource keys and node placement explicitly for each GPU microservice.
 
 ### 3.12 `cluster.tls.existingSecret`
 
 - **Type:** string.
 - **Default:** `""`.
-- **Description:** Name of a Kubernetes Secret containing TLS certs the chart should mount cluster-wide for in-cluster TLS. The Secret is expected to follow the `kubernetes.io/tls` shape (`tls.crt`, `tls.key`).
-- **When to change:** When the cluster uses a custom CA / cert-manager-issued cert for in-cluster service-to-service TLS. Route to `references/tls-and-certs.md` for the full TLS authoring workflow.
+- **Description:** Accepted by the schema in chart 0.2.7, but no current template consumes it. It does not change rendered resources and no workload mounts the named Secret.
+- **When to change:** Do not use it as a cluster-wide TLS switch. Configure supported TLS surfaces separately through `<microservice>.ingress.tls[]`, `db.existing.rootCerts`, and `metrics.useExisting` for the chart's fixed `metrics-tls` Secret. See `references/tls-and-certs.md`.
 
 ## 4. Backing services
 
@@ -239,8 +239,8 @@ For the three-mode (existing customer-managed / operator-deployed-dedicated / cl
 - **`cache.existing.port`** (int, default `6379`) — External Redis port.
 - **`cache.existing.isCluster`** (boolean) — `true` when pointing at Redis Cluster mode.
 - **`cache.existing.ssl`** (boolean) — `true` for TLS-encrypted external Redis.
-- **`cache.metrics.enabled`** (boolean) — Redis metrics exporter for Prometheus.
-- **`cache.metrics.image` / `cache.metrics.imagePullPolicy`** — Image override for the metrics-cache sidecar (independent of the main cache image).
+- **`cache.metrics.enabled`** (boolean) — Deploys a separate Redis StatefulSet and Service named `cache-metrics`. This is the metrics data broker, not a Prometheus exporter.
+- **`cache.metrics.image` / `cache.metrics.imagePullPolicy`** — Image override for the separate metrics Redis workload, independent of the main cache image.
 - **`cache.serviceAccountName` / `cache.metrics.serviceAccountName`** (string) — Kubernetes pod-spec-style `serviceAccountName` (one word) for the bundled Redis / metrics-cache pods. Distinct from the top-level `serviceAccount.name` field — used to attach a per-backing-service workload identity.
 - **`cache.metrics.existing.{addr, port, isCluster, ssl}`** — Point the metrics-cache at a *separate* external Redis endpoint, independent of the main cache.
 - **`cache.resources.requests.cpu` / `memory`** — Resource requests for the in-cluster Redis pod when `cache.enabled=true`.
@@ -282,7 +282,7 @@ For the three-mode (existing customer-managed / operator-deployed-dedicated / cl
 - **`file.token`** (string) — Token-based auth for the file storage backend (alternative to username/password for backends that support it).
 - **`file.ingress.*`** (full ingress shape — see § 5.10 for the common ingress field list) — Exposes the bundled MinIO via an Ingress resource (rare; typically only useful for direct MinIO console access).
 
-**Credentials.** `file.username` / `file.password` (top-level under `file:`, *not* under `file.existing.*`) carry credentials for both the bundled in-cluster MinIO and the external endpoint. For S3 these are the AWS access key id and secret access key (e.g., `values.cloud.yaml` sets `username: awsKey`, `password: awsSecret`). The chart can alternatively read AWS creds from environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, or the `GROUNDX_*` variants) when those are mounted via `cluster.secrets`, or from an IAM role bound to `serviceAccount.name` via IRSA.
+**Credentials.** `file.username` / `file.password` (top-level under `file:`, *not* under `file.existing.*`) carry credentials for both the bundled in-cluster MinIO and the external endpoint. For S3 these are the AWS access key id and secret access key (e.g., `values.cloud.yaml` sets `username: awsKey`, `password: awsSecret`). The chart can alternatively read AWS creds from environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, or the `GROUNDX_*` variants) injected through `envFrom` by `cluster.secrets`, or from an IAM role bound to `serviceAccount.name` via IRSA.
 
 **Canonical AWS-S3 block (from upstream sample values files):**
 
@@ -318,8 +318,8 @@ file:
 - **`stream.port`** (int) — Port for the bundled Kafka cluster.
 - **`stream.serviceName`** (string) — Service-name override for the bundled Kafka.
 - **`stream.replicas`** (int) — Replica count for the bundled Kafka cluster (Strimzi).
-- **`stream.retention`** (string / int) — Topic retention period (Strimzi default).
-- **`stream.segment`** (string / int) — Topic segment size (Strimzi default).
+- **`stream.retention`** (int) — Topic retention period (Strimzi default).
+- **`stream.segment`** (int) — Topic segment size (Strimzi default).
 - **`stream.existing.domain`** (string) — External Kafka domain. Supersedes the bundled Kafka.
 - **`stream.existing.port`** (int, default `9092`).
 - **`stream.topics.<topic-name>`** — Per-topic configuration. The canonical topic names are: `preProcess`, `process`, `summary`, `update`, `upload`. Per-topic fields:
@@ -334,7 +334,7 @@ file:
 
 ## 5. Application microservices
 
-Every application microservice in the chart shares a common configuration pattern. The chart-managed backing-service pods (bundled `cache`, `cache.metrics`, in-cluster MinIO, etc.) accept the same fields under their own blocks. Under each microservice / backing-service block, the deployer-facing sub-fields are:
+Application microservices share the configuration pattern below where their schema exposes each field. Backing services such as `cache`, `cache.metrics`, and in-cluster MinIO have separate schemas described in § 4 and do not accept this common block wholesale.
 
 - **`enabled`** (boolean) — Master switch for the microservice. Default `true` for always-on microservices; `false` for opt-in microservices (extract, workspace).
 - **`replicas.desired`** (int) — Replica count when HPA is off, or initial replica count when HPA is on.
@@ -428,7 +428,7 @@ Two flavors of summary execution:
 - **`summary.inference.pvc.{access, class, name, capacity}`** — Optional PVC for model-weight caching.
 - **`summary.inference.queue`** — Internal queue name override.
 - **`summary.inference.runtimeClassName`** — Kubernetes `runtimeClass` for the GPU runtime.
-- **`summary.inference.updateStrategy`** (string or dict) — Deployment update strategy; typically `"Recreate"` for single-GPU reasons.
+- **`summary.inference.updateStrategy`** (string) — Deployment update strategy; typically `"Recreate"` for single-GPU reasons.
 - **`summary.defaultKitId`** (int) — Default "kit" id for summary generation (application-level configuration).
 - **`summary.serviceName`** — Service name override.
 
@@ -490,7 +490,7 @@ Two flavors of summary execution:
 **`extract.agent`** specifics:
 - **`apiKey`** (string) — Outbound LLM API key when `serviceType` is an external engine (`openai`, etc.). Treat as a credential.
 - **`apiBaseUrl`** (string) — Endpoint override for the agent's outbound LLM calls (when the default for the chosen `serviceType` isn't right).
-- **`serviceType`** (string) — Engine type: `"openai"`, etc.
+- **`serviceType`** (string) — Engine type, such as `"openai"` or `"bedrock"`. Bedrock is an external extraction provider and requires effective S3 file storage.
 - **`modelId`** (string) — Override the chart-default `engines.default.engineId`.
 - **`model.reasoningEffort`** (string) — `"low"`, `"medium"`, `"high"`, or `null` to inherit `engines.default`.
 - **`model.kwargs`** (dict) — Engine-specific extra arguments (e.g., `max_tokens: 2000`).
@@ -517,11 +517,11 @@ Two flavors of summary execution:
 `metrics` is a full common-pattern microservice (image, replicas, resources, node, nodeSelector, affinity, tolerations, labels, annotations, securityContext, containerSecurityContext, containerPort, serviceAccount.name, serviceName) plus:
 
 - **`metrics.enabled`** (boolean, default `false`) — Master switch for the metrics microservice. **Required when `cluster.hpa=true`** — HPA scales every other pod against the signals this microservice publishes.
-- **`metrics.serviceMonitor.enabled`** (boolean, default `false`) — Set to `true` when using the kube-prometheus-stack operator to register a `ServiceMonitor` for the chart's `/metrics` endpoint.
-- **`metrics.useExisting`** (boolean) — When `true`, the chart skips deploying the metrics microservice and consumes metrics from an existing pre-installed metrics collector.
+- **`metrics.serviceMonitor.enabled`** (boolean, default `false`) — Despite the name, this flag **does not render** a `ServiceMonitor`. It only controls whether the metrics template may create its `ServiceAccount`: `true` allows creation when the account is absent; `false` suppresses creation. The account name resolves from `metrics.serviceAccount.name`, then the global `serviceAccount.name`, then the default `metrics`. The canonical prerequisite chart creates `s3-sqs-worker`, not `metrics`, so use `true` unless the resolved name is an account that already exists — which it is on an IRSA deployment that sets `serviceAccount.name: s3-sqs-worker` globally (see `terraform-aws.md`). Prometheus discovery remains separate: inspect and apply the upstream `monitoring/service-monitor.yaml` manifest (see `monitoring.md`).
+- **`metrics.useExisting`** (boolean) — When `true`, the chart **reuses** a `metrics-tls` Secret already present in the target namespace instead of generating fresh TLS material: it skips `genSignedCert` and, via a cluster-aware `lookup`, copies the existing Secret's `tls.crt`/`tls.key`/`ca.crt` (so it takes effect on `helm upgrade --install` against a live cluster, not a client-side `helm template`). It **does not skip** the metrics microservice and does not switch to an external collector — the metrics `Deployment`, `Service`, and the `external.metrics.k8s.io` `APIService` all still render. If no existing Secret is found, the `metrics-tls` Secret renders with an **empty `data:` block**, so a live pod would mount empty TLS material. Use it only to preserve existing cert/key across a re-render — never as a way to disable metrics (for that, see `metrics.enabled`).
 - **`metrics.image` / `metrics.imagePullPolicy`** — Image override.
 
-**Cross-field implications:** Enabling HPA (`cluster.hpa: true`) without `metrics.enabled: true` results in autoscalers that have no signal to scale on. Use `metrics.useExisting: true` when the deployer already runs a metrics collector and doesn't want a duplicate from this chart.
+**Cross-field implications:** The metrics microservice registers the `external.metrics.k8s.io` API that the chart's HPAs read (`type: External` metrics such as `groundx:throughput` / `groundx:api`), so it is the HPA scaling-signal source — not a general observability collector. Enabling HPA (`cluster.hpa: true`) therefore requires `metrics.enabled: true`; without it the autoscalers render but have no signal to scale on. `metrics.useExisting: true` does not change any of this — it only reuses an existing `metrics-tls` Secret (see above); it does not skip the microservice or defer to an external collector. To run without the chart's metrics microservice, set `metrics.enabled: false` — and expect HPA to have no signal.
 
 ### 5.9 `layoutWebhook:` (Webhook receiver — public-facing)
 
@@ -584,10 +584,11 @@ The table below captures the most load-bearing field interactions a deployer nee
 | `summary.existing.serviceType` is `openai` / `openai-base64` / `azure`, OR `summary.existing.url` is set | Chart's `groundx.summary.create` helper returns `false` → `summary-api` + `summary-inference` are skipped automatically. `eyelevel-gpu-summary` node group not needed. Document content leaves the cluster on each summary call. See `references/engines.md` § 1. |
 | `workspace.enabled: true` | Provide `workspace.token` OR `workspace.existingSecret`. Allow egress to the configured git remote. ReadWriteMany-friendly PVC strongly preferred for `workspace.pvc`. |
 | `extract.enabled: true` | Configure at least one extraction engine via `engines.default` or `extract.agent.{modelId, serviceType, apiKey}`. Typically also set `cluster.preProcessors: [{processorId: 13, type: extract}]`. Extract microservices render only when this is `true`. |
+| `extract.agent.serviceType: bedrock` | Set `extract.agent.apiBaseUrl` and `modelId`, provide `GROUNDX_AGENT_API_KEY` through `extract.agent.apiKey`, `extract.agent.existingSecret`, or `cluster.secrets`, and configure effective extract file storage as `s3`. The chart rejects incomplete Bedrock configuration. At runtime, Bedrock requests use S3 references while non-Bedrock requests keep their configured image transport. |
 | `extract.save.driveId` + `extract.save.templateId` set | Provide `extract.save.gcpCredentials` (inline JSON or via `--set-file`) OR `extract.save.existingSecret: true` + `extract.save.secretName`. Allow egress to Google Drive / Sheets APIs. |
 | `layout.ocr.type: google` | Package a GCP service-account JSON file in the chart (e.g. at `files/ocr/credentials.json`) and set `layout.ocr.credentials` to that path. Chart materializes a ConfigMap mounted into the layout-ocr pod. Set `layout.ocr.project` to the GCP project id. Allow egress to `vision.googleapis.com`. Page images leave the cluster on each OCR call. |
 | `imageType: chainguard` | Pods run as UID `65532`. Storage classes / volumes must permit non-root file ownership. Provide a Chainguard image-pull secret in `cluster.imagePullSecrets`. Override `busybox.image` to a Chainguard variant. |
-| `file.existing.serviceType: s3` | Set `file.existing.region`. Provide AWS credentials in `file.existing.{username,password}`, via `cluster.secrets`-referenced Secret, or via IRSA bound to `serviceAccount.name`. |
+| `file.existing.serviceType: s3` | Set `file.existing.region`. Provide AWS credentials in `file.{username,password}`, via a `cluster.secrets`-referenced Secret, or via IRSA bound to `serviceAccount.name`. |
 | `cache.existing.addr` | Set `cache.enabled: false` (to skip bundled Redis) and provide endpoint + port + (if applicable) SSL / cluster-mode flags. |
 | `db.existing.{ro,rw}` | Set `db.enabled: false`. Provide `db.{username,password}` inline or via Secret. Provide `db.existing.rootCerts` when the endpoint requires TLS. |
 | `search.existing.url` | Set `search.enabled: false`. Provide credentials in `search.{username,password,privilegedUsername,privilegedPassword}`. |
@@ -609,7 +610,7 @@ Fields that follow this pattern:
 - `licenseKey` (top-level).
 - `admin.{apiKey, email, password, username}`.
 - `db.{username, password, privilegedUsername, privilegedPassword, rootCerts}` + `db.existing.{rootCerts}`.
-- `file.{username, password}` (bundled MinIO) and `file.existing.{username, password}` (external).
+- `file.{username, password}` for bundled MinIO and external object stores.
 - `search.{username, password, privilegedUsername, privilegedPassword}`.
 - `stream.{key, secret}` and per-topic `stream.topics.<name>.{key, secret}` overrides.
 - `summary.existing.apiKey`.
@@ -621,7 +622,7 @@ The `values.<env>.secret.yaml` companion-file convention is purely operational. 
 
 ### 8.2 Pattern B — Kubernetes Secrets reference (production / stringent compliance)
 
-Create a Kubernetes Secret out-of-band, then reference it from values.yaml. The application reads credentials as environment variables mounted from the Secret. This is the canonical pattern for production / SOC2 / FedRAMP deployments where credentials should never appear in any values file.
+Create a Kubernetes Secret out-of-band, then reference it from values.yaml. The chart injects its keys as application environment variables through `envFrom`. This is the canonical pattern for production / SOC2 / FedRAMP deployments where credentials should never appear in any values file.
 
 The upstream `groundx-on-prem` repo's **`groundx-secret` prereq chart** is the canonical way to create this Secret. Its values file has a *different shape* from the main chart — values.yaml-style fields are replaced with environment-variable-name keys under a `data:` block. Example structure (from `values.extract.eks.secret.yaml`):
 
@@ -646,7 +647,7 @@ data:
   GITHUB_APP_PRIVATE_KEY_PEM: <private-key-pem>
 ```
 
-After the Secret is installed (`helm upgrade --install groundx-secret groundx/groundx-secret -n eyelevel -f values.<env>.secret.yaml`), reference it from the main values.yaml so chart-managed pods mount it:
+After the Secret is installed (`helm upgrade --install groundx-secret groundx/groundx-secret --version 0.1.0 -n eyelevel -f values.<env>.secret.yaml`), reference it from the main values.yaml so chart-managed pods mount it:
 
 - **`cluster.secrets`** (list of strings, e.g., `["eyelevel-secret-credentials"]`) — Lists Kubernetes Secrets the chart wires into every pod via `envFrom`.
 - **`workspace.existingSecret`** (string) — Names a Secret with `WORKSPACE_RUNNER_TOKEN` for the workspace runner.

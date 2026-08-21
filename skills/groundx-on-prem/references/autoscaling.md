@@ -110,16 +110,14 @@ For the namespace and listening port, see `templates/app/metrics.yaml`. The metr
 
 ## 6. Prometheus integration (optional)
 
-For Prometheus Operator users, enable ServiceMonitor:
+For Prometheus Operator users, keep the metrics endpoint enabled:
 
 ```yaml
 metrics:
   enabled: true
-  serviceMonitor:
-    enabled: true
 ```
 
-This renders a `ServiceMonitor` resource that Prometheus discovers automatically. Prometheus then scrapes the GroundX `/metrics` endpoint and the metrics are available for dashboards in addition to the HPA. See `monitoring.md` for the full Prometheus + Grafana setup.
+The chart **does not render** a `ServiceMonitor`. Inspect and apply the separate upstream `monitoring/service-monitor.yaml` manifest so Prometheus discovers the GroundX `/metrics` endpoint. The similarly named `metrics.serviceMonitor.enabled` flag only controls whether the metrics template may create a missing `ServiceAccount`; it does not register the endpoint with Prometheus. See `monitoring.md` for the full Prometheus + Grafana setup.
 
 ## 7. Cost implications of HPA-on
 

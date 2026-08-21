@@ -1,6 +1,6 @@
 # Air-Gapped Deployment
 
-This file documents **how to run GroundX in an air-gapped cluster** — clusters that have no outbound internet egress. Covers image mirroring (chart pods, backing services, GPU Operator, busybox), `admin.imageRepository` re-pointing, the engines / OCR / metrics choices that conflict with air-gapped, and the pre-install staging procedure.
+This file documents **how to run GroundX in an air-gapped cluster** — clusters that have no outbound internet egress. Covers image mirroring (chart pods, backing services, GPU Operator, busybox), `admin.imageRepository` re-pointing, the engines / OCR / metrics choices that conflict with air-gapped, the hardcoded model-weight fetch (§ 6.5), and the pre-install staging procedure.
 
 For the image-variant story (Chainguard hardened images, busybox), route to `image-variants.md`. For the `admin.imageRepository` field mechanics, route to `license-and-admin.md` § 4. For the OCR-side trust-boundary implications, route to `ocr-mode.md` § 2.
 
@@ -87,7 +87,37 @@ Air-gapped deployments force chart-side choices to avoid external egress:
 | Cloud-managed backing services (RDS, MSK, ElastiCache, S3, OpenSearch Service) | All unreachable | Run all backing services in-cluster via operators (Mode 2). See `service-substitution.md` § 5. |
 | ServiceMonitor scraping external Prometheus | Out-of-cluster Prometheus unreachable | Run Prometheus in-cluster (`kube-prometheus-stack` per `monitoring.md`). |
 
-**The air-gapped reference deployment is fully self-contained:** chart-deploys all backing services via in-cluster operators, uses self-hosted summary inference (Gemma 3 on a GPU), uses Tesseract OCR, and runs Prometheus / Grafana inside the same cluster.
+**The air-gapped reference deployment is self-contained at runtime** — chart-deploys all backing services via in-cluster operators, uses self-hosted summary inference (Gemma 3 on a GPU), uses Tesseract OCR, and runs Prometheus / Grafana inside the same cluster — **with one pod-init exception: model weights are fetched from a hardcoded external host (§ 6.5) and must be staged or intercepted before inference pods can start with no egress.**
+
+## 6.5 Model-weight fetch — hardcoded egress at pod init
+
+**In one line:** weights come from the hardcoded `upload.groundx.ai` host, there is no values-based override, the no-egress failure is a *silent poisoned cache* (init exits 0 after writing a false `complete.<version>` marker), and the offline direction is to **pre-seed the model-cache PVC** — with the caveats in this section.
+
+Every inference pod (layout, ranker, summary) runs a `download-model` init container that `wget`s model weights from a **hardcoded** URL — `https://upload.groundx.ai/<layout|ranker|summary>/model/current/<version>.tar.gz.part.NN` — and `tar`-extracts them into a model-cache PVC. The host is a literal in the chart template (`templates/app/inference.yaml`), **not** a values.yaml field, so there is no values-based way to re-point it.
+
+**The no-egress failure is silent, not blocking — expect a poisoned cache, not a stuck pod.** Every `wget` fails, but the download loop's exit status is never checked (`xargs` returns non-zero; the outer `/bin/sh` has no `set -e` and does not test it), so the script proceeds through cleanup and **unconditionally `touch`es the `complete.<version>` marker**. The init container therefore **still exits 0**:
+
+- The inference pod **starts with an empty or partial model cache** and fails later with confusing model/runtime errors — not with a clear "cannot reach `upload.groundx.ai`" signal, and never with `Init:Error`.
+- The false marker persists on the **shared** model-cache PVC, so every subsequent replica and restart sees "complete", **skips the download entirely**, and inherits the same broken cache — with no further download attempt in the logs to point at the cause.
+
+**Recovery:** on the model-cache PVC, delete `complete.<version>` plus any partial `*.tar.gz.part.*` artifacts and a stale `downloading` lock, then restart the pod — otherwise the skip logic keeps the broken state indefinitely.
+
+Air-gapped options, in order of preference:
+
+1. **Pre-seed the model-cache PVC** — the intended direction, but read the mechanics below before planning it; the chart has no built-in "populate first, then start" hook.
+
+   **Verified mechanics (chart source):**
+   - The `download-model` init container **always renders**. Each inference helper `mergeOverwrite`s **non-empty** PVC defaults, so the `pvc` block is never empty and the container cannot be switched off by omitting it.
+   - The chart **creates the claim itself** (`kind: PersistentVolumeClaim`) and mounts it by `claimName`. Defaults: **`layout-model` (20Gi)**, **`ranker-model` (10Gi)**, **`summary-model` (20Gi)**, with `storageClassName` / `accessModes` from `cluster.pvClass` / `cluster.pvAccessMode`.
+   - **The claim is settable on all three services.** `layout.inference.pvc.*`, `ranker.inference.pvc.*` and `summary.inference.pvc.*` are each schema-valid and accept `name`, `capacity`, `class` and `access`. Each service's inference block sets `additionalProperties: false`, so a misspelled key under `pvc` is rejected by `values.schema.json` rather than ignored.
+   - PVC and Deployment are created **together** — disabling a service (`<svc>.inference.enabled: false`) removes its PVC too, so the chart cannot create the volume without also starting the pod that writes the false marker.
+   - The only skip condition is the marker: the init container skips downloading when `complete.<version>` already exists on the volume.
+
+   **Not yet a supported, verified path.** Because the chart creates the claim and starts the pod in the same install, populating the volume *before* first pod start requires something the chart does not provide — e.g. pre-creating the claim under the exact default name with Helm ownership metadata so `helm install` adopts it rather than failing on a name clash. **Treat that sequence as unverified until it has been proven on a real cluster.** If you install first, expect the poisoned cache in § 6.5 and use the recovery there (delete the marker and partials, populate the volume, restart the pod).
+2. **Intercept the host** — make an in-network mirror answer for `upload.groundx.ai` via internal DNS and a TLS certificate the pods trust.
+3. **Patch/fork the chart** to change the host.
+
+This is a known chart limitation (the host is not parameterized) — track a chart fix separately. Do not tell the operator to "override the URL" through values; no such value exists. `install-flow.md` § 9 places this in the wider install flow.
 
 ## 7. Helm chart distribution
 
@@ -112,15 +142,28 @@ Mirror the chart into a Harbor / Artifactory / ChartMuseum instance inside the a
 
 Before `helm install` in an air-gapped cluster:
 
-1. **Inventory every image the chart's vanilla install pulls.** Run `helm template -f my-values.yaml ./src/groundx | grep 'image:' | sort -u`. Save the list.
+1. **Inventory every image the chart's vanilla install pulls:**
+
+   ```sh
+   helm template -f my-values.yaml ./src/groundx | grep 'image:' | sort -u
+   ```
+
+   Save the list. When `metrics.enabled: true` (not the chart default), the unfiltered render also contains a chart-generated `metrics-tls` private key — redact before sharing the full output; see `references/credentials.md`.
 2. **Add the backing-service operator images** (Percona, MinIO, Strimzi, OpenSearch — each operator's chart has its own image list).
 3. **Add NVIDIA GPU Operator images** (operator itself + driver + device plugin + DCGM exporter, when applicable).
 4. **Add the busybox helper image**.
 5. **Mirror every image to your internal registry.** Verify with `crictl pull` or `docker pull` against the mirror from a node.
 6. **Set `admin.imageRepository`, `cluster.imagePullSecrets`, and per-pod overrides** to reference the mirror.
 7. **Disable external engines** (summary external, Google Cloud Vision OCR).
-8. **Run `helm template -f my-values.yaml ./src/groundx`** locally and grep for any remaining external references (`grep -E 'cgr.dev|public.ecr|nvcr.io|googleapis|amazonaws|openai'`). Any hits are leaks to be patched.
-9. **Install.** `helm install groundx /path/to/chart.tgz -n eyelevel -f my-values.yaml`.
+8. **Stage model weights.** Populate each inference service's model-cache PVC (the chart-created `layout-model` / `ranker-model` / `summary-model` claims) with the extracted weights and the `complete.<version>` marker, or stand up the `upload.groundx.ai` intercept — § 6.5. Use the **service-specific** mechanics there rather than assuming one shared volume: each service gets its own claim, with its own default name and size (§ 6.5). Note § 6.5's caveat that populating the volume *before* first pod start is not yet a verified path. Skipping this does **not** block the pods — the init container still exits 0 and every inference pod starts with a poisoned, empty model cache that later replicas inherit (§ 6.5).
+9. **Grep the render for any remaining external references:**
+
+   ```sh
+   helm template -f my-values.yaml ./src/groundx | grep -E 'cgr.dev|public.ecr|nvcr.io|googleapis|amazonaws|openai'
+   ```
+
+   Any hits are leaks to be patched. When `metrics.enabled: true` (not the chart default), the unfiltered render contains a chart-generated `metrics-tls` private key — redact before sharing the full output; see `references/credentials.md`.
+10. **Install.** `helm install groundx /path/to/chart.tgz -n eyelevel -f my-values.yaml`.
 
 ## 9. Runtime egress verification
 
@@ -177,6 +220,7 @@ See `upgrades.md` for the general upgrade flow; air-gapped just adds the mirror-
 | `summary.existing.url: https://api.openai.com/v1` in an air-gapped cluster | Pod can't reach the URL; summary calls fail. Use self-hosted summary inference. |
 | `layout.ocr.type: google` in an air-gapped cluster | Pod can't reach `vision.googleapis.com`; OCR calls fail. Use Tesseract (the chart default). |
 | `admin.imageRepository` unset in an air-gapped cluster | All chart pods try to pull from `public.ecr.aws/c9r4x6y5` — fail. Must override. |
+| No model-weight staging in an air-gapped cluster | `download-model` init containers cannot reach the hardcoded `upload.groundx.ai` host, but they still exit 0 after writing a false `complete.<version>` marker; inference pods start with an empty cache and later replicas skip the download entirely. Pre-seed the model-cache PVC or intercept the host (§ 6.5). |
 | `cluster.imagePullSecrets` empty in an air-gapped cluster | If the mirror requires auth, all pulls fail. Provision the secret and reference it. |
 | Updates / patches | Each upgrade requires the mirror-and-transfer cycle (§ 10). Budget operational time accordingly. |
 

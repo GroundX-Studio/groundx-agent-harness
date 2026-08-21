@@ -269,8 +269,11 @@ to any request that uses that step engine, regardless of whether the step proces
 document, section, chunk, or custom output. Page images and crop images share one
 combined request-wide count. GroundX removes earlier images first and preserves all
 text when reduction is needed, so later crops survive in the current summary layout.
-If omitted, the workflow adds no image-count cap. GroundX may still enforce a lower
-platform limit for the exact provider route.
+Normal engine precedence selects one value: application config seeds defaults, workflow
+engines supersede config, and an authored step engine supersedes its workflow engine
+default. No separate route-specific image-count value overrides the selected engine. If
+the selected engine omits `maxImages`, no image-count cap applies. The independent
+`openai-base64` serialized request-size guard may still remove images by byte size.
 
 The canonical `service` values (those listed in the SDK's `WorkflowEngineService`
 literal) are `openai`, `openai-base64`, `azure`, `deep-infra`, and `hosted`. Only

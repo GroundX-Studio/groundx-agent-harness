@@ -28,6 +28,14 @@ The upgrade is idempotent — Helm compares the existing release to the new char
 
 Before running `helm upgrade`:
 
+0. **Confirm this is not a downgrade — do this first.** This is the only path with a deployed version to compare against; `install-flow.md` § 3.5.1 routes every brownfield cluster here, so the check belongs at the top of this list rather than in the fresh-install flow. Using the release and namespace discovered in § 3.5.1:
+
+    The deployed release, its namespace and its chart version all come from the cluster-wide, all-status, paginated, chart-matched `helm list -A --all` search in `install-flow.md` § 3.5.1 — reuse its complete output rather than re-querying here. (It deliberately avoids `helm get metadata`, which needs Helm 3.13 while this skill supports v3.8+.)
+
+    Compare that `Version:` against the version you are about to install — the explicit `--version` pin when upgrading from the `groundx` repo, or `src/groundx/Chart.yaml`'s `version:` (plus the checkout's branch/commit) when upgrading from a local path, where `--version` is silently ignored. See `install-flow.md` § 4.2 for the source-dependent pin rule.
+
+    If the target version is **older** than the deployed version, **stop** — this is a downgrade. The chart provides no downgrade path: schema changes, ConfigMap-driven rollouts and backing-service expectations are all forward-only, and `helm rollback` (§ 6) does not restore PVCs or external backing services. Do not proceed without explicit operator confirmation naming the two versions.
+
 1. **Diff the schema.** Compare `helm/values.schema.json` between the current and target chart versions:
 
     ```sh
@@ -38,7 +46,7 @@ Before running `helm upgrade`:
 
 2. **Diff the per-microservice defaults.** Compare `src/groundx/values.yaml` between versions. Default replica counts, resource requests, and image tags drive the cluster's resource footprint.
 
-3. **Render the target locally.**
+3. **Render the target locally.** **When `metrics.enabled: true` (not the chart default), both renders below write a chart-generated `metrics-tls` RSA private key to disk** — `rendered.target.yaml` and `rendered.current.yaml` are secret-bearing files, not scratch output. Before running them: gitignore both paths (or work outside the repo), treat them as secret, and delete them once the diff is reviewed. Never paste the render — or the raw diff — into chat, logs, or a PR; see `references/credentials.md` for render-output secret handling.
 
     ```sh
     helm template groundx ./target/src/groundx -f my-values.yaml > rendered.target.yaml
@@ -46,7 +54,44 @@ Before running `helm upgrade`:
     diff rendered.current.yaml rendered.target.yaml | less
     ```
 
-    The diff shows every resource change the upgrade will produce. Review it.
+    The diff shows every resource change the upgrade will produce. Review it, then remove both files:
+
+    ```sh
+    rm -f rendered.current.yaml rendered.target.yaml
+    ```
+
+    **Make the diff deterministic first.** When `metrics.enabled: true`, the chart calls `genCA`/`genSignedCert` on every *local* render (`helm template` is client-side, so its `lookup` of an existing Secret always misses), producing fresh key material each time. Two renders of an identical chart therefore differ, and the `metrics-tls` Secret shows as changed on every upgrade diff — noise that can hide a real change. With `metrics.enabled: false` — the default — no `metrics-tls` Secret is rendered at all and the diff is already deterministic.
+
+    Two ways to make it deterministic when metrics *is* enabled. The first is to exclude the Secret's whole YAML document before comparing:
+
+    ```sh
+    # Drop the "metrics-tls" Secret document — and only that document — from a rendered stream.
+    # Must be document-level: the Deployment references metrics-tls by name in its volumes, and
+    # a line-oriented filter either leaves the key behind or deletes documents you need.
+    drop_metrics_tls() {
+      awk '
+        function flush() {
+          if (n > 0 && !(isSecret && hasName)) for (i = 1; i <= n; i++) print buf[i]
+          n = 0; isSecret = 0; hasName = 0
+        }
+        /^---[[:space:]]*$/                                           { flush(); buf[++n] = $0; next }
+        /^kind:[[:space:]]*Secret[[:space:]]*$/                       { isSecret = 1 }
+        /^[[:space:]]+name:[[:space:]]*"?metrics-tls"?[[:space:]]*$/  { hasName = 1 }
+                                                                      { buf[++n] = $0 }
+        END { flush() }
+      ' "$1"
+    }
+
+    drop_metrics_tls rendered.current.yaml
+    ```
+
+    Then compare the filtered streams: `diff <(drop_metrics_tls rendered.current.yaml) <(drop_metrics_tls rendered.target.yaml)`. Only `awk` is required, so this works on an air-gapped host with no extra tooling.
+
+    **Do not reach for a line-oriented filter here.** `grep -v -A20 'name: "metrics-tls"'` looks like it drops the match and the twenty lines after it; it removes nothing at all. `-v` selects every *non*-matching line, and `-A20` then prints twenty lines of trailing *context* after those selected lines — which re-admits the Secret, `tls.key` included. `-A` only ever adds lines to output. `scripts/tests/test-doc-shell-commands.mjs` executes the filter published above against a fixture render and asserts the Secret document and `tls.key` are gone while every unrelated document survives.
+
+    The second way is to set **`metrics.useExisting: true`** in the values used for both renders — client-side this suppresses the generated key material (the `metrics-tls` Secret renders with an empty `data:` block, identically every time), making the diff deterministic.
+
+    Use `metrics.useExisting: true` only when an existing `metrics-tls` Secret is actually present in the target namespace. It does **not** switch to an external collector or skip the metrics microservice: the Deployment, Service, and APIService still render. For an offline diff, it makes the Secret data empty because `lookup` cannot see the cluster; prefer the exclusion filter above so the diff does not depend on that cluster-only lookup behavior.
 
 4. **Confirm backing-service compatibility.** If the new chart version expects a newer Percona / MinIO / OpenSearch / Strimzi version, upgrade those *first* (or simultaneously) — the chart doesn't strictly enforce backing-service versions, but mismatches surface as runtime errors.
 
@@ -142,6 +187,8 @@ helm upgrade --dry-run groundx ./src/groundx \
 Helm renders the chart and runs the same client-side validation as `helm install`, but doesn't talk to the cluster. Useful for catching schema-rejection errors before the real upgrade window.
 
 `helm template` is similar but skips even Helm-server-side validation. Use `--dry-run` for upgrade verification; use `helm template` for static rendering / diff workflows.
+
+**The rendered output can be secret-bearing.** When `metrics.enabled: true` (not the chart default), both `helm upgrade --dry-run` and `helm template` render the chart's generated `metrics-tls` RSA private key in cleartext, regardless of which credential pattern the input values use. Never paste raw render output into chat, logs, or a PR — redact the Secret `data`/`stringData` fields or save the full render to a local gitignored file treated as secret; see `references/credentials.md` for the same handling applied to the secret companion file.
 
 ## 8. Zero-downtime upgrade considerations
 

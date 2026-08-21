@@ -18,6 +18,7 @@ flowchart TB
     end
 
     LLM3P>"3rd-party LLM<br/>OpenAI / Azure / DeepInfra<br/>when summary.serviceType is set"]
+    Bedrock>"AWS Bedrock<br/>when an extraction workflow<br/>selects service: bedrock"]
 
     subgraph K8s["Kubernetes Cluster — values.yaml selects backing services and deployment target (AWS · Azure · Red Hat OpenShift · generic on-prem · minikube · air-gapped)"]
         APIH["<b>groundx</b><br/>API Handler"]
@@ -86,6 +87,7 @@ flowchart TB
     %% Extraction branch (opt-in, dashed)
     Pre -.->|"API (when extraction enabled)"| ExtAPI
     ExtAPI -.-> ExtSteps
+    ExtSteps -.->|"Chat Completions (opt-in)"| Bedrock
     ExtSteps -.->|"API callback"| LayHook
 
     %% Process (terminal)
@@ -115,14 +117,14 @@ flowchart TB
     class SumStack,RankInf gpu;
     class APIH,Upload,Queue,Pre,Proc,LayAPI,LayHook,SumClient,RankAPI,Metrics,WSAPI cpu;
     class DB,OS,FS store;
-    class LLM3P external;
+    class LLM3P,Bedrock external;
 ```
 
 **Reading the diagram (arrow vocabulary):**
 
 - **External clients** (top of the diagram): SDKs (`groundx-python`, `groundx-typescript`, both Fern-generated from `openapi.yml`), the **Studio Harness** (skills / scaffolds / widgets / workflow infra — the major adoption surface above GroundX), three company-owned frontends (EyeLevel SSP, GroundX Dashboard, FraudX — customer + partner API access), and dozens of customer-built frontends (customer API only). All external clients converge on the **`groundx`** pod — it's the single ingress for both customer-tier and partner-tier APIs.
 - **Solid arrows** are default paths every deployment runs.
-- **Dashed arrows** are opt-in / conditional / intermediate — the Extract microservice (`values.yaml` + per-workflow YAML), the 3rd-party LLM (when `summary.serviceType` is set), the workspace runner (Workspace facade routing through `groundx`, not part of ingest), intermediate-artifact writes to File Storage during layout / summary / pre-process steps, and the metrics scrape.
+- **Dashed arrows** are opt-in / conditional / intermediate — the Extract microservice (`values.yaml` + per-workflow YAML), its Bedrock provider when selected by a workflow, the 3rd-party summary LLM (when `summary.serviceType` is set), the workspace runner (Workspace facade routing through `groundx`, not part of ingest), intermediate-artifact writes to File Storage during layout / summary / pre-process steps, and the metrics scrape.
 - Each edge is labeled with its **communication mechanism**: `Queue` (Celery queue between major pipeline pods), `API` (HTTP call), `Celery` (intra-subsystem task chain — shown inside subgraphs), `API callback` (HTTP callback).
 - **GPU pods** are red-tinted: `layout-inference` (inside the layout subgraph — the fine-tuned vision model), `summary-inference` (inside the self-hosted summary stack), `ranker-inference` (inside the ranker pair). These three are the dominant cost driver.
 - **Backing-service alternatives** (Kafka or SQS; MinIO or S3; MySQL or RDS) are listed inside the data-store nodes. `values.yaml` selects which backing service each component talks to per deployment.
@@ -153,6 +155,7 @@ The arrow labels in the diagram are intentionally specific. This matrix is the c
 | `summary-client` | `pre-process` | Queue | Callback after summary completes |
 | `summary-api` | `summary-inference` | Celery tasks | — |
 | `extract-api` | extract sub-pods | Celery tasks | Intra-pipeline orchestration |
+| extract agents | AWS Bedrock | API | Only when the workflow engine selects `service: bedrock`; sends prompts and AWS S3 page-image references |
 | extract (final) | `layoutWebhook` | API callback | NOT back to `groundx` — calls `layoutWebhook` which then enqueues to `pre-process` |
 | layout sub-pods | File Storage | Writes | Intermediate artifacts (page images, OCR text, detection results, mapped layouts) |
 | `summary-client` | File Storage | Writes | Summary intermediate artifacts |
@@ -321,7 +324,7 @@ Does not participate in the ingest / search / extract flows. See `workspace-arch
 
 ### 4.6 Security / compliance altitude
 
-The topology keeps the primary trust boundary visible: external callers enter through `groundx`, Workspace facade operations route from `groundx` to `workspace-api`, and optional external services cross the boundary only when configured (`summary.serviceType` for a 3rd-party LLM, `gcv.json` for Google Cloud Vision). Customer isolation and partner blast radius are not inferred from this diagram alone; use `identity-and-trust.md`, `multi-tenancy.md`, and `data-residency.md` for the canonical security and compliance framing.
+The topology keeps the primary trust boundary visible: external callers enter through `groundx`, Workspace facade operations route from `groundx` to `workspace-api`, and optional external services cross the boundary only when configured (`summary.serviceType` for a 3rd-party summary LLM, `service: bedrock` for an extraction workflow, `gcv.json` for Google Cloud Vision). Customer isolation and partner blast radius are not inferred from this diagram alone; use `identity-and-trust.md`, `multi-tenancy.md`, and `data-residency.md` for the canonical security and compliance framing.
 
 ### 4.7 Operations / SRE altitude
 

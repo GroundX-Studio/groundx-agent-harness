@@ -16,7 +16,12 @@ There is **no customer-facing model selection** — model versions are not expos
 
 Three architectural ideas shape the AI/ML lifecycle:
 
-**Models are versioned S3 blobs, not container images.** The vision-model and re-ranker weights are distributed through file storage with explicit version names. A `config.py` in the inference pod identifies the current target version. On every inference request the pod checks the local copy against the target; if missing or stale, it pulls from S3 before serving. This means a model upgrade is a config change + an S3 upload — not a container image rebuild. (Bundling the model into the container is supported but not the default.)
+**Models are versioned blobs, not container images.** The vision-model and re-ranker weights are distributed through file storage with explicit version names. A `config.py` in the inference pod identifies the current target version. This means a model upgrade is a config change + a blob upload — not a container image rebuild. (Bundling the model into the container is supported but not the default.)
+
+**How the blob reaches the pod differs by deployment — do not generalize one to the other:**
+
+- **Hosted / managed platform:** on every inference request the pod checks the local copy against the target; if missing or stale, it pulls from S3 before serving.
+- **Self-hosted `groundx-on-prem` chart:** fetching happens **once at pod start**, not per request. A `download-model` init container `wget`s the weights from a **hardcoded** `https://upload.groundx.ai/...` URL and extracts them into a shared model-cache PVC; the host is not a values.yaml field. For the operator-facing mechanics, failure modes and air-gap handling, route to the `groundx-on-prem` skill (`references/air-gapped.md` § 6.5).
 
 **Continuous-learning annotation is opt-in per customer.** Customers must opt in (governed by Terms of Service) for their documents to enter the annotation pipeline. For opted-in customers, a microservice in front of Label Studio consumes the annotation queue, creates per-bucket Label Studio projects, pre-loads each document with the current vision model's annotations, and waits for a human to correct them. The corrected annotations become the next round's fine-tuning data. This is a **background path** — it doesn't block ingest; the document proceeds through the pipeline while the annotation work happens out-of-band. Historically only opted-in customers have flowed through this pipeline.
 
@@ -39,10 +44,12 @@ ml-models-training repo → eval against held-out test set → S3 (versioned blo
                                                               ↓
                                               layout-inference / ranker-inference pod
                                                               ↓
-                                              check local copy → pull from S3 if missing/stale
+                                              check local copy → pull from S3 if missing/stale   (hosted)
                                                               ↓
                                                        serve inference request
 ```
+
+The `check local copy → pull from S3` step above is the **hosted / managed platform** flow (per-request lazy fetch). The self-hosted `groundx-on-prem` chart fetches once at pod start from a hardcoded host, not per request — see the deployment split earlier in this file and the `groundx-on-prem` skill. Do not read the diagram as the on-prem flow.
 
 The training pipeline (`ml-models-training`) and the annotation pipeline (Label Studio + microservice) are **separate from the GroundX production cluster** — they're support infrastructure for the lifecycle, not part of ingest / search / extraction.
 
@@ -54,9 +61,12 @@ The training pipeline (`ml-models-training`) and the annotation pipeline (Label 
 | --- | --- |
 | Model storage | S3, versioned by name |
 | Target version | `config.py` in each inference pod (`layout-inference`, `ranker-inference`) |
-| Distribution at startup | Pod init checks shared disk space for the target version; pulls from S3 if missing |
-| Distribution at runtime | On every inference request, the pod re-checks local vs target; pulls if updated |
-| Concurrent-download handling | Not explicitly hardened today — if multiple pods discover a new version simultaneously, all may attempt the download in parallel. **Potential performance enhancement.** |
+| Distribution at startup (hosted) | Pod init checks shared disk space for the target version; pulls from S3 if missing |
+| Distribution at startup (on-prem chart) | A `download-model` init container `wget`s the hardcoded `upload.groundx.ai` URL into a shared model-cache PVC, and skips when a `complete.<version>` marker is already present |
+| Distribution at runtime (hosted) | On every inference request, the pod re-checks local vs target; pulls if updated |
+| Distribution at runtime (on-prem chart) | No per-request re-check — the fetch is init-time only |
+| Concurrent-download handling (hosted) | Not explicitly hardened today — if multiple pods discover a new version simultaneously, all may attempt the download in parallel. **Potential performance enhancement.** |
+| Concurrent-download handling (on-prem chart) | Coordinated on the shared PVC: a `downloading` lock file, a wait loop for other replicas, and a `complete.<version>` completion marker |
 | Container bundling | Supported but not the default; default containers expect the S3 + shared-disk pattern |
 
 ### 5.2 Annotation pipeline (continuous learning)
@@ -103,7 +113,7 @@ A model upgrade is:
 
 1. New version trained → uploaded to S3 with a new version name.
 2. `config.py` in the inference pods updated to point at the new version.
-3. Pods pick up the new version on the next inference request (per § 5.1).
+3. **Hosted / managed platform:** pods pick up the new version on the next inference request (per § 5.1). **Self-hosted `groundx-on-prem` chart:** weights are fetched once at pod start, so a rollout does not take effect until the inference pods are restarted (rolling-restart the deployment after updating `config.py` / the target version).
 
 Customers don't pin to specific versions — the cluster runs whatever the current `config.py` target is. Existing customer documents stay on whatever version processed them at ingest time; new documents get the new version.
 
@@ -119,7 +129,7 @@ For the trust-boundary inventory and the no-3rd-party-LLM-on-search invariant se
 
 ## 7. Operations / SRE altitude
 
-The inference pods are responsible for their own model bootstrap (check local, pull from S3 on miss/stale). Concurrent-download contention is not specifically hardened today; multiple pods discovering a new version simultaneously may all attempt the download. For the broader observability framing see `observability.md`. For the metrics pod and per-inference-pod TPM signals see `overview.md` § 4.7.
+The inference pods are responsible for their own model bootstrap. On the **hosted / managed platform** that means check-local-then-pull-from-S3 on miss or stale, and concurrent-download contention is not specifically hardened today; multiple pods discovering a new version simultaneously may all attempt the download. The self-hosted **`groundx-on-prem` chart** instead coordinates replicas on the shared model-cache PVC (`downloading` lock file, wait loop, `complete.<version>` marker) — note the operational caveat that a failed download still writes that marker, which poisons the cache for later replicas (`groundx-on-prem` → `references/air-gapped.md` § 6.5). For the broader observability framing see `observability.md`. For the metrics pod and per-inference-pod TPM signals see `overview.md` § 4.7.
 
 ## 8. Data architecture altitude
 

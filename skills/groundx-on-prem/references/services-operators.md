@@ -190,6 +190,7 @@ Once the operator is ready (the `Kafka` CRD must be registered):
 ```sh
 helm install groundx-kafka-cluster \
   groundx/groundx-strimzi-kafka-cluster \
+  --version 0.1.1 \
   -n eyelevel
 ```
 

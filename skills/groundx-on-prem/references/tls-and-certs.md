@@ -1,19 +1,19 @@
 # TLS, Certificates, and Custom CAs
 
-This file documents **how TLS and certificates fit into a GroundX deployment** — the four trust surfaces (cluster-wide TLS, ingress TLS, backing-service TLS, OpenShift Route TLS), the values.yaml fields that control them, the cert-manager / Let's Encrypt / custom-CA wiring patterns, and the rotation story for each.
+This file documents **how TLS and certificates fit into a GroundX deployment**: ingress TLS, backing-service TLS, OpenShift Route TLS, and the inert cluster-wide schema field.
 
-The chart **does not** own the TLS authoring lifecycle. It only consumes references to TLS Secrets the deployer (or cert-manager) provisions. This file describes the prereqs the deployer is responsible for.
+The chart **does not** own the TLS authoring lifecycle. It exposes per-Ingress TLS references and selected backing-service trust values, but no cluster-wide certificate or general CA-bundle mount. This file describes the prereqs the deployer is responsible for.
 
 For backing-service-specific TLS details (DB root CAs, OpenSearch certs), route to `services-prereqs.md` and `values-yaml.md` § 4. For the Secret-handling patterns that hold TLS material, route to `credentials.md` § 8.
 
-## 1. The four TLS surfaces
+## 1. TLS surfaces
 
 A GroundX deployment touches TLS in four distinct ways. The same `tls` word means different things at each surface.
 
 | Surface | What it protects | Who provisions the cert | Field path |
 | --- | --- | --- | --- |
 | **1. Ingress TLS** | External-client → cluster traffic. The TLS terminates at the ingress controller (ALB / NGINX / AKS AGIC). | Deployer (or cert-manager) provisions the cert Secret. The Ingress controller references it. | `<microservice>.ingress.tls[]` per chart-ingress block. |
-| **2. Cluster-wide / in-cluster TLS** | Service-to-service inside the cluster. Some microservices mount a TLS cert for HTTPS endpoints (admin / metrics surfaces). | Deployer (or cert-manager) provisions a single shared `kubernetes.io/tls` Secret. The chart references it cluster-wide. | `cluster.tls.existingSecret` |
+| **2. Cluster-wide / in-cluster TLS** | Service-to-service inside the cluster. | Chart 0.2.7 has no supported cluster-wide TLS switch. Use a service mesh or another customer-controlled network layer. | `cluster.tls.existingSecret` is accepted by the schema but does not change rendered resources or mount a Secret. |
 | **3. Backing-service TLS** | The application's outbound connection to the relational DB / OpenSearch / Redis / Kafka / object store. The cert lives outside the chart (in the backing service). | The backing-service operator or cloud provider (AWS RDS, Azure Database for MySQL, AWS OpenSearch). | `db.existing.rootCerts` / `db.rootCerts` / per-service equivalents. |
 | **4. OpenShift Route TLS** | External traffic via OpenShift `Route` resources instead of standard `Ingress`. The chart auto-terminates at edge with `insecureEdgeTerminationPolicy: Redirect`. | OpenShift's certificate-management story (typically OpenShift's auto-managed router cert, optionally cert-manager). | Implicit — set `<microservice>.serviceType: Route` and the chart emits the Route with TLS termination. |
 
@@ -96,38 +96,18 @@ groundx:
 
 No `tls:` block needed in this case; the ACM cert is attached at the AWS layer.
 
-## 3. Surface 2 — Cluster-wide / in-cluster TLS
+## 3. Surface 2: Cluster-wide / in-cluster TLS
 
-The chart exposes a single hook for cluster-wide in-cluster TLS:
+Chart 0.2.7 accepts `cluster.tls.existingSecret` in the schema, but no template reads it. No workload mounts the named Secret, and setting it does not change rendered resources.
 
-```yaml
-cluster:
-  tls:
-    existingSecret: <kubernetes.io/tls-secret-name>
-```
-
-The referenced Secret carries `tls.crt` + `tls.key` and is consumed by chart-managed microservices that expose admin / metrics / internal HTTPS surfaces. The Secret must already exist before the chart is installed.
-
-**When to set it:**
-
-- The cluster's compliance posture requires in-cluster TLS for service-to-service traffic (FedRAMP, certain SOC2 readings).
-- An internal service-mesh (Istio, Linkerd) is *not* in use to provide mTLS at the mesh layer.
-
-**When to leave unset:**
-
-- The cluster relies on a service mesh for mTLS (the mesh handles certs separately).
-- The deployment is dev / staging and in-cluster TLS isn't required.
-
-### 3.1 Provisioning the cluster TLS Secret
-
-Same three patterns as § 2: cert-manager + public CA, cert-manager + private CA, or static manual issuance. The cert must have a SAN that covers the relevant in-cluster DNS names (e.g., `*.eyelevel.svc.cluster.local`) or use a long-lived internal CA whose cert is trusted by every chart-managed pod.
+Do not use this field to satisfy an in-cluster TLS requirement. Enforce service-to-service TLS with a service mesh, API gateway, or another customer-controlled network layer. Configure ingress and backing-service trust through their supported fields in §§ 2 and 4.
 
 ### 3.2 Custom CA bundle
 
 If the cluster uses a custom CA that issues *external* certs (e.g., a corporate Vault PKI), GroundX pods may need to trust that CA for outbound calls (to backing services, LLM endpoints, etc.). The chart does not have a single `customCABundle` field — instead:
 
 - For DB outbound TLS: set `db.existing.rootCerts` to the PEM bundle (see § 4.1).
-- For other outbound destinations: mount the CA bundle into pods via a Kubernetes ConfigMap + `cluster.secrets`-referenced mount, or use a node-level cert truststore (the deployer's responsibility).
+- For other outbound destinations: chart 0.2.7 has no general CA-bundle mount. Use certificates already trusted by the workload image, a service mesh or proxy, or a reviewed chart change.
 
 ## 4. Surface 3 — Backing-service TLS
 
@@ -163,7 +143,7 @@ For bundled in-cluster Percona (Mode 2), the chart's `db.rootCerts` top-level fi
 When OpenSearch is external (Mode 1 / Mode 3) and uses HTTPS:
 
 - The chart connects via `search.existing.url` (HTTPS URL).
-- For self-signed / custom-CA OpenSearch, the deployer mounts the CA bundle into the application pods via `cluster.secrets`-referenced Secret. The application reads the bundle as a trust anchor.
+- Chart 0.2.7 has no OpenSearch CA-bundle field or general Secret-file mount. A self-signed or private-CA endpoint therefore needs trust supplied outside the current values surface, such as the workload image, a service mesh or proxy, or a reviewed chart change.
 - For AWS OpenSearch managed, the public AWS root CA is already trusted by the chart's pods; no additional setup needed.
 
 ### 4.3 Cache / Redis
@@ -191,7 +171,7 @@ stream:
     port: 9093
 ```
 
-The chart's Kafka client connects with TLS when the broker's port is the TLS port (typically 9093). For mTLS / SASL/SCRAM auth, the deployer mounts the keystore / truststore via `cluster.secrets`-referenced Secret. The chart templates do not consume Kafka-specific env-var names directly; auth flow is handled at the application layer when the mounted material is present.
+The chart's Kafka client connects to the configured broker and port, but chart 0.2.7 has no Kafka keystore, truststore, or general Secret-file mount. Private-CA TLS, mTLS, and SASL/SCRAM therefore require an application-supported environment contract verified separately, a service mesh or proxy, or a reviewed chart change.
 
 For SQS (the alternative queue backend), TLS is implicit (HTTPS endpoint).
 
@@ -228,21 +208,21 @@ spec:
 | --- | --- | --- |
 | Ingress TLS (cert-manager) | Automatic | cert-manager re-issues before expiry; updates the Secret in place. Ingress controllers (NGINX, ALB) pick up the new cert automatically. No pod restart needed. |
 | Ingress TLS (manual) | Deployer | `kubectl create secret tls --dry-run=client -o yaml ... | kubectl apply -f -` to replace the Secret. Ingress controller picks up. |
-| Cluster-wide TLS (`cluster.tls.existingSecret`) | cert-manager or deployer | Update the Secret. Restart pods that mount it: `kubectl rollout restart deployment -n eyelevel`. Chart-managed pods read the cert at startup; running pods don't watch. |
+| Cluster-wide TLS | Customer-controlled network layer | Follow the service mesh or gateway rotation procedure. `cluster.tls.existingSecret` does not mount or rotate certificates. |
 | DB rootCerts | AWS / Azure / GCP (per-provider rotation) | When the cloud provider rotates the root CA (rare, on multi-year cadence), update `db.existing.rootCerts` in values.yaml and re-apply: `helm upgrade --install groundx ./src/groundx -f values.<env>.yaml`. Restart application pods. |
 | OpenShift Route cert | OpenShift router | OpenShift manages the router's wildcard cert. Per-Route certs are deployer-managed. |
-| Backing-service CA bundles | Operator or cloud provider | Update the `cluster.secrets`-referenced Secret containing the bundle. Roll application pods. |
+| Backing-service CA bundles | Operator or cloud provider | Update the supported per-service trust value or the customer-controlled trust layer, then roll affected application pods when that mechanism loads trust at startup. |
 
-**Universal rotation tip:** the chart reads certs at pod startup, not via watch. A cert rotation that doesn't trigger an automatic pod restart needs a manual `kubectl rollout restart` to take effect.
+Ingress-controller-managed Secret rotation follows the controller's behavior. Application trust material supplied through values or a customer-controlled mount generally requires rolling the affected pods unless that mechanism documents live reload.
 
 ## 7. Common mistakes
 
 | Mistake | What goes wrong | Fix |
 | --- | --- | --- |
-| Set `cluster.tls.existingSecret` to a Secret that doesn't exist | Pods fail to start with "Secret not found" | Install the Secret *before* the main chart, via the `groundx-secret` prereq chart or kubectl. |
+| Set `cluster.tls.existingSecret` expecting cluster-wide TLS | The value is accepted but has no rendered effect, leaving the requirement unmet. | Configure a service mesh or another customer-controlled TLS layer. |
 | Use Let's Encrypt with HTTP-01 solver on an internal-only LoadBalancer | ACME challenge can't reach the LB; cert issuance fails. | Switch to DNS-01 solver, or use a private CA via cert-manager. |
 | Forget `db.existing.rootCerts` on RDS with `require_secure_transport=ON` | App pods fail to connect to DB | Set `db.existing.rootCerts` to the RDS root CA PEM (see § 4.1). |
-| Rotate the cert Secret without restarting pods | Pods continue using the old cert | `kubectl rollout restart deployment -n eyelevel` after rotation. |
+| Rotate application trust material without reloading affected pods | Pods can continue using the old trust state | Follow the supplying mechanism's reload procedure; roll the affected deployment when it loads trust only at startup. |
 | Mix Ingress TLS + LoadBalancer TLS termination | TLS double-termination or hostname mismatch | Pick one: either chart `Ingress` with cert references, or cloud LB with ACM/Key Vault cert. Don't both. |
 | Use a wildcard cert with an Ingress that requires SAN matching | TLS handshake fails | Ensure the cert's SAN list includes the chart's exact hostname. |
 | OpenShift Route with custom cert never gets applied | The cert override has to be done via `oc patch route` post-install — the chart doesn't render it. | Apply the Route cert manually after `helm install`. |
@@ -251,7 +231,7 @@ spec:
 ## 8. What this file does not cover
 
 - **Generic cert-manager / Let's Encrypt setup** → consult upstream cert-manager documentation. This file only describes how the chart integrates.
-- **Field-level reference for `cluster.tls.existingSecret`, `<microservice>.ingress.tls[]`, `db.existing.rootCerts`** → `values-yaml.md` § 3 (cluster), § 4.2 (db), § 5.10 (common ingress shape).
+- **Field-level reference for the inert `cluster.tls.existingSecret`, `<microservice>.ingress.tls[]`, and `db.existing.rootCerts`** → `values-yaml.md` § 3 (cluster), § 4.2 (db), § 5.10 (common ingress shape).
 - **Secret-handling patterns that hold TLS material** (Sealed Secrets, ESO, SOPS) → `credentials.md` § 5–§ 8.
 - **OpenShift Route quirks beyond TLS** → `openshift.md`.
 - **NetworkPolicy authoring (which traffic to allow)** → `troubleshooting.md` and `architecture.md` § 4.

@@ -1,6 +1,6 @@
 # Identity & Trust
 
-GroundX's identity model is **intentionally narrow**: a single API-key header (`X-API-Key`) carries both customer-tier and partner-tier credentials; partner-on-behalf-of-customer requests add `X-Customer-Key`; Basic Auth is reserved for the partner-tier login / register flow that issues partner keys. No key rotation, no per-customer RBAC, no SSO. The trust boundary of the deployment is well-defined and crossed only by a small set of explicit configurations (3rd-party LLM, Google Cloud Vision OCR). This file documents the auth surfaces, the trust-boundary shape, and the things that are explicitly *not* part of the model — so downstream skills don't claim them.
+GroundX's identity model is **intentionally narrow**: a single API-key header (`X-API-Key`) carries both customer-tier and partner-tier credentials; partner-on-behalf-of-customer requests add `X-Customer-Key`; Basic Auth is reserved for the partner-tier login / register flow that issues partner keys. No key rotation, no per-customer RBAC, no SSO. The trust boundary of the deployment is well-defined and crossed only by a small set of explicit configurations (hosted summary LLM, external extraction LLM, Google Cloud Vision OCR). This file documents the auth surfaces, the trust-boundary shape, and the things that are explicitly *not* part of the model — so downstream skills don't claim them.
 
 ## 1. Marketing altitude
 
@@ -90,11 +90,12 @@ The `groundx` pod emits a raw log that catalogs every API action. **This is the 
 
 ### 6.2 Trust boundary
 
-The default deployment is **closed** — document content and customer data do not leave the deployment's trust boundary on the ingest, search, or extraction paths. Two configurations cross the boundary:
+The default deployment is **closed** — document content and customer data do not leave the deployment's trust boundary on the ingest, search, or extraction paths. These configurations cross the boundary:
 
 | Crossing | Triggered by | What leaves the deployment |
 | --- | --- | --- |
 | 3rd-party LLM call | `summary.serviceType` set to a hosted engine (`openai`, `azure`, `openai-base64`, `deep-infra`, `eyelevel` pointed at a hosted endpoint) | Document content during the agentic pipeline's LLM calls (per `summary-service.md` § 6 + `agentic-pipeline.md` § 6) |
+| External Bedrock extraction call | An extraction workflow selects `service: bedrock` and the deployment enables the matching extract provider | Extraction prompts and AWS S3 page-image references |
 | Google Cloud Vision OCR | `gcv.json` GCP service account file provided | Page images on every OCR call (per `layout-ocr.md` § 6) |
 
 The bundled-self-hosted summary stack and the customer-hosted-LLM mode both keep document content inside the deployment's trust boundary. The hybrid-search path is **entirely in-cluster** regardless of which summary mode is in use during ingest (per `hybrid-search.md` § 6).

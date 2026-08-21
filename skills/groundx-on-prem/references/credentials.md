@@ -33,7 +33,7 @@ Every credential the chart consumes, grouped by where the application uses it:
 | GitHub App private key | `workspace.github.privateKeyPem` or `workspace.github.privateKeySecret.{name,key}` | GitHub App token-minting key. |
 | GitLab API token | `workspace.gitlab.token` or `workspace.gitlab.tokenSecret.{name,key}` | GitLab API auth. |
 | Image-pull secrets | `cluster.imagePullSecrets` | Pulls private container images (Chainguard, internal mirror). |
-| Cluster-wide TLS cert | `cluster.tls.existingSecret` | In-cluster TLS for service-to-service. References a `kubernetes.io/tls` Secret. |
+| Cluster-wide TLS schema field | `cluster.tls.existingSecret` | Accepted by the schema but inert in chart 0.2.7. It does not mount a Secret or change rendered resources. |
 | Internal API keys (callback, internal-service) | `cluster.validApiKeys` | API keys the chart bakes into the runtime config as recognized credentials. |
 
 For schema-level field-shape detail per credential, see `values-yaml.md`. For the standard env-var names the chart accepts when reading credentials from a mounted Secret (`GROUNDX_*`, `MYSQL_*`, `AWS_*`, `WORKSPACE_RUNNER_TOKEN`, `GITHUB_APP_PRIVATE_KEY_PEM`), see `values-yaml.md` § 8.2.
@@ -96,6 +96,7 @@ The chart sees the merged result; helm treats both files as one values document.
 - Add `*.secret.yaml` to the deployer repo's gitignore at the root.
 - Add a gitleaks-style pre-commit hook to catch accidents.
 - Treat `values.<env>.secret.yaml` like any password file: backed up encrypted, never emailed, never pasted in chat.
+- **The same never-pasted-in-chat handling applies to `helm template` render output.** When `metrics.enabled: true` (not the chart default), the rendered manifest contains a chart-generated `metrics-tls` RSA private key regardless of which credential pattern the deployer chose for the input values — never paste raw render output into logs, PRs, or chat; redact the Secret `data`/`stringData` fields or save the full render to a local gitignored file treated as secret.
 
 **Limitations:** scales poorly past one or two environments — every operator who deploys needs a copy of the file. Use Pattern 3 / 4 / 5 / 6 in production.
 
@@ -132,6 +133,7 @@ Install once, before the main chart:
 
 ```sh
 helm upgrade --install groundx-secret groundx/groundx-secret \
+  --version 0.1.0 \
   -n eyelevel \
   -f values.prod.secret.yaml
 ```
@@ -157,7 +159,7 @@ The chart wires the Secret's env-var-named keys into every pod via `envFrom`. Th
 - `workspace.gitlab.tokenSecret.{name, key}` — names a Secret + key holding the GitLab token (precise key reference).
 - `extract.agent.existingSecret: true` + `extract.agent.secretName: <name>` — looks for the LLM API key.
 - `extract.save.existingSecret: true` + `extract.save.secretName: <name>` — looks for the GCP service account JSON.
-- `cluster.tls.existingSecret: <secret-name>` — references a `kubernetes.io/tls` Secret for in-cluster TLS.
+- `cluster.tls.existingSecret` is not a per-feature Secret reference. It is accepted by the schema but does not mount the named Secret or change rendered resources.
 
 **Chart-auto-materialized workspace Secrets.** When the deployer provides workspace credentials *inline* in values.yaml (rather than via Pattern 3's `existingSecret` / `secretName` references), the chart auto-materializes three separate Secrets:
 
@@ -290,14 +292,14 @@ A real deployment typically mixes patterns. Common production composition:
 
 - **Workload identity** for AWS S3 / SQS access (no credential in values.yaml).
 - **External Secrets Operator** synced from AWS Secrets Manager for: license key, bootstrap admin, LLM API keys, GitHub App private key, MySQL credentials, OpenSearch credentials.
-- **Direct `cluster.tls.existingSecret`** reference for the in-cluster TLS cert installed by cert-manager.
+- **Service-mesh or gateway configuration** for in-cluster TLS. The chart's `cluster.tls.existingSecret` field has no rendered effect.
 - **Per-feature `existingSecret`** fields for workspace runner + extract agent that point at the ESO-synced Secret.
 
 Or for a GitOps deployment:
 
 - **Workload identity** for cloud services.
 - **Sealed Secrets** for: license key, admin credentials, LLM API keys.
-- **SOPS** for the cluster TLS cert + GitHub App private key.
+- **SOPS** for supported application credentials and the GitHub App private key. Manage service-mesh or gateway certificates through that system's supported mechanism.
 
 Pick patterns per credential. Don't insist on one pattern across the whole credential surface.
 
@@ -314,7 +316,7 @@ Per credential, the recommended rotation cadence + how to roll without downtime:
 | LLM API keys | Per rotation policy (often quarterly) | Update the Secret. Roll pods. Keep the old key valid in the LLM provider for an overlap window. |
 | GitHub App private key | At GitHub App rotation (rarely) | Update the Secret. Roll workspace pods. GitHub supports keeping two keys valid during rotation. |
 | GitLab token | Per token TTL (often 1 year) | Update the Secret. Roll workspace pods. |
-| Cluster TLS cert | Per cert-manager renewal (90 days typical for Let's Encrypt) | cert-manager updates the Secret automatically. Pods need to pick up the new cert — chart's TLS-aware microservices either watch the Secret or require a restart. |
+| In-cluster TLS cert | Per the service mesh or gateway policy | Use that system's rotation procedure. `cluster.tls.existingSecret` does not distribute the cert. |
 | AWS access keys (when not using IRSA) | Per IAM policy (often 90 days) | Switch to IRSA. If keys are unavoidable, update the Secret + IAM policy together. |
 
 **Universal rotation tip:** the chart reads most credentials at pod startup, not via watch. Rotation requires a pod restart for the new value to take effect. Use a `kubectl rollout restart deployment` per affected microservice to roll cleanly.

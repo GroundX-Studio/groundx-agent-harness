@@ -68,7 +68,7 @@ These are intentional configurations. The chart does not surreptitiously route a
 
 ### 3.4 Always-external (these always cross the cluster boundary)
 
-- **Model-weight downloads.** `layout-inference` and `ranker-inference` pull model blobs from S3 on pod init and when `config.py` targets change. In air-gapped deployments, these blobs must be mirrored locally — see `references/air-gapped.md`.
+- **Model-weight downloads.** At pod init a `download-model` init container `wget`s the weights from a **hardcoded** `https://upload.groundx.ai/...` URL (chart template `templates/app/inference.yaml`) and extracts them into a model-cache PVC; it re-runs when the `config.py` model version changes. The host is **not** a values.yaml field — there is no supported URL override. Air-gapped deployments cannot reach it and must pre-seed the model-cache PVC (or intercept the host) — see `install-flow.md § 9` and `references/air-gapped.md` § 6.5.
 - **Container image pulls.** The chart pulls from whatever registry is configured. Air-gapped deployments mirror images — see `references/air-gapped.md`.
 
 ### 3.5 What does *not* leave the cluster
@@ -92,7 +92,7 @@ For a deployer authoring NetworkPolicy, the practical input map:
 - **Allow egress to the configured summary LLM endpoint** (if `summary.api.enabled: false` + `summary.inference.enabled: false`).
 - **Allow egress to `vision.googleapis.com`** (if `gcv.json` is provided).
 - **Allow egress to the configured git remote** (if `workspace.enabled=true`).
-- **Allow egress to the configured model-weight S3 endpoint** (always).
+- **Allow egress to `upload.groundx.ai`** (always) — the hardcoded model-weight host the init containers `wget` at pod start (not a configurable endpoint). Air-gapped clusters can't allow this and must pre-seed the model-cache PVC instead (`install-flow.md § 9`).
 - **Allow egress to the container image registry** (always, at pod start).
 - **Allow ingress to `groundx` on the configured ingress port** for API traffic.
 - **Deny everything else** by default if the deployer's compliance posture requires it.
