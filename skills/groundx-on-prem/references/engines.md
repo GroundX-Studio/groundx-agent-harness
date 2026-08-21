@@ -175,7 +175,7 @@ If EyeLevel-hosted summary is part of the procurement bundle, the procurement ma
 | `summary.existing.apiKey` set inline | Treat as credential — move to `cluster.secrets`-referenced Secret or ESO. See `credentials.md` § 5–§ 6. |
 | External engine selected | Document content leaves the cluster on every summary call. Audit NetworkPolicy egress for the chosen endpoint. Update `groundx-architecture/references/data-residency.md` posture. |
 | No GPU available in the cluster | Forces external engine. Self-hosted Gemma 3 is not viable. (CPU fallback for the summary inference path is not architecturally supported.) |
-| Self-hosted + want HPA | `summary.inference.replicas.{max, hpa, threshold, throughput}` tuned. Each replica needs its own GPU. |
+| Self-hosted + want HPA | Enable `cluster.hpa` and `metrics.enabled`, then tune `summary.inference.replicas.{min,max}` and `throughput.services.summary.{api,inference}`. Each replica needs its own GPU. |
 
 ## 5. Workload identity does NOT cover this
 
@@ -224,7 +224,37 @@ The two-axis decision most deployments face:
 - **Bottom-right (external):** public cloud, non-regulated. API tokens are the cost. Don't run a 24/7 GPU unless throughput warrants.
 - The middle area (mixed regulated workload, partially open trust boundary): unusual. Most deployments cleanly belong to one quadrant.
 
-## 8. What this file does not cover
+## 8. External Bedrock extraction
+
+Bedrock is a per-workflow extraction provider, separate from the install-time summary engine. Configure the extract runtime and AWS S3 storage once, then select `service: bedrock` only in workflows that should use it:
+
+```yaml
+file:
+  enabled: false
+  bucketName: <bucket-name>
+  existing:
+    serviceType: s3
+    url: https://s3.us-west-2.amazonaws.com
+    region: us-west-2
+
+extract:
+  enabled: true
+  agent:
+    enabled: true
+    serviceType: bedrock
+    apiBaseUrl: https://bedrock-mantle.us-west-2.api.aws/openai/v1
+    modelId: google.gemma-4-31b
+    existingSecret: true
+    secretName: <extract-agent-secret>
+```
+
+The chart validates that Bedrock has an endpoint, model, API-key source, and S3 file storage. At runtime, the extract agent uses S3 references when the effective request service is Bedrock. Non-Bedrock requests keep their configured image transport. Internal page-image URLs are converted to references in the effective S3 bucket. Existing valid `s3://` references pass through, including references to another bucket.
+
+Allow outbound HTTPS to the configured Bedrock endpoint. The AWS identity behind the Bedrock request must be able to read every referenced object. For a Bedrock API key, grant that access to the IAM principal behind the key. A cross-account bucket also needs a bucket policy. A customer-managed KMS key also needs decrypt permission.
+
+This does not change the default. Extraction remains opt-in, and non-Bedrock workflows keep their current provider and image transport.
+
+## 9. What this file does not cover
 
 - **Field-by-field schema for `summary.*` fields** → `values-yaml.md` § 5.5.
 - **Discovery questionnaire that surfaces this decision at install time** → `values-authoring.md` § 3.4.

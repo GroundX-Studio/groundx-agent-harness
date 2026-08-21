@@ -138,7 +138,7 @@ Customers needing a guarantee that audit logs are also purged immediately on del
 
 ### 6.3 Trust boundary
 
-The cloud-service trust boundary is the us-west-2 GroundX-owned VPC. Data in transit from the customer enters at the API ingress; data at rest lives across the three stores (per `store.md` § 5). External trust-boundary crossings — 3rd-party LLM for summary (configurable), Google Cloud Vision for OCR (configurable per `gcv.json`) — are documented in `identity-and-trust.md` § 6.2.
+The cloud-service trust boundary is the us-west-2 GroundX-owned VPC. Data in transit from the customer enters at the API ingress; data at rest lives across the three stores (per `store.md` § 5). Configurable external trust-boundary crossings include 3rd-party LLMs for summary, Bedrock for extraction, and Google Cloud Vision for OCR. They are documented in `identity-and-trust.md` § 6.2.
 
 ## 7. Operations / SRE altitude
 

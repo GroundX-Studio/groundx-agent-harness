@@ -44,7 +44,7 @@ Per-question annotation in § 3 shows: the answer's implication, the exact value
 | Red Hat OpenShift | OpenShift Route for ingress (not standard `Ingress` resource); OpenShift Container Storage or external CSI for storage; SCC constraints affect Chainguard image fit. | `cluster.type: openshift`. Often paired with `serviceType: Route` on exposed microservices. |
 | Generic Kubernetes (on-prem) | Deployer-supplied ingress controller; deployer-supplied StorageClass; no workload-identity defaults; usually paired with operator-deployed-dedicated backing services. | `cluster.type: ""` or unset. |
 | Minikube / kind (dev) | Single-node; everything bundled; GPU usually unavailable; ingress via `minikube tunnel` or NodePort. | `cluster.type: minikube`. |
-| Air-gapped on-prem | Same as generic Kubernetes plus image-registry mirroring, model-weight mirroring, NVIDIA GPU Operator offline install. | `cluster.type: ""` plus `cluster.imagePullSecrets` for mirror, plus per-microservice `image` overrides. |
+| Air-gapped on-prem | Same as generic Kubernetes plus image-registry mirroring, getting the model weights on-cluster, and an NVIDIA GPU Operator offline install. **Model-weight mirroring is not the same shape as image mirroring:** the fetch host is hardcoded and there is **no values-based source override**, so the options are pre-seeding the model-cache PVC (not a chart-supported sequence — see `references/air-gapped.md` § 6.5), intercepting `upload.groundx.ai` with internal DNS and trusted TLS, or patching the chart. | `cluster.type: ""` plus `cluster.imagePullSecrets` for mirror, plus per-microservice `image` overrides. Nothing configures the weight source. |
 
 **Cross-field implications:** Platform choice cascades into § 3.7 (security: Chainguard images often paired with OpenShift / on-prem), § 3.8 (identity: IRSA only on EKS, Workload Identity on AKS / GKE), and § 3.11 (node-group scheme: defaults assume EKS-style labels).
 
@@ -69,11 +69,11 @@ Per-question annotation in § 3 shows: the answer's implication, the exact value
 | --- | --- | --- |
 | Yes, 24 GB+ per GPU available, multiple GPUs | Self-hosted summary stack is viable. Layout, ranker, and summary inference all run on GPU. | No specific field; informs § 3.4. |
 | Yes, smaller GPUs (e.g., T4 16 GB) | Self-hosted summary stack is **not** viable at default sizing (Gemma 3 needs 24 GB). Layout and ranker can still run. | Forces § 3.4 to "external LLM". |
-| No GPUs available | Forces all inference to external services. Significant cost-and-trust-boundary implications. | Forces § 3.4 to "external LLM"; `summary.api.enabled: false`, `summary.inference.enabled: false`. `layout.inference.deviceType: cpu` required, with the caveat that it is degraded performance. `ranker.inference` is not architecturally supported on CPU for production. |
+| No GPUs available | Forces all inference to external services. Significant cost-and-trust-boundary implications. | Forces § 3.4 to "external LLM"; `summary.api.enabled: false`, `summary.inference.enabled: false`. layout must be moved to CPU via the **two-part** change in § 3.11 (`layout.inference.deviceType: cpu` **plus** retargeting off `eyelevel-gpu-layout`) — `deviceType` alone leaves the pod on the GPU node group, and performance is degraded. `ranker.inference` is not architecturally supported on CPU for production. |
 
 **Cross-field implications:** No GPUs → forced external summary + degraded layout + unsupported ranker. The agent should surface this trade-off explicitly to the user before continuing.
 
-**Gotchas:** A100 / H100 with MIG partitioning is fine but the deployer must set `cluster.hasMig: true` to signal MIG scheduling. Spot instances are not recommended for the inference tier — pre-emption mid-extraction loses in-flight work.
+**Gotchas:** `cluster.hasMig` is accepted by the schema in chart 0.2.7 but does not change rendered resources or scheduling. Configure MIG profiles through the NVIDIA operator, then set workload resource keys and placement explicitly. Spot instances are not recommended for the inference tier because pre-emption loses in-flight work.
 
 ### 3.4 Summary engine choice
 
@@ -190,8 +190,8 @@ For each of the five backing services, ask: existing in-house, chart-deployed de
 | --- | --- |
 | None — standard deployment | No fields pinned beyond the chart defaults. |
 | FedRAMP / SOC2-stringent (Chainguard images) | `imageType: chainguard`. Pods run as UID `65532`. Storage classes must permit non-root file ownership. `cluster.imagePullSecrets: [<chainguard-pull-secret>]`. `busybox.image` overridden to a Chainguard variant. |
-| Air-gapped | Image registry mirroring: every microservice `image` field overridden to point at the in-network mirror; `busybox.image` overridden; NVIDIA GPU Operator and ingress controller charts also overridden. Plus model-weight mirroring (out-of-band). |
-| Custom CA / in-cluster TLS | `cluster.tls.existingSecret: <secret-name>` referencing a `kubernetes.io/tls` Secret. May also need `db.existing.rootCerts` for downstream DB connection. |
+| Air-gapped | Image registry mirroring: every microservice `image` field overridden to point at the in-network mirror; `busybox.image` overridden; NVIDIA GPU Operator and ingress controller charts also overridden. The weights are a separate problem — model-weight mirroring has **no values.yaml override** to re-point (unlike the image fields above), so it is handled out-of-band via the options in `references/air-gapped.md` § 6.5. |
+| Custom CA / TLS | Configure each supported surface: `<microservice>.ingress.tls[]` for ingress, `db.existing.rootCerts` for DB trust, and the backing service's own TLS fields. `cluster.tls.existingSecret` is accepted by the schema but does not change rendered resources or mount a Secret. |
 
 **Cross-field implications:** Chainguard + air-gapped often paired (FedRAMP). Custom CA can stack on either.
 
@@ -202,7 +202,7 @@ For each of the five backing services, ask: existing in-house, chart-deployed de
 | Option | Fields pinned |
 | --- | --- |
 | Workload identity (IRSA on EKS, Workload Identity on AKS / GKE) | `serviceAccount.name: <pre-provisioned-sa>`. The ServiceAccount is annotated externally with the IAM role / Workload Identity binding. Credentials in `file.*`, `db.*`, `stream.*` left unset. |
-| Static keys in Kubernetes Secret | Pre-install the Secret via the `groundx-secret` prereq chart. `cluster.secrets: [<secret-name>]`. Credentials read from env vars (`AWS_ACCESS_KEY_ID`, etc.) mounted from the Secret. |
+| Static keys in Kubernetes Secret | Pre-install the Secret via the `groundx-secret` prereq chart. `cluster.secrets: [<secret-name>]`. The chart injects its keys as environment variables through `envFrom`. |
 | Inline in values.yaml | Credentials directly in `db.{username, password}`, `file.{username, password}`, `stream.{key, secret}`, etc. — typically in a `values.<env>.secret.yaml` companion kept out of version control. |
 | Mixed | Common: IRSA for cloud services + Kubernetes-Secret-referenced for tokens (workspace runner, LLM API keys) + inline for low-sensitivity DB credentials. |
 
@@ -217,13 +217,13 @@ For each of the five backing services, ask: existing in-house, chart-deployed de
 | No (default, fixed replicas) | `cluster.hpa: false`. Per-microservice `replicas.desired` used directly. |
 | Yes | `cluster.hpa: true`, `metrics.enabled: true` (required — HPA scales against metrics). Per-microservice `replicas.{min, max, hpa, threshold, throughput}` tuned. Per-microservice `throughput.services.*` targets set. |
 
-**Q:** Is there an existing Prometheus stack to wire a ServiceMonitor against?
+**Q:** Is there an existing Prometheus stack that should scrape GroundX?
 
 | Option | Fields pinned |
 | --- | --- |
-| No | `metrics.serviceMonitor.enabled: false`. |
-| Yes | `metrics.serviceMonitor.enabled: true`. kube-prometheus-stack or equivalent must be pre-installed. |
-| Already running a separate metrics collector | `metrics.useExisting: true`. Skips the chart-deployed metrics microservice. |
+| No | Do not apply a ServiceMonitor. This does not remove the metrics Deployment's ServiceAccount requirement: set `metrics.serviceMonitor.enabled: true` so the chart may create the account, unless the resolved name identifies one that already exists — it resolves from `metrics.serviceAccount.name`, then the global `serviceAccount.name`, then the default `metrics`. The canonical prerequisite chart creates `s3-sqs-worker`, not `metrics`. |
+| Yes | Install kube-prometheus-stack or an equivalent operator, then inspect and apply the separate upstream `monitoring/service-monitor.yaml` manifest. The chart **does not render** that resource. Set `metrics.serviceMonitor.enabled: true` only when the main chart should be allowed to create a missing metrics `ServiceAccount`; the misleadingly named flag controls ServiceAccount creation, not Prometheus registration. |
+| Already running a separate metrics collector | Do **not** disable the chart's metrics microservice for this reason — it is the `external.metrics.k8s.io` HPA adapter, not a duplicate of a general collector. Keep `metrics.enabled: true` whenever HPA is on. `metrics.useExisting: true` does **not** skip it (it only reuses an existing `metrics-tls` Secret); `metrics.enabled: false` is the only switch that removes the microservice, and it leaves HPA with no signal. |
 
 **Cross-field implications:** Enabling HPA without metrics yields autoscalers with no signal — the chart will create HPAs but they have nothing to act on.
 
@@ -242,7 +242,7 @@ If yes → set `licenseKey: <key>` in the secret companion file (or `cluster.sec
 
 ### 3.11 Node-group scheme
 
-**Q:** Does the cluster's node-group labelling match the chart defaults?
+**Required: enumerate before asking.** Before accepting any answer, run `kubectl get nodes -L eyelevel_node` against the target cluster and diff the returned label values against the five expected values below. Do not rely on the operator's self-report alone — a bring-your-own cluster (no Phase-1 Terraform, see `references/install-flow.md § 1`) cannot be assumed to already carry the chart-default node groups.
 
 The chart defaults expect five node-group label values applied to the cluster's nodes under the label key **`eyelevel_node`**:
 - `eyelevel-cpu-only` — general CPU work
@@ -251,12 +251,27 @@ The chart defaults expect five node-group label values applied to the cluster's 
 - `eyelevel-gpu-ranker` — ranker-inference GPUs
 - `eyelevel-gpu-summary` — summary-inference GPUs (only when self-hosted summary)
 
+After running `kubectl get nodes -L eyelevel_node`, reconcile the actual output against the deployment's required node groups (driven by § 3.2 mode and § 3.4 summary engine) before pinning any of these options:
+
 | Option | Fields pinned |
 | --- | --- |
-| Matches chart defaults | No fields pinned. `cluster.nodeLabels` left at defaults. |
-| Different label values, same five categories | `cluster.nodeLabels.{cpuOnly, cpuMemory, gpuLayout, gpuRanker, gpuSummary}` overridden. |
-| Different label key entirely | Per-microservice `nodeSelector` block override (set under each microservice). The chart key `eyelevel_node` itself is not configurable through values.yaml. |
+| Matches chart defaults — all required groups present in the `kubectl get nodes -L eyelevel_node` output | No fields pinned. `cluster.nodeLabels` left at defaults. |
+| Different label values, same five categories — confirmed present via enumeration | `cluster.nodeLabels.{cpuOnly, cpuMemory, gpuLayout, gpuRanker, gpuSummary}` overridden. |
+| Different label key entirely | Per-microservice `affinity` block override (set under each microservice) — it replaces the chart's `nodeAffinity` outright. A `nodeSelector` override alone is **not** sufficient: the chart adds it alongside its required node affinity rather than replacing it, so the pod still demands `eyelevel_node`. The chart key `eyelevel_node` itself is not configurable through values.yaml. |
 | Fewer node groups (e.g., one GPU pool for everything) | Override all five `cluster.nodeLabels.*` to the same value. Acceptable for dev / small deployments; not recommended for production because GPU scaling axes collapse. |
+
+**When one or more required node groups are absent from the enumeration output** (e.g., a deployment needs `eyelevel-gpu-layout` + `eyelevel-gpu-summary` but only `eyelevel-cpu-only` and `eyelevel-gpu-ranker` exist), do **not** accept the matching option or emit a values.yaml that targets the missing group — pods for that microservice would schedule against a non-existent node group and stay `Pending` indefinitely. Instead, surface the gap to the operator and propose an adjustment: degrade the affected microservice (for layout, the two-part CPU change below — `deviceType` alone is **not** sufficient), switch to an external engine (e.g., external summary via `summary.existing.*`), retarget the microservice with its `node:` field to a group that does exist, or have the operator add the missing node groups before proceeding.
+
+**Moving `layout-inference` to CPU — both parts are required.** `deviceType: cpu` is what removes the GPU: the layout helper drops `nvidia.com/gpu` from the rendered `limits` and `requests` when it is set. It does **not** move the pod. The Deployment still carries `eyelevel-gpu-layout` affinity and tolerations, so on a cluster with no GPU nodes the pod stays `Pending`, and on one with GPU nodes it occupies a GPU node it has no reason to hold.
+
+```yaml
+layout:
+  inference:
+    deviceType: cpu            # 1. drops the GPU request and limit
+    node: eyelevel-cpu-memory  # 2. retarget off the GPU node group
+```
+
+The GPU keys do not need to be overridden by hand, and should not be: the helper only strips them when `deviceType` is `cpu`, so a hand-written `resources` block that omits them is both redundant and misleading about what does the work. This handling is layout-only — `ranker` and `summary` keep their GPU requests whatever their `deviceType` says. Confirm with `helm template … | grep nvidia.com/gpu` before installing.
 
 **Cross-field implications:** Do not use the bare label key `node` — it collides with reserved metric labels in Prometheus / Grafana. See `references/node-groups.md` § 1 for the full reasoning.
 
@@ -277,9 +292,11 @@ Five named archetypes. When a deployment matches an archetype exactly, the agent
 - 3.6 Capability toggles → Extract: per deployment. Workspace: per deployment. OCR: Tesseract default.
 - 3.7 Security → Standard (non-Chainguard).
 - 3.8 Identity → IRSA via `serviceAccount.name`.
-- 3.9 HPA + observability → HPA on; ServiceMonitor wired to kube-prometheus-stack.
+- 3.9 HPA + observability → HPA on; the separate upstream ServiceMonitor manifest applied for kube-prometheus-stack.
 - 3.10 License + admin → Procured key + bootstrap admin.
 - 3.11 Node-group scheme → Chart defaults (Terraform-provisioned EKS managed node groups apply the labels).
+
+**Note:** the archetype's pre-canned "Chart defaults" answer for 3.11 still requires running the § 3.11 enumeration/reconciliation step (`kubectl get nodes -L eyelevel_node`) — the archetype shortcuts the dialogue, not the verification. A bring-your-own EKS cluster (no Phase-1 Terraform — `references/install-flow.md § 1` skips Phase 1 for that case) cannot assume its own node groups exist.
 
 **Internal upstream verification reference:** customer-specific values files cover extract + workspace variants. Do not surface those file names in user-facing output unless the user explicitly asks about upstream source files.
 
@@ -313,9 +330,9 @@ Five named archetypes. When a deployment matches an archetype exactly, the agent
 - 3.4 Summary engine → Self-hosted (only legal option in an air-gapped deployment).
 - 3.5 Backing services → All chart-deployed-dedicated (operators pre-installed via OperatorHub or manual).
 - 3.6 Capability toggles → Extract: per deployment; workspace: typically off; OCR: Tesseract (GCV would require external egress).
-- 3.7 Security → Chainguard + air-gapped + custom CA (`cluster.tls.existingSecret`).
+- 3.7 Security → Chainguard + air-gapped + custom CA on each supported ingress and backing-service TLS surface. The chart has no cluster-wide TLS switch.
 - 3.8 Identity → Static keys in Kubernetes Secret via `cluster.secrets`.
-- 3.9 HPA + observability → HPA per deployment; ServiceMonitor wired to OpenShift's user-workload monitoring.
+- 3.9 HPA + observability → HPA per deployment; adapt and apply a separate ServiceMonitor manifest for OpenShift user-workload monitoring when selected.
 - 3.10 License + admin → Procured key + bootstrap admin (in Secret).
 - 3.11 Node-group scheme → OpenShift MachineSets labeled per chart defaults; non-default scheme acceptable if surfaced.
 
@@ -364,9 +381,9 @@ Before producing values.yaml, the agent confirms every item in this checklist:
 6. **§ 3.6.1–§ 3.6.3** each have a single answer. If § 3.6.1 = Yes, the agent has captured at least one engine for the extract agent. If § 3.6.2 = Yes, the agent has captured the git-provider credentials shape. If § 3.6.3 = GCV, the agent has captured the GCP service account JSON path.
 7. **§ 3.7 Security & compliance** has a single answer. If Chainguard, the agent has confirmed the image-pull-secret is configured. If air-gapped, the agent has captured the image-mirror endpoints. If custom CA, the agent has captured the Secret name.
 8. **§ 3.8 Identity** has a single answer. If "Workload identity" or "Static keys in Kubernetes Secret", the agent has captured the ServiceAccount / Secret name.
-9. **§ 3.9 HPA + observability** has an answer pair (HPA yes/no + ServiceMonitor yes/no/useExisting).
+9. **§ 3.9 HPA + observability** has an answer pair (HPA yes/no + existing-Prometheus yes/no). `metrics.useExisting` is not an observability toggle — it only reuses an existing `metrics-tls` Secret and never skips the metrics microservice.
 10. **§ 3.10 License + admin** has an answer pair (license yes/no + bootstrap admin yes/no with credentials).
-11. **§ 3.11 Node-group scheme** has a single answer.
+11. **§ 3.11 Node-group scheme** has a single answer, and that answer has been reconciled against the `kubectl get nodes -L eyelevel_node` output — not merely answered from the operator's self-report.
 
 If any check fails, the agent loops back to § 3 and asks the user to resolve, naming the specific question that lacks an answer. The agent does not emit values.yaml with chart defaults filling in for missing answers.
 
@@ -378,7 +395,7 @@ After the validation gate passes:
    - `values.<env>.yaml` (main configuration, version-controlled).
    - `values.<env>.secret.yaml` (credentials, gitignored) — *or* a reference to a Kubernetes Secret installed via the `groundx-secret` prereq chart.
 2. For each capability block, the agent uses the field shapes from `values-yaml.md` (§ 4 for backing services, § 5 for microservices, § 7 for cross-field implications).
-3. The agent runs `helm template` against the produced values to confirm the chart renders.
+3. The agent runs `helm template` against the produced values to confirm the chart renders. **Warning:** when `metrics.enabled: true` (not the chart default), the rendered output contains a chart-generated `metrics-tls` RSA private key. Do not paste the raw render output into logs, PRs, or chat — redact the Secret `data`/`stringData` fields, or save the full render to a local gitignored file treated as secret. See `references/credentials.md` for the same never-pasted-in-chat handling applied to `values.<env>.secret.yaml`.
 4. The agent hands off to `install-flow.md` for the install ordering.
 
 ## 7. What this file does not cover

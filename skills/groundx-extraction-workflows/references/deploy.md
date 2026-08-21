@@ -113,6 +113,27 @@ send an engine-only custom overlay and omit `prompt`.
 }
 ```
 
+For AWS Bedrock Gemma 4, use the same engine fields:
+
+```json
+{
+  "steps": {
+    "chunk-summary": {
+      "all": {
+        "engine": {
+          "apiKey": "BEDROCK_API_KEY",
+          "baseURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1",
+          "engineID": "google.gemma-4-31b",
+          "service": "bedrock"
+        }
+      }
+    }
+  }
+}
+```
+
+`service: bedrock` is opt-in. It sends every page image as an AWS S3 reference, so the runtime must use S3 file storage that the AWS identity behind the Bedrock request can read. For a Bedrock API key, this is the IAM principal behind the key. Existing `s3://` references pass through. Internal GroundX page URLs are converted to the configured bucket. Inline images, arbitrary HTTPS image URLs, and non-S3 storage are rejected before dispatch. The final serialized provider request may not exceed 3,500,000 bytes. A positive workflow `maxImages` may lower the extract service's image limit but cannot raise it. Keep credentials out of authored workflow files and saved run evidence.
+
 Workflow updates are treated like workflow creates: the payload is the desired
 custom overlay relative to GroundX defaults, not a delta against the currently
 stored custom workflow. Omit a step to return it to defaults. Send a step as

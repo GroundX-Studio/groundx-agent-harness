@@ -1,6 +1,6 @@
 # Monitoring — Prometheus + Grafana + ServiceMonitor
 
-This file documents **how to wire GroundX metrics into a Prometheus + Grafana stack** — what the chart exposes, the ServiceMonitor toggle, the upstream `monitoring/` directory's reference setup (`values.prometheus.yaml`, `service-monitor.yaml`, `groundx-dashboard.json`), and what to scrape vs ignore.
+This file documents **how to wire GroundX metrics into a Prometheus + Grafana stack** — what the chart exposes, the upstream `monitoring/` directory's reference setup (`values.prometheus.yaml`, `service-monitor.yaml`, `groundx-dashboard.json`), and what to scrape vs ignore.
 
 For the autoscaling that consumes these metrics, route to `autoscaling.md`. For per-pod resource sizing visible in metrics, route to `node-groups.md` and `cluster-requirements.md`. For end-to-end observability architecture, route to `groundx-architecture/references/observability.md`.
 
@@ -16,18 +16,24 @@ When `metrics.enabled: true`, the chart deploys a single metrics service pod tha
 
 These are the same metrics the HPA consumes for autoscaling (`autoscaling.md` § 5). With monitoring enabled, the metrics are also available for dashboards.
 
-## 2. Enabling the ServiceMonitor
+## 2. Apply the separate ServiceMonitor manifest
 
-For Prometheus Operator users, the chart can render a `ServiceMonitor` resource that Prometheus discovers automatically:
+The GroundX chart **does not render** a `ServiceMonitor`. For Prometheus Operator users, first enable the chart's metrics endpoint:
 
 ```yaml
 metrics:
   enabled: true
-  serviceMonitor:
-    enabled: true
 ```
 
-When `metrics.serviceMonitor.enabled: true`, the chart renders a `ServiceMonitor` named `metrics` in the install namespace. Prometheus Operator picks it up and starts scraping.
+Then inspect and apply the separate manifest shipped by the upstream repository:
+
+```sh
+kubectl apply -f monitoring/service-monitor.yaml
+```
+
+That manifest creates `groundx-metrics` in the `monitoring` namespace, selects the `app: metrics` Service in `eyelevel`, and scrapes its HTTPS target on port 8443. Adjust its namespaces, release label, selector, and TLS policy before applying it when the deployment differs from those defaults.
+
+The similarly named `metrics.serviceMonitor.enabled` values flag only controls whether the metrics chart template may create a missing metrics `ServiceAccount`: `true` permits creation and `false` suppresses it. It does not register anything with Prometheus. The account name resolves from `metrics.serviceAccount.name`, then the global `serviceAccount.name`, then the default `metrics`. The canonical prerequisite chart creates `s3-sqs-worker`, not `metrics`. Unless the resolved name points to an account that already exists, set this flag to `true` so the chart can create it; otherwise the Deployment references an account that does not exist. This flag is still not a substitute for applying the external ServiceMonitor manifest.
 
 Without ServiceMonitor support (legacy Prometheus, or non-operator deployments), the deployer configures scraping out-of-band against the `metrics.<namespace>.svc.cluster.local:<port>/metrics` endpoint.
 
@@ -57,7 +63,7 @@ helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
   -f monitoring/values.prometheus.yaml
 
 # 3. Apply the ServiceMonitor so Prometheus scrapes GroundX
-kubectl -n monitoring apply -f monitoring/service-monitor.yaml
+kubectl apply -f monitoring/service-monitor.yaml
 
 # 4. Import the dashboard into Grafana (via UI or grafana provisioning)
 ```
@@ -172,7 +178,8 @@ For the architectural framing of alerting, route to `groundx-architecture/refere
 
 | Set this... | …and this is implied or required |
 | --- | --- |
-| `metrics.serviceMonitor.enabled: true` | Prometheus Operator must be installed (i.e., the `monitoring/.../prometheus.servicemonitor` CRD must exist). Otherwise the chart-rendered ServiceMonitor is orphan. |
+| Apply `monitoring/service-monitor.yaml` | Prometheus Operator and the `monitoring.coreos.com/v1` ServiceMonitor CRD must exist. Check the manifest's `monitoring` / `eyelevel` namespaces, `release: monitoring` label, selector, and TLS policy before applying it. |
+| `metrics.serviceMonitor.enabled: true` | Allows the metrics template to create its `ServiceAccount` when absent. It does **not** render a ServiceMonitor or replace the separate manifest step. |
 | `metrics.enabled: false` | No `/metrics` endpoint; HPAs (if any) have no signal; monitoring stack has nothing to scrape. Set both to `true` together for autoscaling-grade observability. |
 | Custom queue names (e.g., `workspace.command.queue: my-q`) | Make sure the metrics service is wired to scrape from your new queue. The chart's metrics-config-rendering aligns this automatically; manual queue renames outside the chart break the link. |
 | Multi-cluster monitoring | The chart doesn't multiplex across clusters. Run a separate Prometheus per cluster, or aggregate via Thanos / Cortex / Mimir at the upper layer. |

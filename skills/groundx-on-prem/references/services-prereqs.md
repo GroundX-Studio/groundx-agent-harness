@@ -36,7 +36,7 @@ The three modes are not mutually exclusive *across services*. A deployer can run
 
 | Aspect | Value |
 | --- | --- |
-| What it holds | Source bytes (uploaded documents), intermediate pipeline artifacts, X-Ray files, model-weight blobs (read-only cache) |
+| What it holds | Source bytes (uploaded documents), intermediate pipeline artifacts, X-Ray files. (Model weights are **not** held here — they are `wget`'d from the hardcoded `upload.groundx.ai` host into a model-cache PVC created **once per inference service** — `layout-model`, `ranker-model`, `summary-model` — and **mounted by every replica** of that Deployment. The volume outlives any single pod, so a failed download's false `complete.<version>` marker poisons the whole service and is **not** cleared by restarting a pod; see `install-flow.md § 9` and `references/air-gapped.md § 6.5`.) |
 | Mode 1 — existing | `file.bucketName` + `file.existing.url` → in-house S3-compatible endpoint with credentials |
 | Mode 2 — operator-deployed | Chart deploys MinIO (with `file.username` + `file.password`) |
 | Mode 3 — cloud-managed (AWS S3) | `file.bucketName` + `file.existing.url` (e.g. `https://<bucket>.s3.<region>.amazonaws.com`) + `file.existing.region` + `file.existing.serviceType: s3`. IAM creds via top-level `file.username` / `file.password` (the schema's `file.existing` block carries only `port`, `region`, `serviceType`, `url`; credentials live one level up), or via IRSA on the ServiceAccount. |

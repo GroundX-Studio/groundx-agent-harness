@@ -108,13 +108,17 @@ supply an `engine` object. The same field exists on the wire and on the
 | `reasoningEffort` | `reasoning_effort` | One of: `minimal`, `low`, `medium`, `high`. |
 
 `maxImages` follows the selected model engine, not the workflow step type. Set it only
-on routes whose provider or model has an image limit. Page images and crop images share
-one combined request-wide count. If the count is exceeded, GroundX removes earlier
-images first and preserves all text; later crop images therefore survive in the current
-summary request layout. If omitted, the workflow adds no image-count cap, although
-GroundX may enforce a lower platform limit for the exact provider route. The Python
-`max_images` attribute requires an SDK release generated from the Fern contract that
-contains this field; use the REST `maxImages` key with older SDK versions.
+on routes whose provider or model has an image limit. Normal engine precedence selects
+one value: application config seeds defaults, workflow engines supersede config, and an
+authored step engine supersedes its workflow engine default. No separate route-specific
+image-count value overrides the selected engine. Page images and crop images share one
+combined request-wide count. If the count is exceeded, GroundX removes earlier images
+first and preserves all text; later crop images therefore survive in the current summary
+request layout. If the selected engine omits `maxImages`, no image-count cap applies.
+The independent `openai-base64` serialized request-size guard may still remove images by
+byte size. The Python `max_images` attribute requires an SDK release generated from the
+Fern contract that contains this field; use the REST `maxImages` key with older SDK
+versions.
 
 See `references/12-python-sdk-objects.md` §3 for the `WorkflowEngine` constructor
 example.

@@ -72,7 +72,7 @@ The default path (extraction disabled or no extraction YAML attached) skips this
 
 ## 6. Security / compliance altitude
 
-The extraction microservice is **entirely in-cluster** — no external LLM provider, no external service calls. All work runs against the X-Ray and the agent pods inside the deployment's trust boundary. For the full identity / trust model see `identity-and-trust.md`.
+Extraction is in-cluster by default. A workflow configured with the external `bedrock` engine sends prompts and AWS S3 page-image references to the configured Bedrock endpoint. Other extraction engines keep their existing transport and trust-boundary behavior. For the full identity / trust model see `identity-and-trust.md`.
 
 ## 7. Operations / SRE altitude
 

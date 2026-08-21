@@ -97,7 +97,7 @@ What leaves the cluster at runtime — this is the deployer's network-policy / e
 | **3rd-party LLM** (OpenAI / Azure / DeepInfra / EyeLevel-hosted) | When `summary.api.enabled: false` + `summary.inference.enabled: false` and a 3rd-party `summary.existing.serviceType` is set | Document content leaves the cluster on each summary LLM call. Trust-boundary crossing. See `groundx-architecture/references/identity-and-trust.md` § 6.2 + `groundx-architecture/references/summary-service.md` § 6. |
 | **Google Cloud Vision API** | When `gcv.json` is provided | Page images leave the cluster on each OCR call. Trust-boundary crossing. |
 | **GitHub or GitLab** | When `workspace.enabled=true` and managed projects publish code | Git push to whatever remote is configured. See `groundx-architecture/references/workspace-architecture.md` § 5.3. |
-| Model-weight downloads from S3 | At inference-pod startup or on version change | `layout-inference` and `ranker-inference` pull model blobs from S3 on init / when `config.py` target changes. See `groundx-architecture/references/ai-ml-lifecycle.md` § 5.1. |
+| Model-weight downloads from `upload.groundx.ai` | At inference-pod startup or on version change | A `download-model` init container `wget`s weights from a **hardcoded** `upload.groundx.ai` URL into a model-cache PVC on init / when the `config.py` target changes. Host is not overridable via values — air-gapped installs must pre-seed the PVC (`install-flow.md § 9`, `references/air-gapped.md` § 6.5). See `groundx-architecture/references/ai-ml-lifecycle.md` § 5.1. |
 | Container image registry | At pod start | Image pulls. Air-gapped deployments mirror images locally — see `references/air-gapped.md`. |
 
 ## 7. What a vanilla deployment looks like

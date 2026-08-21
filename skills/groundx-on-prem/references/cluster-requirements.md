@@ -25,7 +25,7 @@ Non-NVIDIA accelerators (AMD ROCm, Intel Gaudi, AWS Trainium / Inferentia, Googl
 | Inference microservice | GPU memory per worker+thread | Total per pod (assuming chart defaults) | Notes |
 | --- | --- | --- | --- |
 | `layout-inference` | ~2.5 GB | Scales with worker × thread; chart default `1×6` workers/threads | GPU is the default. CPU fallback is possible but requires explicit override of `resource.limits` and `resource.requests` to drop the `nvidia.com/gpu` request. |
-| `ranker-inference` | ~1.25 GB | Sized for a **24 GB** GPU; chart default `14×1` workers/threads | CPU is unreliable. Plan for GPU. |
+| `ranker-inference` | ~1.25 GB | Chart-default `14×1` workers/threads gives a **~17.5 GB estimated footprint**; **24 GB is the recommended card class** (footprint plus headroom), not an inherent floor — a **T4 (16 GB)** runs `ranker-inference` at reduced worker/thread counts | CPU is unreliable. Plan for GPU. |
 | `summary-inference` | ~12 GB | **24 GB total** sized for `1×1` workers/threads with Gemma 3 | GPU **required**. Disable the microservice via `summary.api.enabled: false` + `summary.inference.enabled: false` (and point `summary-client` at an external LLM) if no GPU budget is available. |
 
 For per-microservice worker / thread defaults and how they translate to replicas, route to `references/node-groups.md` § 4.
@@ -34,11 +34,13 @@ For per-microservice worker / thread defaults and how they translate to replicas
 
 In practical terms, a vanilla deployment with all three GPU microservices needs at least:
 
-- **One GPU large enough for `summary-inference`** (24 GB of GPU memory) — e.g., NVIDIA L4, A10, A10G, A100 40 GB / 80 GB, H100. Smaller cards (T4 16 GB) cannot host `summary-inference` at default sizing.
-- **One GPU large enough for `ranker-inference`** (also sized for 24 GB).
+- **One GPU large enough for `summary-inference`** (24 GB of GPU memory — the only unqualified floor in this list) — e.g., NVIDIA L4, A10, A10G, A100 40 GB / 80 GB, H100. Smaller cards (T4 16 GB) cannot host `summary-inference` at default sizing.
+- **One GPU for `ranker-inference`** — a **T4 (16 GB)** is viable at reduced worker/thread sizing. The chart's default `14×1` workers/threads count (~1.25 GB per worker/thread) gives an **estimated footprint of ~17.5 GB**; **24 GB is the recommended card class** for that default, providing headroom above the estimate. This is not an inherent 24 GB floor.
 - **One GPU large enough for `layout-inference`** at the configured worker+thread count (often 16 GB+ is enough for `1×6`, but the deployer should multiply 2.5 GB × worker × thread).
 
 These can be the same physical GPU (with MIG / time-slicing) or separate GPUs on separate nodes, but the chart's default `nodeSelector` separates them — see `references/node-groups.md`.
+
+See `references/values-authoring.md § 3.3` for the same T4-viable-for-ranker guidance in the discovery questionnaire — the two files agree on this and must stay in sync.
 
 ### 2.4 NVIDIA GPU Operator
 
@@ -98,7 +100,7 @@ A precise budget depends on workload (concurrent ingest rate, document size, sum
 | **CPU (summary non-inference)** | ~1–2 vCPU | `summary-api`. |
 | **Memory (orchestration + non-inference)** | ~32–64 GiB baseline | Scales with concurrent in-flight ingest jobs. `pre-process` and some `layout-*` sub-microservices need extra memory — see `references/node-groups.md` for the `eyelevel-cpu-memory` node-group profile. |
 | **GPU memory (vision)** | ~2.5 GB × `layout-inference` worker × thread (default `1×6` ≈ 15 GB) | Card with at least that much memory required. |
-| **GPU memory (ranker)** | ~24 GB | Card with at least 24 GB memory required. |
+| **GPU memory (ranker)** | ~17.5 GB estimated footprint at chart-default `14×1` sizing; provision a 24 GB card class | Not a floor — a T4 (16 GB) runs `ranker-inference` at reduced worker/thread counts. 17.5 GB is the computed footprint; 24 GB is the recommended card class with headroom. |
 | **GPU memory (summary)** | ~24 GB | Card with at least 24 GB memory required. `summary.api.enabled: false` + `summary.inference.enabled: false` removes this requirement entirely. |
 | **CPU (backing services, Mode 2)** | ~4–8 vCPU baseline | Sum across Percona, Redis, OpenSearch, MinIO, Strimzi. Production load needs more. |
 | **Memory (backing services, Mode 2)** | ~16–32 GiB baseline | Same caveat. |

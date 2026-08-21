@@ -36,13 +36,15 @@ cluster:
     gpuSummary: eyelevel-gpu-summary # default
 ```
 
-Override any of these to match an existing label-value scheme. The key (`eyelevel_node`) is not configurable through values.yaml — it is baked into the chart's `nodeAffinity` and `tolerations` templates. To use a different key entirely, override per microservice with a custom `nodeSelector:` block (see § 4).
+Override any of these to match an existing label-value scheme, but set **all five** — `values.schema.json` marks every key in the block as required, so a partial `cluster.nodeLabels` block fails schema validation before anything renders. Leave the defaults in place for the values you are not changing.
+
+The key (`eyelevel_node`) is not configurable through values.yaml — it is baked into the chart's `nodeAffinity` and `tolerations` templates. To use a different key entirely, override the per-microservice `affinity:` block, which replaces the chart's `nodeAffinity` outright. A per-microservice `nodeSelector:` block (§ 4) is **not** sufficient on its own: the chart renders it alongside its `requiredDuringSchedulingIgnoredDuringExecution` node affinity rather than in place of it, so the pod must still land on a node carrying `eyelevel_node` (or the legacy `node` key) with the expected value, and stays `Pending` when no such node exists.
 
 ## 2. Why the GPU groups are separate
 
 A deployer might reasonably ask why `eyelevel-gpu-layout` / `eyelevel-gpu-ranker` / `eyelevel-gpu-summary` are three distinct labels rather than one `eyelevel-gpu` umbrella. The reasons:
 
-- **Different GPU memory profiles.** `summary-inference` needs ~24 GB per pod (Gemma 3). `ranker-inference` needs ~24 GB worth of worker × thread scheduling. `layout-inference` scales with worker count (`~2.5 GB × worker × thread`) and can be much smaller. Pinning the right card class to the right workload is materially easier with separate node groups.
+- **Different GPU memory profiles.** `summary-inference` needs ~24 GB per pod (Gemma 3). `ranker-inference`'s default `14×1` worker×thread footprint is ~17.5 GB (sized for a 24 GB card); a smaller GPU such as a T4 (16 GB) hosts the ranker at reduced worker/thread sizing (the 24 GB figure is the chart default, not an inherent floor — see `cluster-requirements.md` §2.3). `layout-inference` scales with worker count (`~2.5 GB × worker × thread`) and can be much smaller. Pinning the right card class to the right workload is materially easier with separate node groups.
 - **Different scaling behaviors.** The layout vision model, the re-ranker, and the summary LLM have different concurrency, latency, and queue-depth profiles. Separate node groups let the deployer scale each axis independently.
 - **Different cost levers.** A deployer with no on-prem summary requirement can disable both `summary.api.enabled` and `summary.inference.enabled` and never provision `eyelevel-gpu-summary` nodes at all — the biggest single GPU cost driver disappears. Keeping the labels distinct makes the toggle clean.
 
@@ -97,7 +99,7 @@ The smallest viable cluster for a vanilla deployment (`summary.api.enabled: true
 - 1 × `eyelevel-cpu-only` node (multi-core, ~16–32 GB RAM) for orchestration + non-inference pods.
 - 1 × `eyelevel-cpu-memory` node (multi-core, more RAM) for `pre-process` and memory-hungry layout sub-microservices.
 - 1 × `eyelevel-gpu-layout` node with enough GPU memory for the default `1×6` worker+thread layout-inference (~16 GB+).
-- 1 × `eyelevel-gpu-ranker` node with a 24 GB GPU.
+- 1 × `eyelevel-gpu-ranker` node with a 24 GB GPU (or a T4/16 GB at reduced worker/thread sizing).
 - 1 × `eyelevel-gpu-summary` node with a 24 GB GPU (sufficient for Gemma 3).
 
 The same physical GPU node can serve multiple node-group labels if the deployer is willing to MIG-partition the card or co-schedule with care, but this is **not** how the chart is shipped — the default pattern is one node group per label.

@@ -18,7 +18,7 @@ Three architectural ideas shape observability:
 
 **Logs and traces are partially migrated.** The format and stack story is **transitional**: log format is migrating from plain text to JSON structured (partial today); tracing is migrating to full OpenTelemetry coverage (partial today). At this skill's altitude, both surfaces should be described as "partial — migration in progress" rather than as committed contracts.
 
-**Health endpoints are externally verified by active probing.** `UpdateHealthStatus` (cloud-service Lambda) runs every 5 minutes — submits a test search query and verifies the `summary-client` service's health. The output drives the `GET /v1/health` endpoint. This is an external-perspective probe (does a real search work? does the summary path respond?) rather than an internal-state aggregation (are pods running?). For on-prem deployments this Lambda doesn't exist; the deployer would need an equivalent.
+**Health endpoints are externally verified by active probing.** `UpdateHealthStatus` (cloud-service Lambda) runs every 5 minutes — submits a test search query and calls the configured summary-service health endpoint. The output drives the `GET /v1/health` endpoint. This is an external-perspective probe (does a real search work? does the summary path respond?) rather than an internal-state aggregation (are pods running?). For on-prem deployments this Lambda doesn't exist; the deployer would need an equivalent.
 
 ## 4. System altitude
 
@@ -43,7 +43,7 @@ Health (customer-facing):
   GET /v1/health/{service}  (specific service)
   Statuses refreshed every 5 min by UpdateHealthStatus Lambda (cloud)
     - Submits test search query
-    - Checks summary-client service health
+    - Calls the configured summary-service health endpoint
   Services surfaced: search, ingest
 
 Alerts:
@@ -118,9 +118,14 @@ Status values: `healthy` / `degraded` / `down` / `unknown`. Statuses refresh eve
 Runs every 5 minutes. Two probes per invocation:
 
 1. **Search probe** — submits a test search query against a fixed bucket; verifies the search path (groundx → OpenSearch → ranker pair → groundx → response) is functional end-to-end.
-2. **Summary probe** — checks the health status of the `summary-client` service.
+2. **Summary probe** — calls the configured summary-service health endpoint.
 
 Output drives the `/v1/health` endpoint's `services` array. On-prem deployments need their own equivalent (or accept that `/v1/health` won't be populated).
+
+The cloud summary probe crosses the public DNS, TLS, reverse-proxy, and worker
+layers. A failed probe means that end-to-end path is unavailable; it does not by
+itself prove the worker crashed. Internal operators verify the edge and worker
+independently before assigning the root cause.
 
 ### 5.7 Alerting
 

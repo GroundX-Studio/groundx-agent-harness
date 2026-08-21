@@ -127,6 +127,14 @@ Or override the chart's expected values via `cluster.nodeLabels.*` (`node-groups
 
 **Fix.** Set a default StorageClass that supports the access mode requested. On AKS use `managed-csi-premium` or `azurefile`; on EKS use `gp3` or `efs-sc`; on GKE use `standard-rwo` or `filestore`. Override `cluster.pvClass` and `cluster.pvAccessMode` to match.
 
+### 2.4 ALB ingress never gets an `ADDRESS` — `FailedDeployModel` / invalid ACM `certificate-arn`
+
+**Symptom.** `kubectl get ingress ranker -n eyelevel` (or any GroundX ingress on an AWS Load-Balancer-Controller-managed `alb` ingress class) shows an empty `ADDRESS` indefinitely. `kubectl get events -n eyelevel --sort-by='.lastTimestamp'` shows repeated `FailedDeployModel ... CreateListener ... api error ValidationError: Certificate ARN '<arn>' is not valid`.
+
+**Cause.** The ingress' `alb.ingress.kubernetes.io/certificate-arn` annotation references an ACM certificate ARN that is invalid, malformed, or in a different AWS account/region than the ALB. The AWS Load Balancer Controller can't create the HTTPS listener, so it never finishes provisioning the ALB and the Ingress never gets an `ADDRESS`.
+
+**Fix.** Correct the `certificate-arn` annotation to a valid, same-account, same-region ACM certificate ARN — see `tls-and-certs.md § 2.4` for the correct annotation shape. If the ingress is meant to be cluster-internal only, drop the HTTPS listener configuration instead of pointing at an invalid cert.
+
 ## 3. Init-container `wait-for-*` looping
 
 The chart's app pods (`api.yaml`, `golang.yaml`, `celery.yaml`, etc.) ship init containers that block startup until backing services are reachable. From `templates/app/api.yaml:85–115`:
@@ -196,7 +204,13 @@ The chart's app pods (`api.yaml`, `golang.yaml`, `celery.yaml`, etc.) ship init 
 
 When the failure doesn't match a category above:
 
-1. **`helm template -f your-values.yaml ./src/groundx > rendered.yaml`** — render the chart locally without installing. Inspect the rendered output for the resource you expect to find.
+1. **Render the chart locally without installing, and inspect it for the resource you expect:**
+
+   ```sh
+   helm template -f your-values.yaml ./src/groundx > rendered.yaml
+   ```
+
+   When `metrics.enabled: true` (not the chart default), `rendered.yaml` contains a chart-generated `metrics-tls` private key — treat the file as secret, do not paste it into chat, logs, or a PR, and delete it afterwards; see `references/credentials.md`'s render-output handling.
 
 2. **`kubectl get events -n eyelevel --sort-by='.lastTimestamp' | tail -40`** — Kubernetes-level events surface scheduling, image-pull, and resource-limit failures.
 
