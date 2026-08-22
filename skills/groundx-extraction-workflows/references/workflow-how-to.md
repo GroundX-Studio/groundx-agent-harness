@@ -23,7 +23,8 @@ enough to score.
 
 Before writing prompts, read `16_prompt_writing.md`, `prompt-quality.md`, and
 `prompt-improvement-loop.md`. The first draft should already follow the full
-process: locate source evidence, write reusable prompt rules, compile, run,
+process: locate source evidence, write reusable prompt rules, validate with the
+server, run,
 source-adjudicate misses, and improve one change at a time.
 
 ## 2. Design Final Groups First
@@ -60,19 +61,19 @@ requests. If evidence shows expected documents are long, move
 broad statement-style groups to `workflow.section_strategy: page` and
 `level: section` when the chunk estimate approaches the 2000 request cap.
 
-Add `workflow.agent_chain` before compiling. It is required. The first stage is
+Add `workflow.agent_chain` before server validation. It is required. The first stage is
 a `parallel` list with one branch per executable workflow group. Branch `group`
 values are workflow group names; branch `chain` values are internal runtime task
 names such as `reconcile_statement`, `qa_statement`, `save_statement`,
 `reconcile_charges`, `save_charges`, `reconcile_meters`, `qa_meters`, and
 `save_meters`.
 
-## 4. Compile Artifacts
+## 4. Validate And Register
 
-Compile from authored v1 source YAML only. Do not feed `workflow.json`,
-downloaded workflow readback, or `_groundx_persisted_extract` back into the
-source compiler. This is the single client compile entrypoint; the canonical
-statement of the authoring path and surface ownership is
+Submit authored v1 source YAML to the GroundX API for validation and
+registration. Do not feed `workflow.json`, downloaded workflow readback, or
+`_groundx_persisted_extract` back into the server compiler. The canonical
+statement of authoring-path ownership is
 [`4_sdk_integration.md`](./4_sdk_integration.md) §6.
 
 Run:
@@ -81,12 +82,12 @@ Run:
 python -c "import os; from groundx import GroundX; GroundX(api_key=os.environ['GROUNDX_API_KEY']).workflows.validate(name='pilot', yaml=open('prompt.yaml').read())"
 ```
 
-For script-based compile/run/deploy paths, use `deploy_workflow.py`,
+For script-based validation, run, or deploy paths, use `deploy_workflow.py`,
 `run_extraction.py`, or `batch_extraction.py`; these write both `workflow.json`
 and `extraction_workflow_metadata_v1.json`.
 
-`workflow.json.extract` is the durable extraction contract saved with the
-workflow. It must preserve the SDK persisted extraction mapping, including YAML
+`workflow.json.extract` is server readback saved with the run. It must preserve
+the server's persisted extraction mapping, including YAML
 metadata such as policy version, final-group relationship settings, and
 custom workflow routing support when present. Do not strip it down to only
 `fields` and `prompt`. The validator must pass before deploy, MCP
@@ -101,7 +102,7 @@ The metadata artifact carries:
 - workflow-group metadata
 - source YAML checksum
 
-Keep this artifact with the compiled workflow and run output. It is useful for
+Keep this artifact with the server workflow readback and run output. It is useful for
 local diagnostics and reassembly handoff, but it is not the only place authored
 metadata survives.
 
@@ -113,10 +114,9 @@ Use `deploy_workflow.py` for deploy-only SDK execution. Use `groundx-api` for
 interactive workflow registration, bucket attachment, ingest, polling, and
 extract retrieval. Do not copy API operation semantics into this skill.
 
-`deploy_workflow.py` and direct `workflow_create` calls send compiled workflow
-bodies. They are useful local/agent paths, but they do not prove product YAML
-upload behavior, persisted-source handling, or legacy normalization. Use the
-platform YAML upload path when that is the behavior being certified.
+`deploy_workflow.py` and direct `workflow_create` calls send the authored source
+YAML. Record the actual entrypoint when evidence must distinguish SDK, MCP, or
+product behavior.
 
 ## 6. Run Extraction And Inspect Evidence
 
@@ -132,7 +132,7 @@ extraction is available. Retrieve:
 - `xray_diagnostic.json` and `final_output.json` when local diagnostics were needed
 - run log
 
-When a field is wrong, inspect X-Ray and the compiled prompt before editing the
+When a field is wrong, inspect X-Ray and rendered request evidence before editing the
 YAML. Read `10_debugging_methodology.md` for the diff-before-debug path and
 `prompt-improvement-loop.md` for the one-change iteration loop.
 

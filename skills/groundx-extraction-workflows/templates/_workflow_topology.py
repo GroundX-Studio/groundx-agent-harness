@@ -60,7 +60,7 @@ except ImportError:
 # Exactly the WorkflowSteps stage attrs the workflow JSON carries. Passed
 # explicitly (None for unused) so the wire form is stable; this set is
 # intentionally the same one the prior compiler emitted (no sect-keys /
-# search-query) so existing workflows compile identically.
+# search-query) so offline topology remains stable.
 _ALL_STAGE_ATTRS = (
     "chunk_instruct",
     "chunk_keys",
@@ -71,7 +71,7 @@ _ALL_STAGE_ATTRS = (
     "sect_summary",
 )
 
-# Top-level YAML keys that are NOT final groups. Consumed locally during compile.
+# Top-level YAML keys that are NOT final groups. Consumed by offline topology.
 RESERVED_TOP_LEVEL_KEYS = {
     "extraction_policy_version",
     "workflow",
@@ -2537,7 +2537,7 @@ def build_workflow_artifacts(
         return workflow, _metadata_from_prepared(yaml_path, raw_yaml, prepared)
 
     raise ValueError(
-        f"{yaml_path}: harness workflow YAML must compile through "
+        f"{yaml_path}: harness workflow YAML topology must load through "
         "`workflow.custom_steps` and `workflow_step:` metadata. Add v1 workflow "
         "metadata before using the harness compiler."
     )

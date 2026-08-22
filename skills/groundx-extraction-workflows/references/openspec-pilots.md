@@ -36,7 +36,7 @@ the repository.
   accepted formats, and comparison scenarios.
 - `design.md`: YAML group strategy, workflow registration strategy, on-prem or API
   constraints, expected X-Ray/debug loop.
-- `tasks.md`: sample intake, expected-answer review, YAML draft, compile, register, ingest,
+- `tasks.md`: sample intake, expected-answer review, YAML draft, server validation, register, ingest,
   compare, field iteration, acceptance, and handoff.
 
 ## Acceptance Criteria

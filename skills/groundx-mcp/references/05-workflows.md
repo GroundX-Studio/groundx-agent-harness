@@ -94,6 +94,18 @@ document's values.
 The response includes a `processId` (for example `"abc123"`). Save it. Ingest is
 asynchronous — the document is not searchable yet.
 
+### 4.1 Local files
+
+No MCP tool uploads a local file directly. `document_ingestremote` only accepts a
+`sourceUrl` it can already reach. For a file on disk, first get it hosted through the
+pre-signed upload service, then submit the resulting URL exactly as in the example
+above — see `groundx-api/guides/02-ingest-patterns.md` §5 for the 3-step flow
+(request a pre-signed URL, PUT the file to it, submit the hosted URL to
+`document_ingestremote`). The pre-signed URL request does not require a GroundX API key.
+The pre-signed URL itself is valid for 60 minutes; the hosted URL
+used as `sourceUrl` is not signed and has no code-enforced expiry, but do not reuse one
+from an earlier session, request a fresh one instead.
+
 ---
 
 ## 5. Step 4 — Poll for completion
@@ -177,7 +189,7 @@ set. See `skills/groundx-mcp/references/02-default-tools.md` for the full visibi
 
 ## 8. Standalone note
 
-This workflow is fully supported with the `groundx-mcp` skill alone. No other GroundX skill
-is required to complete it. If you need REST or SDK fallback — for example, to drive ingest
-programmatically from a backend service — see the `groundx-api` skill for the REST base URL,
-SDK setup, and endpoint operation details.
+This workflow is fully supported with the `groundx-mcp` skill alone for remote (URL-reachable)
+documents. Two cases still need the `groundx-api` skill: local-file ingest, which needs the
+pre-signed upload steps in `groundx-api/guides/02-ingest-patterns.md` §5 (see §4.1 above), and
+REST or SDK fallback for driving ingest programmatically from a backend service.

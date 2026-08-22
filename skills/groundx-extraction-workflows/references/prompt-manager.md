@@ -10,7 +10,7 @@ customer code small and migration-friendly.
 ## 1. The Shape To Aim For
 
 Keep `prompt.yaml` as the source of truth. Add thin Python wrappers only where
-the domain needs prompt wording that the default compiler cannot express.
+the workflow needs prompt wording that authored YAML cannot express.
 Use `references/16_prompt_writing.md` for the wording standard before changing
 field prompts, group prompts, or wrapper prompts.
 
@@ -65,8 +65,8 @@ prompts, and source-document evidence such as page images or X-Ray context.
 Use `templates/prompt_manager.py` as the minimal adapter. A customer manager
 should expose the same concepts even if method names differ:
 
-- `workflow_body(yaml_path, workflow_name=None)` — compile YAML to a
-  workflow body
+- `workflow_body(yaml_path, workflow_name=None)` — build offline diagnostic
+  topology for prompt and coverage inspection; never submit it
 - `workflow_steps(...)`, `workflow_extract_dict(...)`, and
   `persisted_workflow_extract_dict(...)` — expose workflow steps, execution
   groups, and the reloadable extraction contract separately for
@@ -89,8 +89,7 @@ should expose the same concepts even if method names differ:
 `groundx-api` remains the source of truth for endpoint semantics. This reference
 owns the extraction-specific order and the manager convention.
 
-Custom managers that are not compiling harness YAML should use the high-level
-SDK workflow helpers when available:
+Custom managers should use SDK workflow helpers that submit source YAML:
 
 ```python
 workflow = client.create_extraction_workflow(path="prompt.yaml", name="customer-workflow")
@@ -98,15 +97,10 @@ client.update_extraction_workflow(workflow.workflow.workflow_id, path="prompt.ya
 existing = client.load_extraction_definition(workflow_id=workflow.workflow.workflow_id)
 ```
 
-Managers that do compile harness YAML should deploy the compiled workflow body,
-not re-load the same raw YAML path through the SDK after compilation. Use
-prepared workflow groups for prompt rendering and workflow steps. Use the SDK
-persisted workflow extract mapping for workflow JSON `extract`; that is the
-payload downstream runtime can download and prepare again. Use prepared final
-groups plus `workflow_field_paths` for readback, requiredness, QA, and final
-output diagnostics. Do not reimplement pseudo-group routing or retired slot
-behavior inside a customer manager; use the compiler's `_pseudo_groups` route
-metadata for split/recombine.
+The manager's create and update methods submit the exact authored YAML to the
+server compiler. Offline topology supports prompt rendering, readback checks,
+requiredness, QA, and final-output diagnostics only. Do not reimplement
+pseudo-group routing or retired slot behavior inside a customer manager.
 
 When the YAML carries relationship metadata, expose it separately from workflow
 metadata. A manager should be able to answer four different questions:
@@ -125,7 +119,7 @@ final-group metadata explicitly.
 
 For a new prompt schema:
 
-1. Compile the YAML into workflow JSON and
+1. Validate and register the authored YAML with the server and
    `extraction_workflow_metadata_v1.json`.
    `workflow.json.extract` must come from the SDK persisted workflow extract
    mapping, not from an execution-only group dictionary.

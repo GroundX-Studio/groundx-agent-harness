@@ -52,9 +52,9 @@ Spawn a fresh general-purpose sub-agent with explicit constraints:
 - Zero local patches required to complete the run
 - Accuracy target met for the customer (e.g. ≥95% statement + 3/3
   charges for the invoice example)
-- `run.log` shows the expected event sequence (compile → validate →
-  workflow.create → bucket.create → workflow.add_to_bucket → ingest →
-  poll → xray.captured → extract.captured → run.done)
+- `run.log` shows the expected event sequence (`topology.start`,
+  `topology.done`, `validate.start`, `validate.done`, workflow create, bucket
+  create, workflow attach, ingest, poll, X-Ray capture, extract capture, run done)
 
 ### 9.2.4 Why this catches bugs
 

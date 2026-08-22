@@ -6,7 +6,7 @@ here describes a real customer document — the provider, account numbers,
 addresses, and amounts are invented for CI.
 
 This is the canonical shipped example: deliberately minimal and CI-safe, used to
-prove the compiler and the extension model are domain-agnostic. Real customer
+prove the server authoring contract and extension model are domain-agnostic. Real customer
 documents and expected answers are supplied out-of-repo and never shipped in the skill.
 
 ## Files
@@ -17,7 +17,7 @@ documents and expected answers are supplied out-of-repo and never shipped in the
 | `data/answer_key.json` | Synthetic expected-answer JSON in the runner output shape `{"statement": {...}, "charges":[...], "meters":[...]}`, with legitimate nulls |
 | `business_logic.md` | The linking / dedup / conflict rules "from chat", mapped to the metadata vocabulary |
 
-There is intentionally **no PDF**. CI evals run structurally (compile + validate);
+There is intentionally **no PDF**. CI evals run offline topology checks;
 live extraction against a real document runs out-of-repo with credentials.
 
 ## The end-to-end loop for this fixture

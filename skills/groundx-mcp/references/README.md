@@ -43,7 +43,9 @@ Use this skill as the primary reference for all GroundX MCP surface work. It is 
 does not require `groundx-api` or any other skill. For an agent-operated task with visible
 GroundX MCP tools, prefer MCP for ingest, polling, search, listing, and operation discovery.
 After MCP setup or troubleshooting, consult `groundx-api` for REST/SDK integration, dev-target
-behavior, direct backend code, local-file upload fallback, or endpoint semantics.
+behavior, direct backend code, or endpoint semantics. For local-file upload, see
+`groundx-api/guides/02-ingest-patterns.md` §5 for the pre-signed upload steps — also
+cross-linked from `references/05-workflows.md` §4.1 in this skill.
 
 Never invent tool names — the finalized tool set is in `references/02-default-tools.md`. Never
 place the raw API key in an MCP tool argument; see `references/04-auth.md` for the correct auth

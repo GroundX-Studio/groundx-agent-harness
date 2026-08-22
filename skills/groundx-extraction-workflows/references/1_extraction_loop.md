@@ -4,18 +4,18 @@ Before any command here creates local output, read [`local-artifact-closeout.md`
 
 This is the default end-to-end loop the skill walks through. It is
 single-file at the YAML layer, delegates execution to the GroundX API
-(via the `groundx-api` skill), and is reproducible: same YAML + same
-PDF + same compile output produces the same workflow JSON, which —
-applied to the same document — produces the same extraction.
+(via the `groundx-api` skill), and is reproducible: the same source YAML is
+validated and registered by the same server compiler, then applied to the same
+document.
 
 ## 1. Overview
 
 ```
-┌─────────────┐   compile    ┌──────────────┐
-│ prompt.yaml │─────────────►│ workflow.json│
+┌─────────────┐   validate   ┌──────────────┐
+│ prompt.yaml │─────────────►│ GroundX API  │
 └─────┬───────┘              └──────┬───────┘
       │                             │
-      │                             │ POST workflow + attach to bucket
+      │                             │ create from YAML + attach to bucket
       │                             │ (groundx-api: workflow_create,
       │                             │  workflow_add_to_id)
       │                             ▼
@@ -116,9 +116,9 @@ The GroundX API is the only workflow compiler. Submit the source YAML
 `create()` and must pass before workflow create/update, MCP registration, or
 ingest.
 
-The resulting `workflow.json` is the durable artifact for this run.
-Diff it across iterations to see exactly what the prompts look like
-that the LLM will receive.
+The server workflow readback saved as `workflow.json` is a diagnostic artifact
+for this run. Diff it across iterations, but do not submit it as authoring input
+or treat it as proof of the rendered LLM request.
 
 ### 3.3 Deploy or run the workflow
 
@@ -135,23 +135,21 @@ python deploy_workflow.py \
   --create-bucket-name customer-bucket-v1
 ```
 
-`deploy_workflow.py` compiles the YAML, validates the workflow JSON,
-creates or updates the workflow through the GroundX Python SDK, and can
+`deploy_workflow.py` asks the server to validate the source YAML, then creates
+or updates the workflow with that same YAML through the GroundX Python SDK. It can
 attach it to a bucket or the account default. It writes `workflow.json`,
 `deploy.json`, `workflow_id.txt`, and `bucket_id.txt` when applicable.
 It is deploy-only; it does not ingest files, poll status, capture X-Ray,
 or retrieve extract output.
 
-This is the direct compiled SDK path. It is not proof of product YAML upload
-behavior, persisted-source handling, or legacy YAML normalization. When the
-claim is that uploaded YAML behaves correctly, use the platform YAML upload path
-and record that path in the evidence.
+This uses the same source-YAML API path as product upload. Record the actual
+entrypoint when evidence must distinguish SDK, MCP, or product behavior.
 
 Read `deploy.md` before running it. The short version: use `--bucket-id`
 for an existing bucket ID, `--bucket-name` for an exact existing bucket-name
 lookup, and `--create-bucket-name` when the command should create a new bucket.
-Use `--dry-run` first when you want compile/validation and planned actions
-without a live API call.
+Use `--dry-run` first for local parsing, fanout estimation, and planned actions.
+It makes no live API call and does not prove server acceptance.
 
 **Full local run:** when you need prod deploy + ingest + poll + X-Ray +
 extract output, use `run_extraction.py`. Dev structured extraction does not
@@ -171,7 +169,7 @@ python run_extraction.py --resume --out <run-dir>
 ```
 
 Resume reads the run-local `workflow.json` and `business_logic_metadata.json`
-when present. It does not recompile or re-read source YAML.
+when present. It does not validate, create, update, or re-read source YAML.
 
 Do not redeploy, create a new bucket, attach a new workflow, or ingest the file
 again just because local polling timed out. A timeout means the local wait
@@ -195,7 +193,7 @@ python run_extraction_loop.py \
 ```
 
 If the score is below 90%, inspect the PDF, X-Ray, raw extraction, score report,
-and the compiled prompt/workflow diff. Make one prompt or group-rule change,
+and the server workflow readback diff. Make one prompt or group-rule change,
 save it as `iterations/prompt.iteration-02.yaml` or `iterations/iteration-02.yaml`,
 and continue. The runner reports `blocked` instead of retrying the same YAML
 when no next revision is available.
@@ -213,11 +211,10 @@ authoring reference; `groundx-api` remains the operation-semantics reference.
 
 The manual operation loop is:
 
-1. **Create or update the workflow.** POST `workflow.json` via the
-   `workflows.create()` SDK call. In prod sessions where MCP is already
-   connected, `workflow_create` is also acceptable. This is still the direct
-   compiled workflow path, not the product YAML upload path. The response
-   includes the `workflowId`.
+1. **Create or update the workflow.** Submit the authored YAML via the
+   `workflows.create(name=..., yaml=...)` SDK call. In prod sessions where MCP
+   is already connected, `workflow_create` with the same source YAML is also
+   acceptable. The response includes the `workflowId`.
 2. **Attach the workflow to a bucket.** Either an existing bucket or a
    new one. Use the SDK call, or `workflow_add_to_id` when using prod MCP.
 3. **Ingest the PDF.** For local PDFs, prefer the Python SDK ingest

@@ -75,15 +75,14 @@ directory or a full path. `--workflow-name` is optional; without it, the script
 uses the YAML filename without `.yaml`. `--workflow-id` switches the command
 from create to update.
 
-The deploy script compiles and validates the YAML first, then sends the
-compiled workflow body to the GroundX SDK. It does not re-load the raw YAML path
-after compilation. This keeps harness-specific `workflow_step:`,
-`workflow.custom_steps`, route metadata, and pilot metadata on the compiler path
-that already validated them. The public SDK
-`create_extraction_workflow(path=...)` and
-`update_extraction_workflow(path=...)` helpers remain valid for YAML that is
-directly SDK-loadable, but harness local templates should not compile a YAML and
-then pass the same raw path back to those helpers.
+The deploy script validates the authored YAML with `workflows.validate`, then
+submits the same YAML to `workflows.create` or `workflows.update`. GroundX is
+the only workflow compiler. The local topology artifact is only an offline
+fanout estimate and is never submitted.
+
+Use the product YAML upload path when certifying product persistence or legacy
+normalization. The local SDK command proves source-YAML validation, server
+compilation, workflow creation or update, and optional attachment.
 
 This local SDK path is not the same as the product YAML upload path. It bypasses
 upload-time normalization, persisted source handling, and any internal legacy
@@ -160,24 +159,20 @@ For dev API/debug work, use the local Python SDK with
 `GROUNDX_BASE_URL=https://devapi.groundx.ai/api`; do not run live structured
 extraction in dev unless an operator explicitly confirms it is available.
 
-1. Compile the YAML to `workflow.json`.
-2. Validate it with the server: `gx.workflows.validate(name=..., yaml=...)`.
-3. Use `groundx-api/references/06-workflows.md` for the exact
-   `workflow_create` or `workflow_update` arguments. Pass the compiled workflow
-   fields from `workflow.json`; do not hand-build a different schema. Use
-   `workflow_update` only when you already have the existing workflow ID.
-   For custom extraction workflows, keep `customSteps`, `outputRoutes`,
-   `leafFields`, and `extract.workflow` together from the compiled payload.
-4. Save the returned workflow ID.
-5. Attach it with `workflow_add_to_id` for a bucket/group or
+1. Validate the authored YAML with `workflow_validate`.
+2. Create or update with the same authored YAML in the `yaml` field. Do not
+   translate it into a structured workflow body. Use `workflow_update` only
+   when you already have the existing workflow ID.
+3. Save the returned workflow ID.
+4. Attach it with `workflow_add_to_id` for a bucket/group or
    `workflow_add_to_account` for the account default.
 
 Minimal field mapping:
 
-| Artifact or target | MCP tool | What to pass |
+| Source or target | MCP tool | What to pass |
 | --- | --- | --- |
-| New compiled workflow | `workflow_create` | Top-level fields from `workflow.json`: `name`, `chunkStrategy`, `sectionStrategy`, `steps`, and `extract` when present. For custom extraction workflows, include `customSteps`, `outputRoutes`, `leafFields`, and the persisted `extract.workflow` metadata. |
-| Existing workflow | `workflow_update` | `id` set to the existing workflow ID, plus the desired custom overlay relative to defaults. |
+| New authored YAML | `workflow_create` | `name` and the exact YAML text in `yaml`. |
+| Existing workflow | `workflow_update` | `id` set to the existing workflow ID, plus the exact YAML text in `yaml`. |
 | Bucket or group attachment | `workflow_add_to_id` | `id` set to the bucket/group ID, and `workflowId` set to the created or updated workflow ID. |
 | Account default | `workflow_add_to_account` | `workflowId` set to the created or updated workflow ID. |
 
@@ -214,9 +209,9 @@ python deploy_workflow.py \
   --dry-run
 ```
 
-Dry run compiles the YAML, validates `workflow.json`, writes `deploy.json`, and
-prints the planned workflow action. It does not call GroundX and does not require
-`GROUNDX_API_KEY`.
+Dry run parses the YAML, writes offline topology and `deploy.json`, and prints
+the planned workflow action. It does not call GroundX, does not claim server
+validation, and does not require `GROUNDX_API_KEY`.
 
 ## Verify Deployment
 
@@ -258,7 +253,7 @@ extraction is unavailable unless an operator confirms otherwise.
 
 `deploy_workflow.py` writes:
 
-- `workflow.json` — compiled workflow body
+- `workflow.json` — server workflow readback after create or update
 - `deploy.json` — status, workflow action, attachment target, and API response
 - `workflow_id.txt` — workflow ID when a workflow was created or updated
 - `bucket_id.txt` — bucket ID when a bucket attachment was resolved

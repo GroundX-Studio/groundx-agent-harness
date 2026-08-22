@@ -22,7 +22,7 @@ callers pass the initialized absolute run root to `--out` before this script wri
 
 Run artifacts (written to --out, a self-contained, reproducible set):
   - `prompt.yaml`            — the schema this run used (copied verbatim).
-  - `workflow.json`          — the exact compiled workflow it deployed.
+  - `workflow.json`          — server workflow readback saved for diagnostics.
   - `<doc>.extracted.json`   — raw GroundX `get_extract` JSON when available.
   - `<doc>.xray.json`        — the raw X-Ray per document (cacheable input;
                                re-score with xray_to_extract → compare, NO re-ingest).
