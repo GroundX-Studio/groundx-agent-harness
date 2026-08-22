@@ -27,8 +27,8 @@ a field, or planning a serious extraction pilot.
 | Need | Read |
 | --- | --- |
 | Public extraction docs and installed-agent runtime guidance | `public-docs.md` |
-| Broad ordered workflow path: intake -> final schema -> prompt writing -> workflow groups -> compile -> deploy or run -> compare -> iterate | `workflow-how-to.md` |
-| Detailed extraction loop: draft YAML -> compile -> deploy or run -> compare -> iterate | `1_extraction_loop.md` |
+| Broad ordered workflow path: intake -> final schema -> prompt writing -> workflow groups -> server validation -> deploy or run -> compare -> iterate | `workflow-how-to.md` |
+| Detailed extraction loop: draft YAML -> server validation -> deploy or run -> compare -> iterate | `1_extraction_loop.md` |
 | New customer pilot, sample-set requirements, expected-answer readiness, API handoff expectations | `customer-onboarding.md`, then `1_extraction_loop.md` |
 | Optional OpenSpec structure for serious pilots | `openspec-pilots.md` |
 | Authoring or revising YAML schema | `16_prompt_writing.md`, `prompt-quality.md`, `2_schema_design.md` |
@@ -70,14 +70,13 @@ fanout approaches the 2000 request cap.
 
 Use `16_prompt_writing.md`, `prompt-quality.md`, and `prompt-improvement-loop.md`
 before drafting or tightening prompts. The skill should teach the full process first:
-source evidence, final shape, prompt writing, compile, run, source-adjudicated scoring,
+source evidence, final shape, prompt writing, server validation, run, source-adjudicated scoring,
 one-change prompt loops, and regression checks.
 
 When a customer or sample repo already has a `manager.py`, `simple.yaml`, and separate
 extract/reconcile/QA prompt modules, use `prompt-manager.md` instead of forcing those
-wrappers into inline compiler functions. The today path is a small manager adapter
-(`templates/prompt_manager.py`) plus compiled workflow settings; the future path
-is a single YAML-driven `groundx-python/extract` abstraction.
+wrappers into inline functions. The supported path is a small manager adapter
+(`templates/prompt_manager.py`) plus authored YAML submitted to the server.
 
 Use `deploy.md` and `deploy_workflow.py` when a finished YAML only needs workflow create/update and
 attachment through the GroundX Python SDK. Use `run_extraction.py` when you need ingest,

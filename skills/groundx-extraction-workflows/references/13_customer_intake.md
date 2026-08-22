@@ -30,7 +30,7 @@ If no source document is available:
 - if useful, show only an explicitly empty shape such as
   `"<not extracted — source missing>"`.
 
-Once the source and approved fields exist, compile with
+Once the source and approved fields exist, validate with the server using
 the server (`gx.workflows.validate(name=..., yaml=...)`) before
 calling the YAML runnable. Use `score_extraction.py` or
 `run_extraction_loop.py --expected-json` for scoring;
@@ -57,7 +57,7 @@ or schema sections produced values.
 The user may also provide an existing `prompt.yaml` to compare against, but they
 do not need to say `extraction_policy_version: v1`,
 `workflow.custom_steps`, group-level `workflow_step`, `_pseudo_groups`, or the
-compile/deploy/ingest/poll/retrieve steps.
+validate/deploy/ingest/poll/retrieve steps.
 
 For that minimal request, infer the current harness path:
 
@@ -66,7 +66,7 @@ For that minimal request, infer the current harness path:
 - choose `workflow.custom_steps`
 - use group-level `workflow_step`
 - split oversized workflow groups with `_pseudo_groups`
-- compile and validate before any live run
+- validate the source YAML with the server before any live run
 - create or update the workflow
 - create or select a test bucket and attach the workflow
 - ingest the sample document through the supported runner or `groundx-api`
@@ -247,4 +247,3 @@ category), distinct records that share them will be silently merged; find the
 printed identifier (claim number, circuit id, site id, line id) before
 authoring the schema, and verify after the first run that the returned record
 count matches the document's printed count.
-

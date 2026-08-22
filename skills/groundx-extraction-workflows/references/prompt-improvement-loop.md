@@ -57,8 +57,8 @@ Use this before changing YAML:
 6. If raw extract is missing, `progress.errors` is populated, or the run never reaches
    extract retrieval, debug runtime processing failures before scoring or changing
    prompts.
-7. If the compiled prompt does not contain the YAML rule you changed, fix the compiler,
-   deploy path, or stale workflow before running again.
+7. If captured rendered request evidence does not contain the YAML rule you changed,
+   fix the server authoring path or stale workflow before running again.
 
 ## One change per loop
 
@@ -77,12 +77,12 @@ same reason, fix the shared group rule and record that decision.
 Choose the cheapest valid verification:
 
 - If only expected-answer mapping changed, rescore existing output.
-- If YAML prompts changed, compile and run the workflow again.
+- If YAML prompts changed, run server validation, register, and run the workflow again.
 - If raw X-Ray already proves the platform missed source evidence, do not keep
   rewriting prompts.
 
-Always inspect compiled prompt text before a live run. A YAML edit that does not reach
-the compiled prompt cannot improve extraction.
+Inspect captured rendered request evidence before judging prompt propagation. A YAML
+edit that does not reach the model request cannot improve extraction.
 
 ## Source-adjudicate before scoring
 
@@ -116,7 +116,7 @@ Keep enough artifacts that another agent can continue without guessing:
 
 - source PDF or source reference
 - prompt.yaml diff
-- workflow.json or compiled prompt excerpt
+- server workflow readback and captured rendered request excerpt
 - raw output
 - X-Ray or diagnostic output
 - score report

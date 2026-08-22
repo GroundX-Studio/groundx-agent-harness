@@ -166,6 +166,8 @@ process.
 
 ### Step 1 — Request a pre-signed upload URL
 
+This request does not require a GroundX API key.
+
 ```http
 GET https://api.eyelevel.ai/upload/file?name={fileName}&type={fileExtension}
 ```
@@ -186,6 +188,9 @@ GET https://api.eyelevel.ai/upload/file?name={fileName}&type={fileExtension}
 Extract `URL` (the upload destination), `Header` (required request headers — each value
 is a list; use the first element), and `Method` (always `"PUT"`).
 
+The pre-signed `URL` is valid for 60 minutes. Complete Step 2 before it expires; after
+that, repeat Step 1 for a new one.
+
 ### Step 2 — Upload the file
 
 PUT the raw file bytes to the returned `URL` with the `Header` values applied:
@@ -205,6 +210,11 @@ The `sourceUrl` to use in `document_ingestremote` is:
 
 - The value of `GX-HOSTED-URL` in the pre-signed URL response headers, if present.
 - Otherwise: the upload `URL` with its query parameters stripped (the clean S3 object URL).
+
+The hosted URL is unsigned and the issuing service sets no expiry on it, but do not
+treat one from an earlier session as reusable: hosted URLs have been observed to stop
+resolving after enough time passes. Re-run Steps 1-2 for a fresh one rather than
+reusing a stored URL.
 
 Then submit to `document_ingestremote` exactly as you would any remote document, using
 this hosted URL as `sourceUrl`:
@@ -228,7 +238,10 @@ Tool: `document_ingestremote` → `ingest.processId`
 handles all three steps automatically when a local file path is provided — it detects
 whether the `file_path` field is a URL or a local path, calls the pre-signed upload
 service for local paths, and routes everything through `document_ingestremote`. Use it
-in preference to implementing the three steps manually.
+in preference to implementing the three steps manually when a `GROUNDX_API_KEY` is
+available — the SDK client requires one to construct (`GroundX(api_key=...)`). An
+authenticated MCP session that does not expose a raw API key should use the three manual
+steps above instead.
 
 ## 6. Website crawl
 

@@ -6,9 +6,9 @@ A **fully synthetic** fixture that proves the custom-step path is
 the YAML defines `workflow.custom_steps`.
 
 This is the non-invoice smoke gate from the extension model
-(`../../references/14_extension_model.md`): if the compiler had silently
+(`../../references/14_extension_model.md`): if the server compiler had silently
 re-hardcoded the invoice group names (`statement` / `charges` / `meters`), a YAML
-with arbitrary group names would fail to compile. The synthetic expected-answer
+with arbitrary group names would fail server validation. The synthetic expected-answer
 JSON then proves the same non-invoice final shape is scoreable.
 
 ## Files
@@ -18,7 +18,7 @@ JSON then proves the same non-invoice final shape is scoreable.
 | `prompt.yaml` | Two groups with custom steps: `claim` (`kind: instruct`, singleton), `line_items` (`kind: keys`, repeating) |
 | `data/answer_key.json` | Synthetic expected-answer JSON in the runner output shape `{"claim": {...}, "line_items": [...]}` |
 
-No PDF, no business-logic metadata — this fixture proves compile, route shape,
+No PDF, no business-logic metadata. This fixture proves topology, route shape,
 and scoring for a non-invoice final object. The invoice-domain fixture
 (`../utility-invoice/`) covers null-vs-miss and business-logic metadata.
 

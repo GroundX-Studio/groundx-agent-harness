@@ -19,7 +19,7 @@ Or import as a module:
     from xray_to_extract import xray_to_extract
     extract_dict = xray_to_extract(xray_dict)
 
-Custom workflow aggregation: when a compiled workflow extract is provided,
+Custom workflow aggregation: when server workflow readback is provided,
 `workflow.output_routes` reads `customChunkOutputs`, `customSectionOutputs`, or
 `customDocumentOutputs` and writes values back to their final JSON Pointer
 paths.
@@ -503,7 +503,7 @@ def main() -> int:
     parser.add_argument(
         "--workflow-json",
         default=None,
-        help="Optional compiled workflow.json whose extract.workflow routes custom outputs",
+        help="Optional server workflow readback whose extract.workflow routes custom outputs",
     )
     parser.add_argument(
         "--indent",

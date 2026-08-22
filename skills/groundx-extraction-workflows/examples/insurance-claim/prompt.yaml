@@ -3,7 +3,7 @@
 # This is the fitness gate that keeps the compiler honest: its group names
 # (`claim`, `line_items`) are not invoice names. Each group uses custom workflow
 # metadata. If the compiler had silently re-hardcoded invoice group names, this
-# fixture would fail to compile.
+# fixture would fail server validation.
 #
 # This is the "new domain = new examples/<domain>/ + smoke eval, no runner code"
 # axis of the extension model (references/14_extension_model.md). All content is
