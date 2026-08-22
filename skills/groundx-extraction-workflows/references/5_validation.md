@@ -296,7 +296,7 @@ Stop iterating when any of these is true:
   prompts further past this point.
 
 Use `prompt-improvement-loop.md` before changing YAML: source-adjudicate the
-disagreement, classify the miss, change one prompt or group rule, compile, run
+disagreement, classify the miss, change one prompt or group rule, validate, run
 or rescore, and check for regression.
 
 Do not stop because the loop is "good enough" without recording why each

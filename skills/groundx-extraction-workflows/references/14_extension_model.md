@@ -8,9 +8,9 @@ and what to prove.
 
 | Change | Example | What edits | Code? | Proof |
 |---|---|---|---|---|
-| **New field / concept** | add `delivery_point_id`; tighten a null rule | one field def in `prompt.yaml` | none | re-compile; re-compare the touched field |
-| **New use case in a domain** | utility bill → telecom invoice; add dedup/link rules | `prompt.yaml` fields + per-group business-logic metadata | none | re-compile; the metadata changes the post-extraction output |
-| **New domain** | invoice → insurance claim | new `examples/<domain>/` custom-step YAML + expected-answer fixture + smoke eval | none unless a new primitive is needed | fixture compiles, validates routes, and scores its expected-answer JSON |
+| **New field / concept** | add `delivery_point_id`; tighten a null rule | one field def in `prompt.yaml` | none | server-validate; re-compare the touched field |
+| **New use case in a domain** | utility bill to telecom invoice; add dedup/link rules | `prompt.yaml` fields + per-group business-logic metadata | none | server-validate; the metadata changes the post-extraction output |
+| **New domain** | invoice to insurance claim | new `examples/<domain>/` custom-step YAML + expected-answer fixture + smoke eval | none unless a new primitive is needed | server validation passes, routes are correct, and expected-answer JSON scores |
 | **New primitive** | graph / sequencing linking the metadata can't express | a runner primitive in `templates/business_logic.py` | **yes — escalation signal** | a unit test for the primitive |
 
 The first three are declarative. Only the fourth — a genuinely new
@@ -39,9 +39,9 @@ metadata in `prompt.yaml` and run client-side by `templates/business_logic.py`:
 | `passthrough: {from, fields}` | passthrough | copy parent fields onto each linked child |
 | `conflict_attrs: [...]` | conflict-surface | surface disagreeing values as `<field>__conflicts: [...]` |
 
-These keys are **consumed client-side and never reach the workflow JSON** — the
-compiler keeps only `fields` in the `extract` block. So adding them is a YAML-only
-change. See `examples/utility-invoice/business_logic.md` for a worked "from chat"
+These keys originate in source YAML, are preserved by the server workflow
+metadata, and are consumed by the extraction runtime. So adding them is a
+YAML-only change. See `examples/utility-invoice/business_logic.md` for a worked "from chat"
 capture, and `12_business_logic.md` for the primitive semantics.
 
 ### Axis 3 — new domain
@@ -49,7 +49,7 @@ capture, and `12_business_logic.md` for the primitive semantics.
 A new document family gets its own `examples/<domain>/` directory and custom-step
 YAML. Define `workflow.custom_steps`, assign each group with
 `workflow_step: <name>`, and set `workflow_output_key` on routed fields. The
-compiler emits `customSteps`, `outputRoutes`, and `leafFields`, and local readback
+server compiler emits `customSteps`, `outputRoutes`, and `leafFields`, and readback
 can map `customChunkOutputs`, `customSectionOutputs`, and
 `customDocumentOutputs` back to final JSON paths.
 
@@ -80,24 +80,24 @@ examples/<domain>/
 ```
 
 A new-domain fixture should include `prompt.yaml`, `README.md`, and
-`data/answer_key.json`. Compile-only proof is too shallow for promoted examples:
+`data/answer_key.json`. Offline topology proof is too shallow for promoted examples:
 it catches hardcoded group names, but not route/readback or scorer shape drift.
 
-## Fitness gates that keep the compiler honest
+## Fitness gates that keep the authoring path honest
 
 Three gates prevent silent re-hardcoding of the invoice group names and
 non-invoice scorer drift:
 
-1. **Non-invoice compile + route shape** — a fixture whose group names are not
-   invoice names (`examples/insurance-claim/`) must compile to valid workflow
-   JSON, and its expected-answer JSON must contain every compiled final route.
+1. **Non-invoice server validation + route shape**: a fixture whose group names
+   are not invoice names (`examples/insurance-claim/`) must pass server
+   validation, and its expected-answer JSON must contain every final route.
 2. **Non-invoice score smoke** — the same fixture's expected-answer JSON must be valid
    runner output shape for singleton and repeating groups.
 3. **Field-coverage gate** — a YAML's fields must cover the target catalog's
    fields (YAML fields ⊇ catalog fields).
 
-Validate a fixture with the server (`gx.workflows.validate(name=..., yaml=...)`)
-offline (exit 0 = pass; missing custom workflow metadata is a hard error). The
-skill eval suite asserts the smoke compile, custom-step compile, field coverage,
+Validate a fixture with the server (`gx.workflows.validate(name=..., yaml=...)`).
+Offline topology checks do not prove server acceptance. The skill eval suite
+asserts topology shape, custom-step coverage, field coverage,
 null-vs-miss classification, and at least one business-logic primitive changing
 the output.

@@ -13,7 +13,7 @@ A typical customer onboarding has three phases:
 
 1. **Author** — agent drafts an initial YAML from the customer's inputs
    (document + expected answers) and the skill's references.
-2. **Iterate** — run compile → register workflow → ingest → extract →
+2. **Iterate**: validate source YAML, register workflow, ingest, extract, then
    compare. Use `prompt-improvement-loop.md` to source-adjudicate, classify the
    miss, change one prompt or group rule, and check for regressions. Repeat.
 3. **Finalize** — once accuracy meets the bar, the YAML is locked.
@@ -126,7 +126,7 @@ their original paths to the tools rather than copying them into a durable journe
 ├── run.md                         temporary working notes; sanitize before any handoff
 ├── v1/
 │   ├── prompt.yaml                first-draft schema
-│   ├── workflow.json              compiled workflow JSON
+│   ├── workflow.json              server workflow readback
 │   ├── output.json                raw GroundX get_extract, when available
 │   ├── xray.json                  raw X-Ray evidence
 │   ├── xray_diagnostic.json       local X-Ray reconstruction, when needed
@@ -249,7 +249,7 @@ domain or document type), update the skill's references:
 | New platform constraint observed across 2+ customers | `references/6_known_limitations.md` |
 | New schema design pattern that generalizes | `references/2_schema_design.md` |
 | New iteration technique (e.g., a specific X-Ray inspection idiom) | `references/1_extraction_loop.md` |
-| New mode of compile-time validation | `references/4_sdk_integration.md` |
+| New server validation behavior | `references/4_sdk_integration.md` |
 
 The bar for updating references is **"this would help the next
 customer regardless of domain."** Customer-specific tactics stay in

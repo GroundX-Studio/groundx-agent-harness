@@ -81,7 +81,7 @@ evidence.
 **Pitch shape.**
 - Lead with the **accuracy pillar (pillar 2)** and the technical "why" behind it — let the architecture earn the credibility rather than asserting it.
 - Pillar order: 2 → 4 → 3 → 1 → 5.
-- Open the head-to-head testing references and DocBench. Reference `proof-points.md` § 1 and `technical-architecture.md`.
+- Open the head-to-head testing references. Reference `proof-points.md` § 1 and `technical-architecture.md`.
 - Emphasize: vision model + agentic pipeline + hybrid search; OpenSearch-not-vector-DB design *as a complementary approach to their internal stack rather than a replacement*; why this beats stitched-together stacks at scale.
 - De-emphasize: the no-code Studio UI; framing that implies their internal AI program was wasted effort.
 

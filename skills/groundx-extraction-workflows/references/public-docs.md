@@ -68,7 +68,7 @@ explicitly asking for SDK internals:
 - JSON Pointer route maps
 - reassembly metadata
 - harness script names
-- local compile/deploy scripts
+- local topology and deploy scripts
 - platform slot names
 - manual `prepare_extraction_yaml(...)` calls
 

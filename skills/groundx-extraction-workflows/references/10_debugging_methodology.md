@@ -48,8 +48,8 @@ behavior usually has a boring artifact cause.
 
 invoice-001 testing produced `account_charges: []` despite per-chunk
 X-Ray extractions being correct. The actual cause was a wire-format
-issue: Pydantic v1's `.dict()` silently dropped unset fields, so the
-compiled workflow JSON was missing 5 of 7 `WorkflowSteps` slot keys
+issue in the retired local compiler: Pydantic v1's `.dict()` silently dropped
+unset fields, so its generated workflow JSON was missing 5 of 7 `WorkflowSteps` slot keys
 and 3 of 6 `WorkflowStep` variant keys per populated step. The
 platform's aggregator silently skipped the chunk_keys → account_charges
 step.
@@ -57,7 +57,7 @@ step.
 Debugging path actually taken (≈3 hours, 6 ingests across v3–v7):
 
 - v3: rewrote prompt wrappers to match a reference manager (wrong direction)
-- v4: removed schema fields without checking the compiled workflow diff (wrong direction)
+- v4: removed schema fields without checking the workflow readback diff (wrong direction)
 - v5: changed `section_strategy="page"` two-step flow (wrong direction)
 - v6: added `workflows.add_to_account()` (wrong direction)
 - v7: ran the reference manager directly — worked. Bug isolated to our path.
@@ -65,9 +65,9 @@ Debugging path actually taken (≈3 hours, 6 ingests across v3–v7):
 
 Debugging path the discipline would have taken (≈5 minutes, 0 ingests):
 
-- Capture the known-working workflow JSON via SDK introspection
-- Compile our YAML through our compiler
-- `diff` the two
+- Capture the known-working server workflow readback via SDK introspection
+- Register the same source YAML through the server compiler
+- Diff the two readbacks
 - 11 structural differences visible immediately
 
 ## 10.3 Useful diagnostic artifacts

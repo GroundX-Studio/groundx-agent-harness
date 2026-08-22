@@ -84,3 +84,4 @@ artifact with no master-brand signal. Those default to `product-brand-gtm`.
 - Brand hierarchy and GroundX / EyeLevel / Valantor mental model:
   `references/brand-hierarchy.md`
 - Proof points: `references/proof-points.md`
+- Executive bio or leadership list: `references/people.md`

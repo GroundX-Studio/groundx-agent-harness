@@ -44,7 +44,7 @@ claim accuracy.
 
 - **Role:** `artifact`.
 - **First-entry intents:** schema-first extraction, extraction YAML, extraction
-  workflow authoring, compile-to-workflow JSON, field-accuracy iteration, pilot
+  workflow authoring, server workflow creation, field-accuracy iteration, pilot
   acceptance criteria, or comparison to expected answers.
 - **Deferrals:** interactive workflow registration, bucket attachment, document
   ingest, polling, and extraction retrieval route to `groundx-api`; on-prem
@@ -94,7 +94,7 @@ claim accuracy.
 
 ## What This Skill Produces
 
-This skill produces `prompt.yaml`, compiled `workflow.json`, extracted JSON after
+This skill produces `prompt.yaml`, server workflow readback in `workflow.json`, extracted JSON after
 `groundx-api` execution, deploy metadata from `templates/deploy_workflow.py`, an
 accuracy report when expected answers exist, and the minimal
 `templates/prompt_manager.py` manager shape when custom prompt wrappers are needed. A
@@ -105,7 +105,7 @@ full deployable project scaffold is not part of the default deliverable.
 - [ ] Local artifacts passed `references/local-artifact-closeout.md`; report the exact
       removed root plus every durable handoff or intentionally unresolved run.
 - [ ] YAML remains the durable source of truth.
-- [ ] Workflow JSON is reproducible from YAML.
+- [ ] Workflow JSON is server readback from the registered source YAML.
 - [ ] Finished-YAML deploy uses `deploy_workflow.py`; interactive platform execution
       delegates to `groundx-api`.
 - [ ] No real GroundX API key appears in any artifact.

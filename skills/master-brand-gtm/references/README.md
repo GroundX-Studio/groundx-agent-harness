@@ -41,6 +41,7 @@ for the user to name Valantor, master brand, GTM, positioning, or messaging.
 | AI plus humans | `ai-and-humans.md` |
 | Outcome Plug-in positioning | `outcome-playbooks.md`, `product.md` |
 | Audiences and buyer framing | `audiences.md` |
+| Executive bio or leadership list | `people.md` |
 | Brand hierarchy and plain name mental model | `brand-hierarchy.md` |
 | Product states | `product.md` |
 | Proof points | `proof-points.md` |

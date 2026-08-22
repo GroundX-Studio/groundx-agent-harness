@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Contract tests for the workflow_step compiler.
 
-Test-first: these encode the harness compile contract from the OpenSpec change
+Test-first: these encode the harness offline topology contract from the OpenSpec change
 `extraction-runner-e2e`. Harness-authored YAML uses `workflow.custom_steps` plus
 per-workflow-group `workflow_step:` metadata. Legacy `slot:` and `domain:` YAMLs
 belong to runtime compatibility and SDK compatibility helpers, not the Studio
@@ -2035,7 +2035,7 @@ line_items:
 
 
 def test_custom_workflow_compiles_without_sdk_helper(monkeypatch):
-    """Offline validation must compile custom workflow syntax without groundx installed."""
+    """Offline topology must parse custom workflow syntax without groundx installed."""
     monkeypatch.setattr(compile_workflow, "_sdk_prepare_extraction_yaml", None, raising=False)
     y = _custom_yaml()
 

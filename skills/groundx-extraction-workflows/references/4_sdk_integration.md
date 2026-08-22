@@ -49,8 +49,8 @@ Product YAML upload is a separate platform path. It accepts authored YAML,
 normalizes it when needed, persists the effective source/metadata, and creates
 or updates the workflow server-side. Use that path when proving user/product
 upload behavior, especially internal legacy YAML-to-v1 normalization. The local
-SDK paths below send compiled workflow bodies and cannot prove upload-time
-normalization.
+SDK paths below also submit source YAML, but cannot prove product upload
+persistence or legacy normalization.
 
 ## 2. The offline topology model
 
@@ -60,39 +60,19 @@ The module (`skills/groundx-extraction-workflows/templates/_workflow_topology.py
 is import-only (no CLI) and executes the following sequence when a template
 calls `build_workflow_artifacts(yaml_path)` for fanout estimation:
 
-1. **Load env.** Reads `.env` for `EXTRACT_MODEL_*` engine settings when
-   `python-dotenv` is installed; otherwise it uses the process environment and
-   built-in defaults.
-   `GROUNDX_API_KEY` is not required at compile time; a
-   placeholder is acceptable since no API call is made.
-2. **Load YAML.** The SDK prepares final groups, workflow groups, route
-   metadata, and persisted extract metadata when available. If the SDK is not
-   installed, the compiler uses its built-in fallback for harness-authored
-   `workflow.custom_steps` YAML only.
-3. **Validate harness metadata.** The compiler requires
-   `extraction_policy_version: v1`, `workflow.custom_steps`,
-   `workflow.agent_chain`, group-level `workflow_step:`, and field-level
-   `workflow_output_key` where direct custom output routing is needed.
-4. **Build workflow settings.** The compiler emits `extract`, explicit `null`
-   built-in extraction `steps`, plus `template`, `customSteps`, `outputRoutes`,
-   and `leafFields` from prepared metadata. For custom extraction workflows,
-   `extract.workflow` must carry the persisted `custom_steps`, `output_routes`,
-   and `leaf_fields` metadata that matches those top-level fields. It also
-   renders each custom step's prompt text into the custom step config.
-5. **Assemble the final dict.** The output is a Python dict the estimation
-   and coverage templates read for group and field topology. It is written to
-   `fanout_topology.json` for run provenance and is never submitted to the
-   API; registration always sends the author's source YAML.
+1. **Load YAML.** Read final groups, workflow groups, and custom-step levels.
+2. **Check estimate inputs.** Validate only metadata required for offline
+   fanout and coverage calculations. Server validation remains authoritative.
+3. **Build diagnostic topology.** Emit routes, leaves, and group metadata for
+   local estimation and debugging.
+4. **Keep the result local.** Write `fanout_topology.json` for run provenance.
+   Deploy and run submit authored YAML to GroundX and never submit this topology.
 
 ### 2.2 Custom step templates
 
-The prompt text for custom workflow steps is prepared from the compiled YAML
-metadata. When the SDK is installed, `groundx.extract` owns the YAML
-preparation. When the SDK is absent, `_workflow_topology.py` uses the same
-harness-specific metadata contract for offline validation. In both paths, the
-harness compiler renders the final custom step prompt wrappers before emitting
-workflow JSON. It does not load a second prompt-wrapper module or re-parse the
-raw path through a high-level SDK helper after compilation.
+The backend compiler prepares custom workflow prompts from authored YAML.
+`_workflow_topology.py` models only group and execution-level topology needed
+for local estimates. It does not render or submit workflow prompts.
 
 The custom workflow shapes the templates handle:
 
@@ -114,7 +94,7 @@ definition, field specs, output contract, and JSON-only final notes. The
 rendered `task` message identifies the assistant, defines evidence and process
 rules, lists concise field bullets, and states the parser-safety contract. If a
 YAML authors a molecule-specific prompt in `custom_steps[].config`, the
-compiler preserves it for that molecule and fills only the missing molecule
+backend compiler preserves it for that molecule and fills only the missing molecule
 prompts.
 
 Compiled extraction workflows set `doc-summary`, `doc-keys`, `sect-summary`,
@@ -124,7 +104,7 @@ comes from the configured custom steps.
 
 If the document type does not fit one of these shapes, still prefer custom
 workflow metadata (`workflow.custom_steps`, `workflow_step`,
-`workflow_output_key`) over editing compiler branches. The compiler emits
+`workflow_output_key`) over adding Harness branches. The backend compiler emits
 `customSteps`, `outputRoutes`, and `leafFields` when the prepared YAML carries
 custom workflow metadata.
 See §3.2 below.
@@ -143,14 +123,14 @@ as the thin lifecycle manager. Supported extract wrapper names are:
 
 Reconcile and QA wrappers stay in the manager layer; see `prompt-manager.md`.
 
-## 3. Customizing the compile script
+## 3. Extending workflow authoring
 
 ### 3.1 Different group names
 
 If the YAML uses group names other than `statement`, `charges`, and `meters`,
-do not add group-name branches to the compiler. Use `workflow.custom_steps`,
-`workflow_step:`, and `workflow_output_key`. The compiler stays domain-agnostic
-and consumes prepared workflow metadata.
+do not add group-name branches to Harness templates. Use
+`workflow.custom_steps`, `workflow_step:`, and `workflow_output_key`. Authoring
+semantics belong in the API-owned compiler.
 
 ### 3.2 Different document types
 
@@ -164,9 +144,8 @@ while task names stay internal runtime roles.
 
 If a customer repo already has `manager.py`, `simple.yaml`, and separate
 `extract_statement.py`, `reconcile_statement.py`, and `qa_statement.py` prompt
-modules, prefer `templates/prompt_manager.py` over rewriting the project into
-compiler branches. That shape keeps the migration path clear for a future
-`groundx-python/extract` abstraction.
+modules, prefer `templates/prompt_manager.py` over adding customer-specific
+branches to shared code.
 
 For documents that do not fit these shapes (e.g. hierarchical
 reports, free-form correspondence), the schema-first runner is not
@@ -190,8 +169,8 @@ simple extractions or high-volume runs, `medium` may be acceptable.
 
 There are three local/agent execution paths, plus the product YAML upload path:
 
-- **Deploy-only local script:** `templates/deploy_workflow.py` compiles,
-  validates, creates or updates the workflow, and optionally attaches it
+- **Deploy-only local script:** `templates/deploy_workflow.py` validates and
+  submits source YAML, then optionally attaches the server-created workflow
   to a bucket or account default through the GroundX Python SDK.
 - **Full local runner:** `templates/run_extraction.py` performs deploy,
   ingest, status polling, X-Ray capture, and extract retrieval through
@@ -206,8 +185,8 @@ There are three local/agent execution paths, plus the product YAML upload path:
 For first-run deploy guidance, use `deploy.md`. It has the short decision table
 for MCP vs `deploy_workflow.py` vs `run_extraction.py`.
 
-Once `workflow.json` is produced, the rest of the lifecycle uses
-GroundX workflow and document operations. The full set of operations:
+Once the source YAML is ready, the lifecycle uses GroundX workflow and document
+operations. The full set of operations:
 
 | Step | Operation | Where documented |
 |---|---|---|
@@ -220,20 +199,15 @@ GroundX workflow and document operations. The full set of operations:
 | Retrieve extraction | `document_getextract` / `documents.get_extract()` / `GET /v1/ingest/document/extract/{documentId}` | same |
 | Inspect raw chunks (debug) | `document_getxray` / `documents.get_xray()` / `GET /v1/ingest/document/xray/{documentId}` | same |
 
-For an iteration that involves only prompt changes, after the
-workflow is created once, subsequent iterations use `workflow_update`
-rather than `workflow_create`. The compile output is the same shape
-either way; only the API operation changes.
+For an iteration that involves only prompt changes, after the workflow is
+created once, subsequent iterations submit the revised source YAML with
+`workflow_update` rather than `workflow_create`.
 
-The local Python templates compile first and then call
-`workflows.create/update` with `workflow_sdk_kwargs(workflow)`. Do not compile a
-YAML and then pass the same raw path back through
-`create_extraction_workflow(path=...)`; that second parse bypasses the harness
-compiler contract for `workflow_step:`, custom routes, and metadata-aware pilot
-YAML. The high-level SDK helpers remain the preferred public SDK surface for
-YAML that is directly SDK-loadable.
+The local Python templates call `workflows.validate`, then
+`workflows.create/update` with the same authored YAML. The offline topology
+model is never submitted.
 
-Do not treat this local compiled path as proof that product YAML upload works.
+Do not treat the local SDK path as proof that product YAML upload works.
 Certification and regression evidence for upload behavior must use the platform
 YAML upload path and record that workflow creation path explicitly.
 
@@ -246,7 +220,7 @@ that document's extraction workflow.
 It reads `GROUNDX_API_KEY` from `.env` or environment and never accepts API keys as
 command-line arguments. Use `--bucket-id` for an existing bucket ID, `--bucket-name`
 for exact existing bucket-name lookup, and `--create-bucket-name` to create a bucket.
-Use `--dry-run` to compile, validate, and write planned deploy metadata without API calls.
+Use `--dry-run` to write offline topology and planned deploy metadata without API calls.
 `templates/prompt_manager.py` centralizes the extraction-specific order for
 these operations: create/update/list/check workflow, add/remove account default,
 add/remove bucket attachment, ingest, poll status, retrieve `get_extract`, and
@@ -287,30 +261,18 @@ it.
   same YAML. The server is the only compiler; this is the only registration
   entrypoint
   agents use.
-- Create and update through the SDK workflow helpers
-  (`create_extraction_workflow` / `update_extraction_workflow`,
-  `workflows.create/update` with `workflow_sdk_kwargs` as the fallback), per
-  §4 above.
+- Create and update through SDK methods that submit the authored YAML, per §4.
 
 Ownership of the workflow surface:
 
 | Concern | Owner |
 | --- | --- |
-| Authoring semantics (YAML → workflow metadata) | GroundX Python SDK (`prepare_extraction_yaml`); server-owned after the canonical-compiler migration |
+| Authoring semantics (YAML to workflow metadata) | API-owned Cashbot compiler |
 | Orchestration, credentials, scoring, evidence | This skill and the harness |
 | Persistence, validation, canonical hash | The GroundX platform API |
 | Hosted runtime consumption | The hosted extraction runtime |
 | API shape, generated models, SDK generation | The API contract source (Fern/OpenAPI) |
 
-New compilation or normalization semantics land in the SDK first; harness
-templates only wrap them. `_workflow_topology.py` no longer silently rewrites
-SDK-prepared metadata: when the installed SDK emits the `repetitionScope` enum,
-any divergence between SDK output and harness normalization fails compile
-naming the field; on older SDKs that still emit pointer-format scopes, the
-compiler keeps the rewrite and warns to upgrade past
-`eyelevelai/groundx-python#68`.
-
-Sunset: when the platform's `complete-canonical-workflow-compiler-migration`
-change lands, authoring submits raw YAML to the API-owned compiler, this
-section is replaced by that path, and the parity guard retires with the client
-compilers.
+New compilation or normalization semantics land in the API-owned compiler.
+Harness templates remain limited to source submission, offline estimates,
+orchestration, diagnostics, and evidence.
