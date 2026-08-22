@@ -112,6 +112,8 @@ workflow example:
 
 This skill is standalone. If REST or SDK integration is needed after MCP setup, if the target
 is a dev environment, if MCP tools are missing, or if the needed operation is not covered by
-the MCP surface (for example local-file upload), see the `groundx-api` skill for REST base
-URL, SDK setup, and endpoint operation semantics. Neither skill requires the other to be
-installed.
+the MCP surface, see the `groundx-api` skill for REST base URL, SDK setup, and endpoint
+operation semantics. For local-file upload specifically, see
+`groundx-api/guides/02-ingest-patterns.md` §5 for the pre-signed upload steps (also
+cross-linked from this skill's `references/05-workflows.md` §4.1). Neither skill requires the
+other to be installed.

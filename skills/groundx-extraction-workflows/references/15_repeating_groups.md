@@ -100,7 +100,7 @@ fix — verify it did not also drop a legitimately distinct record.
    it and move on — do not change a correct extraction.
 4. Apply the one matching prompt pattern (§2–§5) to that group's
    `prompt.instructions`, or add the metadata. Change one thing.
-5. Re-compile, re-run, re-score. Confirm the targeted field improved and no
+5. Revalidate, re-register, re-run, and re-score. Confirm the targeted field improved and no
    other field regressed.
 6. Stop when every remaining miss is a documented expected-answer artifact, a
    platform limitation, or an accepted convention (`5_validation.md` §7).

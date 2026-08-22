@@ -100,6 +100,9 @@ At investor altitude, translate the selected proof into infrastructure,
 category, or compounding-defensibility significance. Do not copy the claim
 payload into this narrative.
 
+Team credibility is part of this proof. `people.md` provides background for
+named executive bios in investor decks and board memos.
+
 ## 10. What this narrative does not claim
 
 - **Product state is not owned here.** Apply the current lifecycle and promise

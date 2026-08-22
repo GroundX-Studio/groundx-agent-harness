@@ -66,16 +66,7 @@ an unconditional data-egress statement.
 - **Source ID:** `SRC-AF-KLM-STORY`.
 - **Last verified:** 2026-05-14.
 
-### 1.3 DocBench — superhuman performance
-
-> Superhuman performance on the public DocBench document-comprehension benchmark.
-
-- **Use as:** third-party benchmark validation in technical sections.
-- **Source:** eyelevel.ai blog post — *"GroundX Achieves Superhuman Performance in Document Comprehension on DocBench."*
-- **Source ID:** `SRC-DOCBENCH`.
-- **Last verified:** 2026-05-14.
-
-### 1.4 Head-to-head testing wins
+### 1.3 Head-to-head testing wins
 
 > In head-to-head testing, GroundX significantly outperforms many popular RAG tools, especially with complex documents at scale.
 

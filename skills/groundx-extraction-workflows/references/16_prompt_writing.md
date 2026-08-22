@@ -16,8 +16,8 @@ process first, then routes to the detailed prompt quality and improvement loop g
    optional `format`. Use `prompt-quality.md` for the checklist.
 5. Put shared record-selection rules in group-level `prompt.instructions`. Do not repeat
    the same rule in every field when the whole group needs it.
-6. Compile the YAML and inspect the compiled prompt text before running. The compiled
-   prompt is what the model sees.
+6. Validate and register the YAML with the server. Inspect captured rendered request
+   evidence when proving what the model received. Workflow readback alone is not proof.
 7. Run extraction, retrieve raw output and X-Ray, then compare against expected answers
    only after source-adjudicating disagreements.
 8. Improve by looping one field or one group rule at a time. Use
@@ -160,4 +160,3 @@ meter tag from per-meter tax lines and left $274 permanently unattributable.
 Write the scoping rule from where the line is physically printed (which page,
 sub-page, or section it appears in), and use the category name only as a
 secondary signal.
-

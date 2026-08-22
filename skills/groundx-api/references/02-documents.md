@@ -221,6 +221,8 @@ remote ingest. See §5 and §13 in 02-ingest-patterns.md for the manual and SDK 
 
 ### Pre-signed URL service
 
+This request does not require a GroundX API key.
+
 **Request:**
 ```http
 GET https://api.eyelevel.ai/upload/file?name={fileName}&type={fileExtension}
@@ -249,13 +251,23 @@ Content-Type: {Header["Content-Type"][0]}
 
 A `200` or `201` response indicates success.
 
+The pre-signed `URL` above is valid for 60 minutes; complete the PUT before it expires,
+or request a new one.
+
 **Hosted URL** — use as `sourceUrl` in the subsequent `document_ingestremote` call:
 - The value of `GX-HOSTED-URL` in the pre-signed URL response headers, if present.
 - Otherwise: the upload `URL` with its query parameters stripped.
 
+The hosted URL is unsigned and the issuing service sets no expiry on it, but do not
+treat one from an earlier session as reusable: hosted URLs have been observed to stop
+resolving after enough time passes. Re-run the request/upload steps for a fresh one
+rather than reusing a stored URL.
+
 **Python SDK shortcut.** `client.ingest()` handles these three steps automatically when
 a local `file_path` is provided — it calls the pre-signed upload service, then submits
-to `document_ingestremote` with the hosted URL:
+to `document_ingestremote` with the hosted URL. This needs a `GROUNDX_API_KEY` to
+construct the client; an authenticated MCP session that does not expose a raw API key
+should use the manual request/upload/submit steps above instead:
 
 ```python
 client.ingest(

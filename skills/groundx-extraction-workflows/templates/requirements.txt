@@ -1,12 +1,13 @@
-# Floor 3.9.8: first release with the repetitionScope fix (AGE-279,
-# eyelevelai/groundx-python#68); 3.9.0-3.9.7 derive it wrong in
-# prepare_extraction_yaml. Ceiling 3.9.11: newest release verified against the
-# full template suite. The ceiling is exact on purpose - a patch release
-# (3.9.1) once broke xray reassembly inside an open range - and moves only
-# after the full suite passes on the new release. scan-extract-sdk-ceiling.mjs
-# reports when PyPI publishes above it.
-groundx[extract]>=3.9.8,<=3.9.11
+# Floor 3.9.10: first release where an undeclared relationship
+# multiple_match_strategy defaults to first_stable (2026-08-17 ruling);
+# older releases resolve undeclared exact ties as ambiguous and disagree
+# with fixtures captured on or after that release. 3.9.0-3.9.7 also derive
+# repetitionScope wrong (AGE-279). No ceiling: the 2026-08-17 ruling treats
+# a broken publish as a one-off release-process defect, not a recurring
+# class, so the newest release installs without a verified-ceiling gate.
+groundx[extract]>=3.9.10
 pypdf>=5.0.0
 pytest>=8.0.0
 python-dotenv>=1.0.0
 PyYAML>=6.0
+tomli>=2.0.0; python_version < "3.11"

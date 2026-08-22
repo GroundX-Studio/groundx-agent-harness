@@ -2,7 +2,7 @@
 """Estimate custom extraction request fanout before live ingest.
 
 The estimate is intentionally offline. It reads a harness workflow YAML or a
-compiled workflow JSON, counts PDF pages with pypdf when PDFs are supplied, and
+server workflow readback JSON, counts PDF pages with pypdf when PDFs are supplied, and
 projects how many custom extraction requests the workflow can create.
 """
 
@@ -277,7 +277,7 @@ def _format_text(report: dict) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workflow-yaml", default=None, help="source workflow YAML")
-    parser.add_argument("--workflow-json", default=None, help="compiled workflow JSON")
+    parser.add_argument("--workflow-json", default=None, help="server workflow readback JSON")
     parser.add_argument("--pdf", action="append", default=[], help="PDF to count; repeat for batches")
     parser.add_argument("--chunks-per-page", type=float, default=None)
     parser.add_argument("--expected-pages", type=int, default=None)

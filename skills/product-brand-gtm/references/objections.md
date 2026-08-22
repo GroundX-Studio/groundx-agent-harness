@@ -216,7 +216,7 @@ promise savings.
 - **Reframe:** GroundX chunks include document summaries, section keywords,
   chunk keywords, and three versions of the text. Weighted text search narrows
   the candidates before semantic scoring. Each step has a clear job.
-- **Proof:** Architecture explanation in `technical-architecture.md` § 4. Head-to-head testing in `proof-points.md` § 1.4.
+- **Proof:** Architecture explanation in `technical-architecture.md` § 4. Head-to-head testing in `proof-points.md` § 1.3.
 
 ### 4.3 "Are you locked to a specific LLM vendor?"
 

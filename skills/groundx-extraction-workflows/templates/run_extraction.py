@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Canonical end-to-end extraction runner.
 
-Compiles a YAML, validates the compiled workflow JSON, creates a workflow
-on GroundX, sets up a bucket, attaches the workflow, ingests the PDF,
+Validates and submits source YAML to the GroundX server compiler, creates a
+workflow, sets up a bucket, attaches the workflow, ingests the PDF,
 polls to completion, captures X-Ray and extract, and writes everything
 to the configured run directory. Emits structured JSONL events to
 `<out>/run.log` so the run can be inspected after the script exits.
@@ -493,7 +493,7 @@ def _workflow_id(response: typing.Any) -> str:
 
 
 def _topology(yaml_path: str, topology_json_path: str, name: str, rl: RunLog) -> dict:
-    rl.event("compile.start", yaml_path=yaml_path)
+    rl.event("topology.start", yaml_path=yaml_path)
     workflow, metadata = build_workflow_artifacts(yaml_path, name=name)
     with open(topology_json_path, "w") as f:
         json.dump(workflow, f, indent=2, default=str)

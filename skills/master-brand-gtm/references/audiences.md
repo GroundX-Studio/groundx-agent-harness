@@ -20,6 +20,7 @@ product-altitude audience cuts.
 - Use the *infrastructure layer that lets AI-native enterprises close the data comprehension gap* one-line (from `investor-narrative.md` § 1).
 - Emphasize: long-term partnership, multi-year contract, durable competitive positioning.
 - De-emphasize: technical mechanism (defer to CIO and below).
+- `people.md` provides background for a named executive's bio.
 
 ## 2. CFO
 
@@ -45,6 +46,7 @@ product-altitude audience cuts.
 - Reference `ai-and-humans.md` (the strategic posture) and `verticals.md` (the where-we-deploy-first thesis).
 - Emphasize: trust, governance, audit-trail, source-attribution, regulated-industry track record.
 - De-emphasize: tactical sales motion, product-mechanism detail.
+- `people.md` provides background for a named executive's bio.
 
 ## 4. Investor (founder / executive briefing, fundraising)
 
@@ -56,6 +58,7 @@ product-altitude audience cuts.
 - Lead with the one-sentence translation from `investor-narrative.md` § 1.
 - Emphasize: category-defining, infrastructure-tier, multi-year durability, compounding defensibility.
 - De-emphasize: tactical sales process, day-to-day product roadmap.
+- `people.md` provides background for a named executive's bio.
 
 ## 5. Analyst (industry analyst, market researcher, press)
 
