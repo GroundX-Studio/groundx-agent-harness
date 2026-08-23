@@ -83,8 +83,8 @@ python -c "import os; from groundx import GroundX; GroundX(api_key=os.environ['G
 ```
 
 For script-based validation, run, or deploy paths, use `deploy_workflow.py`,
-`run_extraction.py`, or `batch_extraction.py`; these write both `workflow.json`
-and `extraction_workflow_metadata_v1.json`.
+`run_extraction.py`, or `batch_extraction.py`; these preserve exact
+`prompt.yaml` and server `workflow.json`.
 
 `workflow.json.extract` is server readback saved with the run. It must preserve
 the server's persisted extraction mapping, including YAML
@@ -93,18 +93,8 @@ custom workflow routing support when present. Do not strip it down to only
 `fields` and `prompt`. The validator must pass before deploy, MCP
 create/update, or ingest.
 
-The metadata artifact carries:
-
-- `workflow_field_paths`
-- prepared final groups
-- top-level metadata
-- final-group metadata
-- workflow-group metadata
-- source YAML checksum
-
-Keep this artifact with the server workflow readback and run output. It is useful for
-local diagnostics and reassembly handoff, but it is not the only place authored
-metadata survives.
+Keep the exact source YAML with the server workflow readback and run output.
+Do not add a locally compiled metadata sidecar.
 
 ## 5. Deploy Or Attach
 
@@ -126,10 +116,9 @@ for non-extraction API/debug calls unless an operator explicitly confirms dev
 extraction is available. Retrieve:
 
 - `workflow.json`
-- `extraction_workflow_metadata_v1.json`
 - `output.json` when raw GroundX `get_extract` is available
 - `xray.json`
-- `xray_diagnostic.json` and `final_output.json` when local diagnostics were needed
+- `final_output.json` when client business logic processes real server output
 - run log
 
 When a field is wrong, inspect X-Ray and rendered request evidence before editing the
@@ -183,9 +172,7 @@ gaps:
 - Prompt or YAML issue: revise `prompt.yaml`.
 - Workflow grouping issue: revise real groups or custom-step assignments.
 - Platform workflow execution issue: record the compiler/platform constraint.
-- Server-side Extract availability issue: use X-Ray fallback and record the
-  environment limitation.
-- Reassembly issue: preserve `extraction_workflow_metadata_v1.json` and the raw
-  workflow output for the downstream reassembly handoff.
+- Server-side Extract availability issue: preserve X-Ray, record the
+  environment limitation, and do not synthesize output.
 - New final business primitive: record the general primitive, not a
   one-customer fork.

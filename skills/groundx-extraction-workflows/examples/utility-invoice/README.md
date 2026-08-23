@@ -17,17 +17,17 @@ documents and expected answers are supplied out-of-repo and never shipped in the
 | `data/answer_key.json` | Synthetic expected-answer JSON in the runner output shape `{"statement": {...}, "charges":[...], "meters":[...]}`, with legitimate nulls |
 | `business_logic.md` | The linking / dedup / conflict rules "from chat", mapped to the metadata vocabulary |
 
-There is intentionally **no PDF**. CI evals run offline topology checks;
+There is intentionally **no PDF**. CI evals run offline source and scoring checks;
 live extraction against a real document runs out-of-repo with credentials.
 
 ## The end-to-end loop for this fixture
 
 1. **Author** — the YAML is the deployable artifact; the GroundX API
    compiles it server-side at create time. The CI-safe offline check is the
-   topology model (no credentials, no network):
+   request-fanout estimate (no credentials, no network):
 
    ```bash
-   python -c "from _workflow_topology import build_workflow; build_workflow('prompt.yaml')"
+   python ../../templates/estimate_workflow_requests.py --workflow-yaml prompt.yaml --json
    ```
 
    `workflow.custom_steps` defines `statement_fields`, `charge_lines`, and

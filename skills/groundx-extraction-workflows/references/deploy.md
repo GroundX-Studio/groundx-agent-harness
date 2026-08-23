@@ -20,7 +20,7 @@ Before running the local command, copy these files from
 directory:
 
 - `deploy_workflow.py`
-- `_workflow_topology.py`
+- `_workflow_source.py`
 - `requirements.txt`
 - `.env.sample` as `.env`
 
@@ -29,7 +29,7 @@ Concrete setup:
 ```bash
 SKILL_DIR=/absolute/path/to/groundx-extraction-workflows
 cp "$SKILL_DIR/templates/deploy_workflow.py" .
-cp "$SKILL_DIR/templates/_workflow_topology.py" .
+cp "$SKILL_DIR/templates/_workflow_source.py" .
 cp "$SKILL_DIR/templates/requirements.txt" .
 cp "$SKILL_DIR/templates/.env.sample" .env
 python -m pip install -r requirements.txt
@@ -76,9 +76,9 @@ uses the YAML filename without `.yaml`. `--workflow-id` switches the command
 from create to update.
 
 The deploy script validates the authored YAML with `workflows.validate`, then
-submits the same YAML to `workflows.create` or `workflows.update`. GroundX is
-the only workflow compiler. The local topology artifact is only an offline
-fanout estimate and is never submitted.
+submits the exact same bytes to `workflows.create` or `workflows.update`.
+Cashbot is the only workflow compiler. Local tools read authored custom steps
+only to estimate request fanout.
 
 Use the product YAML upload path when certifying product persistence or legacy
 normalization. The local SDK command proves source-YAML validation, server
@@ -209,7 +209,7 @@ python deploy_workflow.py \
   --dry-run
 ```
 
-Dry run parses the YAML, writes offline topology and `deploy.json`, and prints
+Dry run reads the YAML, writes exact `prompt.yaml` plus `deploy.json`, and prints
 the planned workflow action. It does not call GroundX, does not claim server
 validation, and does not require `GROUNDX_API_KEY`.
 

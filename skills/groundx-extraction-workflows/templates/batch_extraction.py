@@ -25,18 +25,17 @@ Run artifacts (written to --out, a self-contained, reproducible set):
   - `workflow.json`          — server workflow readback saved for diagnostics.
   - `<doc>.extracted.json`   — raw GroundX `get_extract` JSON when available.
   - `<doc>.xray.json`        — the raw X-Ray per document (cacheable input;
-                               re-score with xray_to_extract → compare, NO re-ingest).
-  - `<doc>.xray_diagnostic.json` — local X-Ray reconstruction when raw extract is missing.
-  - `<doc>.final_output.json` — local diagnostic/business-logic output when produced.
+                               re-score captured server output, NO re-ingest).
+  - `<doc>.final_output.json` — client business-logic output when produced.
   - `aggregated.accuracy.json`   — the consolidated field-level accuracy report.
   - `verify.log`             — structured run event log.
 
 Design notes:
   - ONE workflow + bucket for the whole batch (compiled/deployed once).
-  - Per document: ingest → poll → X-Ray → get_extract → optional local
-    X-Ray diagnostic/final output → compare against expected-answer JSON.
+  - Per document: ingest → poll → X-Ray → get_extract → optional client
+    business logic → compare against expected-answer JSON.
   - Raw `<doc>.extracted.json` is scored by default. Use `--score-final-output`
-    to score local final output for runs where `get_extract` is unavailable.
+    to score client business-logic output when that is the intended result.
   - `aggregate_reports()` is a pure function (unit-tested) so the scoring/rollup
     is verifiable without any API calls.
   - `--limit` and an explicit doc list keep live cost economical; iterate on a
@@ -61,7 +60,7 @@ dotenv.load_dotenv(dotenv.find_dotenv(usecwd=True))
 
 from groundx import Document, GroundX  # noqa: E402
 
-from _workflow_topology import build_workflow_artifacts  # noqa: E402
+from _workflow_source import load_workflow_source  # noqa: E402
 import score_extraction as cmp  # noqa: E402
 from batch_score import aggregate_reports  # noqa: E402
 from run_extraction import (  # noqa: E402
@@ -103,7 +102,6 @@ def _workflow_id(response: typing.Any) -> str:
 def _create_workflow(
     gx: GroundX,
     yaml_path: str,
-    workflow: dict[str, typing.Any],
     workflow_name: str,
 ) -> typing.Any:
     with open(yaml_path, "r", encoding="utf-8") as f:
@@ -178,7 +176,7 @@ def main() -> int:
         )
         for base in skipped_docs:
             rl.event("verify.doc.skip", doc=base, reason="no expected-answer JSON")
-        wf, extraction_metadata = build_workflow_artifacts(args.yaml, name=workflow_name)
+        source = load_workflow_source(args.yaml)
         with open(args.yaml, "r", encoding="utf-8") as src:
             yaml_text = src.read()
         try:
@@ -186,31 +184,26 @@ def main() -> int:
         except Exception as exc:
             rl.event("validate.error", error=str(exc))
             raise SystemExit(f"workflow validation failed: {exc}")
-        # Snapshot the run inputs so the out dir is a self-contained, reproducible
-        # artifact set (prompt schema + the offline topology used for estimation).
+        # Snapshot the authored input exactly. Cashbot owns derived workflow metadata.
         with open(os.path.join(args.out, "prompt.yaml"), "w") as f:
             f.write(yaml_text)
-        with open(os.path.join(args.out, "fanout_topology.json"), "w") as f:
-            json.dump(wf, f, indent=2, default=str)
-        with open(os.path.join(args.out, "extraction_workflow_metadata_v1.json"), "w") as f:
-            json.dump(extraction_metadata, f, indent=2, default=str)
         if not _request_estimate_preflight(
             rl,
             args.out,
-            wf,
+            source,
             selected_docs,
             allow_high_request_estimate=args.allow_high_request_estimate,
         ):
             return 2
-        created = _create_workflow(gx, args.yaml, wf, workflow_name)
+        created = _create_workflow(gx, args.yaml, workflow_name)
         workflow_id = _workflow_id(created)
+        with open(os.path.join(args.out, "workflow.json"), "w") as f:
+            json.dump(_to_plain_dict(created), f, indent=2, default=str)
         if args.add_to_account:
             gx.workflows.add_to_account(workflow_id=workflow_id)
         bucket_id = gx.buckets.create(name=args.bucket_name).bucket.bucket_id
         gx.workflows.add_to_id(id=bucket_id, workflow_id=workflow_id)
         rl.event("verify.deployed", workflow_id=workflow_id, bucket_id=bucket_id)
-        workflow_extract = wf.get("extract")
-
         per_doc = []
         try:
             for doc_path in selected_docs:
@@ -224,10 +217,8 @@ def main() -> int:
                     document_id,
                     bl_meta,
                     rl,
-                    workflow_extract=workflow_extract,
                 )
                 raw_extract = artifacts["raw_extract"]
-                diagnostic_extract = artifacts["diagnostic_extract"]
                 final_output = artifacts["final_output"]
                 xray = artifacts["xray"]
                 with open(os.path.join(args.out, f"{base}.xray.json"), "w") as f:
@@ -235,9 +226,6 @@ def main() -> int:
                 if raw_extract is not None:
                     with open(os.path.join(args.out, f"{base}.extracted.json"), "w") as f:
                         json.dump(raw_extract, f, indent=2, default=str)
-                if diagnostic_extract is not None:
-                    with open(os.path.join(args.out, f"{base}.xray_diagnostic.json"), "w") as f:
-                        json.dump(diagnostic_extract, f, indent=2, default=str)
                 if final_output is not None:
                     with open(os.path.join(args.out, f"{base}.final_output.json"), "w") as f:
                         json.dump(final_output, f, indent=2, default=str)
@@ -251,7 +239,7 @@ def main() -> int:
                     rl.event(
                         "verify.doc.partial",
                         doc=base,
-                        reason="raw get_extract unavailable; use --score-final-output to score local output",
+                        reason="raw get_extract unavailable; no scoreable server output",
                     )
                     continue
 

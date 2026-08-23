@@ -82,7 +82,7 @@ For routine maintainer changes:
 2. **Smoke the iteration aids** if any was touched:
    - `gx.workflows.validate(name=..., yaml=...)` on the source YAML
    - `run_extraction.py` → end-to-end against a known fixture
-   - `xray_to_extract.py` → on a captured X-Ray
+   - `score_extraction.py` → on captured server extraction
    - `cleanup_orphans.py --dry-run`
 3. **For meaningful changes** — repeat the §9.2 clean-room test.
 

@@ -119,13 +119,9 @@ final-group metadata explicitly.
 
 For a new prompt schema:
 
-1. Validate and register the authored YAML with the server and
-   `extraction_workflow_metadata_v1.json`.
-   `workflow.json.extract` must come from the SDK persisted workflow extract
-   mapping, not from an execution-only group dictionary.
-2. Validate the workflow JSON shape.
-3. Create the workflow.
-4. Check the workflow by reading it back and confirming custom steps/routes are present.
+1. Validate the exact authored YAML with the server.
+2. Create the workflow by submitting those same YAML bytes.
+3. Preserve the returned `workflow.json` as server evidence.
 5. Attach to the account default only if the pilot needs account-level default
    behavior.
 6. Attach to the test bucket.
@@ -133,8 +129,8 @@ For a new prompt schema:
 8. Poll until complete.
 9. Retrieve extract output.
 10. Retrieve X-Ray output.
-11. Reassemble workflow output into the final data object when route-map
-    metadata is present.
+11. Treat server `get_extract` output as authoritative. Preserve X-Ray only as
+    debugging evidence.
 
 For a prompt edit, use `update_prompts` rather than creating a new workflow.
 Detach with `remove_from_id` or `remove_from_account` when a pilot should no

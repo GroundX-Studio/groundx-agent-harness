@@ -91,9 +91,9 @@ fix — verify it did not also drop a legitimately distinct record.
 
 ## 6. The iteration loop
 
-1. Run the batch (`batch_extraction.py`) or re-score a captured X-Ray
-   (`xray_to_extract` → `score_extraction.py`) — **no re-ingest** unless the YAML or
-   prompt changed (`8_iteration_and_feedback.md` §6).
+1. Run the batch (`batch_extraction.py`) or re-score captured server output
+   with `score_extraction.py` — **no re-ingest** unless the YAML or prompt changed
+   (`8_iteration_and_feedback.md` §6).
 2. Read `group_field_accuracy` + `group_record_coverage`. Pick the **single
    worst field or coverage gap**, not the group's aggregate.
 3. Classify its cause from §1. If the cause is an expected-answer artifact, record

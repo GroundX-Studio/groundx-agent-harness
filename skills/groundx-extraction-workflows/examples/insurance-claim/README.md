@@ -24,17 +24,16 @@ and scoring for a non-invoice final object. The invoice-domain fixture
 
 ## The proof
 
-This command writes a temporary offline topology model. Before running it, follow
+This command writes a temporary offline request estimate. Before running it, follow
 [`local-artifact-closeout.md`](../../references/local-artifact-closeout.md), initialize a
 planned run or choose one dedicated ad-hoc root, and export its absolute path as `RUN_ROOT`.
 
 ```bash
-python -c "import json, sys; sys.path.insert(0, '../../templates'); from _workflow_topology import build_workflow; json.dump(build_workflow('prompt.yaml'), sys.stdout, indent=2, default=str)" > "$RUN_ROOT/fanout_topology.json"
+python ../../templates/estimate_workflow_requests.py --workflow-yaml prompt.yaml --json > "$RUN_ROOT/request-estimate.json"
 python ../../templates/score_extraction.py data/answer_key.json data/answer_key.json
 ```
 
-The topology command exits 0 with `claim` and `line_items` present in the
-model's `extract` block, proving the YAML parses as a v1 custom workflow. It is
+The estimator reads authored custom steps without compiling the workflow. It is
 non-authoritative: the GroundX API is the only workflow compiler, and
 registration submits `prompt.yaml` itself after
 `gx.workflows.validate(name=..., yaml=...)` passes (that check needs

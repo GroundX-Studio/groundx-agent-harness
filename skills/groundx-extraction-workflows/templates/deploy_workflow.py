@@ -37,7 +37,7 @@ import typing
 import dotenv
 from groundx import GroundX
 
-from _workflow_topology import build_workflow_artifacts
+from _workflow_source import load_workflow_source
 from estimate_workflow_requests import count_pdf_pages, estimate_request_fanout
 
 
@@ -153,17 +153,16 @@ def _load_client(yaml_path: str) -> tuple[GroundX, typing.Optional[dict[str, typ
     )
 
 
-def _workflow_topology(yaml_path: str, workflow_name: str, out: str) -> dict[str, typing.Any]:
+def _workflow_source_snapshot(yaml_path: str, out: str) -> dict[str, typing.Any]:
     if not os.path.exists(yaml_path):
         raise SystemExit(f"ERROR: YAML file not found: {yaml_path}")
 
-    workflow, extraction_metadata = build_workflow_artifacts(yaml_path, name=workflow_name)
-    with open(_abs(out, "fanout_topology.json"), "w", encoding="utf-8") as f:
-        json.dump(workflow, f, indent=2, default=str)
-    with open(_abs(out, "extraction_workflow_metadata_v1.json"), "w", encoding="utf-8") as f:
-        json.dump(extraction_metadata, f, indent=2, default=str)
-
-    return workflow
+    source = load_workflow_source(yaml_path)
+    with open(yaml_path, "r", encoding="utf-8") as src:
+        yaml_text = src.read()
+    with open(_abs(out, "prompt.yaml"), "w", encoding="utf-8") as dst:
+        dst.write(yaml_text)
+    return source
 
 
 def _list_buckets_page(
@@ -292,8 +291,8 @@ def main() -> int:
     parser.add_argument("--bucket-name", default=None, help="Existing bucket name to look up and attach")
     parser.add_argument("--create-bucket-name", default=None, help="Create a bucket with this name and attach")
     parser.add_argument("--add-to-account", action="store_true", help="Set workflow as account default")
-    parser.add_argument("--dry-run", action="store_true", help="Compile, validate, and write planned actions without API calls")
-    parser.add_argument("--skip-validate", action="store_true", help="Skip workflow JSON validation")
+    parser.add_argument("--dry-run", action="store_true", help="Write planned source submission without API calls")
+    parser.add_argument("--skip-validate", action="store_true", help="Skip server-side YAML validation")
     parser.add_argument("--estimate-pdf", action="append", default=[], help="Optional PDF evidence for deploy-only request-risk reporting")
     parser.add_argument("--estimate-docs-dir", default=None, help="Optional PDF directory for deploy-only request-risk reporting")
     parser.add_argument("--expected-pages", type=int, default=None, help="Optional expected page count for deploy-only request-risk reporting")
@@ -309,11 +308,11 @@ def main() -> int:
 
     os.makedirs(args.out, exist_ok=True)
     workflow_name = args.workflow_name or os.path.splitext(os.path.basename(args.yaml))[0]
-    workflow = _workflow_topology(args.yaml, workflow_name, args.out)
+    source = _workflow_source_snapshot(args.yaml, args.out)
     with open(args.yaml, "r", encoding="utf-8") as f:
         yaml_text = f.read()
     request_risk = _request_risk_report(
-        workflow,
+        source,
         args.out,
         estimate_pdfs=args.estimate_pdf,
         estimate_docs_dir=args.estimate_docs_dir,
@@ -335,8 +334,8 @@ def main() -> int:
             "status": "dry-run",
             "workflowId": args.workflow_id,
             "workflowAction": "update" if args.workflow_id else "create",
-            "workflowName": workflow["name"],
-            "fanoutTopology": _abs(args.out, "fanout_topology.json"),
+            "workflowName": workflow_name,
+            "sourceYaml": _abs(args.out, "prompt.yaml"),
             "plannedAttachment": planned_attachment,
             "requestRisk": request_risk,
         }
@@ -371,6 +370,8 @@ def main() -> int:
         args.workflow_id,
         request_options=request_options,
     )
+    with open(_abs(args.out, "workflow.json"), "w", encoding="utf-8") as f:
+        json.dump(_to_plain_dict(workflow_response), f, indent=2, default=str)
 
     created_bucket = False
     account_assigned = False
@@ -423,7 +424,7 @@ def main() -> int:
         "status": "deployed",
         "workflowId": workflow_id,
         "workflowAction": workflow_action,
-        "workflowName": workflow["name"],
+        "workflowName": workflow_name,
         "workflowResponse": _to_plain_dict(workflow_response),
         "workflowJson": _abs(args.out, "workflow.json"),
         "bucketId": bucket_id,

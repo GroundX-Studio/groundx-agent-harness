@@ -33,9 +33,6 @@ from dataclasses import dataclass
 
 from groundx import Document, GroundX
 
-from _workflow_topology import build_workflow
-
-
 @dataclass
 class ExtractionRunArtifacts:
     workflow_id: str
@@ -128,30 +125,8 @@ class ExtractionWorkflowManager:
     def __init__(self, gx_client: GroundX) -> None:
         self.gx_client = gx_client
 
-    def workflow_body(self, *, yaml_path: str, workflow_name: str | None = None) -> dict[str, typing.Any]:
-        return build_workflow(yaml_path, name=workflow_name)
-
-    def workflow_steps(self, *, yaml_path: str, workflow_name: str | None = None) -> dict[str, typing.Any]:
-        workflow = self.workflow_body(yaml_path=yaml_path, workflow_name=workflow_name)
-        return typing.cast(dict[str, typing.Any], workflow.get("steps", {}))
-
-    def workflow_extract_dict(self, *, yaml_path: str, workflow_name: str | None = None) -> dict[str, typing.Any]:
-        workflow = self.workflow_body(yaml_path=yaml_path, workflow_name=workflow_name)
-        return typing.cast(dict[str, typing.Any], workflow.get("extract", {}))
-
-    def persisted_workflow_extract_dict(
-        self,
-        *,
-        yaml_path: str,
-        workflow_name: str | None = None,
-    ) -> dict[str, typing.Any]:
-        return self.workflow_extract_dict(yaml_path=yaml_path, workflow_name=workflow_name)
-
-    # These per-group methods are the override points for a custom manager
-    # subclass. The defaults delegate to
-    # the compiler's generic builders — `statement` is a singleton group,
-    # `charges`/`meters` are repeating groups — so they track the domain-agnostic
-    # compiler instead of bespoke per-group functions.
+    # These legacy pilot prompt wrappers are override points for a custom
+    # manager subclass. They do not compile or submit workflow metadata.
     def prompt_statement_extract_request(self, field_specs: str) -> str:
         return _singleton_request(field_specs)
 

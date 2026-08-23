@@ -129,8 +129,7 @@ their original paths to the tools rather than copying them into a durable journe
 │   ├── workflow.json              server workflow readback
 │   ├── output.json                raw GroundX get_extract, when available
 │   ├── xray.json                  raw X-Ray evidence
-│   ├── xray_diagnostic.json       local X-Ray reconstruction, when needed
-│   ├── final_output.json          local diagnostic/business-logic output, when needed
+│   ├── final_output.json          client business-logic output, when needed
 │   ├── expected-answer-mapping.json  source-backed mapping/adjudication record, when needed
 │   ├── compare-report.txt         score_extraction.py output
 │   └── notes.md                   rationale for v1, observed failures

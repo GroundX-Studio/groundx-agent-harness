@@ -145,18 +145,15 @@ workflow was attached before ingest.
 Confirmed live (2026-05-30) against the invoice example with a regular user key:
 `get_extract` 404'd while the X-Ray held a fully populated statement (23
 fields) and 20 charges. Re-confirmed 2026-05-31 with a valid documentId,
-`add_to_account`, and ~3 min of post-ingest polling — the hosted tier does not
-return server-side extractions; the X-Ray fallback is the working path.
+`add_to_account`, and ~3 min of post-ingest polling — that hosted tier did not
+return server-side extractions. X-Ray remained debugging evidence, not a
+replacement result.
 
 **Resolution (in this skill):** `run_extraction.py` tries `get_extract` first.
 When raw extract is available, it writes that payload to `output.json`. When
-`get_extract` is empty or 404s, it writes `xray_diagnostic.json` from
-`xray_to_extract.py`, writes `xray_reassembly_diagnostic.json` for the full SDK
-readback envelope when available, and writes `final_output.json` for local
-diagnostic/business-logic output. Add `--require-raw-extract` when the absence
-of `output.json` should fail the run. `xray_to_extract.py` remains the
-canonical local aggregator for X-Ray-first diagnostics (see `references/README.md`
-and `10_debugging_methodology.md`).
+`get_extract` is empty or 404s, it preserves `xray.json`, reports that server
+output is unavailable, and does not synthesize customer output. Add
+`--require-raw-extract` when the absence of `output.json` should fail the run.
 
 ## 5. Pre-fix SDKs reject repeating-group creates
 
