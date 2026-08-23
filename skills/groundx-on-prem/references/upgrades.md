@@ -87,7 +87,7 @@ Before running `helm upgrade`:
 
     Then compare the filtered streams: `diff <(drop_metrics_tls rendered.current.yaml) <(drop_metrics_tls rendered.target.yaml)`. Only `awk` is required, so this works on an air-gapped host with no extra tooling.
 
-    **Do not reach for a line-oriented filter here.** `grep -v -A20 'name: "metrics-tls"'` looks like it drops the match and the twenty lines after it; it removes nothing at all. `-v` selects every *non*-matching line, and `-A20` then prints twenty lines of trailing *context* after those selected lines — which re-admits the Secret, `tls.key` included. `-A` only ever adds lines to output. `scripts/tests/test-doc-shell-commands.mjs` executes the filter published above against a fixture render and asserts the Secret document and `tls.key` are gone while every unrelated document survives.
+    **Do not reach for a line-oriented filter here.** `grep -v -A20 'name: "metrics-tls"'` looks like it drops the match and the twenty lines after it; it removes nothing at all. `-v` selects every *non*-matching line, and `-A20` then prints twenty lines of trailing *context* after those selected lines — which re-admits the Secret, `tls.key` included. `-A` only ever adds lines to output. The filter published above is verified against a fixture render: the Secret document and `tls.key` are removed while every unrelated document survives.
 
     The second way is to set **`metrics.useExisting: true`** in the values used for both renders — client-side this suppresses the generated key material (the `metrics-tls` Secret renders with an empty `data:` block, identically every time), making the diff deterministic.
 

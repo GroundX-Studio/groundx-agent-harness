@@ -130,23 +130,23 @@ def test_xray_to_extract_accepts_platform_readback_workflow_routes():
     workflow_extract = {
         "customSteps": [
             {
-                "name": "adp_f1_employer_and_plan_information",
+                "name": "payroll_f1_employer_and_plan_information",
                 "level": "section",
                 "kind": "instruct",
             }
         ],
         "outputRoutes": [
             {
-                "workflowGroup": "adp_f1_employer_and_plan_information",
+                "workflowGroup": "payroll_f1_employer_and_plan_information",
                 "workflowField": "employer_name",
                 "finalPath": "/employer_information/employer_name",
-                "stepName": "adp_f1_employer_and_plan_information",
+                "stepName": "payroll_f1_employer_and_plan_information",
                 "level": "section",
                 "outputMap": "customSectionOutputs",
                 "outputKey": "employer_name",
                 "readbackPath": (
                     "/chunks/*/customSectionOutputs/"
-                    "adp_f1_employer_and_plan_information/employer_name"
+                    "payroll_f1_employer_and_plan_information/employer_name"
                 ),
             }
         ],
@@ -156,7 +156,7 @@ def test_xray_to_extract_accepts_platform_readback_workflow_routes():
             {
                 "sectionSummary": '{"account_number": "legacy-noise"}',
                 "customSectionOutputs": {
-                    "adp_f1_employer_and_plan_information": {
+                    "payroll_f1_employer_and_plan_information": {
                         "employer_name": "Z&N Coffeehouse Companies Inc"
                     }
                 },

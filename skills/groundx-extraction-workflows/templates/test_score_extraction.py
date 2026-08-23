@@ -66,7 +66,7 @@ def test_nested_singleton_group_scores_against_nested_extraction():
 
 
 def test_json_answer_key_field_value_objects_score_as_nested_singletons(tmp_path):
-    key_path = tmp_path / "adp-shaped-answer.json"
+    key_path = tmp_path / "customer-shaped-answer.json"
     key_path.write_text(
         """
 {
@@ -125,7 +125,7 @@ def test_expected_value_but_missing_extraction_is_miss():
 
 
 def test_value_when_answer_key_is_null_is_not_a_failure():
-    # AGE-86: extract the printed account number even when the answer key is
+    # Extract the printed account number even when the answer key is
     # null; the customer reconciles. Must not count as a failure.
     expected = {"singleton": {"customer_account_id": None}, "groups": {}}
     extracted = {"customer_account_id": "4001234567"}

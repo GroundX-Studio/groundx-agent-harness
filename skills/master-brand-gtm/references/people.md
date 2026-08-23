@@ -81,8 +81,8 @@ MBA.
 **Additional background.**
 - Co-Founder and Chief Operating Officer of EyeLevel.ai, February 2023 to
   July 2026: recapitalized the company, led product, marketing, and sales,
-  brought in Air France, ADP, and Samsung as customers, and launched GroundX,
-  FraudX, and X-Ray. Became
+  brought in Air France/KLM and other enterprise customers, and launched
+  GroundX, FraudX, and X-Ray. Became
   Valantor's Chief Product Officer in July 2026, after Valantor's
   acquisition of EyeLevel.
 - Global Head of Subscription Weather Products, IBM Watson, January 2018 to

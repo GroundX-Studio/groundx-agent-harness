@@ -2,7 +2,7 @@
 
 How Valantor master-brand prose sounds: sentence shape, vocabulary, and register.
 This file owns narrative voice at master-brand altitude. The visual-surface voice
-lives in `../../master-brand-design-standards/references/voice.md`.
+lives in the master-brand design standards voice reference.
 
 For every external Valantor or GroundX artifact, first apply
 `../../RESPONSE_STYLE.md`. Write for a busy reader. Every word must earn its
@@ -28,7 +28,7 @@ Adjectives that do not describe the voice: *playful*, *cheeky*, *casual*, *aspir
 - **Short explanatory sentences.** Put one main idea in each sentence. Split a
   dense sentence unless its clauses must stay together for accuracy.
 - **No mechanical punctuation swaps.** Removing an em dash should not create a comma splice, dangling modifier, or awkward appositive. Rewrite the sentence until it sounds composed again.
-- **Title case for h1, h2, h3.** Section eyebrows are uppercase (per `../../master-brand-design-standards/references/voice.md` § 2); body sentences are sentence case.
+- **Title case for h1, h2, h3.** Section eyebrows are uppercase (per the master-brand design standards voice rules); body sentences are sentence case.
 
 ## 3. Vocabulary anchors
 
@@ -113,7 +113,7 @@ Both voices are direct and unhyped; they sound like the same company at differen
 
 ## 9. What this file does not cover
 
-- Visual voice (headline shape, eyebrow casing, ALL-CAPS rules). Reserved for `../../master-brand-design-standards/references/voice.md`.
+- Visual voice (headline shape, eyebrow casing, ALL-CAPS rules). Reserved for the master-brand design standards voice reference.
 - Product-altitude narrative voice. Reserved for `../../product-brand-gtm/`.
-- Microcopy on customer-facing product surfaces. Those are EyeLevel-pack surfaces by default; reserved for `../../product-brand-design-standards/references/voice.md`.
+- Microcopy on customer-facing product surfaces. Those are EyeLevel-pack surfaces by default; reserved for the product-brand design standards voice reference.
 - Translated / localized voice. Voice in non-English markets is a follow-up question; not covered here.

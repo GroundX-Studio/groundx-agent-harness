@@ -5,7 +5,7 @@ Before any command here creates local output, read [`local-artifact-closeout.md`
 Platform-side constraints, convention ambiguity patterns, and the
 escalation playbook for when extraction is wrong despite a clear prompt.
 
-## 1. Platform-locked field names (AGE-6)
+## 1. Platform-locked field names
 
 The GroundX extraction platform requires two hardcoded field names for
 charges-style groups. Renaming them in the YAML breaks charge extraction.
@@ -36,7 +36,7 @@ with matching field names first.
 A documented platform constraint is not a failure mode; an undocumented
 divergence between the YAML field names and the expected-answer field names is.
 
-## 2. Convention ambiguity (AGE-7-style)
+## 2. Convention ambiguity
 
 Some fields have ambiguous extraction conventions: the document text
 supports multiple interpretations, and the right one depends on
@@ -113,14 +113,13 @@ common fixes:
 - For charges-style under-extraction, tighten the group-level
   `prompt.instructions` rather than the per-field `instructions`
 
-### 3.3 Step 3: File against the AGE team
+### 3.3 Step 3: File a platform limitation report
 
 If X-Ray shows the value is not in the chunks, the issue is platform-side
-(layout analysis, chunking, parsing). The right path is to file a
-limitation against the AGE team:
+(layout analysis, chunking, parsing). The right path is to file it
+through the `report_issue` tool, classified as a platform issue; when the
+tool is absent, draft the report in the conversation for the user to file:
 
-- **Owner:** Ben Fletcher (`benjamin.fletcher@eyelevel.ai`), Devansh
-  Agrara (`devansh.agrara@eyelevel.ai`)
 - **What to include:** the document type, the field name, an example
   document, the X-Ray output for the chunks where the value should
   appear, the prompt that did not work
@@ -159,7 +158,7 @@ of `output.json` should fail the run. `xray_to_extract.py` remains the
 canonical local aggregator for X-Ray-first diagnostics (see `references/README.md`
 and `10_debugging_methodology.md`).
 
-## 5. Pre-fix SDKs reject repeating-group creates (AGE-279)
+## 5. Pre-fix SDKs reject repeating-group creates
 
 GroundX Python 3.9.0 through 3.9.7 derive `leafFields[].repetitionScope` as a
 JSON pointer prefix (for example `/charges/*`) in `prepare_extraction_yaml`.
@@ -184,7 +183,7 @@ ignore the pin. If a create rejection names `repetitionScope`, check the
 installed `groundx` version before touching the schema — the YAML is not the
 problem.
 
-## 6. Locally compiled workflow bodies are rejected at create (AGE-285)
+## 6. Locally compiled workflow bodies are rejected at create
 
 The server owns workflow compilation. The historical-classification and
 schema-hash parts of this class were fixed platform-side 2026-08-16 (client

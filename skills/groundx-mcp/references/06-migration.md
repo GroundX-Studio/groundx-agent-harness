@@ -53,8 +53,7 @@ names no longer resolve.
 ## 3. No Restore-Full-List Switch
 
 There is **no configuration option, flag, or environment variable** to restore the old full
-tool list. The simplified default surface is intentional and permanent (Run-2 design decision,
-AGE-151). Do not document or suggest any restore path — it does not exist.
+tool list. The simplified default surface is intentional and permanent (a permanent design decision). Do not document or suggest any restore path — it does not exist.
 
 The supported path for all advanced and destructive operations is the `call_operation`
 discovery pattern described in Section 4 below.

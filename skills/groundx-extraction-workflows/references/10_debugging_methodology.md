@@ -148,7 +148,7 @@ one YAML-driven `groundx-python/extract` abstraction.
 - `references/9_testing_methodology.md` — verifying changes work
   proactively; this reference is for investigating why they don't
 - `references/6_known_limitations.md` — platform-locked field names
-  (AGE-6) and convention ambiguities (AGE-7); escalation playbook
+  and convention ambiguities; escalation playbook
 - `references/prompt-manager.md` — minimal today-path manager for
   quickstart-style prompt modules
 - `CHANGELOG.md` `[0.1.2]` entry — full bug narrative

@@ -41,7 +41,7 @@ Spawn a fresh general-purpose sub-agent with explicit constraints:
 
 ### 9.2.2 Inputs
 
-- The Linear ticket for the customer (e.g. AGE-1)
+- The tracking ticket for the customer engagement
 - The skill at HEAD
 - The customer's PDF + expected answers
 - `GROUNDX_API_KEY` available in env or a `.env` file in the
@@ -61,7 +61,7 @@ Spawn a fresh general-purpose sub-agent with explicit constraints:
 A normal development cycle accumulates implicit context — knowledge of
 where files live, which arguments are required, which env vars work.
 Clean-room runs strip that context and surface anything the skill
-doesn't explicitly teach. During AGE-15 development, two real bugs
+doesn't explicitly teach. During the skill's initial development, two real bugs
 surfaced this way that normal use missed:
 
 1. A `RunLog.event(name, **kwargs)` collision with a `name=` data
@@ -78,7 +78,7 @@ trivially fixable. Without clean-room testing both would have shipped.
 
 For routine maintainer changes:
 
-1. **`node scripts/validate.mjs`** from repo root — every check must pass.
+1. **Run the repo's validation gate** from repo root — every check must pass.
 2. **Smoke the iteration aids** if any was touched:
    - `gx.workflows.validate(name=..., yaml=...)` on the source YAML
    - `run_extraction.py` → end-to-end against a known fixture
@@ -91,17 +91,16 @@ For routine maintainer changes:
 A skill-change PR should include, in the top-level body or comment:
 
 - **Audience A test recipe** — how a customer would validate the
-  change. Reference the relevant Linear ticket + fixture (e.g. AGE-1
-  + an invoice + expected answers).
+  change. Reference the relevant tracking ticket + fixture (an
+  invoice + expected answers).
 - **Audience B test recipe** — concrete validate + smoke commands the
   reviewer can run locally.
 - **What was verified** — a snapshot of accuracy numbers achieved,
   pointer to the `run.log` location, any orphan-resource cleanup done
   on the platform.
 - **AC + DoD audit tables** — declarative completion-state snapshot
-  for the relevant Linear ticket.
+  for the tracked work.
 
-The AGE-15 PR (PR #3) is the worked example of this convention.
 
 ## 9.5 Cross-references
 

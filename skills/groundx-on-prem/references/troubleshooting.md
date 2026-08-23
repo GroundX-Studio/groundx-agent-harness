@@ -68,7 +68,7 @@ And confirm `layout.ocr.credentials: files/ocr/credentials.json` matches. See `o
 
 **Cause.** A values block has `additionalProperties: false` in `values.schema.json`. Many subsystem blocks (`workspace.pvc`, `cache.existing`, `db.existing`, etc.) reject unknown fields. Common offenders: `workspace.pvc.enabled` (doesn't exist — the chart `omit`s it explicitly), legacy environment-style `environment:` at the top level, mistyped field names.
 
-**Fix.** Grep the schema (`values.schema.json`) for the parent block and use only the listed `properties`. The scanner sub-check 5 (`scripts/scans/scan-on-prem.mjs`) flags this category in docs; the chart itself rejects at install time.
+**Fix.** Grep the schema (`values.schema.json`) for the parent block and use only the listed `properties`. The chart itself rejects unknown fields at install time.
 
 ### 1.4 `KafkaTopic` CRD not registered
 
