@@ -13,7 +13,7 @@
   },
   "forbiddenTextPolicy": {
     "enforcedBy": "source-harness",
-    "count": 45
+    "count": 51
   },
   "publicArtifacts": {
     "static": [

@@ -106,8 +106,8 @@ iteration. Instead:
      Do not keep tightening individual fields.
    - **Signal not in the document**: accept the FAIL with a documented
      rationale in `run.md`. Do not tighten prompts.
-   - **Platform-side issue** (aggregator behavior, AGE-6 platform-locked
-     names, AGE-7 convention ambiguity): escalate per
+   - **Platform-side issue** (aggregator behavior, platform-locked
+     names, convention ambiguity): escalate per
      `references/6_known_limitations.md` §3.
 3. If the diagnosis isn't clear from X-Ray, escalate rather than guess.
    Repeated prompt tightening on an unclear root cause burns quota and
@@ -228,7 +228,7 @@ a single file:
 - field_z: convention ambiguity — see `references/6_known_limitations.md`.
 
 ## Platform constraints surfaced
-- [Specific limitations discovered during this run, with Linear ticket
+- [Specific limitations discovered during this run, with tracking-ticket
   references where applicable]
 
 ## Generalizable patterns

@@ -17,7 +17,7 @@ SDK-repo contribution work from consumer-side SDK usage (`groundx-api`),
 extraction-workflow methodology (`groundx-extraction-workflows`), and runtime
 architecture questions (`groundx-architecture`).
 
-## 0.1.0 — initial skill (Phase 2 of AGE-65)
+## 0.1.0 — initial skill
 
 **Added**
 
@@ -35,12 +35,12 @@ architecture questions (`groundx-architecture`).
   routes to repo `AGENTS.md` §1–§3 for canonical rules
 - `references/03-extract.md` — extract submodule specifics: hand-written
   surface, optional-dep governance via `.fern/metadata.json`, test layout under
-  `tests/extract/` (post-AGE-67), public-API helpers in
+  `tests/extract/`, public-API helpers in
   `src/groundx/extract/classes/testing.py` with `__test__ = False` →
   routes to repo `AGENTS.md` §4–§5
 - maintenance notes — source-of-truth boundary (repo wins; skill
   summarizes and routes), cross-skill refactor coordination notes, reusable
-  template patterns for the runner-repo AGENTS.md ticket (AGE-63)
+  template patterns for the runner-repo AGENTS.md work
 - `evals/evals.json` — 6 routing tests: generic SDK-contribution trigger,
   add-an-optional-dep, .fernignore boundary, AGENTS.md-as-canonical, plus
   misuse-prevention tests (consumer-side → `groundx-api`; extraction YAML →
@@ -55,10 +55,8 @@ architecture questions (`groundx-architecture`).
 - Added to `skills/ROUTING.md` ("Contributing To The GroundX Python SDK Repo"
   section)
 - Added to `.claude-plugin/marketplace.json` bundle list
-- Added to `scripts/scans/scan-skill-routing.mjs` expected skills
-- Added to `scripts/scans/scan-skill-coverage.mjs` coverage map
-- Added to `scripts/generate-readme-skills.mjs` summaries (regenerates the
-  README skill table)
+- Registered in the repo's skill-routing and coverage scanners and the
+  README skill-table generator
 
 **Refactor**
 

@@ -13,7 +13,7 @@ a coherent iteration milestone informed by real customer use cases. The
 
 ## Unreleased
 
-- **The backend is the only workflow compiler (AGE-285).** Locally compiled
+- **The backend is the only workflow compiler.** Locally compiled
   workflow bodies are rejected by the live API ("served reassembly field does
   not match the extraction field"), so the structured client compile path is
   retired. `run_extraction.py`, `deploy_workflow.py`, `batch_extraction.py`,
@@ -27,21 +27,23 @@ a coherent iteration milestone informed by real customer use cases. The
   guard retires with the path it guarded. References, examples, and
   `6_known_limitations.md` §§5-6 now document the YAML-only flow.
 
-- **Scope by printed position (AGE-284).** `16_prompt_writing.md` warns that
+- **Scope by printed position.** `16_prompt_writing.md` warns that
   category-name scoping rules ("taxes are account-level") mis-scope categories
   that also print per-entity; scope from the line's printed position instead.
-- **`unique_attrs` is record identity (AGE-286).** `12_business_logic.md` now
+- **`unique_attrs` is record identity.** `12_business_logic.md` now
   states that dedup identity must include a genuine per-record key and names
   the failure mode (448 records silently collapsed to 28 when identity was
   description+date+amount+class); `13_customer_intake.md` adds record identity
   as an intake question with a record-count verification step.
-- **AGE-285 closed.** The platform now never classifies a submission as a
-  historical stored row, owns the stored schema hash on every write, and
+- **Historical-legacy create misclassification closed.** The platform now
+  never classifies a submission as a historical stored row, owns the stored
+  schema hash on every write, and
   stamps guard-matching submissions with server provenance. Compiled-JSON and
   server-YAML creates both work end to end for `match_attrs` schemas;
   `6_known_limitations.md` §6 rewritten accordingly.
-- **AGE-285 narrowed and re-documented.** The historical-legacy create
-  rejection is fixed platform-side (a client submission is never a stored
+- **Historical-legacy create rejection narrowed and re-documented.** The
+  historical-legacy create rejection is fixed platform-side (a client
+  submission is never a stored
   row). `6_known_limitations.md` §6 now records the remaining limitation:
   compiled-JSON create fails the schema-hash check for schemas declaring
   `match_attrs` linking, because the platform synthesizes and hashes
@@ -51,8 +53,8 @@ a coherent iteration milestone informed by real customer use cases. The
 - **Group-naming guidance for the legacy-provenance create rejection.** A new
   v1 workflow whose groups are literally `statement` + `meters` + `charges`
   without `unique_attrs` on both repeating groups is rejected at create as a
-  historical legacy workflow (`missing legacy policy provenance`, AGE-285
-  class). `2_schema_design.md` now recommends domain group names with explicit
+  historical legacy workflow (`missing legacy policy provenance` class).
+  `2_schema_design.md` now recommends domain group names with explicit
   `role:`, `6_known_limitations.md` §6 records the signature and workarounds,
   and `templates/prompt.yaml` declares `role:` on its groups.
 - **Compiler parity guard.** `compile_workflow.py` no longer silently rewrites
@@ -80,7 +82,7 @@ a coherent iteration milestone informed by real customer use cases. The
   repetitionScope '/meters/*'`). It now emits the accepted enum value `"item"`;
   `validate_workflow_json.py` validates repeated leaves against `"item"` instead
   of the path format. The API expands `"item"` back to the `/meters/*` shape on
-  storage. Found during the AGE-150 live run.
+  storage. Found during a live customer run.
 - **Fixed: stale `schema_hash` for repeated groups.** `build_workflow_artifacts`
   computed and stored `schema_hash` before normalizing leaves (pre-wildcard
   `final_path`, `repetition_scope: "none"`), so a deployed repeated-group
@@ -88,7 +90,7 @@ a coherent iteration milestone informed by real customer use cases. The
   recomputes the hash at `update_prompts()` time and raised `caller schema_hash
   does not match route metadata`, blocking the deploy → prompts → extract path.
   The hash is now recomputed after normalization so it matches the
-  shipped leaves. Found during the AGE-150 live run.
+  shipped leaves. Found during a live customer run.
 - **Public extraction docs guidance.** Added `references/public-docs.md` and a
   gate so public docs stay customer-facing: use the SDK-level `client.ingest(...)`
   path, show the JSON result, and avoid exposing harness/compiler internals such
@@ -150,7 +152,7 @@ Highlights from that milestone:
   canonical example is synthetic (`examples/utility-invoice/`,
   `examples/insurance-claim/`). Real customer data stays out-of-repo.
 - **Clean-room validated.** Fresh agents, given only the skill + a customer's
-  resources, authored working schemas for three real customers (Warner 100% on
+  resources, authored working schemas for three real customers (one customer 100% on
   statement fields; a second customer 94% on singletons). Remaining ceilings are
   answer-key data quality + record-level scoring granularity (tracked).
 
@@ -177,8 +179,8 @@ Each step adds one variability dimension against the prior baseline.
 
 ### Added (documentation only — no API or runtime behavior changes)
 
-Two new reference docs and three doc consistency fixes from AGE-15
-review feedback (PR #3, Ben Fletcher).
+Two new reference docs and three doc consistency fixes from initial
+review feedback.
 
 #### New references
 
@@ -364,8 +366,7 @@ with the expected 3/3 charge records.
   to work without modification.
 - This is a **patch release** because it adds documentation only.
   The next planned minor release (v0.2.0) is the multi-domain
-  generalization (mode-key dispatch in `compile_workflow.py`); see
-  `notes/AGE-15-design.md` for the design analysis.
+  generalization (mode-key dispatch in `compile_workflow.py`).
 
 ## [0.1.0] — 2026-05-07
 
@@ -379,7 +380,8 @@ with the expected 3/3 charge records.
   - `references/3_prompt_pipeline.md` — YAML → LLM input rendering
   - `references/4_sdk_integration.md` — compile script + delegated API operations
   - `references/5_validation.md` — comparison patterns
-  - `references/6_known_limitations.md` — AGE-6, AGE-7, escalation playbook
+  - `references/6_known_limitations.md` — platform-locked names, convention
+    ambiguity, escalation playbook
   - `references/7_promote_to_project.md` — deferred-with-rationale doc
 - `templates/compile_workflow.py` — offline YAML → workflow JSON translator
 - `templates/score_extraction.py` — comparison harness with date/float/casing
@@ -391,10 +393,9 @@ with the expected 3/3 charge records.
   answer key) adapted from the billing example
 - `evals/evals.json` with 4 tests + `evals/fixtures/utility-invoice/`
   fixtures (PDF, CSV, expected JSON)
-- New validate gate: `scripts/tests/test-groundx-extraction-workflows.mjs` (dry-run only,
-  no GroundX API calls in CI)
+- New validate gate for the skill (dry-run only, no GroundX API calls in CI)
 - Repo-wide registration: `marketplace.json`, `README.md`, `AGENTS.md`,
-  `validate.mjs` check #10, `scan-skill-coverage.mjs` coverage entry
+  validation and coverage gates
 
 ### Notes
 
@@ -405,8 +406,3 @@ with the expected 3/3 charge records.
   duplicated inline; the skill is authoring-focused.
 - **Deployable Python project scaffolding deferred** — see
   `references/7_promote_to_project.md` for rationale.
-
-### Linked
-
-- Linear: AGE-15 (umbrella issue for the skill)
-- Related: AGE-1 (the invoice PoC, source pattern), AGE-6, AGE-7 (platform-side)

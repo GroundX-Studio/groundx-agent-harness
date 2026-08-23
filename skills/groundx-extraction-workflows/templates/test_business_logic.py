@@ -138,7 +138,7 @@ if __name__ == "__main__":
 
 
 def test_dedup_reaches_renamed_account_charges_group():
-    """Warner-found gap: YAML declares group `charges`, but aggregated records
+    """Customer-found gap: YAML declares group `charges`, but aggregated records
     live under `account_charges` (xray_to_extract rename). dedup must still
     reach them via the group-alias resolver."""
     doc = {"account_charges": [

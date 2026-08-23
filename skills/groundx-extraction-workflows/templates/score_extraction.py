@@ -19,7 +19,7 @@ Null-vs-miss
 A field the expected-answer JSON leaves null is distinguished from an extraction miss:
   - expected null + extracted null    → PASS (correct null)
   - expected null + extracted a value  → WARN (value present; key null) — NOT a
-    failure (e.g. AGE-86 customer_account_id: extract the printed value anyway)
+    failure (e.g. customer_account_id: extract the printed value anyway)
   - expected a value + extracted null  → FAIL (missing)
 
 Expected-answer format: JSON in the runner's output shape — scalar keys → singleton

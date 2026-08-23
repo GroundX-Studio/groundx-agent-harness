@@ -64,6 +64,6 @@ When the user asks the agent to produce an artifact that supports the motion:
 | --- | --- | --- |
 | Sales deck | Available deck-production skill or presentation-producing agent | Narrative, differentiation, proof points, audience-appropriate emphasis. |
 | Discovery one-pager | Available document- or deck-production skill | Same as above; compressed. |
-| Outbound or follow-up email | The agent producing the email | Voice register from `../../product-brand-design-standards/references/voice.md`; pitch shape from `buyer.md`; specific claims from `proof-points.md`. |
+| Outbound or follow-up email | The agent producing the email | Voice register from the brand design standards; pitch shape from `buyer.md`; specific claims from `proof-points.md`. |
 | Proposal | A future docs skill | Phase-3 scoped-proposal structure (this file § 3); deliverables and criteria from the discovery phase. |
 | Demo-prep brief | The agent | Audience cut from `audiences.md`; objection prep from `objections.md`. |

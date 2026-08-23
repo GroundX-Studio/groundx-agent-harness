@@ -54,7 +54,7 @@ category, or Outcome Plug-in narrative unless the user asks for that altitude.
 
 - **Role:** the company that built GroundX before Valantor acquired the work. Now the heritage / origin-story brand and the lockup co-sign on EyeLevel-pack product surfaces.
 - **External rendering:** *EyeLevel — A Valantor Company* (matches the EyeLevel logo lockup PNG, which bakes the co-sign in). Use when describing the team's heritage (IBM Research, Watson, Weather Company, 2019 spinout).
-- **Do not say:** *"EyeLevel by Valantor"* (wrong construction). Do not re-typeset the *A VALANTOR COMPANY* co-sign as separate text adjacent to the EyeLevel mark; it is part of the lockup asset (see `../../product-brand-design-standards/references/logos.md`).
+- **Do not say:** *"EyeLevel by Valantor"* (wrong construction). Do not re-typeset the *A VALANTOR COMPANY* co-sign as separate text adjacent to the EyeLevel mark; it is part of the lockup asset (see the brand design standards).
 
 ## 5. GroundX Studio — extensibility platform
 
@@ -131,6 +131,6 @@ category, or Outcome Plug-in narrative unless the user asks for that altitude.
 | --- | --- |
 | Master-brand altitude (Valantor company, category, investor, board, AI+humans, Outcome Plug-in strategy) | This skill |
 | Product altitude (GroundX product pitch, customer outcomes at product level, sales motion) | `../../product-brand-gtm/` |
-| Visual decisions (palette, type, logo, layout) — Valantor pack | `../../master-brand-design-standards/` |
-| Visual decisions — EyeLevel pack | `../../product-brand-design-standards/` |
+| Visual decisions (palette, type, logo, layout) — Valantor pack | the master-brand design standards |
+| Visual decisions — EyeLevel pack | the product-brand design standards |
 | Implementation (web UI, slides, code, API) | The relevant medium skill |

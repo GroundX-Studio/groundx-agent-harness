@@ -96,7 +96,7 @@ affirmative promise boundary in the canonical product-state owner.
   `proof-points.md` to select the master-brand framing.
 - For mechanism, defer to
   `../../product-brand-gtm/references/technical-architecture.md`.
-- For visual decisions, defer to `../../master-brand-design-standards/`.
+- For visual decisions, defer to the master-brand design standards.
 
 This file does not own pricing, terms, customer outcomes, lifecycle state,
 technical behavior, or visual design.

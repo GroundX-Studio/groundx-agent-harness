@@ -1815,7 +1815,7 @@ def _custom_prepared():
     }
     # Derive schema_hash from the (already-normalized) leaves so it always equals
     # _custom_workflow_schema_hash(shipped metadata) — independent of how
-    # repetition_scope is represented (AGE-168 "item" enum + AGE-169 recompute).
+    # repetition_scope is represented (the "item" enum + shipped-hash recompute).
     persisted["workflow"]["schema_hash"] = compile_workflow._custom_workflow_schema_hash(
         persisted["workflow"]
     )
@@ -1924,7 +1924,7 @@ def test_repeated_custom_steps_compile_with_wildcard_routes(monkeypatch):
 
 
 def test_repeated_group_shipped_schema_hash_matches_normalized_leaves(monkeypatch):
-    """AGE-169: shipped schema_hash must match _custom_workflow_schema_hash(shipped leaves).
+    """Shipped schema_hash must match _custom_workflow_schema_hash(shipped leaves).
 
     Before the fix, schema_hash was computed before normalization (repetition_scope="none",
     no wildcard in final_path) but shipped alongside the post-normalization leaves

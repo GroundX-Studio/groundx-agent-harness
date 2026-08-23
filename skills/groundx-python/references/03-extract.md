@@ -39,7 +39,7 @@ TOML block to `generatorConfig.pyproject_toml` in the same file.
 Every new dep enlarges the `groundx[extract]` install footprint — justify in
 the PR description.
 
-## 3.3 Where extract tests live (post-AGE-67)
+## 3.3 Where extract tests live
 
 Extract unit tests live under `tests/extract/`, mirroring source structure:
 
@@ -117,7 +117,7 @@ an env-var skip — see repo `AGENTS.md` §6.
 ## 3.7 Pydantic V1 → V2 conventions
 
 The hand-written extract code uses Pydantic V2's `model_config = ConfigDict(...)`
-syntax (since AGE-67). New extract code that defines BaseModel subclasses should
+syntax. New extract code that defines BaseModel subclasses should
 follow this pattern, not the V1 `class Config:` syntax (which emits
 `PydanticDeprecatedSince20` warnings on every import).
 
