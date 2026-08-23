@@ -29,6 +29,7 @@ workflow:
 claim:
   # Per-document singleton: one claim header per document.
   workflow_step: claim_fields
+  role: statement
   fields:
     claim_number:
       workflow_output_key: claim_number
@@ -62,6 +63,7 @@ claim:
 line_items:
   # Repeating records: the itemized loss / service lines on the claim.
   workflow_step: claim_line_items
+  role: charges
   fields:
     item_description:
       workflow_output_key: item_description

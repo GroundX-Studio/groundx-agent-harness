@@ -14,8 +14,6 @@ import os
 import sys
 import tempfile
 
-import pytest
-
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from check_field_coverage import (  # noqa: E402
     catalog_field_names,
@@ -246,100 +244,3 @@ def test_csv_catalog_with_header_and_object_json():
         )
         assert missing_fields(yp, obj_cat) == ["nope"]
         assert catalog_field_names(obj_cat) == ["total_due", "nope"]
-
-
-def test_missing_fields_rejects_invalid_v1_source_yaml():
-    with tempfile.TemporaryDirectory() as tmp:
-        yp = _write(
-            tmp,
-            "prompt.yaml",
-            """
-extraction_policy_version: v1
-workflow:
-  custom_steps:
-    - name: statement_fields
-      level: chunk
-      kind: instruct
-statement:
-  workflow_step: statement_fields
-  fields:
-    account_number:
-      workflow_output_key: account_number
-      prompt:
-        description: account
-        type: str
-        identifiers: ["Account"]
-        instructions: extract account
-""",
-        )
-        cp = _write(tmp, "catalog.json", '["account_number"]')
-
-        with pytest.raises(ValueError, match="workflow.agent_chain"):
-            missing_fields(yp, cp)
-
-
-def test_missing_fields_rejects_unrouted_v1_source_yaml():
-    with tempfile.TemporaryDirectory() as tmp:
-        yp = _write(
-            tmp,
-            "prompt.yaml",
-            """
-extraction_policy_version: v1
-workflow:
-  custom_steps:
-    - name: statement_fields
-      level: chunk
-      kind: instruct
-  agent_chain:
-    - parallel:
-        - group: statement
-          chain: [reconcile_statement, qa_statement]
-    - save_statement
-statement:
-  fields:
-    account_number:
-      prompt:
-        description: account
-        type: str
-        identifiers: ["Account"]
-        instructions: extract account
-""",
-        )
-        cp = _write(tmp, "catalog.json", '["account_number"]')
-
-        with pytest.raises(ValueError, match="not routed|workflow_step|workflow_output_key"):
-            missing_fields(yp, cp)
-
-
-def test_missing_fields_rejects_direct_field_without_output_key():
-    with tempfile.TemporaryDirectory() as tmp:
-        yp = _write(
-            tmp,
-            "prompt.yaml",
-            """
-extraction_policy_version: v1
-workflow:
-  custom_steps:
-    - name: statement_fields
-      level: chunk
-      kind: instruct
-  agent_chain:
-    - parallel:
-        - group: statement
-          chain: [reconcile_statement, qa_statement]
-    - save_statement
-statement:
-  workflow_step: statement_fields
-  fields:
-    account_number:
-      prompt:
-        description: account
-        type: str
-        identifiers: ["Account"]
-        instructions: extract account
-""",
-        )
-        cp = _write(tmp, "catalog.json", '["account_number"]')
-
-        with pytest.raises(ValueError, match="workflow_output_key"):
-            missing_fields(yp, cp)

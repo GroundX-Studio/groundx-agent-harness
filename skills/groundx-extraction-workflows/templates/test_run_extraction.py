@@ -44,6 +44,12 @@ def ns(**kwargs):
     return types.SimpleNamespace(**kwargs)
 
 
+def source_snapshot(*args, **kwargs):
+    return {
+        "workflow": {"custom_steps": []},
+    }, "workflow:\n  custom_steps: []\n"
+
+
 class ExplodingWorkflows:
     def create(self, **kwargs):
         raise AssertionError("resume must not create workflows")
@@ -237,14 +243,7 @@ def test_delegated_run_reuses_one_customer_request_options_for_every_sdk_call(tm
     monkeypatch.setattr(run_extraction, "GroundX", CapturingGroundX)
     monkeypatch.setattr(run_extraction, "Document", lambda **kwargs: kwargs)
     monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
-    monkeypatch.setattr(
-        run_extraction,
-        "_topology",
-        lambda *args, **kwargs: {
-            "name": "workflow-name",
-            "extract": {"workflow": {"output_routes": []}},
-        },
-    )
+    monkeypatch.setattr(run_extraction, "_source_snapshot", source_snapshot)
     monkeypatch.setattr(run_extraction, "_validate", lambda *args, **kwargs: None)
     monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", lambda yaml_path: {})
     monkeypatch.setattr(
@@ -393,14 +392,7 @@ def test_cross_owner_attachment_records_the_http_400_and_does_not_ingest(tmp_pat
     monkeypatch.setattr(run_extraction, "GroundX", AttachmentRejectedGroundX)
     monkeypatch.setattr(run_extraction, "Document", lambda **kwargs: kwargs)
     monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
-    monkeypatch.setattr(
-        run_extraction,
-        "_topology",
-        lambda *args, **kwargs: {
-            "name": "workflow-name",
-            "extract": {"workflow": {"output_routes": []}},
-        },
-    )
+    monkeypatch.setattr(run_extraction, "_source_snapshot", source_snapshot)
     monkeypatch.setattr(run_extraction, "_validate", lambda *args, **kwargs: None)
     monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", lambda yaml_path: {})
     monkeypatch.setattr(
@@ -431,29 +423,6 @@ def test_cross_owner_attachment_records_the_http_400_and_does_not_ingest(tmp_pat
     assert next(
         kwargs for name, kwargs in created_clients[0].calls if name == "workflow_delete"
     )["request_options"] == {"additional_headers": {"X-Customer-Key": "customer-b"}}
-
-
-def test_delegated_workflow_readback_uses_the_customer_request_options():
-    gx = DelegatedGroundX()
-
-    def load_extraction_definition(**kwargs):
-        gx._record("workflow_readback", **kwargs)
-        return ns(extract={"workflow": {}})
-
-    gx.load_extraction_definition = load_extraction_definition
-    request_options = {"additional_headers": {"X-Customer-Key": "customer-b"}}
-
-    assert run_extraction._load_reused_workflow_extract(
-        gx,
-        "workflow-1",
-        request_options=request_options,
-    ) == {"workflow": {}}
-    assert gx.calls == [
-        (
-            "workflow_readback",
-            {"workflow_id": "workflow-1", "request_options": request_options},
-        )
-    ]
 
 
 def test_poll_fails_when_progress_errors_exist_even_if_status_is_complete():
@@ -650,14 +619,12 @@ def test_resume_does_not_compile_deploy_attach_or_ingest(tmp_path, monkeypatch):
     (tmp_path / "process_id.txt").write_text("process-1")
     (tmp_path / "workflow_id.txt").write_text("workflow-1")
     (tmp_path / "bucket_id.txt").write_text("101")
-    (tmp_path / "fanout_topology.json").write_text(json.dumps({"extract": {"outputRoutes": []}}))
-
     def forbidden(*args, **kwargs):
         raise AssertionError("resume must not run setup helpers")
 
     monkeypatch.setenv("GROUNDX_API_KEY", "test-key")
     monkeypatch.setattr(run_extraction, "GroundX", ResumeGroundX)
-    monkeypatch.setattr(run_extraction, "_topology", forbidden)
+    monkeypatch.setattr(run_extraction, "_source_snapshot", forbidden)
     monkeypatch.setattr(run_extraction, "_validate", forbidden)
     monkeypatch.setattr(run_extraction, "_create_workflow", forbidden)
     monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", forbidden)
@@ -702,9 +669,6 @@ def test_delegated_resume_reuses_customer_request_options_for_status_xray_and_ex
     (tmp_path / "process_id.txt").write_text("process-1")
     (tmp_path / "workflow_id.txt").write_text("workflow-1")
     (tmp_path / "bucket_id.txt").write_text("101")
-    (tmp_path / "fanout_topology.json").write_text(
-        json.dumps({"extract": {"outputRoutes": []}})
-    )
     created_clients = []
 
     class CapturingResumeGroundX(DelegatedGroundX):
@@ -724,7 +688,7 @@ def test_delegated_resume_reuses_customer_request_options_for_status_xray_and_ex
     monkeypatch.setenv("PARTNER_API_KEY", "partner-key")
     monkeypatch.setenv("CUSTOMER_USERNAME", "customer-b")
     monkeypatch.setattr(run_extraction, "GroundX", CapturingResumeGroundX)
-    monkeypatch.setattr(run_extraction, "_topology", forbidden)
+    monkeypatch.setattr(run_extraction, "_source_snapshot", forbidden)
     monkeypatch.setattr(run_extraction, "_validate", forbidden)
     monkeypatch.setattr(run_extraction, "_create_workflow", forbidden)
     monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", forbidden)
@@ -790,14 +754,7 @@ def test_fresh_run_persists_business_logic_metadata_for_resume(tmp_path, monkeyp
     monkeypatch.setattr(run_extraction, "GroundX", FreshNoRawGroundX)
     monkeypatch.setattr(run_extraction, "Document", lambda **kwargs: kwargs)
     monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
-    monkeypatch.setattr(
-        run_extraction,
-        "_topology",
-        lambda *args, **kwargs: {
-            "name": "workflow-name",
-            "extract": {"workflow": {"output_routes": []}},
-        },
-    )
+    monkeypatch.setattr(run_extraction, "_source_snapshot", source_snapshot)
     monkeypatch.setattr(run_extraction, "_validate", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         run_extraction,
@@ -847,14 +804,7 @@ def test_fresh_run_ingests_with_process_level_full(tmp_path, monkeypatch):
     monkeypatch.setattr(run_extraction, "GroundX", CapturingGroundX)
     monkeypatch.setattr(run_extraction, "Document", lambda **kwargs: kwargs)
     monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
-    monkeypatch.setattr(
-        run_extraction,
-        "_topology",
-        lambda *args, **kwargs: {
-            "name": "workflow-name",
-            "extract": {"workflow": {"output_routes": []}},
-        },
-    )
+    monkeypatch.setattr(run_extraction, "_source_snapshot", source_snapshot)
     monkeypatch.setattr(run_extraction, "_validate", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         run_extraction,
@@ -893,14 +843,7 @@ def test_fresh_run_accepts_reuse_bucket_without_bucket_name(tmp_path, monkeypatc
     monkeypatch.setattr(run_extraction, "GroundX", FreshNoRawGroundX)
     monkeypatch.setattr(run_extraction, "Document", lambda **kwargs: kwargs)
     monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
-    monkeypatch.setattr(
-        run_extraction,
-        "_topology",
-        lambda *args, **kwargs: {
-            "name": "workflow-name",
-            "extract": {"workflow": {"output_routes": []}},
-        },
-    )
+    monkeypatch.setattr(run_extraction, "_source_snapshot", source_snapshot)
     monkeypatch.setattr(run_extraction, "_validate", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         run_extraction,
@@ -933,30 +876,27 @@ def test_fresh_run_accepts_reuse_bucket_without_bucket_name(tmp_path, monkeypatc
     assert rc == 0
 
 
-def test_reuse_workflow_prefers_run_local_workflow_json_for_fanout(tmp_path, monkeypatch):
-    workflow_body = {"customSteps": []}
-    (tmp_path / "fanout_topology.json").write_text(json.dumps(workflow_body))
+def test_reuse_workflow_estimates_fanout_from_authored_source_without_readback(tmp_path, monkeypatch):
+    workflow_source = {
+        "workflow": {
+            "custom_steps": [{"name": "extract", "level": "document", "kind": "instruct"}]
+        }
+    }
     captured = {}
 
     def fake_request_estimate(rl, out_dir, workflow, pdf_paths, *, allow_high_request_estimate):
         captured["workflow"] = workflow
         return True
 
-    def forbidden_estimate_report(*args, **kwargs):
-        raise AssertionError("run-local workflow.json should avoid unknown-high-risk fallback")
-
     monkeypatch.setenv("GROUNDX_API_KEY", "test-key")
     monkeypatch.setattr(run_extraction, "GroundX", FreshNoRawGroundX)
     monkeypatch.setattr(run_extraction, "Document", lambda **kwargs: kwargs)
     monkeypatch.setattr(
         run_extraction,
-        "_load_reused_workflow_extract",
-        lambda gx, workflow_id: (_ for _ in ()).throw(
-            AssertionError("run-local workflow.json should avoid workflow API load")
-        ),
+        "_source_snapshot",
+        lambda *args: (workflow_source, "workflow:\n  custom_steps: []\n"),
     )
     monkeypatch.setattr(run_extraction, "_request_estimate_preflight", fake_request_estimate)
-    monkeypatch.setattr(run_extraction, "_enforce_request_estimate_report", forbidden_estimate_report)
     monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", lambda yaml_path: {})
     monkeypatch.setattr(
         sys,
@@ -983,7 +923,7 @@ def test_reuse_workflow_prefers_run_local_workflow_json_for_fanout(tmp_path, mon
     rc = run_extraction.main()
 
     assert rc == 0
-    assert captured["workflow"] == workflow_body
+    assert captured["workflow"] == workflow_source
     assert (tmp_path / "workflow_id.txt").read_text() == "workflow-platform-1"
 
 
@@ -1000,14 +940,7 @@ def test_fresh_run_persists_business_logic_metadata_before_poll_timeout(tmp_path
     monkeypatch.setattr(run_extraction, "GroundX", FreshNoRawGroundX)
     monkeypatch.setattr(run_extraction, "Document", lambda **kwargs: kwargs)
     monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
-    monkeypatch.setattr(
-        run_extraction,
-        "_topology",
-        lambda *args, **kwargs: {
-            "name": "workflow-name",
-            "extract": {"workflow": {"output_routes": []}},
-        },
-    )
+    monkeypatch.setattr(run_extraction, "_source_snapshot", source_snapshot)
     monkeypatch.setattr(run_extraction, "_validate", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         run_extraction,
@@ -1044,31 +977,12 @@ def test_fresh_run_persists_business_logic_metadata_before_poll_timeout(tmp_path
         run_extraction.main()
 
 
-def test_resume_writes_diagnostic_and_final_artifacts_when_raw_extract_is_unavailable(tmp_path, monkeypatch):
+def test_resume_captures_xray_without_local_reassembly_when_raw_extract_is_unavailable(
+    tmp_path, monkeypatch
+):
     (tmp_path / "process_id.txt").write_text("process-1")
     (tmp_path / "workflow_id.txt").write_text("workflow-1")
     (tmp_path / "bucket_id.txt").write_text("101")
-    (tmp_path / "fanout_topology.json").write_text(
-        json.dumps(
-            {
-                "extract": {
-                    "workflow": {
-                        "output_routes": [
-                            {
-                                "workflow_group": "statement",
-                                "workflow_field": "account_number",
-                                "final_path": "/statement/account_number",
-                                "step_name": "statement_fields",
-                                "level": "chunk",
-                                "output_map": "customChunkOutputs",
-                                "output_key": "account_number",
-                            }
-                        ]
-                    }
-                }
-            }
-        )
-    )
 
     monkeypatch.setenv("GROUNDX_API_KEY", "test-key")
     monkeypatch.setattr(run_extraction, "GroundX", ResumeNoRawGroundX)
@@ -1093,51 +1007,17 @@ def test_resume_writes_diagnostic_and_final_artifacts_when_raw_extract_is_unavai
     assert (tmp_path / "document_id.txt").read_text() == "doc-1"
     assert (tmp_path / "xray.json").exists()
     assert not (tmp_path / "output.json").exists()
-    assert json.loads((tmp_path / "xray_diagnostic.json").read_text()) == {
-        "statement": {"account_number": "A-1"}
-    }
-    assert json.loads((tmp_path / "final_output.json").read_text()) == {
-        "statement": {"account_number": "A-1"}
-    }
+    assert not (tmp_path / "xray_diagnostic.json").exists()
+    assert not (tmp_path / "xray_reassembly_diagnostic.json").exists()
+    assert not (tmp_path / "final_output.json").exists()
 
 
-def test_resume_applies_persisted_business_logic_metadata_to_diagnostic_output(tmp_path, monkeypatch):
+def test_resume_does_not_apply_business_logic_without_server_extract(tmp_path, monkeypatch):
     (tmp_path / "process_id.txt").write_text("process-1")
     (tmp_path / "workflow_id.txt").write_text("workflow-1")
     (tmp_path / "bucket_id.txt").write_text("101")
     (tmp_path / "business_logic_metadata.json").write_text(
         json.dumps({"charges": {"unique_attrs": ["description"]}})
-    )
-    (tmp_path / "fanout_topology.json").write_text(
-        json.dumps(
-            {
-                "extract": {
-                    "workflow": {
-                        "custom_steps": [{"name": "charge_fields", "kind": "keys"}],
-                        "output_routes": [
-                            {
-                                "workflow_group": "charges",
-                                "workflow_field": "description",
-                                "final_path": "/charges/*/description",
-                                "step_name": "charge_fields",
-                                "level": "chunk",
-                                "output_map": "customChunkOutputs",
-                                "output_key": "description",
-                            },
-                            {
-                                "workflow_group": "charges",
-                                "workflow_field": "amount",
-                                "final_path": "/charges/*/amount",
-                                "step_name": "charge_fields",
-                                "level": "chunk",
-                                "output_map": "customChunkOutputs",
-                                "output_key": "amount",
-                            },
-                        ],
-                    }
-                }
-            }
-        )
     )
 
     def forbidden(*args, **kwargs):
@@ -1164,15 +1044,8 @@ def test_resume_applies_persisted_business_logic_metadata_to_diagnostic_output(t
     rc = run_extraction.main()
 
     assert rc == 0
-    assert json.loads((tmp_path / "xray_diagnostic.json").read_text()) == {
-        "charges": [
-            {"description": "Service fee", "amount": "10.00"},
-            {"description": "Service fee", "amount": "10.00"},
-        ]
-    }
-    assert json.loads((tmp_path / "final_output.json").read_text()) == {
-        "charges": [{"description": "Service fee", "amount": "10.00"}]
-    }
+    assert not (tmp_path / "xray_diagnostic.json").exists()
+    assert not (tmp_path / "final_output.json").exists()
 
 
 def test_resume_nested_progress_errors_fail_before_scoring(tmp_path, monkeypatch):
@@ -1225,59 +1098,8 @@ def test_extract_artifacts_trusts_section_shaped_get_extract_output():
     artifacts = run_extraction.derive_extraction_artifacts(gx, "doc-1", rl=rl)
 
     assert artifacts["raw_extract"] == raw_extract
-    assert artifacts["diagnostic_extract"] is None
     assert artifacts["final_output"] is None
     assert artifacts["source"] == "get_extract"
-
-
-def test_extract_artifacts_captures_reassembly_diagnostic_when_raw_extract_exists():
-    rl = RecordingLog()
-    raw_extract = {"accounts": [{"account_id": "A-1"}]}
-    workflow_extract = {
-        "workflow": {
-            "custom_steps": [
-                {"name": "account_rows", "level": "chunk", "kind": "summary"},
-            ],
-            "output_routes": [
-                {
-                    "workflow_group": "accounts",
-                    "workflow_field": "account_id",
-                    "final_path": "/accounts/*/account_id",
-                    "step_name": "account_rows",
-                    "level": "chunk",
-                    "output_map": "customChunkOutputs",
-                    "output_key": "account_id",
-                },
-            ],
-        }
-    }
-    gx = ns(
-        documents=ns(
-            get_xray=lambda document_id: {
-                "chunks": [
-                    {
-                        "customChunkOutputs": {
-                            "account_rows": {"_records": [{"account_id": "A-1"}]},
-                        }
-                    }
-                ]
-            },
-            get_extract=lambda document_id: raw_extract,
-        )
-    )
-
-    artifacts = run_extraction.derive_extraction_artifacts(
-        gx,
-        "doc-1",
-        rl=rl,
-        workflow_extract=workflow_extract,
-    )
-
-    assert artifacts["raw_extract"] == raw_extract
-    assert artifacts["diagnostic_extract"] is None
-    assert artifacts["final_output"] is None
-    assert artifacts["source"] == "get_extract"
-    assert artifacts["reassembly_diagnostic"]["final_output"] == raw_extract
 
 
 def test_extract_artifacts_treats_empty_get_extract_dict_as_raw_unavailable():
@@ -1292,129 +1114,9 @@ def test_extract_artifacts_treats_empty_get_extract_dict_as_raw_unavailable():
     artifacts = run_extraction.derive_extraction_artifacts(gx, "doc-1", rl=rl)
 
     assert artifacts["raw_extract"] is None
-    assert artifacts["diagnostic_extract"]["fallback"] == "value"
-    assert artifacts["final_output"]["fallback"] == "value"
-    assert artifacts["source"] == "xray_to_extract"
+    assert artifacts["final_output"] is None
+    assert artifacts["source"] == "get_extract_unavailable"
     assert any(event["event"] == "extract.get_extract_empty" for event in rl.events)
-
-
-def test_extract_artifacts_uses_relationship_reassembly_as_final_output():
-    rl = RecordingLog()
-    workflow_extract = {
-        "workflow": {
-            "custom_steps": [
-                {"name": "account_rows", "level": "chunk", "kind": "summary"},
-                {"name": "charge_rows", "level": "chunk", "kind": "keys"},
-            ],
-            "output_routes": [
-                {
-                    "workflow_group": "accounts",
-                    "workflow_field": "account_id",
-                    "final_path": "/accounts/*/account_id",
-                    "step_name": "account_rows",
-                    "level": "chunk",
-                    "output_map": "customChunkOutputs",
-                    "output_key": "account_id",
-                },
-                {
-                    "workflow_group": "charges",
-                    "workflow_field": "account_id",
-                    "final_path": "/charges/*/account_id",
-                    "step_name": "charge_rows",
-                    "level": "chunk",
-                    "output_map": "customChunkOutputs",
-                    "output_key": "account_id",
-                },
-                {
-                    "workflow_group": "charges",
-                    "workflow_field": "amount",
-                    "final_path": "/charges/*/amount",
-                    "step_name": "charge_rows",
-                    "level": "chunk",
-                    "output_map": "customChunkOutputs",
-                    "output_key": "amount",
-                },
-            ],
-            "output_relationships": [
-                {
-                    "parent_group": "accounts",
-                    "child_group": "charges",
-                    "parent_output_field": "charges",
-                    "match_attrs": ["account_id"],
-                    "unmatched_child_group": "charges",
-                }
-            ],
-        }
-    }
-    gx = ns(
-        documents=ns(
-            get_xray=lambda document_id: {
-                "chunks": [
-                    {
-                        "pageNumbers": [2],
-                        "customChunkOutputs": {
-                            "account_rows": {"_records": [{"account_id": "A-1"}]},
-                            "charge_rows": {
-                                "_records": [{"account_id": "a-1", "amount": "10.00"}]
-                            },
-                        }
-                    }
-                ]
-            },
-            get_extract=lambda document_id: {},
-        )
-    )
-
-    artifacts = run_extraction.derive_extraction_artifacts(
-        gx,
-        "doc-1",
-        rl=rl,
-        workflow_extract=workflow_extract,
-    )
-
-    assert artifacts["diagnostic_extract"] == {
-        "accounts": [
-            {
-                "account_id": "A-1",
-                "charges": [{"account_id": "a-1", "amount": "10.00"}],
-            }
-        ],
-        "charges": [],
-    }
-    assert artifacts["final_output"] == artifacts["diagnostic_extract"]
-    assert artifacts["reassembly_diagnostic"]["relationship_output"] == artifacts[
-        "diagnostic_extract"
-    ]
-    assert artifacts["reassembly_diagnostic"]["workflow_output"] == {
-        "accounts": [{"account_id": "A-1"}],
-        "charges": [{"account_id": "a-1", "amount": "10.00"}],
-    }
-    assert artifacts["reassembly_diagnostic"]["source_provenance"] == [
-        {
-            "output_source": "customChunkOutputs",
-            "workflow_group": "accounts",
-            "workflow_field": "account_id",
-            "final_path": "/accounts/*/account_id",
-            "record_index": 0,
-            "page_numbers": (2,),
-        },
-        {
-            "output_source": "customChunkOutputs",
-            "workflow_group": "charges",
-            "workflow_field": "account_id",
-            "final_path": "/charges/*/account_id",
-            "record_index": 0,
-            "page_numbers": (2,),
-        },
-        {
-            "output_source": "customChunkOutputs",
-            "workflow_group": "charges",
-            "workflow_field": "amount",
-            "final_path": "/charges/*/amount",
-            "record_index": 0,
-            "page_numbers": (2,),
-        },
-    ]
 
 
 def test_extract_artifacts_keeps_non_empty_raw_extract_even_when_values_are_empty():
@@ -1433,13 +1135,12 @@ def test_extract_artifacts_keeps_non_empty_raw_extract_even_when_values_are_empt
     artifacts = run_extraction.derive_extraction_artifacts(gx, "doc-1", rl=rl)
 
     assert artifacts["raw_extract"] == raw_extract
-    assert artifacts["diagnostic_extract"] is None
     assert artifacts["final_output"] is None
     assert artifacts["source"] == "get_extract"
     assert not any(event["event"] == "extract.get_extract_empty" for event in rl.events)
 
 
-def test_extract_artifacts_writes_diagnostic_separately_when_raw_extract_404s(monkeypatch):
+def test_extract_artifacts_keep_xray_without_synthesizing_output_when_raw_extract_404s():
     rl = RecordingLog()
     xray = {
         "chunks": [
@@ -1458,20 +1159,20 @@ def test_extract_artifacts_writes_diagnostic_separately_when_raw_extract_404s(mo
     artifacts = run_extraction.derive_extraction_artifacts(gx, "doc-1", rl=rl)
 
     assert artifacts["raw_extract"] is None
-    assert artifacts["diagnostic_extract"]["account_number"] == "A-1"
-    assert artifacts["final_output"]["account_number"] == "A-1"
-    assert artifacts["source"] == "xray_to_extract"
+    assert artifacts["xray"] == xray
+    assert artifacts["final_output"] is None
+    assert artifacts["source"] == "get_extract_unavailable"
     assert any(event["event"] == "extract.get_extract_unavailable" for event in rl.events)
 
 
-def test_completion_message_names_diagnostic_source_when_raw_missing():
+def test_completion_message_states_local_reassembly_is_not_used_when_raw_missing():
     message = run_extraction._completion_message(
         out_dir="run",
         document_id="doc-1",
         group_counts={"account_number": 1},
-        source="xray_to_extract",
+        source="get_extract_unavailable",
         has_raw_extract=False,
     )
 
-    assert "diagnostic/final output only" in message
     assert "raw get_extract unavailable" in message
+    assert "without local reassembly" in message

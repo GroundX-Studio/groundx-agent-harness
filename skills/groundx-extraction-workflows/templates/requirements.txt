@@ -1,10 +1,4 @@
-# Floor 3.9.10: first release where an undeclared relationship
-# multiple_match_strategy defaults to first_stable (2026-08-17 ruling);
-# older releases resolve undeclared exact ties as ambiguous and disagree
-# with fixtures captured on or after that release. 3.9.0-3.9.7 also derive
-# repetitionScope wrong (fixed in 3.9.8). No ceiling: the 2026-08-17 ruling treats
-# a broken publish as a one-off release-process defect, not a recurring
-# class, so the newest release installs without a verified-ceiling gate.
+# Floor only, no ceiling. This is the oldest supported extraction SDK API.
 groundx[extract]>=3.9.10
 pypdf>=5.0.0
 pytest>=8.0.0

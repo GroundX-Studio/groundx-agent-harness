@@ -9,17 +9,14 @@ client-side primitives driven by final-group YAML metadata, applied **after**
 extraction by `templates/business_logic.py`.
 
 Runs client-side, not on the platform. For current custom workflows, the runner
-aggregates X-Ray output into the final customer-facing group shape such as
-`{"statement": {...}, "charges": [...], "meters": [...]}` (see
-`templates/xray_to_extract.py`), then `run_extraction.py` calls
-`apply_business_logic(extract_dict, metadata)` before writing
+receives the server's customer-facing extraction, then `run_extraction.py`
+calls `apply_business_logic(extract_dict, metadata)` before writing
 `final_output.json`. `output.json` remains the raw GroundX `get_extract`
 payload when available. Run this logic on the final data shape unless a
 workflow-scoped primitive is
 explicitly documented. None of this metadata reaches the GroundX workflow:
-`_workflow_topology.py` reads it from `PreparedExtractionYaml.final_group_metadata`
-and strips it from workflow groups, so the keys never become extract fields.
-`run_extraction.py` persists that final-group metadata as
+`_workflow_source.py` copies only the four authored client keys directly from
+source YAML and never derives execution metadata. `run_extraction.py` persists that metadata as
 `business_logic_metadata.json` in the run directory so `--resume` can apply the
 same local final-output logic without recompiling or re-reading source YAML.
 

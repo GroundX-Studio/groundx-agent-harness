@@ -31,7 +31,7 @@ Optional flags:
     --add-to-account       Also set the workflow as the account default
                            (some platform aggregations are gated on this).
     --require-raw-extract  Fail if GroundX get_extract is unavailable. The
-                           runner still writes X-Ray diagnostic artifacts.
+                           runner still writes raw X-Ray evidence.
     --resume               Resume polling from an existing run directory.
     --poll-interval <sec>  Seconds between status polls (default: 15).
     --max-polls <n>        Maximum number of polls before timeout (default: 120).
@@ -57,10 +57,9 @@ from groundx import Document, GroundX
 
 # Sibling template imports (in-process — no subprocess overhead).
 from business_logic import apply_business_logic
-from _workflow_topology import build_workflow_artifacts
+from _workflow_source import business_logic_metadata, load_workflow_source
 from estimate_workflow_requests import DEFAULT_CAP, count_pdf_pages, estimate_request_fanout
 from run_log import RunLog
-from xray_to_extract import xray_reassembly_artifacts
 
 
 TIMEOUT_HISTORY_LIMIT = 10
@@ -124,12 +123,7 @@ def _load_business_logic_metadata(yaml_path: str) -> dict:
     with none are omitted, so a YAML carrying no business-logic metadata yields
     `{}` and `apply_business_logic` is a no-op (backward compatible).
     """
-    try:
-        _, metadata = build_workflow_artifacts(yaml_path)
-    except Exception:
-        return {}
-    final_group_metadata = metadata.get("final_group_metadata")
-    return final_group_metadata if isinstance(final_group_metadata, dict) else {}
+    return business_logic_metadata(load_workflow_source(yaml_path))
 
 
 def _write_business_logic_metadata_for_run(
@@ -251,47 +245,6 @@ def _request_estimate_preflight(
     )
 
 
-def _load_reused_workflow_extract(
-    gx: GroundX,
-    workflow_id: str,
-    request_options: typing.Optional[dict[str, typing.Any]] = None,
-) -> typing.Optional[dict]:
-    definition_loader = getattr(gx, "load_extraction_definition", None)
-    if callable(definition_loader):
-        definition = definition_loader(
-            workflow_id=workflow_id,
-            **_request_options_kwargs(request_options),
-        )
-        workflow_extract = getattr(definition, "extract", None)
-        return workflow_extract if isinstance(workflow_extract, dict) else None
-    workflow_loader = getattr(gx, "load_extraction_definition_from_workflow", None)
-    if callable(workflow_loader):
-        definition = workflow_loader(workflow_id, **_request_options_kwargs(request_options))
-        workflow_extract = getattr(definition, "extract", None)
-        return workflow_extract if isinstance(workflow_extract, dict) else None
-    return None
-
-
-def _load_workflow_extract_from_run(out_dir: str) -> typing.Optional[dict]:
-    workflow = _read_json(_abs(out_dir, "fanout_topology.json"))
-    if not isinstance(workflow, dict):
-        return None
-    extract = workflow.get("extract")
-    if isinstance(extract, dict):
-        return extract
-    compiled_keys = {
-        "customSteps",
-        "custom_steps",
-        "outputRoutes",
-        "output_routes",
-        "leafFields",
-        "leaf_fields",
-    }
-    if any(key in workflow for key in compiled_keys):
-        return workflow
-    return None
-
-
 def _write_output_provenance(out_dir: str, *, process_id: str, document_id: str) -> None:
     _write_json(
         _abs(out_dir, "output_provenance.json"),
@@ -313,14 +266,25 @@ def _redacted_url(url: typing.Optional[str]) -> typing.Optional[str]:
     return urllib.parse.urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", ""))
 
 
-def _to_plain_dict(obj: typing.Any) -> dict:
+def _to_plain_value(obj: typing.Any) -> typing.Any:
     if isinstance(obj, dict):
-        return obj
+        return {str(key): _to_plain_value(value) for key, value in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_to_plain_value(value) for value in obj]
     if hasattr(obj, "model_dump"):
-        return obj.model_dump(by_alias=True)
+        return _to_plain_value(obj.model_dump(by_alias=True))
     if hasattr(obj, "dict"):
-        return obj.dict(by_alias=True)
-    return dict(obj)
+        return _to_plain_value(obj.dict(by_alias=True))
+    if hasattr(obj, "__dict__"):
+        return _to_plain_value(vars(obj))
+    return obj
+
+
+def _to_plain_dict(obj: typing.Any) -> dict:
+    payload = _to_plain_value(obj)
+    if not isinstance(payload, dict):
+        raise TypeError(f"expected workflow response mapping, got {type(payload).__name__}")
+    return payload
 
 
 def _value(obj: typing.Any, *names: str) -> typing.Any:
@@ -492,19 +456,15 @@ def _workflow_id(response: typing.Any) -> str:
     return str(workflow_id)
 
 
-def _topology(yaml_path: str, topology_json_path: str, name: str, rl: RunLog) -> dict:
-    rl.event("topology.start", yaml_path=yaml_path)
-    workflow, metadata = build_workflow_artifacts(yaml_path, name=name)
-    with open(topology_json_path, "w") as f:
-        json.dump(workflow, f, indent=2, default=str)
-    metadata_path = os.path.join(
-        os.path.dirname(topology_json_path),
-        "extraction_workflow_metadata_v1.json",
-    )
-    with open(metadata_path, "w") as f:
-        json.dump(metadata, f, indent=2, default=str)
-    rl.event("topology.done", fanout_topology=topology_json_path, metadata_json=metadata_path)
-    return workflow
+def _source_snapshot(yaml_path: str, out_dir: str, rl: RunLog) -> tuple[dict, str]:
+    source = load_workflow_source(yaml_path)
+    snapshot_path = _abs(out_dir, "prompt.yaml")
+    with open(yaml_path, "r", encoding="utf-8") as src:
+        yaml_text = src.read()
+    with open(snapshot_path, "w", encoding="utf-8") as dst:
+        dst.write(yaml_text)
+    rl.event("workflow_source.saved", path=snapshot_path)
+    return source, yaml_text
 
 
 def _validate(gx: GroundX, yaml_text: str, name: str, rl: RunLog) -> None:
@@ -643,10 +603,9 @@ def derive_extraction_artifacts(
     document_id: str,
     bl_metadata: typing.Optional[dict] = None,
     rl: typing.Optional[RunLog] = None,
-    workflow_extract: typing.Optional[dict] = None,
     request_options: typing.Optional[dict[str, typing.Any]] = None,
 ) -> dict:
-    """Capture raw extract, X-Ray diagnostics, and final local output separately."""
+    """Capture authoritative server output and the raw X-Ray separately."""
     xray = _to_plain_dict(
         gx.documents.get_xray(
             document_id=document_id,
@@ -654,8 +613,6 @@ def derive_extraction_artifacts(
         )
     )
     raw_extract = None
-    diagnostic_extract = None
-    reassembly_diagnostic = None
     final_output = None
     source = "get_extract"
 
@@ -673,11 +630,6 @@ def derive_extraction_artifacts(
 
     if isinstance(fetched, dict) and fetched:
         raw_extract = fetched
-        if workflow_extract:
-            reassembly_diagnostic = xray_reassembly_artifacts(
-                xray,
-                workflow_extract=workflow_extract,
-            )
         if bl_metadata:
             final_output = apply_business_logic(raw_extract, bl_metadata)
             if rl:
@@ -685,52 +637,14 @@ def derive_extraction_artifacts(
     else:
         if isinstance(fetched, dict) and rl:
             rl.event("extract.get_extract_empty")
-        reassembly_diagnostic = xray_reassembly_artifacts(
-            xray,
-            workflow_extract=workflow_extract,
-        )
-        diagnostic_extract = reassembly_diagnostic["final_output"]
-        final_output = diagnostic_extract
-        source = "xray_to_extract"
-        if bl_metadata:
-            final_output = apply_business_logic(diagnostic_extract, bl_metadata)
-            if rl:
-                rl.event("business_logic.applied", groups=sorted(bl_metadata.keys()))
+        source = "get_extract_unavailable"
 
     return {
         "raw_extract": raw_extract,
         "xray": xray,
-        "diagnostic_extract": diagnostic_extract,
-        "reassembly_diagnostic": reassembly_diagnostic,
         "final_output": final_output,
         "source": source,
     }
-
-
-def extract_from_document(
-    gx: GroundX,
-    document_id: str,
-    bl_metadata: typing.Optional[dict] = None,
-    rl: typing.Optional[RunLog] = None,
-    workflow_extract: typing.Optional[dict] = None,
-    request_options: typing.Optional[dict[str, typing.Any]] = None,
-) -> typing.Tuple[dict, dict, str]:
-    """Compatibility wrapper returning the best usable local output."""
-    artifacts = derive_extraction_artifacts(
-        gx,
-        document_id,
-        bl_metadata,
-        rl,
-        workflow_extract=workflow_extract,
-        request_options=request_options,
-    )
-    extract = (
-        artifacts["final_output"]
-        or artifacts["raw_extract"]
-        or artifacts["diagnostic_extract"]
-        or {}
-    )
-    return extract, artifacts["xray"], artifacts["source"]
 
 
 def _has_countable_extracted_value(value: typing.Any) -> bool:
@@ -770,7 +684,7 @@ def _completion_message(
 ) -> str:
     artifact_status = "raw get_extract captured"
     if not has_raw_extract:
-        artifact_status = "diagnostic/final output only (raw get_extract unavailable)"
+        artifact_status = "raw get_extract unavailable; X-Ray captured without local reassembly"
     return (
         f"run complete. out={out_dir} document_id={document_id} "
         f"groups={_format_group_counts(group_counts)} source={source} {artifact_status}"
@@ -785,13 +699,10 @@ def _write_completed_artifacts(
     document_id: str,
     bl_metadata: typing.Optional[dict],
     rl: RunLog,
-    workflow_extract: typing.Optional[dict],
     request_options: typing.Optional[dict[str, typing.Any]] = None,
 ) -> tuple[dict, dict[str, int]]:
     xray_path = _abs(out_dir, "xray.json")
     extract_path = _abs(out_dir, "output.json")
-    diagnostic_path = _abs(out_dir, "xray_diagnostic.json")
-    reassembly_diagnostic_path = _abs(out_dir, "xray_reassembly_diagnostic.json")
     final_output_path = _abs(out_dir, "final_output.json")
 
     artifacts = derive_extraction_artifacts(
@@ -799,7 +710,6 @@ def _write_completed_artifacts(
         document_id,
         bl_metadata,
         rl,
-        workflow_extract=workflow_extract,
         request_options=request_options,
     )
     xray_dict = artifacts["xray"]
@@ -808,8 +718,6 @@ def _write_completed_artifacts(
 
     output_for_summary = None
     raw_extract = artifacts["raw_extract"]
-    diagnostic_extract = artifacts["diagnostic_extract"]
-    reassembly_diagnostic = artifacts["reassembly_diagnostic"]
     final_output = artifacts["final_output"]
 
     if raw_extract is not None:
@@ -819,18 +727,6 @@ def _write_completed_artifacts(
         rl.event("extract.captured", path=extract_path, source="get_extract")
     else:
         rl.event("extract.raw_unavailable", output_json_written=False)
-
-    if diagnostic_extract is not None:
-        _write_json(diagnostic_path, diagnostic_extract)
-        output_for_summary = diagnostic_extract
-        rl.event("extract.diagnostic_captured", path=diagnostic_path)
-
-    if reassembly_diagnostic is not None:
-        _write_json(reassembly_diagnostic_path, reassembly_diagnostic)
-        rl.event(
-            "extract.reassembly_diagnostic_captured",
-            path=reassembly_diagnostic_path,
-        )
 
     if final_output is not None:
         _write_json(final_output_path, final_output)
@@ -856,12 +752,12 @@ def main() -> int:
     parser.add_argument(
         "--require-raw-extract",
         action="store_true",
-        help="Return an error if GroundX get_extract is unavailable; still writes X-Ray diagnostics",
+        help="Return an error if GroundX get_extract is unavailable; still writes raw X-Ray evidence",
     )
     parser.add_argument(
         "--resume",
         action="store_true",
-        help="Resume polling from --out/process_id.txt without compiling, deploying, attaching, or ingesting.",
+        help="Resume polling from --out/process_id.txt without validating, deploying, attaching, or ingesting.",
     )
     parser.add_argument("--poll-interval", type=int, default=15, help="Seconds between status polls")
     parser.add_argument("--max-polls", type=int, default=120, help="Max status polls before timeout")
@@ -904,10 +800,6 @@ def main() -> int:
     workflow_name = args.workflow_name or (
         os.path.splitext(os.path.basename(args.yaml))[0] if args.yaml else "resumed-workflow"
     )
-    topology_json_path = _abs(args.out, "fanout_topology.json")
-    diagnostic_path = _abs(args.out, "xray_diagnostic.json")
-    final_output_path = _abs(args.out, "final_output.json")
-
     try:
         api_key, request_options = _credential_context()
     except SystemExit as exc:
@@ -929,7 +821,6 @@ def main() -> int:
                 bucket_id = int(bucket_id_text)
             else:
                 bucket_id = bucket_id_text
-            workflow_extract = _load_workflow_extract_from_run(args.out)
             rl.event(
                 "run.resume_start",
                 out=args.out,
@@ -962,20 +853,13 @@ def main() -> int:
                 document_id=document_id,
                 bl_metadata=bl_metadata,
                 rl=rl,
-                workflow_extract=workflow_extract,
                 request_options=request_options,
             )
             raw_extract = artifacts["raw_extract"]
-            diagnostic_extract = artifacts["diagnostic_extract"]
-            final_output = artifacts["final_output"]
             if args.require_raw_extract and raw_extract is None:
-                rl.event(
-                    "extract.required_raw_missing",
-                    diagnostic_json=diagnostic_path if diagnostic_extract is not None else None,
-                    final_output_json=final_output_path if final_output is not None else None,
-                )
+                rl.event("extract.required_raw_missing")
                 print(
-                    "ERROR: GroundX get_extract was unavailable; wrote X-Ray diagnostics instead",
+                    "ERROR: GroundX get_extract was unavailable; preserved raw X-Ray evidence",
                     file=sys.stderr,
                 )
                 return 1
@@ -996,55 +880,23 @@ def main() -> int:
         rl.event("run.start", yaml=args.yaml, pdf=args.pdf, out=args.out, bucket_name=args.bucket_name)
         rl.quota_snapshot(gx, label="run.start", request_options=request_options)
 
-        wf_body: typing.Optional[dict] = None
-        workflow_extract: typing.Optional[dict] = None
+        source, yaml_text = _source_snapshot(args.yaml, args.out, rl)
         if args.reuse_workflow:
-            workflow_extract = (
-                _load_workflow_extract_from_run(args.out)
-                or _load_reused_workflow_extract(
-                    gx,
-                    args.reuse_workflow,
-                    request_options=request_options,
-                )
-            )
-            if workflow_extract is None:
-                report = {
-                    "risk_status": "unknown_high_risk",
-                    "cap": DEFAULT_CAP,
-                    "max_estimated_requests": None,
-                    "recommended_action": (
-                        "Reused workflow definition could not be loaded for request "
-                        "fanout estimation. Load the workflow definition before ingest "
-                        "or pass --allow-high-request-estimate to override."
-                    ),
-                }
-                if not _enforce_request_estimate_report(
-                    rl,
-                    args.out,
-                    report,
-                    allow_high_request_estimate=args.allow_high_request_estimate,
-                ):
-                    return 2
-            else:
-                if not _request_estimate_preflight(
-                    rl,
-                    args.out,
-                    workflow_extract,
-                    [args.pdf],
-                    allow_high_request_estimate=args.allow_high_request_estimate,
-                ):
-                    return 2
+            if not _request_estimate_preflight(
+                rl,
+                args.out,
+                source,
+                [args.pdf],
+                allow_high_request_estimate=args.allow_high_request_estimate,
+            ):
+                return 2
         else:
-            wf_body = _topology(args.yaml, topology_json_path, workflow_name, rl)
-            workflow_extract = wf_body.get("extract")
-            with open(args.yaml, "r", encoding="utf-8") as f:
-                yaml_text = f.read()
             if not args.skip_validate:
                 _validate(gx, yaml_text, workflow_name, rl)
             if not _request_estimate_preflight(
                 rl,
                 args.out,
-                wf_body,
+                source,
                 [args.pdf],
                 allow_high_request_estimate=args.allow_high_request_estimate,
             ):
@@ -1066,7 +918,6 @@ def main() -> int:
                 with open(_abs(args.out, "workflow_id.txt"), "w") as f:
                     f.write(workflow_id)
             else:
-                assert wf_body is not None
                 create_resp = _create_workflow(
                     gx,
                     yaml_text,
@@ -1075,7 +926,8 @@ def main() -> int:
                 )
                 workflow_id = _workflow_id(create_resp)
                 created_workflow_id = workflow_id
-                rl.event("workflow.create", workflow_id=workflow_id, workflow_name=wf_body["name"])
+                _write_json(_abs(args.out, "workflow.json"), _to_plain_dict(create_resp))
+                rl.event("workflow.create", workflow_id=workflow_id, workflow_name=workflow_name)
                 with open(_abs(args.out, "workflow_id.txt"), "w") as f:
                     f.write(workflow_id)
 
@@ -1189,21 +1041,13 @@ def main() -> int:
             document_id=document_id,
             bl_metadata=bl_metadata,
             rl=rl,
-            workflow_extract=workflow_extract,
             request_options=request_options,
         )
         raw_extract = artifacts["raw_extract"]
-        diagnostic_extract = artifacts["diagnostic_extract"]
-        final_output = artifacts["final_output"]
-
         if args.require_raw_extract and raw_extract is None:
-            rl.event(
-                "extract.required_raw_missing",
-                diagnostic_json=diagnostic_path if diagnostic_extract is not None else None,
-                final_output_json=final_output_path if final_output is not None else None,
-            )
+            rl.event("extract.required_raw_missing")
             print(
-                "ERROR: GroundX get_extract was unavailable; wrote X-Ray diagnostics instead",
+                "ERROR: GroundX get_extract was unavailable; preserved raw X-Ray evidence",
                 file=sys.stderr,
             )
             return 1

@@ -28,14 +28,9 @@ register → customSteps/outputRoutes/leafFields
 upload → server-side per-chunk LLM calls produce JSON
 ```
 
-The offline topology model (`skills/groundx-extraction-workflows/templates/_workflow_topology.py`)
-relies on the SDK to prepare `workflow.custom_steps`, `workflow_step`, and
-route metadata. Direct groups use `workflow_output_key`; pseudo groups use the
-pseudo field key plus `path`. The compiler passes that through as public
-`customSteps`, `outputRoutes`, `leafFields`, and optional workflow-level
-`template`. It also renders the wrapper prompt text into each custom step
-config so the platform runtime does not fall back to stock prompts. Steps 5-6
-happen on the GroundX platform.
+Cashbot parses the authored YAML, renders prompts, and compiles custom steps and
+routes. Harness submits the exact source and does not model that output locally.
+Steps 5-6 happen on the GroundX platform.
 
 ## 2. Step 1: YAML parsing
 
@@ -126,11 +121,9 @@ only.
   steps, field-description bullets, response-shape contract, parser-safety
   rule, and response-shape examples. This is the system-level context.
 
-The wrapper templates are rendered server-side at create time (and mirrored
-by `_workflow_topology.py` for offline inspection). For a pilot that
+The wrapper templates are rendered server-side at create time. For a pilot that
 needs domain-specific wrapper wording, author molecule-specific custom step
-config in YAML or update the compiler contract with tests. The harness compiler
-does not dynamically load wrapper modules.
+config in YAML or update the Cashbot compiler contract with tests.
 
 Compiled extraction workflows also set these built-in runtime steps to `null`:
 `doc-summary`, `doc-keys`, `sect-summary`, `sect-instruct`, `chunk-summary`,
@@ -141,8 +134,8 @@ prompts before the custom steps run.
 
 Harness workflow groups are wired through `workflow_step:` and route outputs
 through `customChunkOutputs`, `customSectionOutputs`, or `customDocumentOutputs`.
-The custom step's `level` and `kind` determine how the platform runs the prompt
-and how local `xray_to_extract.py` maps X-Ray values back to final JSON.
+The custom step's `level` and `kind` determine how the platform runs the prompt.
+Cashbot owns final routing; Harness never reconstructs final JSON from X-Ray.
 
 Choose `level` with request fanout in mind. Estimate
 `pages * chunks per page * chunk-level custom steps` before live ingest. Pseudo
@@ -242,13 +235,13 @@ fields use the pseudo field key as the output key and declare `path` to the
 final field. The compiler rejects partially routed YAML instead of letting a
 group disappear from `outputRoutes`.
 
-The generated workflow has three public custom-workflow fields:
+The server-generated workflow has three public custom-workflow fields:
 
 | Workflow field | What it carries |
 |---|---|
 | `customSteps` | Executable step definitions: `name`, `level`, `kind`, optional config, optional required template keys |
-| `outputRoutes` | Where each workflow field writes in X-Ray and final reassembly |
-| `leafFields` | Final field metadata used by local diagnostics and reassembly handoff |
+| `outputRoutes` | Where each workflow field writes in X-Ray and server output |
+| `leafFields` | Final field metadata used by the hosted runtime |
 
 Use X-Ray maps by custom step level:
 

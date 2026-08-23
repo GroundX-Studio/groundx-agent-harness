@@ -74,9 +74,8 @@ Debugging path the discipline would have taken (≈5 minutes, 0 ingests):
 
 - **X-Ray** (`gx.documents.get_xray(document_id)`) — per-chunk LLM
   output; shows what each chunk produced before platform aggregation.
-  Use `templates/xray_to_extract.py` for local aggregation that
-  reproduces what `get_extract()` should return — divergence between
-  the two is a strong signal of platform-side aggregation issues.
+  Preserve it to diagnose platform aggregation, but do not rebuild customer
+  output locally. `get_extract()` is authoritative.
 - **Workflow readback** (`gx.workflows.get(id, format="json")`) — what
   the platform actually persisted. The API compiles the submitted YAML
   server-side; there is no locally compiled submission body to inspect.

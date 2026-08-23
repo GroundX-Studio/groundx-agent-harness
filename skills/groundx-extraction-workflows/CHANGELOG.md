@@ -19,13 +19,12 @@ a coherent iteration milestone informed by real customer use cases. The
   retired. `run_extraction.py`, `deploy_workflow.py`, `batch_extraction.py`,
   and `prompt_manager.py` now register and update workflows by submitting the
   author's source YAML; preflight is the server's `workflows.validate`.
-  `compile_workflow.py` is renamed `_workflow_topology.py` and survives only
-  as a non-authoritative offline topology model for fanout estimation and
-  coverage checks (its `workflow_sdk_kwargs` deployable-body surface and CLI
-  are deleted, so legacy instructions that invoke `compile_workflow.py`
-  fail fast). `validate_workflow_json.py` is deleted. The SDK/harness parity
-  guard retires with the path it guarded. References, examples, and
-  `6_known_limitations.md` §§5-6 now document the YAML-only flow.
+  `compile_workflow.py`, `_workflow_topology.py`, `validate_workflow_json.py`,
+  and `xray_to_extract.py` are deleted. `_workflow_source.py` reads only the
+  authored values needed for fanout, field coverage, and client business logic.
+  Server `get_extract` output is authoritative; Harness preserves X-Ray but
+  never reconstructs customer output from it. The SDK/harness compiler parity
+  guard retires with the duplicate compiler.
 
 - **Scope by printed position.** `16_prompt_writing.md` warns that
   category-name scoping rules ("taxes are account-level") mis-scope categories

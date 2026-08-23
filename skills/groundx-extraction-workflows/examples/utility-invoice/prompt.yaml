@@ -38,6 +38,7 @@ statement:
   # One statement per document. Dedup on the synthetic invoice number guards
   # against the same statement being emitted from multiple chunks.
   workflow_step: statement_fields
+  role: statement
   unique_attrs:
   - sp_inv_num
   fields:
@@ -115,6 +116,7 @@ charges:
   # link each charge to its meter via match_attrs; pull the meter's service class
   # onto the charge via passthrough; surface a disputed rate via conflict_attrs.
   workflow_step: charge_lines
+  role: charges
   unique_attrs:
   - charge_description_as_printed
   - beg_chg_date
@@ -191,6 +193,7 @@ charges:
 meters:
   # A second repeating record type: physical meters and their read-derived usage.
   workflow_step: meter_lines
+  role: meters
   unique_attrs:
   - meter_number
   fields:

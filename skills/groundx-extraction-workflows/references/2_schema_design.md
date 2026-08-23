@@ -111,18 +111,11 @@ Nested final fields are not supported yet. Model nested structures as flat
 fields or JSON-encoded string fields until route parsing supports paths deeper
 than `/group/field`.
 
-Supported final-group metadata keys are `always_check_attrs`,
-`conflict_attrs`, `deregulation_status_values`,
-`equivalent_service_types`, `exclude_dict_attrs`, `explanation_attrs`,
-`fill_rules`, `identity_match`, `match_attrs`, `normalization_profiles`,
-`not_required_service_types`, `output_scope`, `partial_pair_attrs`, `passthrough`,
-`passthrough_attrs`, `passthrough_pair_attrs`, `passthrough_transform`, `remaining_attrs`,
-`required_any_attrs`, `required_attrs`, `service_type_attrs`, and `unique_attrs`.
+Harness reads only four client business-logic keys from final groups:
+`unique_attrs`, `match_attrs`, `conflict_attrs`, and `passthrough`. Cashbot owns
+all validation and compilation semantics for other workflow metadata.
 
-`normalization_profiles` explicitly enables runtime normalization for named
-attributes. It maps each attribute to `currency_code`, `currency_label`, or
-`unit_of_measurement`. The compiler rejects invalid mappings or profile names
-and preserves the mapping as final-group metadata rather than an extraction field.
+Do not add Harness validation or defaults for server-owned metadata.
 
 ### Runtime role labels
 

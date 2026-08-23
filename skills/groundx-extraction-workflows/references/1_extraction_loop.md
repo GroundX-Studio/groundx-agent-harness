@@ -50,9 +50,9 @@ Before the loop runs, the working directory must have:
 2. `.env` — copied from `skills/groundx-extraction-workflows/templates/.env.sample`
    and populated with either `GROUNDX_API_KEY`, or both `PARTNER_API_KEY` and
    `CUSTOMER_USERNAME` for a delegated customer-owned run. Do not mix modes.
-3. `_workflow_topology.py` — copied from
-   `skills/groundx-extraction-workflows/templates/_workflow_topology.py`
-   (offline fanout estimation only; never submitted to the API)
+3. `_workflow_source.py` — copied from
+   `skills/groundx-extraction-workflows/templates/_workflow_source.py`
+   (small source reader only; never validates or compiles)
 4. `deploy_workflow.py` — copied from
    `skills/groundx-extraction-workflows/templates/deploy_workflow.py` when the
    finished YAML needs workflow create/update and attachment
@@ -155,8 +155,8 @@ It makes no live API call and does not prove server acceptance.
 extract output, use `run_extraction.py`. Dev structured extraction does not
 currently work; do not run this path against dev unless an operator explicitly
 confirms it is available. The runner writes `output.json` only for the
-raw GroundX `get_extract` payload. If raw extract is unavailable, it writes
-`xray_diagnostic.json` and `final_output.json` instead. Add
+raw GroundX `get_extract` payload. If raw extract is unavailable, it preserves
+`xray.json` without synthesizing output. Add
 `--require-raw-extract` when missing `output.json` should fail the run. The
 runner ingests with `processLevel: full` so workflow execution is on the path.
 If local
