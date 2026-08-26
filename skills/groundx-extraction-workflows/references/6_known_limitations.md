@@ -5,36 +5,19 @@ Before any command here creates local output, read [`local-artifact-closeout.md`
 Platform-side constraints, convention ambiguity patterns, and the
 escalation playbook for when extraction is wrong despite a clear prompt.
 
-## 1. Platform-locked field names
+## 1. Legacy compatibility field vocabulary
 
-The GroundX extraction platform requires two hardcoded field names for
-charges-style groups. Renaming them in the YAML breaks charge extraction.
-Meter identifiers belong in the `meters` group unless the downstream charge
-schema explicitly needs a meter identifier on each charge row.
+New v1 workflows do not have hardcoded charge field names. A group with
+`role: charges` may use any valid field names required by its output contract.
 
-### 1.1 The locked names
+The legacy compatibility adapter remains name-bound by design. When maintaining
+that path, preserve its established field vocabulary, including
+`charge_amount` and `charge_description_as_printed`. Do not apply those names
+as a rule for generic v1 workflows.
 
-| Required YAML key | What it represents | Notes |
-|---|---|---|
-| `charge_amount` | Numeric value of one record | Type `[int, float]` |
-| `charge_description_as_printed` | Verbatim description from the document | Type `str` |
-
-These names are not configurable. The runner and YAML must use them
-exactly. The YAML key for each becomes the JSON key in the extraction
-output.
-
-### 1.2 Aligning Expected-Answer Field Names
-
-Use the platform-required names (`charge_amount`,
-`charge_description_as_printed`) directly in the YAML, and make mapped
-expected-answer JSON use the **same field names** as the extraction output
-(both derive from the YAML). The comparator (`templates/score_extraction.py`)
-matches by field name and does not bridge differing names, so map spreadsheets,
-documents, text files, PDFs, or human-review notes to the runner output shape
-with matching field names first.
-
-A documented platform constraint is not a failure mode; an undocumented
-divergence between the YAML field names and the expected-answer field names is.
+The comparator (`templates/score_extraction.py`) matches by authored field
+name. Map expected answers to the same JSON shape and field names as the YAML
+before scoring.
 
 ## 2. Convention ambiguity
 
@@ -174,10 +157,10 @@ structured `workflows.create` callers hit the rejection.
 **Resolution:** fixed in the SDK by `eyelevelai/groundx-python#68`, first
 released in 3.9.8, and the structured client compile path has since been
 retired entirely: templates submit source YAML and the server compiles.
-`templates/requirements.txt` pins the floor at 3.9.8, so template venvs never
+`templates/requirements.txt` pins the floor at 3.9.10, so template venvs never
 see the affected releases; this caveat applies only to environments that
-ignore the pin. If a create rejection names `repetitionScope`, check the
-installed `groundx` version before touching the schema — the YAML is not the
+ignore the floor. If a create rejection names `repetitionScope`, check the
+installed `groundx` version before touching the schema. The YAML is not the
 problem.
 
 ## 6. Locally compiled workflow bodies are rejected at create

@@ -140,7 +140,7 @@ When a value is wrong:
 
 1. Inspect X-Ray and the per-step output first.
 2. Decide whether the problem is field wording, group wording, expected-answer mapping,
-   post-extraction business logic, or platform behavior.
+   hosted identity/relationship behavior, or another platform behavior.
 3. Change one thing.
 4. Recompile and compare the prompt diff before re-running.
 5. Run or rescore, then record whether the change improved accuracy or caused a

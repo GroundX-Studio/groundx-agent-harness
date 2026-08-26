@@ -13,9 +13,8 @@ Teach the path in this order:
 3. Create or update the GroundX workflow directly from the YAML path with
    `client.create_extraction_workflow(...)` or
    `client.update_extraction_workflow(...)`.
-4. To inspect, reuse, or copy settings, use
-   `client.load_extraction_definition(...)` with `path=...` or
-   `workflow_id=...`.
+4. To inspect, reuse, or copy deployed settings, use
+   `client.load_extraction_definition(workflow_id=...)`.
 5. Assign the workflow where documents will be uploaded.
 6. Upload documents with `client.ingest(...)` and `Document(...)`.
 7. Poll until ingest completes.

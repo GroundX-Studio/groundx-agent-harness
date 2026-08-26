@@ -168,6 +168,13 @@ custom overlay relative to GroundX defaults, not a delta against the previously
 stored custom workflow. Send only the fields you want to customize. Omitted step
 settings fall back to defaults.
 
+This structured update model applies only to workflows authored as structured
+workflow fields. For a YAML-authored workflow, do not send structured fields
+such as `steps`, `customSteps`, `outputRoutes`, or `leafFields` to change an
+engine. That replaces the stored definition and authored-source lineage. Edit
+the complete authored YAML and resubmit it in `yaml` so every custom step, route,
+and field is preserved.
+
 A name-only update is not a metadata-only patch. If custom processing settings
 should remain in effect, include those custom settings again in the update body.
 

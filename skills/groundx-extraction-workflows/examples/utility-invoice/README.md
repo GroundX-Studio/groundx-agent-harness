@@ -1,7 +1,7 @@
 # Utility invoice — synthetic custom-step fixture
 
 A small, **fully synthetic** invoice-shaped fixture that proves the custom-step
-path end to end and exercises the client-side business-logic metadata. Nothing
+path end to end and exercises hosted identity/relationship metadata. Nothing
 here describes a real customer document — the provider, account numbers,
 addresses, and amounts are invented for CI.
 
@@ -33,7 +33,9 @@ live extraction against a real document runs out-of-repo with credentials.
    `workflow.custom_steps` defines `statement_fields`, `charge_lines`, and
    `meter_lines`; each group points at one step with `workflow_step:`. The
    per-group `unique_attrs`, `match_attrs`, `conflict_attrs`, and `passthrough`
-   keys are consumed client-side and never appear in the workflow JSON.
+   keys capture product intent. Cashbot compiles and dispatches the metadata;
+   GroundX Python owns generic identity, reassembly, and relationship behavior;
+   each hosted extraction service owns only its service-specific policy.
 
 2. **Deploy + ingest + extract** — with credentials, out of repo: deploy the
    workflow with `../../templates/deploy_workflow.py`, then run the full
@@ -41,17 +43,18 @@ live extraction against a real document runs out-of-repo with credentials.
    (or score a folder of documents with `../../templates/batch_extraction.py`). See
    `../../references/1_extraction_loop.md`.
 
-3. **Apply business logic** — run the metadata primitives over the aggregated
-   extract (dedup → passthrough → conflict-surface). See `business_logic.md` and
-   `../../templates/business_logic.py`.
+3. **Verify hosted behavior** — inspect raw `get_extract` for the supported
+   identity, relationship, propagation, and conflict behavior declared in YAML.
+   Harness never constructs a replacement result. See `business_logic.md`.
 
-4. **Compare** — diff the post-business-logic output against `data/answer_key.json`,
+4. **Compare** — diff raw hosted output against `data/answer_key.json`,
    classifying null-vs-miss. See `../../references/5_validation.md`.
 
 ## Why this fixture exists
 
 - Proves custom workflow metadata compiles for invoice-shaped groups.
 - Proves the **YAML + metadata** extension axis: a new use case in the invoice
-  domain is expressed purely in YAML, with no runner code change.
+  domain is expressed in YAML, while missing hosted behavior belongs to the
+  owning product repository rather than Harness runner code.
 - Exercises **null-vs-miss** classification via legitimate nulls in expected-answer JSON
   (`budget_plan_name`, and the meterless flat charge's `rate` / `meter_number`).

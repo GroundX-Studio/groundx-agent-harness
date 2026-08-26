@@ -4,13 +4,13 @@
 # provider, customer, account numbers, and amounts are invented for CI and do
 # not describe any real customer document.
 #
-# The per-group business-logic keys (`unique_attrs`, `match_attrs`,
-# `conflict_attrs`, `passthrough`) are the declarative metadata vocabulary
-# consumed client-side AFTER extraction by templates/business_logic.py. They are
-# not workflow fields — the compiler drops them from the workflow JSON — so they
-# exercise the "new use case in a domain = YAML + metadata" extension axis
-# without any runner code change. The rules captured here are narrated in
-# business_logic.md.
+# The per-group identity and relationship keys (`unique_attrs`, `match_attrs`,
+# `conflict_attrs`, `passthrough`) capture product intent. Cashbot compiles and
+# dispatches the metadata. GroundX Python owns generic identity, reassembly, and
+# relationship behavior. Each hosted extraction service owns only its
+# service-specific policy. Harness submits this YAML and never executes the
+# rules or mutates raw extraction output. The intent captured here is narrated
+# in business_logic.md.
 extraction_policy_version: v1
 
 workflow:

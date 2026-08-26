@@ -18,9 +18,10 @@ By default, reads each raw `<doc>.extracted.json` in <run_dir> and its mapped
 expected-answer JSON file. Map spreadsheets, documents, text files, PDFs, or
 human-review notes to the runner-shaped JSON expected by `score_extraction.py`
 before scoring.
-Use `--artifact-kind final` only when you deliberately want to score
-`<doc>.final_output.json`, the local diagnostic/business-logic output. It does
-not silently score `<doc>.xray_diagnostic.json`.
+Historical offline compatibility: use `--artifact-kind final` only for a
+captured run from an older Harness version that wrote
+`<doc>.final_output.json`. Current live Harness runs never write or select that
+artifact. The scorer does not silently score `<doc>.xray_diagnostic.json`.
 
 Then writes:
     <out>/<doc>.accuracy.json        per-document field-level report
@@ -185,7 +186,7 @@ def main() -> int:
         "--artifact-kind",
         choices=("raw", "final"),
         default="raw",
-        help="raw scores <doc>.extracted.json; final scores <doc>.final_output.json",
+        help="raw scores current <doc>.extracted.json; final scores historical <doc>.final_output.json",
     )
     args = p.parse_args()
 

@@ -3,7 +3,6 @@ score_extraction.py — compare extraction JSON against mapped expected-answer J
 
 Usage:
     python score_extraction.py output.json expected_answers.json
-    python score_extraction.py final_output.json expected_answers.json
 
 Domain-agnostic comparison
 --------------------------

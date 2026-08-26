@@ -56,14 +56,12 @@ dotenv.load_dotenv(dotenv.find_dotenv(usecwd=True))
 from groundx import Document, GroundX
 
 # Sibling template imports (in-process — no subprocess overhead).
-from business_logic import apply_business_logic
-from _workflow_source import business_logic_metadata, load_workflow_source
+from _workflow_source import load_workflow_source
 from estimate_workflow_requests import DEFAULT_CAP, count_pdf_pages, estimate_request_fanout
 from run_log import RunLog
 
 
 TIMEOUT_HISTORY_LIMIT = 10
-BUSINESS_LOGIC_METADATA_FILENAME = "business_logic_metadata.json"
 TRANSIENT_STATUS_ERROR_NAMES = {
     "ConnectError",
     "ConnectTimeout",
@@ -113,49 +111,6 @@ def _is_transient_status_error(exc: Exception) -> bool:
     return name in TRANSIENT_STATUS_ERROR_NAMES and (
         module.startswith("httpx") or module.startswith("httpcore")
     )
-
-
-def _load_business_logic_metadata(yaml_path: str) -> dict:
-    """Extract per-group business-logic metadata from the extraction YAML.
-
-    Returns `{group_name: {unique_attrs, match_attrs, conflict_attrs,
-    passthrough}}` for every group that declares at least one such key. Groups
-    with none are omitted, so a YAML carrying no business-logic metadata yields
-    `{}` and `apply_business_logic` is a no-op (backward compatible).
-    """
-    return business_logic_metadata(load_workflow_source(yaml_path))
-
-
-def _write_business_logic_metadata_for_run(
-    out_dir: str,
-    metadata: dict,
-    rl: typing.Optional[RunLog] = None,
-) -> None:
-    path = _abs(out_dir, BUSINESS_LOGIC_METADATA_FILENAME)
-    payload = metadata if isinstance(metadata, dict) else {}
-    _write_json(path, payload)
-    if rl:
-        rl.event(
-            "business_logic.metadata_saved",
-            path=path,
-            groups=sorted(payload.keys()),
-        )
-
-
-def _load_business_logic_metadata_from_run(
-    out_dir: str,
-    rl: typing.Optional[RunLog] = None,
-) -> dict:
-    path = _abs(out_dir, BUSINESS_LOGIC_METADATA_FILENAME)
-    metadata = _read_json(path)
-    payload = metadata if isinstance(metadata, dict) else {}
-    if rl:
-        rl.event(
-            "business_logic.metadata_loaded",
-            path=path if isinstance(metadata, dict) else None,
-            groups=sorted(payload.keys()),
-        )
-    return payload
 
 
 def _abs(out: str, name: str) -> str:
@@ -601,7 +556,6 @@ def _poll(
 def derive_extraction_artifacts(
     gx: GroundX,
     document_id: str,
-    bl_metadata: typing.Optional[dict] = None,
     rl: typing.Optional[RunLog] = None,
     request_options: typing.Optional[dict[str, typing.Any]] = None,
 ) -> dict:
@@ -613,7 +567,6 @@ def derive_extraction_artifacts(
         )
     )
     raw_extract = None
-    final_output = None
     source = "get_extract"
 
     try:
@@ -630,10 +583,6 @@ def derive_extraction_artifacts(
 
     if isinstance(fetched, dict) and fetched:
         raw_extract = fetched
-        if bl_metadata:
-            final_output = apply_business_logic(raw_extract, bl_metadata)
-            if rl:
-                rl.event("business_logic.applied", groups=sorted(bl_metadata.keys()))
     else:
         if isinstance(fetched, dict) and rl:
             rl.event("extract.get_extract_empty")
@@ -642,7 +591,6 @@ def derive_extraction_artifacts(
     return {
         "raw_extract": raw_extract,
         "xray": xray,
-        "final_output": final_output,
         "source": source,
     }
 
@@ -697,18 +645,14 @@ def _write_completed_artifacts(
     out_dir: str,
     process_id: str,
     document_id: str,
-    bl_metadata: typing.Optional[dict],
     rl: RunLog,
     request_options: typing.Optional[dict[str, typing.Any]] = None,
 ) -> tuple[dict, dict[str, int]]:
     xray_path = _abs(out_dir, "xray.json")
     extract_path = _abs(out_dir, "output.json")
-    final_output_path = _abs(out_dir, "final_output.json")
-
     artifacts = derive_extraction_artifacts(
         gx,
         document_id,
-        bl_metadata,
         rl,
         request_options=request_options,
     )
@@ -718,7 +662,6 @@ def _write_completed_artifacts(
 
     output_for_summary = None
     raw_extract = artifacts["raw_extract"]
-    final_output = artifacts["final_output"]
 
     if raw_extract is not None:
         _write_json(extract_path, raw_extract)
@@ -727,11 +670,6 @@ def _write_completed_artifacts(
         rl.event("extract.captured", path=extract_path, source="get_extract")
     else:
         rl.event("extract.raw_unavailable", output_json_written=False)
-
-    if final_output is not None:
-        _write_json(final_output_path, final_output)
-        output_for_summary = final_output
-        rl.event("extract.final_output_captured", path=final_output_path)
 
     group_counts = _extract_group_counts(output_for_summary or {})
     rl.event("extract.summary", source=artifacts["source"], group_counts=group_counts)
@@ -828,7 +766,6 @@ def main() -> int:
                 workflow_id=workflow_id,
                 bucket_id=bucket_id,
             )
-            bl_metadata = _load_business_logic_metadata_from_run(args.out, rl)
             document_id = _poll(
                 gx,
                 process_id,
@@ -851,7 +788,6 @@ def main() -> int:
                 out_dir=args.out,
                 process_id=process_id,
                 document_id=document_id,
-                bl_metadata=bl_metadata,
                 rl=rl,
                 request_options=request_options,
             )
@@ -1015,8 +951,6 @@ def main() -> int:
         with open(_abs(args.out, "process_id.txt"), "w") as f:
             f.write(process_id)
 
-        bl_metadata = _load_business_logic_metadata(args.yaml)
-        _write_business_logic_metadata_for_run(args.out, bl_metadata, rl)
         document_id = _poll(
             gx,
             process_id,
@@ -1039,7 +973,6 @@ def main() -> int:
             out_dir=args.out,
             process_id=process_id,
             document_id=document_id,
-            bl_metadata=bl_metadata,
             rl=rl,
             request_options=request_options,
         )

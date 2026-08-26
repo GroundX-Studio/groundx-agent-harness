@@ -42,8 +42,8 @@ Record the mismatch in the run notes with:
 Do not tune prompts to reproduce a suspected expected-answer artifact. After the
 expected value is confirmed, make the smallest change: comparison normalization
 or mapping when the customer's expected format is valid, YAML prompt wording
-when the model picked the wrong source value, or business logic when the output
-shape needs a dedupe/link/passthrough rule. Use `5_validation.md` §1.2 for the
+when the model picked the wrong source value, or product escalation when hosted
+output omits supported identity/relationship intent. Use `5_validation.md` §1.2 for the
 minimal mapping record.
 
 ## 2. Iteration budget
@@ -106,8 +106,8 @@ iteration. Instead:
      Do not keep tightening individual fields.
    - **Signal not in the document**: accept the FAIL with a documented
      rationale in `run.md`. Do not tighten prompts.
-   - **Platform-side issue** (aggregator behavior, platform-locked
-     names, convention ambiguity): escalate per
+   - **Platform-side issue** (aggregator behavior, legacy compatibility
+     vocabulary, convention ambiguity): escalate per
      `references/6_known_limitations.md` §3.
 3. If the diagnosis isn't clear from X-Ray, escalate rather than guess.
    Repeated prompt tightening on an unclear root cause burns quota and
@@ -129,7 +129,6 @@ their original paths to the tools rather than copying them into a durable journe
 │   ├── workflow.json              server workflow readback
 │   ├── output.json                raw GroundX get_extract, when available
 │   ├── xray.json                  raw X-Ray evidence
-│   ├── final_output.json          client business-logic output, when needed
 │   ├── expected-answer-mapping.json  source-backed mapping/adjudication record, when needed
 │   ├── compare-report.txt         score_extraction.py output
 │   └── notes.md                   rationale for v1, observed failures
@@ -301,7 +300,6 @@ together:
 
 - `v1/compare-report.txt` — which fields passed/failed
 - `v1/output.json` — raw GroundX `get_extract`, when available
-- `v1/final_output.json` — local diagnostic/business-logic output, when used
 - `v1/xray.json` — what GroundX parsed per chunk (diagnostic source evidence)
 
 The combination lets the sub-agent diagnose at the right layer:

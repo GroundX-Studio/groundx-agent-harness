@@ -46,7 +46,7 @@ Read `2_schema_design.md` section 1 and `3_prompt_pipeline.md`.
 
 Use final groups directly when each group is small enough to run as one
 workflow group. In harness-authored YAML, that real top-level group declares
-group-level `workflow_step:`.
+group-level `workflow_step:` and an explicit `role:`.
 
 Keep each workflow group near 30 fields or fewer. If one final group grows too
 large but the final JSON shape must stay stable, use `_pseudo_groups` as
@@ -66,7 +66,8 @@ a `parallel` list with one branch per executable workflow group. Branch `group`
 values are workflow group names; branch `chain` values are internal runtime task
 names such as `reconcile_statement`, `qa_statement`, `save_statement`,
 `reconcile_charges`, `save_charges`, `reconcile_meters`, `qa_meters`, and
-`save_meters`.
+`save_meters`. Every direct or pseudo group named by the chain must declare its
+role; the group name does not supply it.
 
 ## 4. Validate And Register
 
@@ -118,7 +119,6 @@ extraction is available. Retrieve:
 - `workflow.json`
 - `output.json` when raw GroundX `get_extract` is available
 - `xray.json`
-- `final_output.json` when client business logic processes real server output
 - run log
 
 When a field is wrong, inspect X-Ray and rendered request evidence before editing the
@@ -141,13 +141,17 @@ Missing routed values are classified deliberately:
 
 Requiredness comes from the final field schema, not workflow-step names.
 
-## 8. Apply Final Post-Processing
+## 8. Verify Hosted Identity And Relationships
 
 Read `12_business_logic.md`.
 
-Run local dedupe, linking, conflict surfacing, and passthrough on final groups
-unless a primitive is explicitly workflow-scoped. Do not attach final business
-metadata to workflow step definitions.
+Confirm supported identity and relationship intent is present in raw hosted
+output. Cashbot only compiles and dispatches metadata. GroundX Python owns
+generic identity deduplication, custom-output reassembly, and relationship
+selection. Each hosted extraction service owns only its service-specific policy
+and uses the shared SDK relationship selector. Harness submits YAML and compares
+artifacts without local matching or mutation. Missing hosted behavior is a
+product defect in the owner named by that boundary.
 
 ## 9. Score And Iterate
 
@@ -155,24 +159,23 @@ Read `5_validation.md`, `prompt-improvement-loop.md`,
 `8_iteration_and_feedback.md`, and `15_repeating_groups.md` for repeating
 records.
 
-Score final reassembled output against expected answers. Iterate one issue at a
+Score raw hosted output against expected answers. Iterate one issue at a
 time:
 
 - Field prompt if one field is wrong.
 - Workflow grouping or custom-step assignment if an agent is overloaded.
-- Route map/reassembly if values land in the wrong final group.
-- Business logic primitive if extracted values are correct but final acceptance
-  is wrong.
+- Product routing if values land in the wrong final group.
+- Owning product behavior if supported identity or relationship intent is absent.
 
 ## 10. Escalate The Right Boundary
 
-Escalate primitive gaps separately from prompt, workflow grouping, or reassembly
-gaps:
+Escalate hosted identity and relationship gaps separately from prompt or
+workflow-grouping gaps:
 
 - Prompt or YAML issue: revise `prompt.yaml`.
 - Workflow grouping issue: revise real groups or custom-step assignments.
 - Platform workflow execution issue: record the compiler/platform constraint.
 - Server-side Extract availability issue: preserve X-Ray, record the
   environment limitation, and do not synthesize output.
-- New final business primitive: record the general primitive, not a
-  one-customer fork.
+- New identity or relationship behavior: record the general product contract
+  and owning repository, never a Harness fallback.

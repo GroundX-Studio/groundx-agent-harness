@@ -18,9 +18,9 @@ JSON then proves the same non-invoice final shape is scoreable.
 | `prompt.yaml` | Two groups with custom steps: `claim` (`kind: instruct`, singleton), `line_items` (`kind: keys`, repeating) |
 | `data/answer_key.json` | Synthetic expected-answer JSON in the runner output shape `{"claim": {...}, "line_items": [...]}` |
 
-No PDF, no business-logic metadata. This fixture proves topology, route shape,
+No PDF, no identity/relationship metadata. This fixture proves topology, route shape,
 and scoring for a non-invoice final object. The invoice-domain fixture
-(`../utility-invoice/`) covers null-vs-miss and business-logic metadata.
+(`../utility-invoice/`) covers null-vs-miss and hosted metadata intent.
 
 ## The proof
 

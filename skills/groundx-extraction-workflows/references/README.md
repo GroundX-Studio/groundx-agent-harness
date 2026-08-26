@@ -3,7 +3,7 @@
 Before any command here creates local output, read [`local-artifact-closeout.md`](./local-artifact-closeout.md). Planned work must initialize and use its exact absolute run root. Ad-hoc work uses one dedicated root. Settle or hand off useful results, delete raw evidence, verify absence, and report what remains.
 
 Use this index when the work involves drafting or iterating an extraction YAML schema,
-compiling YAML to GroundX workflow JSON, running an extraction against a PDF or other
+submitting YAML to the GroundX workflow compiler, running an extraction against a PDF or other
 document, comparing extraction output to reviewer-provided expected answers, debugging
 a field, or planning a serious extraction pilot.
 
@@ -37,10 +37,10 @@ a field, or planning a serious extraction pilot.
 | Estimating request fanout before live ingest; choosing chunk versus page-section execution | `2_schema_design.md`, `3_prompt_pipeline.md`, `templates/estimate_workflow_requests.py` |
 | Wrapping YAML with custom extract/reconcile/QA prompt modules and managing prompt iterations today | `prompt-manager.md` |
 | Finished-YAML deployment decision: MCP vs deploy-only local script vs full local run | `deploy.md` |
-| Modifying compiler, deploy, or runner behavior | `4_sdk_integration.md` |
+| Modifying source submission, deploy, or runner behavior | `4_sdk_integration.md` |
 | Building or reading a comparison report; field-level scoring, miss types, and mapping non-JSON expected answers before scoring | `5_validation.md` |
 | A repeating group (charges, meters, line items) scores low: prompt patterns + field-level iteration loop | `15_repeating_groups.md` |
-| Platform-locked field names and escalation | `6_known_limitations.md` |
+| Legacy compatibility field vocabulary and escalation | `6_known_limitations.md` |
 | Deployable project path | `7_promote_to_project.md` |
 | Iteration budget and non-convergence signals | `8_iteration_and_feedback.md` |
 | Skill testing methodology | `9_testing_methodology.md` |
@@ -72,6 +72,9 @@ Use `16_prompt_writing.md`, `prompt-quality.md`, and `prompt-improvement-loop.md
 before drafting or tightening prompts. The skill should teach the full process first:
 source evidence, final shape, prompt writing, server validation, run, source-adjudicated scoring,
 one-change prompt loops, and regression checks.
+
+Every direct or pseudo group referenced by `workflow.agent_chain` declares an
+explicit `role:`. Group names do not imply roles.
 
 When a customer or sample repo already has a `manager.py`, `simple.yaml`, and separate
 extract/reconcile/QA prompt modules, use `prompt-manager.md` instead of forcing those

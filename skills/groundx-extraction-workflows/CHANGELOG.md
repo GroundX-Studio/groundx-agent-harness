@@ -13,6 +13,25 @@ a coherent iteration milestone informed by real customer use cases. The
 
 ## Unreleased
 
+- **Extraction updates preserve authored YAML.** Engine changes now edit and
+  resubmit the complete YAML instead of sending a compiled engine-only JSON
+  overlay that can omit and remove the private extraction definition. Update
+  commands also preserve the existing workflow name unless a new name is
+  explicitly supplied.
+
+- **BREAKING: live Harness output is raw server output only.**
+  `run_extraction.py` and `batch_extraction.py` preserve raw `get_extract`
+  without local identity matching, relationship matching, mutation, or a second
+  final artifact. The Harness postprocessor and metadata sidecar are removed.
+  Historical captured final artifacts remain scoreable only through the
+  explicit offline `batch_score.py --artifact-kind final` compatibility path.
+
+- **Authoring guidance matches the server contract.** Every executable direct
+  or pseudo group now declares an explicit processing role. Group names never
+  imply roles, generic v1 charge fields use authored output names, and local
+  examples submit source YAML to the server compiler instead of teaching the
+  deprecated local compiler path.
+
 - **The backend is the only workflow compiler.** Locally compiled
   workflow bodies are rejected by the live API ("served reassembly field does
   not match the extraction field"), so the structured client compile path is
@@ -21,7 +40,7 @@ a coherent iteration milestone informed by real customer use cases. The
   author's source YAML; preflight is the server's `workflows.validate`.
   `compile_workflow.py`, `_workflow_topology.py`, `validate_workflow_json.py`,
   and `xray_to_extract.py` are deleted. `_workflow_source.py` reads only the
-  authored values needed for fanout, field coverage, and client business logic.
+  authored values needed for fanout and field coverage.
   Server `get_extract` output is authoritative; Harness preserves X-Ray but
   never reconstructs customer output from it. The SDK/harness compiler parity
   guard retires with the duplicate compiler.
