@@ -5,6 +5,10 @@ Before any command here creates local output, read [`local-artifact-closeout.md`
 Use this guide when extraction output is missing, wrong, or weaker than the expected
 quality bar.
 
+For current live runs, score the raw GroundX `get_extract` response captured as
+`output.json`. Treat X-Ray as diagnostic evidence, not as a second output or an input
+for local reconstruction.
+
 ## What Looping Means
 
 Looping is the repeated process of diagnosing one problem, making one change, compiling,
@@ -15,7 +19,7 @@ One loop is:
 
 1. Pick one field or one group rule.
 2. Locate the source evidence in the document and X-Ray.
-3. Compare source evidence, expected answer, raw extract, and final output.
+3. Compare source evidence, expected answer, raw `get_extract` output, and X-Ray evidence.
 4. Source-adjudicate disagreements before changing YAML.
 5. Classify the miss.
 6. Change one prompt or one group rule.
@@ -34,7 +38,8 @@ Use the smallest category that explains the failure:
 - **Expected-answer issue**: the expected value is unsupported, normalized differently,
   or mapped to the wrong field.
 - **X-Ray issue**: the source evidence is missing or OCR/layout did not capture it.
-- **Reassembly or business logic**: raw extraction is right but final output is wrong.
+- **Hosted identity or relationship behavior**: raw extraction does not reflect
+  supported YAML identity or relationship intent.
 - **Platform behavior**: workflow execution, image evidence, or runtime behavior blocked
   the right result.
 
@@ -52,8 +57,9 @@ Use this before changing YAML:
    behavior. Do not keep tightening prompts until the source evidence is available.
 4. If X-Ray has the source evidence and raw extract is wrong, fix one field prompt or
    one group prompt rule.
-5. If raw extract is right but final output is wrong, debug reassembly or business
-   logic, including reconcile, QA, routing, dedup, or final-output mapping.
+5. If raw extract omits supported identity or relationship behavior, preserve
+   the raw artifact and file a product defect in the owning repository. Do not
+   add a Harness mutation fallback.
 6. If raw extract is missing, `progress.errors` is populated, or the run never reaches
    extract retrieval, debug runtime processing failures before scoring or changing
    prompts.
@@ -108,7 +114,7 @@ Stop looping and escalate or hand off when:
 - the miss is caused by missing source evidence in X-Ray
 - the expected answer is not source-supported
 - the prompt would need sample-specific wording to pass
-- the workflow shape or business logic is the real problem
+- the workflow shape or hosted identity/relationship behavior is the real problem
 
 ## Artifacts
 
@@ -117,7 +123,7 @@ Keep enough artifacts that another agent can continue without guessing:
 - source PDF or source reference
 - prompt.yaml diff
 - server workflow readback and captured rendered request excerpt
-- raw output
+- raw GroundX `get_extract` output (`output.json`)
 - X-Ray or diagnostic output
 - score report
 - source-adjudicated discrepancy list
@@ -127,7 +133,7 @@ Keep enough artifacts that another agent can continue without guessing:
 
 ```text
 Field: effective_date
-Problem: final output used a signature date.
+Problem: raw `get_extract` output used a signature date.
 Source evidence: page with selected effective-date option.
 Change: field instructions now exclude signature/revision dates and require selected option evidence.
 Result: field passed; no regression in related date fields.

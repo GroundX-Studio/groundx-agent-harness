@@ -216,19 +216,22 @@ def _find_bucket_id_by_name(
 def _create_or_update_workflow(
     gx: GroundX,
     yaml_text: str,
-    workflow_name: str,
+    workflow_name: str | None,
     workflow_id: str | None,
     request_options: typing.Optional[dict[str, typing.Any]] = None,
 ) -> tuple[str, str, typing.Any]:
     if workflow_id:
-        response = gx.workflows.update(
-            workflow_id,
-            name=workflow_name,
-            yaml=yaml_text,
-            request_options=request_options,
-        )
+        update: dict[str, typing.Any] = {
+            "yaml": yaml_text,
+            "request_options": request_options,
+        }
+        if workflow_name is not None:
+            update["name"] = workflow_name
+        response = gx.workflows.update(workflow_id, **update)
         return workflow_id, "updated", response
 
+    if workflow_name is None:
+        raise ValueError("workflow name is required when creating a workflow")
     response = gx.workflows.create(
         name=workflow_name,
         yaml=yaml_text,
@@ -285,7 +288,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--yaml", required=True, help="Path to extraction YAML")
     parser.add_argument("--out", required=True, help="Deploy output directory")
-    parser.add_argument("--workflow-name", default=None, help="Workflow name (default: derived from YAML)")
+    parser.add_argument(
+        "--workflow-name",
+        default=None,
+        help="Workflow name (create default: derived from YAML; update default: unchanged)",
+    )
     parser.add_argument("--workflow-id", default=None, help="Existing workflow_id to update instead of creating")
     parser.add_argument("--bucket-id", type=int, default=None, help="Existing bucket_id to attach")
     parser.add_argument("--bucket-name", default=None, help="Existing bucket name to look up and attach")
@@ -307,7 +314,8 @@ def main() -> int:
         raise SystemExit("ERROR: use only one of --bucket-id, --bucket-name, or --create-bucket-name")
 
     os.makedirs(args.out, exist_ok=True)
-    workflow_name = args.workflow_name or os.path.splitext(os.path.basename(args.yaml))[0]
+    default_workflow_name = os.path.splitext(os.path.basename(args.yaml))[0]
+    workflow_name = args.workflow_name if args.workflow_id else (args.workflow_name or default_workflow_name)
     source = _workflow_source_snapshot(args.yaml, args.out)
     with open(args.yaml, "r", encoding="utf-8") as f:
         yaml_text = f.read()
@@ -353,7 +361,7 @@ def main() -> int:
     if not args.skip_validate:
         try:
             gx.workflows.validate(
-                name=workflow_name,
+                name=workflow_name or default_workflow_name,
                 yaml=yaml_text,
                 request_options=request_options,
             )

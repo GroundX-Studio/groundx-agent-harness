@@ -71,14 +71,16 @@ python deploy_workflow.py \
 ```
 
 `--yaml` is the path to the YAML file. It can be a filename in the current
-directory or a full path. `--workflow-name` is optional; without it, the script
-uses the YAML filename without `.yaml`. `--workflow-id` switches the command
-from create to update.
+directory or a full path. On create, `--workflow-name` is optional and defaults
+to the YAML filename without `.yaml`. On update, omitting `--workflow-name`
+preserves the existing workflow name; supply it only to rename. `--workflow-id`
+switches the command from create to update.
 
 The deploy script validates the authored YAML with `workflows.validate`, then
-submits the exact same bytes to `workflows.create` or `workflows.update`.
-Cashbot is the only workflow compiler. Local tools read authored custom steps
-only to estimate request fanout.
+submits the exact same bytes to `workflows.create` or `workflows.update`, except
+for the compiler-generated legacy update case below. Cashbot is the only
+workflow compiler. Local tools read authored custom steps only to estimate
+request fanout.
 
 Use the product YAML upload path when certifying product persistence or legacy
 normalization. The local SDK command proves source-YAML validation, server
@@ -90,66 +92,65 @@ YAML-to-v1 translation owned by the platform. Use it for local deployment,
 diagnostics, or controlled extraction runs. Do not use it as proof that a user
 upload, product upload, or legacy YAML normalization path works.
 
-## Engine-Only Updates
+## Engine Changes
 
-When the only intended change is the model endpoint for existing workflow steps,
-send an engine-only custom overlay and omit `prompt`.
+When the only intended change is a model endpoint, edit the engine in the
+authored YAML, validate that complete source, and submit the same exact YAML to
+`workflows.update(..., yaml=...)` or `workflow_update`'s `yaml` field. Do not
+construct an update from JSON workflow readback. It is compiled state and can
+omit the private extraction definition. If the local authored YAML is missing
+or not known to be current, retrieve the stored source with raw REST
+`GET /v1/workflow/{id}?format=yaml`, then validate and resubmit that complete
+YAML. Current MCP and Python SDK readback do not return authored YAML safely.
+Compiled-JSON workflows have no stored authored YAML source.
 
-```json
-{
-  "steps": {
-    "chunk-summary": {
-      "all": {
-        "engine": {
-          "apiKey": "CUSTOM_PROVIDER_KEY",
-          "baseURL": "https://api.deepinfra.com/v1/openai",
-          "engineID": "EyeLevel/gemma-4-31B-it-turbo",
-          "service": "deep-infra"
-        }
-      }
-    }
-  }
-}
+For a compiled-JSON workflow, do not use `deploy_workflow.py` or send an
+engine-only partial. Regenerate the complete structured definition from its
+owning source and submit the entire definition in one update. Do not reconstruct
+it from workflow readback. If the authoritative source is unavailable, recreate
+or migrate the workflow through the YAML-authored path before changing engines.
+
+If recovered source contains `legacy_policy_default_provenance`, standalone
+validation rejects the compiler-owned field. Submit that YAML directly with an
+update, or run `deploy_workflow.py --skip-validate`. The update endpoint
+validates it against the stored workflow before writing.
+
+Set a workflow-wide default under `workflow.engines`:
+
+```yaml
+workflow:
+  engines:
+    all:
+      engineID: gpt-5.5
+      service: openai
+      type: all
 ```
 
-For AWS Bedrock Gemma 4, use the same engine fields:
+`workflow.engines` sets defaults. Explicit per-step engines take precedence for
+the matching custom-step elements. To change every step, update or remove each
+existing per-step engine in the same complete YAML.
 
-```json
-{
-  "steps": {
-    "chunk-summary": {
-      "all": {
-        "engine": {
-          "apiKey": "BEDROCK_API_KEY",
-          "baseURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1",
-          "engineID": "google.gemma-4-31b",
-          "service": "bedrock"
-        }
-      }
-    }
-  }
-}
+For one custom step, keep the complete `workflow.custom_steps` list and put the
+same `engine` fields under each intended config element:
+
+```yaml
+workflow:
+  custom_steps:
+    - name: statement_fields
+      level: section
+      kind: instruct
+      config:
+        all:
+          engine:
+            engineID: gpt-5.5
+            service: openai
 ```
 
-`service: bedrock` is opt-in. It sends every page image as an AWS S3 reference, so the runtime must use S3 file storage that the AWS identity behind the Bedrock request can read. For a Bedrock API key, this is the IAM principal behind the key. Existing `s3://` references pass through. Internal GroundX page URLs are converted to the configured bucket. Inline images, arbitrary HTTPS image URLs, and non-S3 storage are rejected before dispatch. The final serialized provider request may not exceed 3,500,000 bytes. A positive workflow `maxImages` may lower the extract service's image limit but cannot raise it. Keep credentials out of authored workflow files and saved run evidence.
+Preserve every existing group, field, route, prompt, strategy, and non-target
+custom step. For AWS Bedrock Gemma 4, use service `bedrock`, engine ID
+`google.gemma-4-31b`, and the Bedrock Mantle base URL.
 
-Workflow updates are treated like workflow creates: the payload is the desired
-custom overlay relative to GroundX defaults, not a delta against the currently
-stored custom workflow. Omit a step to return it to defaults. Send a step as
-`null` only when you intentionally want to disable/clear that default step.
-A name-only update is not metadata-only; include custom processing settings again
-if they should remain in effect.
-
-Do not send `prompt: {}` as a clearing signal. Omitted `prompt` and `prompt: {}`
-both mean "use the default prompt group"; `prompt: null` means "use no prompt
-group."
-
-If the target backend predates default-overlay workflow updates, send explicit
-prompt objects for any step that must not become empty. For workflows already
-stored with `prompt: {}`, restore custom prompt text from prior workflow JSON,
-audit logs, backups, or source YAML. If the workflow should use GroundX default
-prompts, resubmit the desired overlay after the backend fix or recreate the
-workflow from a clean source definition.
+`service: bedrock` is opt-in. It sends every page image as an AWS S3 reference, so the runtime must use S3 file storage that the AWS identity behind the Bedrock request can read. For a Bedrock API key, this is the IAM principal behind the key. Existing `s3://` references pass through. Internal GroundX page URLs are converted to the configured bucket. Inline images, arbitrary HTTPS image URLs, and non-S3 storage are rejected before dispatch. The selected engine's positive `maxImages` caps the combined image count; omission leaves image count uncapped. The independent serialized-request guard may still remove images by byte size. Keep real credentials out of committed files and saved run evidence.
 
 ## Optional Prod MCP Recipe
 
@@ -159,7 +160,9 @@ For dev API/debug work, use the local Python SDK with
 `GROUNDX_BASE_URL=https://devapi.groundx.ai/api`; do not run live structured
 extraction in dev unless an operator explicitly confirms it is available.
 
-1. Validate the authored YAML with `workflow_validate`.
+1. Validate the authored YAML with `workflow_validate`, except recovered legacy
+   YAML containing `legacy_policy_default_provenance`, which goes directly to
+   update as described above.
 2. Create or update with the same authored YAML in the `yaml` field. Do not
    translate it into a structured workflow body. Use `workflow_update` only
    when you already have the existing workflow ID.

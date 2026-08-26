@@ -26,16 +26,14 @@ Run artifacts (written to --out, a self-contained, reproducible set):
   - `<doc>.extracted.json`   — raw GroundX `get_extract` JSON when available.
   - `<doc>.xray.json`        — the raw X-Ray per document (cacheable input;
                                re-score captured server output, NO re-ingest).
-  - `<doc>.final_output.json` — client business-logic output when produced.
   - `aggregated.accuracy.json`   — the consolidated field-level accuracy report.
   - `verify.log`             — structured run event log.
 
 Design notes:
   - ONE workflow + bucket for the whole batch (compiled/deployed once).
-  - Per document: ingest → poll → X-Ray → get_extract → optional client
-    business logic → compare against expected-answer JSON.
-  - Raw `<doc>.extracted.json` is scored by default. Use `--score-final-output`
-    to score client business-logic output when that is the intended result.
+  - Per document: ingest → poll → X-Ray → get_extract → compare against
+    expected-answer JSON.
+  - Raw `<doc>.extracted.json` is the only live scoring input.
   - `aggregate_reports()` is a pure function (unit-tested) so the scoring/rollup
     is verifiable without any API calls.
   - `--limit` and an explicit doc list keep live cost economical; iterate on a
@@ -64,9 +62,9 @@ from _workflow_source import load_workflow_source  # noqa: E402
 import score_extraction as cmp  # noqa: E402
 from batch_score import aggregate_reports  # noqa: E402
 from run_extraction import (  # noqa: E402
-    _load_business_logic_metadata,
     _poll,
     _request_estimate_preflight,
+    _to_plain_dict,
     derive_extraction_artifacts,
 )
 from run_log import RunLog  # noqa: E402
@@ -119,11 +117,6 @@ def main() -> int:
     p.add_argument("--limit", type=int, default=0, help="max docs to process (0 = all)")
     p.add_argument("--manifest", default=None, help="csv with filename + dimension columns")
     p.add_argument("--add-to-account", action="store_true")
-    p.add_argument(
-        "--score-final-output",
-        action="store_true",
-        help="Score <doc>.final_output.json when raw <doc>.extracted.json is unavailable",
-    )
     p.add_argument("--poll-interval", type=int, default=15)
     p.add_argument("--max-polls", type=int, default=80)
     p.add_argument("--keep", action="store_true", help="keep workflow after run")
@@ -163,7 +156,6 @@ def main() -> int:
     if not selected_docs:
         print("no documents with matching expected-answer JSON after selection", file=sys.stderr)
         return 2
-    bl_meta = _load_business_logic_metadata(args.yaml)
     workflow_name = args.workflow_name or os.path.splitext(os.path.basename(args.yaml))[0]
 
     with RunLog(os.path.join(args.out, "verify.log")) as rl:
@@ -215,26 +207,17 @@ def main() -> int:
                 artifacts = derive_extraction_artifacts(
                     gx,
                     document_id,
-                    bl_meta,
-                    rl,
+                    rl=rl,
                 )
                 raw_extract = artifacts["raw_extract"]
-                final_output = artifacts["final_output"]
                 xray = artifacts["xray"]
                 with open(os.path.join(args.out, f"{base}.xray.json"), "w") as f:
                     json.dump(xray, f, indent=2, default=str)
                 if raw_extract is not None:
                     with open(os.path.join(args.out, f"{base}.extracted.json"), "w") as f:
                         json.dump(raw_extract, f, indent=2, default=str)
-                if final_output is not None:
-                    with open(os.path.join(args.out, f"{base}.final_output.json"), "w") as f:
-                        json.dump(final_output, f, indent=2, default=str)
-
                 score_source = "raw"
                 score_extract = raw_extract
-                if score_extract is None and args.score_final_output:
-                    score_source = "final"
-                    score_extract = final_output
                 if score_extract is None:
                     rl.event(
                         "verify.doc.partial",

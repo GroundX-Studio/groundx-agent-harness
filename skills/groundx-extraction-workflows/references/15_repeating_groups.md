@@ -83,8 +83,9 @@ Two defenses:
 
 - Prompt: "Each physical row appears **once**; if the same line item is shown
   in multiple places, extract it a single time."
-- Metadata: declare `unique_attrs` on the group so the runner dedups by a
-  stable attribute set post-extraction. See `12_business_logic.md`.
+- Product intent: declare `unique_attrs` on the group so the supported hosted
+  path can apply stable record identity. Harness does not deduplicate the raw
+  result. See `12_business_logic.md`.
 
 Dedup is a record-coverage fix (drives `extra` down), not a field-accuracy
 fix — verify it did not also drop a legitimately distinct record.

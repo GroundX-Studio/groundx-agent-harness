@@ -116,10 +116,11 @@ rewriting prompts:
 2. Inspect X-Ray to see whether those values were parsed and extracted.
 3. Check whether the expected answers use the printed value or a normalized
    system value.
-4. Check the final JSON shape and the final-group metadata that drives dedupe,
-   matching, conflict surfacing, and passthrough.
-5. Check any custom manager code that passes metadata into reconcile, QA, or
-   post-extraction logic.
+4. Check the final JSON shape and the final-group identity/relationship metadata.
+5. Verify the correct boundary: Cashbot compiled and dispatched the metadata;
+   GroundX Python applied generic identity, reassembly, and relationship logic;
+   the hosted extraction service applied only its service-specific policy.
+   Harness must preserve raw output and must not repair it.
 
 Common evidence problems include OCR or model ambiguity (`I` vs `1`, `O` vs
 `0`), a value appearing on one page but not the page that contains the related
@@ -146,8 +147,8 @@ one YAML-driven `groundx-python/extract` abstraction.
 
 - `references/9_testing_methodology.md` — verifying changes work
   proactively; this reference is for investigating why they don't
-- `references/6_known_limitations.md` — platform-locked field names
-  and convention ambiguities; escalation playbook
+- `references/6_known_limitations.md` — legacy compatibility field vocabulary,
+  convention ambiguities, and the escalation playbook
 - `references/prompt-manager.md` — minimal today-path manager for
   quickstart-style prompt modules
 - `CHANGELOG.md` `[0.1.2]` entry — full bug narrative

@@ -4,7 +4,7 @@ Before any command here creates local output, read
 [`local-artifact-closeout.md`](./local-artifact-closeout.md). Planned work must
 use the initializer's exact run root. Ad-hoc work uses one dedicated root.
 
-## One compiler
+## 6. One workflow authoring path
 
 Cashbot is the only workflow validator and compiler. Harness and the GroundX
 Python SDK submit the exact authored YAML to:
@@ -27,11 +27,10 @@ The local SDK path cannot prove product upload behavior.
 It reads source YAML only for:
 
 - custom-step levels used by the request-fanout estimator;
-- authored final-field names used by field-coverage checks;
-- `unique_attrs`, `match_attrs`, `conflict_attrs`, and `passthrough`, which
-  `business_logic.py` consumes after real server extraction.
+- authored final-field names used by field-coverage checks.
 
-It does not validate or compile YAML and does not emit execution metadata.
+It does not read identity or relationship intent, validate or compile YAML, or
+emit execution metadata.
 Changing this boundary requires a server-compiler change, not another Harness
 derivation path.
 
@@ -54,8 +53,8 @@ extraction path. Delegate endpoint semantics to `groundx-api`.
 ## Output authority
 
 `documents.get_extract()` is the only source of customer extraction output.
-When present, save it unchanged as `output.json`. Client business logic may
-produce `final_output.json` from that server output.
+When present, save it unchanged as `output.json`. Harness writes no second
+customer-output artifact and never mutates the response.
 
 Always preserve `xray.json` when available, but never reconstruct customer
 output from X-Ray. If server extraction is missing, report that fact and keep
@@ -79,7 +78,10 @@ Harness implementation.
 | --- | --- |
 | YAML validation and compilation | Cashbot |
 | Workflow persistence and runtime definition | GroundX platform |
-| Source submission, fanout estimate, scoring, evidence | Harness |
+| Metadata persistence and dispatch | Cashbot |
+| Generic identity deduplication, custom-output reassembly, and relationship selection | GroundX Python |
+| Service-specific hosted policy | Owning hosted extraction service, using the shared SDK relationship selector |
+| Source submission, fanout estimate, non-mutating scoring, evidence | Harness |
 | Generated API models | Fern/OpenAPI source |
 | Legacy compatibility | Internal compatibility adapter |
 

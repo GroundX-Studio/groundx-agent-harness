@@ -37,11 +37,11 @@ use the real group name for direct groups and the pseudo group name for
 `reconcile_statement`, `qa_statement`, `save_statement`, `reconcile_charges`,
 `save_charges`, `reconcile_meters`, `qa_meters`, and `save_meters`.
 
-The harness compiler accepts only the custom workflow shape. Define each
+The server compiler accepts only the custom workflow shape. Define each
 executable step under `workflow.custom_steps`, then assign each direct workflow
 group or pseudo group to one step with group-level `workflow_step:`. Do not put
-`workflow_step` on fields. The SDK preparation layer emits `customSteps`,
-`outputRoutes`, and `leafFields`; local X-Ray readback uses
+`workflow_step` on fields. The server emits `customSteps`, `outputRoutes`, and
+`leafFields`; X-Ray readback uses
 `customChunkOutputs`, `customSectionOutputs`, or `customDocumentOutputs`.
 
 Use step kinds to describe the extraction shape:
@@ -85,24 +85,21 @@ pseudo groups and expected documents may be long, use `workflow.section_strategy
 with `level: section` for those broad statement passes. Keep chunk level for
 local repeating rows when the estimate stays below the warning threshold.
 
-The harness intentionally does not load `domain:` or `slot:` YAML forms. Use the
-public GroundX Python SDK helper directly when you need SDK-level YAML loading
-outside the harness templates. Omit any final group a document does not have.
-Compile from authored v1 source YAML only; generated `workflow.json`, downloaded
-workflow readback, and `_groundx_persisted_extract` payloads are not source
-YAML.
+The harness intentionally does not load `domain:` or `slot:` YAML forms. Omit
+any final group a document does not have. Author v1 source YAML and submit that
+exact text to the server. Generated `workflow.json`, downloaded workflow
+readback, and `_groundx_persisted_extract` payloads are not source YAML.
 
-The compiler validates this source whitelist before SDK preparation or offline
-fallback compile:
+The server validates this source shape:
 
 | Location | Allowed source shape |
 |---|---|
 | Top level | `extraction_policy_version`, `workflow`, `_defs`, `_pseudo_groups`, and real final group mappings |
 | `workflow` | `custom_steps`, `agent_chain`, optional `template`, optional `section_strategy` |
 | `workflow.custom_steps[]` | `name`, `level`, `kind`, optional `config`, optional `required_template_keys` |
-| Direct final group | `fields`, optional `include`, optional `prompt`, optional `workflow_step`, and supported final-group metadata |
+| Direct final group | `fields`, optional `include`, optional `prompt`, optional `workflow_step`, required `role` when executable, and supported final-group metadata |
 | `_defs.*` | required `fields`, optional `include`; no prompt or group metadata |
-| `_pseudo_groups.*` | `workflow_step`, `fields`, optional group `prompt`, and optional processing `role`; no `include` |
+| `_pseudo_groups.*` | `workflow_step`, required `role`, `fields`, and optional group `prompt`; no `include` |
 | Direct leaf field | `prompt`, plus `workflow_output_key` when the final group has direct `workflow_step` |
 | Pseudo field | `path`, plus optional full `prompt` override; the pseudo field key is the workflow output key |
 | Field `prompt` | required `description`, `identifiers`, `instructions`, and `type`; optional `format` |
@@ -111,17 +108,21 @@ Nested final fields are not supported yet. Model nested structures as flat
 fields or JSON-encoded string fields until route parsing supports paths deeper
 than `/group/field`.
 
-Harness reads only four client business-logic keys from final groups:
-`unique_attrs`, `match_attrs`, `conflict_attrs`, and `passthrough`. Cashbot owns
-all validation and compilation semantics for other workflow metadata.
+Final groups may declare `unique_attrs`, `match_attrs`, `conflict_attrs`, and
+`passthrough` as supported product intent. Cashbot only validates, compiles,
+persists, and dispatches that metadata. GroundX Python owns generic identity
+deduplication, custom-output reassembly, and relationship selection. Each
+hosted extraction service owns only its service-specific policy and uses the
+shared SDK relationship selector. Harness submits the keys but does not read or
+execute them.
 
 Do not add Harness validation or defaults for server-owned metadata.
 
 ### Runtime role labels
 
-When a workflow needs runner-side structured-output reassembly, final groups
-and pseudo groups also need a processing role. These names are runtime role
-labels, not customer names:
+When hosted structured-output processing needs explicit roles, final groups and
+pseudo groups also declare a processing role. These are product runtime labels,
+not customer names:
 
 - `statement`: fields at the top level of the final structured object.
 - `meters`: one top-level array of meter objects.
@@ -133,16 +134,13 @@ statement level. Current runtime constraints allow only one `meters` group and
 one `charges` group, including pseudo groups. All other groups are `statement`.
 This is current implementation behavior, not a permanent product rule.
 
-Name groups after the domain (`claims`, `line_items`, `usage_records`) and
-declare the processing role explicitly with `role:` on the group. A group
-literally named `statement`, `meters`, or `charges` also takes that role
-implicitly, but domain names with explicit `role:` never collide with
-platform checks keyed on the literal names (one such rejection is recorded,
-with its fix, in `6_known_limitations.md` §6).
+Name groups after the domain (`claims`, `line_items`, `usage_records`). Every
+direct or pseudo group referenced by `workflow.agent_chain` must declare its
+processing role explicitly with `role:`. Group names never imply roles.
 
 For workflows where every workflow group uses the `statement` role, plan one
-`reconcile_statement -> qa_statement` branch per pseudo group, then
-save/reassemble once all branches complete.
+`reconcile_statement -> qa_statement` branch per pseudo group, then let the
+hosted runtime save the final output after all branches complete.
 
 The public syntax walkthrough is
 [Structured Extraction Workflow](https://docs.groundx.ai/documentation/structured-extraction-workflow).
@@ -184,6 +182,7 @@ eligibility_requirements:
 _pseudo_groups:
   eligibility_1_11:
     workflow_step: eligibility_1_11
+    role: statement
     fields:
       f033_age_requirement:
         path: /eligibility_requirements/age_requirement
@@ -223,6 +222,7 @@ workflow:
 
 statement:
   workflow_step: statement_fields
+  role: statement
   fields:
     invoice_date:
       workflow_output_key: invoice_date
@@ -263,6 +263,7 @@ workflow:
 
 charges:
   workflow_step: charge_lines
+  role: charges
   fields:
     charge_description_as_printed:
       workflow_output_key: charge_description_as_printed
@@ -314,6 +315,7 @@ workflow:
 
 meters:
   workflow_step: meter_records
+  role: meters
   prompt:
     instructions: |
       Extract one record per physical meter or metered service shown in
@@ -522,6 +524,7 @@ editing group-level prompt text.
 ```yaml
 charges:
   workflow_step: charge_lines
+  role: charges
   fields:
     charge_description_as_printed:
       workflow_output_key: charge_description_as_printed
@@ -545,28 +548,23 @@ charges:
 A group-level prompt is the single highest-leverage YAML edit when a
 `charges`-style group over-extracts subtotals or under-extracts records.
 
-## 4. Hardcoded field names
+## 4. Field names are authored output
 
-The GroundX platform requires two hardcoded field names for charge-style
-extractions. Use these names exactly in the YAML even if the application
-or expected answers use different names:
+Final field names are part of the authored JSON contract. A group with
+`role: charges` may use names such as `description` and `amount`, or any other
+valid names the application expects. The utility example uses
+`charge_description_as_printed` and `charge_amount` because those are its
+chosen output names, not platform requirements.
 
-- `charge_amount` — numeric value
-- `charge_description_as_printed` — verbatim description
-
-Meter identifiers belong in the `meters` group unless the downstream charge
-schema explicitly needs a meter identifier on each charge row.
-
-The comparison harness matches by field name and scores null-vs-miss; answer
-keys are JSON in the runner's output shape with field names that match the YAML.
-See §1 in `6_known_limitations.md` for the platform-locked charge field names.
+The comparison harness matches by field name and scores null-vs-miss. Answer
+keys must therefore use the same field names as the YAML.
 
 ## 5. A worked example
 
 `skills/groundx-extraction-workflows/examples/utility-invoice/prompt.yaml` is a
 synthetic invoice-shaped schema: `statement`, `charges`, and `meters` groups with
 custom workflow steps, per-field prompts, a group-level prompt that distinguishes
-line items from subtotals, and inline business-logic metadata. Read it before
+line items from subtotals, and inline identity/relationship metadata. Read it before
 authoring a new schema for any invoice-shaped document.
 `examples/insurance-claim/prompt.yaml` is the non-invoice custom-step
 counterpart. Real customer schemas live out-of-repo, never in the skill.

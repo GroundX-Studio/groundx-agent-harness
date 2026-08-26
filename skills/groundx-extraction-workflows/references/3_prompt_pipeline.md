@@ -132,7 +132,8 @@ prompts before the custom steps run.
 
 ## 6. Choosing custom workflow steps
 
-Harness workflow groups are wired through `workflow_step:` and route outputs
+Harness workflow groups are wired through `workflow_step:`, declare an explicit
+`role:`, and route outputs
 through `customChunkOutputs`, `customSectionOutputs`, or `customDocumentOutputs`.
 The custom step's `level` and `kind` determine how the platform runs the prompt.
 Cashbot owns final routing; Harness never reconstructs final JSON from X-Ray.

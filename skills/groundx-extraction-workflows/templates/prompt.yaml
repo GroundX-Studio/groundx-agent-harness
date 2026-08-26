@@ -52,9 +52,7 @@ workflow:
         #   chain: [reconcile_meters, qa_meters, save_meters]
 
 # Group names are yours: name them after the domain (claims, line_items) and
-# declare the processing role with `role:`. Do not combine the literal names
-# statement + meters + charges in one schema without unique_attrs on the
-# repeating groups; see 6_known_limitations.md §6.
+# declare the processing role with `role:`. Names never imply roles.
 statement:
   workflow_step: statement_fields
   role: statement
@@ -83,14 +81,8 @@ charges:
     # repeating record. The platform will produce an array of objects with
     # this shape.
     #
-    # IMPORTANT: the GroundX platform requires two hardcoded field names
-    # for charge-style extractions:
-    #
-    #   - charge_amount                   (numeric value)
-    #   - charge_description_as_printed   (verbatim description)
-    #
-    # See references/6_known_limitations.md for the workaround pattern
-    # (alias mapping in score_extraction.py).
+    # These field names define this starter's JSON output. Rename them when
+    # the application contract uses different names.
     charge_description_as_printed:
       workflow_output_key: charge_description_as_printed
       prompt:
@@ -132,6 +124,7 @@ charges:
 #
 # meters:
 #   workflow_step: meter_lines
+#   role: meters
 #   fields:
 #     meter_number:
 #       workflow_output_key: meter_number

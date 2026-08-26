@@ -8,7 +8,6 @@ if str(TEMPLATES) not in sys.path:
     sys.path.insert(0, str(TEMPLATES))
 
 from _workflow_source import (  # noqa: E402
-    business_logic_metadata,
     load_workflow_source,
     source_yaml_field_names,
 )
@@ -80,19 +79,6 @@ def test_load_workflow_source_returns_authored_mapping_without_compilation(tmp_p
     assert "outputRoutes" not in source
     assert "leafFields" not in source
     assert "schemaHash" not in source
-
-
-def test_business_logic_metadata_copies_only_four_authored_keys(tmp_path):
-    source = load_workflow_source(_write(tmp_path))
-
-    assert business_logic_metadata(source) == {
-        "header": {"unique_attrs": ["account_number"]},
-        "fees": {
-            "match_attrs": ["account_number"],
-            "conflict_attrs": ["amount"],
-            "passthrough": {"from": "header", "fields": ["service_type"]},
-        },
-    }
 
 
 def test_source_field_names_expand_final_group_includes_only(tmp_path):

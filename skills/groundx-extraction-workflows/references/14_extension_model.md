@@ -1,22 +1,20 @@
 # 14. Extension model
 
-How this system grows. Most changes are YAML edits; exactly one kind of change
-needs runner code. Knowing which axis a request lands on tells you what to touch
-and what to prove.
+How this system grows. Most changes are YAML edits. Missing identity,
+relationship, or aggregation behavior requires a product change in its owning
+repository, never Harness runner code.
 
 ## The three axes (plus the one that needs code)
 
 | Change | Example | What edits | Code? | Proof |
 |---|---|---|---|---|
 | **New field / concept** | add `delivery_point_id`; tighten a null rule | one field def in `prompt.yaml` | none | server-validate; re-compare the touched field |
-| **New use case in a domain** | utility bill to telecom invoice; add dedup/link rules | `prompt.yaml` fields + per-group business-logic metadata | none | server-validate; the metadata changes the post-extraction output |
-| **New domain** | invoice to insurance claim | new `examples/<domain>/` custom-step YAML + expected-answer fixture + smoke eval | none unless a new primitive is needed | server validation passes, routes are correct, and expected-answer JSON scores |
-| **New primitive** | graph / sequencing linking the metadata can't express | a runner primitive in `templates/business_logic.py` | **yes — escalation signal** | a unit test for the primitive |
+| **New use case in a domain** | utility bill to telecom invoice; add dedup/link intent | `prompt.yaml` fields + per-group identity/relationship metadata | none in Harness | server-validate; verify hosted output and compare raw artifacts |
+| **New domain** | invoice to insurance claim | new `examples/<domain>/` custom-step YAML + expected-answer fixture + smoke eval | none in Harness | server validation passes, routes are correct, and expected-answer JSON scores |
+| **New product behavior** | graph or sequencing relationship the metadata cannot express | Cashbot for compilation/dispatch, GroundX Python for generic identity/reassembly/selection, or the owning hosted extraction service for its service policy | **product change, not Harness code** | owner tests plus hosted output verification |
 
-The first three are declarative. Only the fourth — a genuinely new
-**aggregation or linking capability** — touches runner code, and it is the
-escalation signal feeding the platform/SDK migration track, not a per-customer
-fork.
+The first three are declarative Harness authoring changes. The fourth is a
+product escalation, not a local fallback.
 
 ### Axis 1 — new field
 
@@ -28,9 +26,8 @@ treats a correct null as a PASS (`5_validation.md`).
 
 ### Axis 2 — new use case in a domain
 
-The platform extracts records; it does not dedup, link across groups, surface
-conflicts, or copy parent fields onto children. Those are expressed as per-group
-metadata in `prompt.yaml` and run client-side by `templates/business_logic.py`:
+Capture supported identity and relationship intent as per-group metadata in
+`prompt.yaml`:
 
 | Metadata key | Primitive | Effect |
 |---|---|---|
@@ -39,31 +36,35 @@ metadata in `prompt.yaml` and run client-side by `templates/business_logic.py`:
 | `passthrough: {from, fields}` | passthrough | copy parent fields onto each linked child |
 | `conflict_attrs: [...]` | conflict-surface | surface disagreeing values as `<field>__conflicts: [...]` |
 
-These keys originate in source YAML, are preserved by the server workflow
-metadata, and are consumed by the extraction runtime. So adding them is a
-YAML-only change. See `examples/utility-invoice/business_logic.md` for a worked "from chat"
+These keys originate in source YAML. Cashbot only validates, compiles,
+persists, and dispatches them. GroundX Python owns generic identity
+deduplication, custom-output reassembly, and relationship selection. Each
+hosted extraction service owns only its service-specific policy and uses the
+shared SDK relationship selector. Harness submits the YAML and compares raw
+hosted output without executing the rules. See
+`examples/utility-invoice/business_logic.md` for a worked "from chat"
 capture, and `12_business_logic.md` for the primitive semantics.
 
 ### Axis 3 — new domain
 
 A new document family gets its own `examples/<domain>/` directory and custom-step
 YAML. Define `workflow.custom_steps`, assign each group with
-`workflow_step: <name>`, and set `workflow_output_key` on routed fields. The
+`workflow_step: <name>`, declare its processing `role:`, and set
+`workflow_output_key` on routed fields. The
 server compiler emits `customSteps`, `outputRoutes`, and `leafFields`, and readback
 can map `customChunkOutputs`, `customSectionOutputs`, and
 `customDocumentOutputs` back to final JSON paths.
 
-Group names are free. A new domain needs **no runner code** unless it also needs
-a new primitive (axis 4).
+Group names are free and never imply processing roles. A new domain needs no
+Harness runner code.
 
-### Axis 4 — new primitive (the only code path)
+### Axis 4 — new product behavior
 
-A domain needs runner code only when it requires a linking or aggregation
-capability the metadata vocabulary cannot express (computed totals, conditional
-rollups, multi-hop joins, unit conversions). Do **not** fork
-`business_logic.py` per customer. Log the gap and escalate; see
-`12_business_logic.md` ("the primitive gap") and `6_known_limitations.md`. This is
-the signal that feeds the platform/SDK migration track.
+A linking or aggregation capability outside the metadata vocabulary, such as a
+computed total, conditional rollup, multi-hop join, or unit conversion, belongs
+in the owning product repository. Record the missing hosted contract and
+escalate through `12_business_logic.md` and `6_known_limitations.md`. Do not add
+a Harness implementation.
 
 ## Fixture layout convention
 
@@ -73,9 +74,9 @@ out-of-repo paths; see `customer-onboarding.md`.
 
 ```
 examples/<domain>/
-  prompt.yaml            # custom-step workflow metadata + business metadata
+  prompt.yaml            # custom-step metadata + identity/relationship intent
   data/answer_key.json   # synthetic expected-answer JSON in runner output shape
-  business_logic.md      # the "from chat" rules mapped to the metadata vocabulary
+  business_logic.md      # customer intent mapped to hosted metadata
   README.md              # the end-to-end loop for this fixture
 ```
 
@@ -99,5 +100,5 @@ non-invoice scorer drift:
 Validate a fixture with the server (`gx.workflows.validate(name=..., yaml=...)`).
 Offline topology checks do not prove server acceptance. The skill eval suite
 asserts topology shape, custom-step coverage, field coverage,
-null-vs-miss classification, and at least one business-logic primitive changing
-the output.
+null-vs-miss classification, and hosted ownership guidance for identity and
+relationship intent.

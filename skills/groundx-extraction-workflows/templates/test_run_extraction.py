@@ -245,7 +245,6 @@ def test_delegated_run_reuses_one_customer_request_options_for_every_sdk_call(tm
     monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
     monkeypatch.setattr(run_extraction, "_source_snapshot", source_snapshot)
     monkeypatch.setattr(run_extraction, "_validate", lambda *args, **kwargs: None)
-    monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", lambda yaml_path: {})
     monkeypatch.setattr(
         sys,
         "argv",
@@ -394,7 +393,6 @@ def test_cross_owner_attachment_records_the_http_400_and_does_not_ingest(tmp_pat
     monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
     monkeypatch.setattr(run_extraction, "_source_snapshot", source_snapshot)
     monkeypatch.setattr(run_extraction, "_validate", lambda *args, **kwargs: None)
-    monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", lambda yaml_path: {})
     monkeypatch.setattr(
         sys,
         "argv",
@@ -627,7 +625,6 @@ def test_resume_does_not_compile_deploy_attach_or_ingest(tmp_path, monkeypatch):
     monkeypatch.setattr(run_extraction, "_source_snapshot", forbidden)
     monkeypatch.setattr(run_extraction, "_validate", forbidden)
     monkeypatch.setattr(run_extraction, "_create_workflow", forbidden)
-    monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", forbidden)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -691,7 +688,6 @@ def test_delegated_resume_reuses_customer_request_options_for_status_xray_and_ex
     monkeypatch.setattr(run_extraction, "_source_snapshot", forbidden)
     monkeypatch.setattr(run_extraction, "_validate", forbidden)
     monkeypatch.setattr(run_extraction, "_create_workflow", forbidden)
-    monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", forbidden)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -747,51 +743,6 @@ def test_resume_rejects_mixed_credentials_before_sdk_initialization(
     assert "cannot be combined" in capsys.readouterr().err
 
 
-def test_fresh_run_persists_business_logic_metadata_for_resume(tmp_path, monkeypatch):
-    metadata = {"charges": {"unique_attrs": ["description"]}}
-
-    monkeypatch.setenv("GROUNDX_API_KEY", "test-key")
-    monkeypatch.setattr(run_extraction, "GroundX", FreshNoRawGroundX)
-    monkeypatch.setattr(run_extraction, "Document", lambda **kwargs: kwargs)
-    monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
-    monkeypatch.setattr(run_extraction, "_source_snapshot", source_snapshot)
-    monkeypatch.setattr(run_extraction, "_validate", lambda *args, **kwargs: None)
-    monkeypatch.setattr(
-        run_extraction,
-        "_create_workflow",
-        lambda *args, **kwargs: ns(workflow=ns(workflow_id="workflow-1")),
-    )
-    monkeypatch.setattr(
-        run_extraction,
-        "_load_business_logic_metadata",
-        lambda yaml_path: metadata,
-    )
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        [
-            "run_extraction.py",
-            "--yaml",
-            "prompt.yaml",
-            "--pdf",
-            "sample.pdf",
-            "--out",
-            str(tmp_path),
-            "--bucket-name",
-            "bucket",
-            "--poll-interval",
-            "0",
-            "--max-polls",
-            "1",
-        ],
-    )
-
-    rc = run_extraction.main()
-
-    assert rc == 0
-    assert json.loads((tmp_path / "business_logic_metadata.json").read_text()) == metadata
-
-
 def test_fresh_run_ingests_with_process_level_full(tmp_path, monkeypatch):
     captured = {}
 
@@ -811,7 +762,6 @@ def test_fresh_run_ingests_with_process_level_full(tmp_path, monkeypatch):
         "_create_workflow",
         lambda *args, **kwargs: ns(workflow=ns(workflow_id="workflow-1")),
     )
-    monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", lambda yaml_path: {})
     monkeypatch.setattr(
         sys,
         "argv",
@@ -850,7 +800,6 @@ def test_fresh_run_accepts_reuse_bucket_without_bucket_name(tmp_path, monkeypatc
         "_create_workflow",
         lambda *args, **kwargs: ns(workflow=ns(workflow_id="workflow-1")),
     )
-    monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", lambda yaml_path: {})
     monkeypatch.setattr(
         sys,
         "argv",
@@ -897,7 +846,6 @@ def test_reuse_workflow_estimates_fanout_from_authored_source_without_readback(t
         lambda *args: (workflow_source, "workflow:\n  custom_steps: []\n"),
     )
     monkeypatch.setattr(run_extraction, "_request_estimate_preflight", fake_request_estimate)
-    monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", lambda yaml_path: {})
     monkeypatch.setattr(
         sys,
         "argv",
@@ -925,56 +873,6 @@ def test_reuse_workflow_estimates_fanout_from_authored_source_without_readback(t
     assert rc == 0
     assert captured["workflow"] == workflow_source
     assert (tmp_path / "workflow_id.txt").read_text() == "workflow-platform-1"
-
-
-def test_fresh_run_persists_business_logic_metadata_before_poll_timeout(tmp_path, monkeypatch):
-    metadata = {"charges": {"unique_attrs": ["description"]}}
-
-    def timeout_after_checking_metadata(*args, **kwargs):
-        metadata_path = tmp_path / "business_logic_metadata.json"
-        assert metadata_path.exists(), "business logic metadata must be durable before polling can time out"
-        assert json.loads(metadata_path.read_text()) == metadata
-        raise SystemExit("ingest timed out")
-
-    monkeypatch.setenv("GROUNDX_API_KEY", "test-key")
-    monkeypatch.setattr(run_extraction, "GroundX", FreshNoRawGroundX)
-    monkeypatch.setattr(run_extraction, "Document", lambda **kwargs: kwargs)
-    monkeypatch.setattr(run_extraction, "count_pdf_pages", lambda path: 1)
-    monkeypatch.setattr(run_extraction, "_source_snapshot", source_snapshot)
-    monkeypatch.setattr(run_extraction, "_validate", lambda *args, **kwargs: None)
-    monkeypatch.setattr(
-        run_extraction,
-        "_create_workflow",
-        lambda *args, **kwargs: ns(workflow=ns(workflow_id="workflow-1")),
-    )
-    monkeypatch.setattr(
-        run_extraction,
-        "_load_business_logic_metadata",
-        lambda yaml_path: metadata,
-    )
-    monkeypatch.setattr(run_extraction, "_poll", timeout_after_checking_metadata)
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        [
-            "run_extraction.py",
-            "--yaml",
-            "prompt.yaml",
-            "--pdf",
-            "sample.pdf",
-            "--out",
-            str(tmp_path),
-            "--bucket-name",
-            "bucket",
-            "--poll-interval",
-            "0",
-            "--max-polls",
-            "1",
-        ],
-    )
-
-    with pytest.raises(SystemExit, match="ingest timed out"):
-        run_extraction.main()
 
 
 def test_resume_captures_xray_without_local_reassembly_when_raw_extract_is_unavailable(
@@ -1012,7 +910,7 @@ def test_resume_captures_xray_without_local_reassembly_when_raw_extract_is_unava
     assert not (tmp_path / "final_output.json").exists()
 
 
-def test_resume_does_not_apply_business_logic_without_server_extract(tmp_path, monkeypatch):
+def test_resume_ignores_legacy_business_logic_sidecar_without_server_extract(tmp_path, monkeypatch):
     (tmp_path / "process_id.txt").write_text("process-1")
     (tmp_path / "workflow_id.txt").write_text("workflow-1")
     (tmp_path / "bucket_id.txt").write_text("101")
@@ -1020,12 +918,8 @@ def test_resume_does_not_apply_business_logic_without_server_extract(tmp_path, m
         json.dumps({"charges": {"unique_attrs": ["description"]}})
     )
 
-    def forbidden(*args, **kwargs):
-        raise AssertionError("resume must not reload business logic from YAML")
-
     monkeypatch.setenv("GROUNDX_API_KEY", "test-key")
     monkeypatch.setattr(run_extraction, "GroundX", ResumeNoRawChargesGroundX)
-    monkeypatch.setattr(run_extraction, "_load_business_logic_metadata", forbidden)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -1044,6 +938,8 @@ def test_resume_does_not_apply_business_logic_without_server_extract(tmp_path, m
     rc = run_extraction.main()
 
     assert rc == 0
+    assert (tmp_path / "xray.json").exists()
+    assert not (tmp_path / "output.json").exists()
     assert not (tmp_path / "xray_diagnostic.json").exists()
     assert not (tmp_path / "final_output.json").exists()
 
@@ -1098,7 +994,7 @@ def test_extract_artifacts_trusts_section_shaped_get_extract_output():
     artifacts = run_extraction.derive_extraction_artifacts(gx, "doc-1", rl=rl)
 
     assert artifacts["raw_extract"] == raw_extract
-    assert artifacts["final_output"] is None
+    assert "final_output" not in artifacts
     assert artifacts["source"] == "get_extract"
 
 
@@ -1114,7 +1010,7 @@ def test_extract_artifacts_treats_empty_get_extract_dict_as_raw_unavailable():
     artifacts = run_extraction.derive_extraction_artifacts(gx, "doc-1", rl=rl)
 
     assert artifacts["raw_extract"] is None
-    assert artifacts["final_output"] is None
+    assert "final_output" not in artifacts
     assert artifacts["source"] == "get_extract_unavailable"
     assert any(event["event"] == "extract.get_extract_empty" for event in rl.events)
 
@@ -1135,7 +1031,7 @@ def test_extract_artifacts_keeps_non_empty_raw_extract_even_when_values_are_empt
     artifacts = run_extraction.derive_extraction_artifacts(gx, "doc-1", rl=rl)
 
     assert artifacts["raw_extract"] == raw_extract
-    assert artifacts["final_output"] is None
+    assert "final_output" not in artifacts
     assert artifacts["source"] == "get_extract"
     assert not any(event["event"] == "extract.get_extract_empty" for event in rl.events)
 
@@ -1160,7 +1056,7 @@ def test_extract_artifacts_keep_xray_without_synthesizing_output_when_raw_extrac
 
     assert artifacts["raw_extract"] is None
     assert artifacts["xray"] == xray
-    assert artifacts["final_output"] is None
+    assert "final_output" not in artifacts
     assert artifacts["source"] == "get_extract_unavailable"
     assert any(event["event"] == "extract.get_extract_unavailable" for event in rl.events)
 

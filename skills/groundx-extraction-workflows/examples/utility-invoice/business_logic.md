@@ -1,51 +1,52 @@
-# Utility invoice — business-logic rules (captured from chat)
+# Utility invoice hosted-logic intent
 
-These are the linking / dedup / conflict rules a customer would describe in
-conversation, expressed in the declarative metadata vocabulary that
-`templates/business_logic.py` runs **client-side, after** the GroundX platform
-returns the aggregated extract. The platform extracts records; it does not
-dedup, link, surface conflicts, or copy parent fields onto children — so these
-rules live in `prompt.yaml` as per-group metadata, not as workflow fields. The
-compiler drops them from the workflow JSON.
-
-This is the "new use case in a domain = YAML + metadata, no runner code" axis of
-the extension model (`references/14_extension_model.md`).
+These are synthetic identity, relationship, conflict, and propagation rules a
+customer might describe in conversation. They are recorded in `prompt.yaml` as
+the supported metadata vocabulary. Cashbot compiles and dispatches the
+metadata. GroundX Python owns generic identity deduplication, custom-output
+reassembly, and relationship selection. Each hosted extraction service owns
+only its service-specific policy and uses the shared SDK relationship selector.
+Harness submits the YAML, captures raw hosted output, and compares it without
+mutation.
 
 ## What the customer said, and how it maps
 
-| In chat | Group | Metadata | Primitive |
-|---|---|---|---|
-| "There's only ever one statement per bill — collapse repeats." | `statement` | `unique_attrs: [sp_inv_num]` | dedup |
-| "A line item is the same charge if the description, start date, and amount all match — drop the duplicate." | `charges` | `unique_attrs: [charge_description_as_printed, beg_chg_date, charge_amount]` | dedup |
-| "Each charge is billed against a meter; link them by meter number." | `charges` | `match_attrs: [meter_number]` | fk-link |
-| "Put the meter's service class on the charge so we can group spend by commodity." | `charges` | `passthrough: { from: meters, fields: [service_class] }` | passthrough |
-| "If two chunks disagree on a line's unit rate, show both — don't pick one silently." | `charges` | `conflict_attrs: [rate]` | conflict-surface |
-| "Meters are unique by meter number." | `meters` | `unique_attrs: [meter_number]` | dedup |
+| In chat | Group | YAML intent |
+|---|---|---|
+| "There's only ever one statement per bill. Collapse repeats." | `statement` | `unique_attrs: [sp_inv_num]` |
+| "A line item is the same charge if its printed description, start date, and amount match." | `charges` | `unique_attrs: [charge_description_as_printed, beg_chg_date, charge_amount]` |
+| "Each charge is billed against a meter. Link them by meter number." | `charges` | `match_attrs: [meter_number]` |
+| "Put the meter's service class on each related charge." | `charges` | `passthrough: {from: meters, fields: [service_class]}` |
+| "If two sources disagree on a line's unit rate, keep the conflict visible." | `charges` | `conflict_attrs: [rate]` |
+| "Meters are unique by meter number." | `meters` | `unique_attrs: [meter_number]` |
 
-## Order of operations
+`unique_attrs` must describe genuine record identity. A shared description,
+date, amount, or category is not enough when multiple legitimate rows can carry
+the same values. Verify the hosted record count against the source after adding
+or changing identity metadata.
 
-`apply_business_logic` runs, per group: **dedup → passthrough → conflict-surface**.
-Dedup runs first across all groups so that linking and passthrough read collapsed
-sibling groups. For this fixture:
+## Expected hosted result
 
-1. `meters` and `statement` and `charges` are each deduped on their `unique_attrs`.
-2. `charges` are linked to `meters` on `meter_number`; `service_class` is copied
-   onto each matched charge.
-3. The "Customer Service Charge" line carries `meter_number: null` and so does not
-   link — it keeps a null `service_class`. That is a legitimate null, not a miss.
-4. `rate` conflicts (if any chunk disagreed) surface as `rate__conflicts: [...]`.
+The supported product path should:
 
-## Legitimate nulls in this fixture
+1. preserve one statement, meter, or charge for each declared identity;
+2. relate charge rows to meters through `meter_number`;
+3. propagate `service_class` only to related charge rows;
+4. retain the account-level "Customer Service Charge" with null meter and
+   service-class values; and
+5. keep distinct rate values visible when the product contract supports
+   `conflict_attrs`.
 
-`answer_key.json` deliberately includes nulls the comparator must treat as
-**correct null**, not **failed extraction**:
+If raw `get_extract` does not reflect supported YAML intent, preserve the YAML,
+workflow readback, raw output, and X-Ray, then file a product defect in the
+owning repository. Do not add a Harness fallback.
 
-- `statement.budget_plan_name` — the synthetic account is on standard billing, so
-  there is no plan to read. The field prompt instructs the extractor to leave it
-  empty rather than invent one.
-- `charges[2].rate` and `charges[2].meter_number` — the flat "Customer Service
-  Charge" has no unit rate and is not tied to a meter.
+## Legitimate nulls
 
-These exercise null-vs-miss classification (`references/5_validation.md`): a `null`
-in expected-answer JSON that the extraction also returns null is a PASS, distinct
-from a field that should have a value but came back empty.
+`answer_key.json` includes nulls the comparator must treat as correct:
+
+- `statement.budget_plan_name`: the synthetic account is on standard billing;
+- `charges[2].rate` and `charges[2].meter_number`: the flat service charge has
+  no unit rate and is not tied to a meter.
+
+These exercise null-vs-miss classification in `references/5_validation.md`.

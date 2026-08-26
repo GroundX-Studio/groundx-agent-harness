@@ -168,8 +168,8 @@ last status, scoreability, and a resume command. Resume the same process with:
 python run_extraction.py --resume --out <run-dir>
 ```
 
-Resume reads the run-local `workflow.json` and `business_logic_metadata.json`
-when present. It does not validate, create, update, or re-read source YAML.
+Resume reads saved workflow, process, bucket, and document evidence when present.
+It does not validate, create, update, or re-read source YAML.
 
 Do not redeploy, create a new bucket, attach a new workflow, or ingest the file
 again just because local polling timed out. A timeout means the local wait
@@ -238,8 +238,6 @@ The manual operation loop is:
 
 ```bash
 python score_extraction.py output.json expected_answers.json
-# If you are intentionally scoring local diagnostic output:
-python score_extraction.py final_output.json expected_answers.json
 ```
 
 The comparator reads expected-answer JSON in the runner output shape and emits a
@@ -253,7 +251,8 @@ human-review notes, map them to runner-shaped JSON first. Record, per mapped
 field: field path, expected-answer source location, normalized expected value,
 extracted value, source-support decision, scoreability decision, and rationale.
 Do not claim a final accuracy improvement unless the run produced a new raw
-`output.json`, or the report is explicitly labeled as diagnostic/local-final.
+`output.json`. Historical captured final artifacts may be scored only through
+the explicit offline compatibility path in `5_validation.md`.
 
 ### 3.5 Iterate
 
@@ -297,8 +296,8 @@ with a note.
 
 ## 5. What remains after closeout
 
-During the run, keep `output.json`, provenance, X-Ray, diagnostics,
-`final_output.json`, business-logic metadata, timeout history, comparison reports, and
+During the run, keep `output.json`, provenance, X-Ray, diagnostics, timeout
+history, comparison reports, and
 the reproducible `workflow.json` only below the initialized run root. They are temporary
 evidence, not durable plan output.
 

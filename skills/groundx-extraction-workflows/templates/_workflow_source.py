@@ -6,7 +6,6 @@ needed by offline Harness tools. It never derives execution metadata.
 
 from __future__ import annotations
 
-import copy
 from pathlib import Path
 import typing
 
@@ -18,14 +17,6 @@ _RESERVED_TOP_LEVEL = {
     "workflow",
     "groups",
 }
-_BUSINESS_LOGIC_KEYS = (
-    "unique_attrs",
-    "match_attrs",
-    "conflict_attrs",
-    "passthrough",
-)
-
-
 def load_workflow_source(path: str | Path) -> dict[str, typing.Any]:
     """Load authored YAML as a mapping without validation or compilation."""
     source_path = Path(path)
@@ -41,20 +32,6 @@ def _final_groups(source: dict[str, typing.Any]) -> typing.Iterator[tuple[str, d
             continue
         if isinstance(value, dict) and isinstance(value.get("fields"), dict):
             yield name, typing.cast(dict[str, typing.Any], value)
-
-
-def business_logic_metadata(source: dict[str, typing.Any]) -> dict[str, dict[str, typing.Any]]:
-    """Copy only the four client-side business-logic keys exactly as authored."""
-    result: dict[str, dict[str, typing.Any]] = {}
-    for group_name, group in _final_groups(source):
-        authored = {
-            key: copy.deepcopy(group[key])
-            for key in _BUSINESS_LOGIC_KEYS
-            if key in group
-        }
-        if authored:
-            result[group_name] = authored
-    return result
 
 
 def _definition_fields(source: dict[str, typing.Any], name: str) -> dict[str, typing.Any]:

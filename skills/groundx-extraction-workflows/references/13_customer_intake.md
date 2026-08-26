@@ -134,7 +134,8 @@ source-support decision, scoreability decision, and rationale. Use
 Group the inventory by scope, then choose how each workflow group executes.
 Harness-authored YAML sets top-level `extraction_policy_version: v1`, defines
 top-level `workflow.custom_steps`, assigns groups with `workflow_step: <name>`,
-puts `workflow_output_key` on each directly routed field, and declares
+declares an explicit `role:` on each executable direct or pseudo group, puts
+`workflow_output_key` on each directly routed field, and declares
 `workflow.agent_chain` with one branch per executable workflow group. Keep each
 executable custom step to 30 fields or fewer.
 
@@ -154,11 +155,14 @@ a real record from a subtotal/header (`2_schema_design.md` §3). Keep each group
 
 ## 4. The chat step — capturing business logic
 
-Field prompts extract values; **business logic** is everything that happens to
-those values after extraction (dedup, linking, conflict surfacing, propagation).
-The customer holds this knowledge — elicit it in conversation and record it as
-**per-group YAML metadata** the runner executes client-side post-extraction. Do
-not ask the customer to build this logic themselves.
+Field prompts describe source values. Record supported identity, relationship,
+conflict, and propagation intent separately as **per-group YAML metadata**.
+Cashbot only validates, compiles, persists, and dispatches that metadata.
+GroundX Python owns generic identity deduplication, custom-output reassembly,
+and relationship selection. Each hosted extraction service owns only its
+service-specific policy and uses the shared SDK relationship selector. Harness
+submits the YAML and compares raw hosted output; it does not execute the rules.
+Do not ask the customer to build this logic.
 
 Ask, per repeating group and per cross-group relationship:
 
@@ -187,6 +191,7 @@ workflow:
 
 charges:
   workflow_step: charge_lines
+  role: charges
   unique_attrs: [charge_description_as_printed, charge_amount]   # dedup identical rows
   match_attrs: [meter_number]                                    # link to the meters group
   conflict_attrs: [charge_amount]                                # flag disagreeing amounts
