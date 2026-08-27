@@ -25,9 +25,11 @@ Use every part for a reason:
 - `identifiers`: one to three representative visible labels or stable source cues that
   help locate evidence for the field.
 - `instructions`: rules for choosing, rejecting, normalizing, or returning a value.
-- `type`: the JSON value shape.
-- `format`: required formatting such as `YYYY-MM-DD`, currency, percentage, enum, or
-  JSON object string.
+- `type`: the enforced native JSON value shape. Use the complete workflow vocabulary in
+  `2_schema_design.md`, including `bool` for native booleans.
+- `format`: optional representation guidance preserved as authored. It does not change
+  or validate `type`. Prefer a useful OpenAPI format, or descriptive domain text when
+  no registered value fits.
 
 ## Representative identifiers
 
@@ -75,7 +77,9 @@ The prompt must state the output shape when ambiguity exists:
 
 Match `type` and instructions exactly:
 
-- For a string flag, require lowercase `"true"` or `"false"`.
+- For a native boolean, use `type: bool` and require JSON `true` or `false`.
+- Use `type: str` only when the intended flag output is text such as `"true"` or
+  `"false"`.
 - For `list` or `dict`, require a native JSON array or object.
 - For structured data stored in `str`, require a JSON-encoded string and reject
   a native array or object.

@@ -406,10 +406,10 @@ that safe key in the pseudo field name and route it with `path`.
 |---|---|---|
 | `workflow_output_key` | Safe internal key used by direct custom workflow output routing | Yes for direct routed fields; no for pseudo-routed final fields |
 | `description` | Plain-language meaning and scope of the field | Yes |
-| `format` | Output format constraint | Optional but strongly recommended for dates and codes |
+| `format` | Optional output representation guidance, preserved as authored and not validated | No |
 | `identifiers` | One to three labels or stable source cues that help locate evidence | Yes |
 | `instructions` | Rules for choosing, rejecting, normalizing, or returning a value | Yes |
-| `type` | JSON value type: `str`, `int`, `float`, `list`, `dict`, or a list of allowed types | Yes |
+| `type` | Enforced workflow value type: `str`, `int`, `float`, `bool`, `list`, `dict`, or a non-empty list of those types plus quoted `'null'` | Yes |
 
 ### 2.2 description
 
@@ -423,15 +423,31 @@ description: the primary customer account identifier assigned by the provider
 
 ### 2.3 format
 
-A constraint on the output format. Most useful for:
+Optional text that guides how the model represents a value. The server preserves
+`format` exactly as authored and includes it in the extraction prompt. It does not
+validate the vocabulary, interpret the value, or change `type`.
 
-- Dates: always specify `YYYY-mm-dd date string` to force ISO format
-- Codes: `ISO 4217 three-letter code`, `two-letter US state abbreviation`
-- Numerics: leave unset; use `type` instead
+Use an applicable value from the
+[OpenAPI Format Registry](https://spec.openapis.org/registry/format/) when it describes
+the representation clearly. Common examples are:
 
-```yaml
-format: YYYY-mm-dd date string
-```
+| `type` | `format` | Representative output |
+|---|---|---|
+| `str` | `date` | `"2026-08-27"` |
+| `str` | `date-time` | `"2026-08-27T14:30:00Z"` |
+| `str` | `email` | `"billing@example.com"` |
+| `str` | `uuid` | `"123e4567-e89b-12d3-a456-426614174000"` |
+| `str` | `uri` | `"https://example.com/invoices/123"` |
+| `str` | `hostname` | `"billing.example.com"` |
+| `str` | `ipv4` | `"192.0.2.1"` |
+| `str` | `ipv6` | `"2001:db8::1"` |
+| `int` | `int32` | `42` |
+| `int` | `int64` | `9223372036854775807` |
+| `float` | `float` | `42.5` |
+| `float` | `double` | `42.5` |
+
+The list is not exhaustive. Use descriptive domain text when no registered value is
+useful, for example `ISO 4217 three-letter code` or `utility-specific date label`.
 
 ### 2.4 identifiers
 
@@ -485,19 +501,50 @@ or record in the group. Do not copy shared logic into each field.
 
 ### 2.6 type
 
-The expected JSON value type. The model uses this to know whether to return a
-string, integer, float, list, dict, or one of several allowed types.
+The enforced native JSON value type. Use only this workflow vocabulary:
+
+| Workflow type | Meaning | Representative output |
+|---|---|---|
+| `str` | String | `"INV-123"` |
+| `int` | Integer | `42` |
+| `float` | Number with decimals | `42.5` |
+| `bool` | Boolean | `true` |
+| `list` | Array | `["peak", "off_peak"]` |
+| `dict` | Object | `{"value": 42.5, "unit": "kWh"}` |
+| `[int, float, 'null']` | Integer, float, or null | `42`, `42.5`, or `null` |
 
 ```yaml
 type: str          # for strings
 type: int          # for integers only
 type: float        # for floats only
+type: bool         # for native JSON true or false
 type: list         # for a native JSON array
 type: dict         # for a native JSON object
-type:              # for "either int or float" (most numeric fields)
+type:              # non-empty list for several allowed types
   - int
   - float
+  - 'null'         # quote null so YAML keeps it as a type name
 ```
+
+Every list member must be a supported workflow type or the quoted string `'null'`.
+Scalar `type: 'null'`, an empty list, and unquoted YAML `null` are invalid.
+
+Source JSON Schema uses different names. Translate its vocabulary when authoring the
+workflow:
+
+| Source JSON Schema | Workflow YAML |
+|---|---|
+| `type: string`, `format: date` | `type: str`, `format: date` |
+| `type: string` | `type: str` |
+| `type: integer` | `type: int` |
+| `type: number` | `type: int`, `type: float`, or `[int, float]` |
+| `type: boolean` | `type: bool` |
+| `type: array` | `type: list` |
+| `type: object` | `type: dict` |
+| nullable schema | Add quoted `'null'` to a non-empty workflow type list |
+
+Dates remain strings. Use `type: str` plus optional `format: date`; do not use
+`type: date`.
 
 If a `str` field needs to carry structured JSON, the prompt must say that the
 JSON is encoded as a string. For example, use "Return a JSON-encoded string
