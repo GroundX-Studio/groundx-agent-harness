@@ -48,13 +48,18 @@ Each field prompt should answer four questions:
    behavior-changing directives in `instructions`, with the positive rule first.
 4. What shape should the value have? Put that in `type` and `format`.
 
-Ask for the declared JSON shape directly. For a `str` boolean flag, require the
-exact lowercase text `"true"` or `"false"`. For `list` or `dict`, require a
-native JSON array or object. If structured data must live in a `str`, say
+Use the complete workflow type and format contract in `2_schema_design.md`. Ask for the
+declared JSON shape directly. Use `bool` for native JSON `true` or `false`. Use `str`
+only when the intended output is text, including the literal text `"true"` or `"false"`.
+For `list` or `dict`, require a native JSON array or object. If structured data must live in a `str`, say
 "JSON-encoded string" and explicitly reject a native array or object. Runtime
 coercion can safely normalize compatible mismatches, but it is not a substitute
 for a clear output contract. Impossible values become null rather than failing
 the document or becoming empty placeholders.
+
+`format` is optional representation guidance preserved exactly as authored. It does not
+change or validate `type`. Prefer an applicable OpenAPI format such as `date`,
+`date-time`, `email`, or `uuid`, but use descriptive domain text when that is clearer.
 
 Do not use output values, whitelists, conflicting labels, or negative examples as
 identifiers. If an inferred value has a reusable source cue, the cue may be an

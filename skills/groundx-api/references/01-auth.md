@@ -123,10 +123,11 @@ client) is also supported for all languages.
 
 ### 4.1 Python SDK
 
-Install:
+Use Python 3.10 or newer. For extraction workflow authoring, install the
+supported extraction SDK floor:
 
 ```bash
-pip install "groundx[extract]"
+python -m pip install "groundx[extract]>=3.9.10"
 ```
 
 Initialize:

@@ -69,6 +69,18 @@ names such as `reconcile_statement`, `qa_statement`, `save_statement`,
 `save_meters`. Every direct or pseudo group named by the chain must declare its
 role; the group name does not supply it.
 
+Before validation, check the authored YAML contract:
+
+- Every executable direct or pseudo group declares `role`.
+- Every direct executable group declares `workflow_step`, and every directly
+  routed leaf field declares `workflow_output_key`.
+- Every pseudo field uses its field key as the workflow output key and declares
+  `path` to its final field.
+- Supported record identity and relationship intent is explicit on final groups
+  when the customer requires it. Use `unique_attrs`, `match_attrs`,
+  `conflict_attrs`, and `passthrough`; do not infer these rules from group names.
+- `workflow.agent_chain` names every executable group and uses the declared role.
+
 ## 4. Validate And Register
 
 Submit authored v1 source YAML to the GroundX API for validation and
@@ -93,6 +105,11 @@ metadata such as policy version, final-group relationship settings, and
 custom workflow routing support when present. Do not strip it down to only
 `fields` and `prompt`. The validator must pass before deploy, MCP
 create/update, or ingest.
+
+Treat a schema validation rejection as an authored-YAML error. Fix the named
+group or field and validate the same YAML again. Do not submit compiled workflow
+JSON, bypass validation, or add missing routing and business rules after
+compilation.
 
 Keep the exact source YAML with the server workflow readback and run output.
 Do not add a locally compiled metadata sidecar.
