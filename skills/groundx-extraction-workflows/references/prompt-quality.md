@@ -22,8 +22,9 @@ Use every part for a reason:
 
 - `description`: the field's meaning and scope, not a copy of the field name or a
   selection rule.
-- `identifiers`: one to three representative visible labels or stable source cues that
-  help locate evidence for the field.
+- `identifiers`: a required list with at least one non-empty string. Use as many
+  distinct visible labels or stable source cues as needed to cover the ways the
+  label may appear.
 - `instructions`: rules for choosing, rejecting, normalizing, or returning a value.
 - `type`: the enforced native JSON value shape. Use the complete workflow vocabulary in
   `2_schema_design.md`, including `bool` for native booleans.
@@ -34,9 +35,12 @@ Use every part for a reason:
 ## Representative identifiers
 
 Identifiers help find possible evidence. They do not prove that a nearby value is the
-answer. Use one to three common labels with the same meaning as the field, or stable
-source cues that reliably locate it. Do not use output values, whitelists, conflicting
-labels, invalid candidates, or unrelated nearby phrases as identifiers.
+answer. The required array must contain at least one non-empty string. Use as many
+distinct common labels or stable source cues as needed to represent the breadth of
+ways the label may appear. About three is common; use more when materially different
+forms justify them. Keep redundant variants to a minimum. The list is representative,
+not comprehensive. Do not use output values, whitelists, conflicting labels, invalid
+candidates, or unrelated nearby phrases as identifiers.
 
 Example:
 

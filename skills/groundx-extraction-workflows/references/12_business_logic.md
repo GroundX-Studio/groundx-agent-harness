@@ -16,6 +16,13 @@ raw `get_extract`, preserves X-Ray, and compares artifacts. It never
 deduplicates records, matches relationships, copies fields, surfaces synthesized
 conflicts, or mutates extraction output.
 
+JSON workflow readback is compiled state, not a round trip of authored YAML.
+`extract.<group>` is the executable prompt projection and does not carry every
+authored group key. Final-group business metadata is under
+`extract._groundx_persisted_extract.<group>`. Retrieve the exact authored source
+with `GET /v1/workflow/{id}?format=yaml`; do not compare source YAML against
+`extract.<group>` or resubmit JSON readback as source.
+
 If supported intent is absent from hosted output, stop and record a product
 defect in the owning repository. Do not add a Harness matcher, postprocessor,
 metadata sidecar, or fallback output path.

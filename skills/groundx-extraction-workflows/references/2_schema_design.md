@@ -407,7 +407,7 @@ that safe key in the pseudo field name and route it with `path`.
 | `workflow_output_key` | Safe internal key used by direct custom workflow output routing | Yes for direct routed fields; no for pseudo-routed final fields |
 | `description` | Plain-language meaning and scope of the field | Yes |
 | `format` | Optional output representation guidance, preserved as authored and not validated | No |
-| `identifiers` | One to three labels or stable source cues that help locate evidence | Yes |
+| `identifiers` | Non-empty list of distinct labels or stable source cues representing the breadth of ways the label may appear; about three is common, with more when justified | Yes |
 | `instructions` | Rules for choosing, rejecting, normalizing, or returning a value | Yes |
 | `type` | Enforced workflow value type: `str`, `int`, `float`, `bool`, `list`, `dict`, or a non-empty list of those types plus quoted `'null'` | Yes |
 
@@ -451,12 +451,15 @@ useful, for example `ISO 4217 three-letter code` or `utility-specific date label
 
 ### 2.4 identifiers
 
-A list of one to three representative visible labels or stable source cues.
-The model uses these to locate possible evidence on the page. An identifier
-does not prove that a nearby value is the answer. Use labels with the same
-meaning as the field, or stable source cues that reliably locate it. Do not add
-output values, whitelists, conflicting labels, invalid candidates, or unrelated
-nearby phrases.
+A required list with at least one non-empty string. Use as many distinct
+representative visible labels or stable source cues as needed to represent the
+breadth of ways the label may appear. About three is common; use more when
+materially different forms justify them. Keep redundant variants to a minimum.
+The list is representative, not comprehensive. The model uses identifiers to
+locate possible evidence on the page. An identifier does not prove that a nearby
+value is the answer. Use labels with the same meaning as the field, or stable
+source cues that reliably locate it. Do not add output values, whitelists,
+conflicting labels, invalid candidates, or unrelated nearby phrases.
 
 ```yaml
 identifiers:

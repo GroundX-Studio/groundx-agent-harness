@@ -256,7 +256,11 @@ extraction is unavailable unless an operator confirms otherwise.
 
 `deploy_workflow.py` writes:
 
-- `workflow.json` — server workflow readback after create or update
+- `workflow.json`: compiled server readback after create or update. It is not
+  authored YAML: final-group business metadata is under
+  `extract._groundx_persisted_extract.<group>`, while `extract.<group>` is the
+  executable prompt projection. Use `GET /v1/workflow/{id}?format=yaml` for the
+  exact authored source.
 - `deploy.json` — status, workflow action, attachment target, and API response
 - `workflow_id.txt` — workflow ID when a workflow was created or updated
 - `bucket_id.txt` — bucket ID when a bucket attachment was resolved
