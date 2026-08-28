@@ -42,8 +42,12 @@ field evidence, X-Ray, scoring, and iteration.
 Each field prompt should answer four questions:
 
 1. What does this field mean, and what is in scope? Put that in `description`.
-2. Where can evidence for it be found? Put one to three representative visible labels
-   or stable source cues in `identifiers`. These are location hints, not proof.
+2. Where can evidence for it be found? Put at least one non-empty string in the
+   required `identifiers` array; it cannot be empty. Use as many distinct visible
+   labels or stable source cues as needed to represent the breadth of ways the label
+   may appear. About three is common; use more when materially different forms justify
+   them. Keep redundant variants to a minimum. This is a representative set, not a
+   comprehensive list. Identifiers are location hints, not proof.
 3. How should the model choose, reject, normalize, or return a value? Put short
    behavior-changing directives in `instructions`, with the positive rule first.
 4. What shape should the value have? Put that in `type` and `format`.
