@@ -260,7 +260,7 @@ within a step configuration. The same field exists on the wire and on the
 | `apiKey` | `api_key` | Bearer token for your LLM endpoint. |
 | `baseURL` | `base_url` | Base URL of an OpenAI chat completion-compatible endpoint. |
 | `engineID` | `engine_id` | Model name to include in the request. |
-| `maxImages` | `max_images` | Optional positive limit for the combined image attachments in each provider request using this engine. |
+| `maxImages` | `max_images` | Optional positive limit for the combined image attachments in each provider request using this engine. Omission uses the default of 50. |
 | `service` | `service` | Endpoint kind — see below. The field is named `service` on **both** wire and SDK; earlier versions of this guide called it `serviceType`. |
 | `reasoningEffort` | `reasoning_effort` | One of: `minimal`, `low`, `medium`, `high`. |
 
@@ -272,7 +272,8 @@ text when reduction is needed, so later crops survive in the current summary lay
 Normal engine precedence selects one value: application config seeds defaults, workflow
 engines supersede config, and an authored step engine supersedes its workflow engine
 default. No separate route-specific image-count value overrides the selected engine. If
-the selected engine omits `maxImages`, no image-count cap applies. The independent
+the selected engine omits `maxImages`, GroundX uses the default of 50. An explicit
+positive value takes precedence over this default. The independent
 `openai-base64` serialized request-size guard may still remove images by byte size.
 
 The canonical `service` values (those listed in the SDK's `WorkflowEngineService`

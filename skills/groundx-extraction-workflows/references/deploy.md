@@ -150,7 +150,7 @@ Preserve every existing group, field, route, prompt, strategy, and non-target
 custom step. For AWS Bedrock Gemma 4, use service `bedrock`, engine ID
 `google.gemma-4-31b`, and the Bedrock Mantle base URL.
 
-`service: bedrock` is opt-in. It sends every page image as an AWS S3 reference, so the runtime must use S3 file storage that the AWS identity behind the Bedrock request can read. For a Bedrock API key, this is the IAM principal behind the key. Existing `s3://` references pass through. Internal GroundX page URLs are converted to the configured bucket. Inline images, arbitrary HTTPS image URLs, and non-S3 storage are rejected before dispatch. The selected engine's positive `maxImages` caps the combined image count; omission leaves image count uncapped. The independent serialized-request guard may still remove images by byte size. Keep real credentials out of committed files and saved run evidence.
+`service: bedrock` is opt-in. It sends every page image as an AWS S3 reference, so the runtime must use S3 file storage that the AWS identity behind the Bedrock request can read. For a Bedrock API key, this is the IAM principal behind the key. Existing `s3://` references pass through. Internal GroundX page URLs are converted to the configured bucket. Inline images, arbitrary HTTPS image URLs, and non-S3 storage are rejected before dispatch. The selected engine's positive `maxImages` caps the combined image count. If the selected engine omits `maxImages`, GroundX uses the default of 50. An explicit positive value takes precedence over this default. The independent serialized-request guard may still remove images by byte size. Keep real credentials out of committed files and saved run evidence.
 
 ## Optional Prod MCP Recipe
 
