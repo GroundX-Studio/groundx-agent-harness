@@ -151,10 +151,24 @@ resolves placement from the operation schema.
 
 ```json
 {
-  "status": 200,
-  "body": { "message": "Bucket deleted." }
+  "message": "OK"
 }
 ```
+
+JSON object responses keep the GroundX API response shape. When an operation returns
+declared non-JSON text, `call_operation` returns the media type and decoded text in an
+envelope. For example, `Workflow_get` with `format: "yaml"` returns:
+
+```json
+{
+  "contentType": "application/x-yaml",
+  "body": "extraction_policy_version: 1\n"
+}
+```
+
+Read `body` for the exact authored text. `contentType` is the response header returned by
+the GroundX API, so clients may receive another declared YAML media type such as
+`application/yaml`.
 
 ---
 
@@ -201,7 +215,7 @@ Discovery does not bypass scope checks; the same rules are enforced on the defau
 |---|---|---|---|
 | 1. Browse | `list_operations` | `{}` | `{ endpoints: [{ operationId, method, path, summary, description }] }` |
 | 2. Inspect | `describe_operation` | `{ "operationId": "..." }` | EndpointDetail with `parameters[]` and `inputSchema` |
-| 3. Execute | `call_operation` | `{ "operationId": "...", "args": { ... } }` | Proxied API response |
+| 3. Execute | `call_operation` | `{ "operationId": "...", "args": { ... } }` | JSON API object, or `{ contentType, body }` for non-JSON text |
 
 Argument-name invariant: `operationId` (camelCase, no underscore) is the correct key for
 both `describe_operation` and `call_operation`.
