@@ -152,6 +152,11 @@ custom step. For AWS Bedrock Gemma 4, use service `bedrock`, engine ID
 
 `service: bedrock` is opt-in. It sends every page image as an AWS S3 reference, so the runtime must use S3 file storage that the AWS identity behind the Bedrock request can read. For a Bedrock API key, this is the IAM principal behind the key. Existing `s3://` references pass through. Internal GroundX page URLs are converted to the configured bucket. Inline images, arbitrary HTTPS image URLs, and non-S3 storage are rejected before dispatch. The selected engine's positive `maxImages` caps the combined image count. If the selected engine omits `maxImages`, GroundX uses the default of 50. An explicit positive value takes precedence over this default. The independent serialized-request guard may still remove images by byte size. Keep real credentials out of committed files and saved run evidence.
 
+The 50-image default is a fallback, not a universal provider-safe limit. When a provider
+or model supports fewer than 50 images, set an explicit `maxImages` to its tested lower
+limit. For DeepInfra `google/gemma-4-31B-it`, set `maxImages` to 30. Do not apply 30 to
+another provider or model without verifying its limit.
+
 ## Optional Prod MCP Recipe
 
 Use this path only when GroundX MCP tools are already visible in the agent
