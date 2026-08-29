@@ -125,6 +125,10 @@ engine = WorkflowEngine(
 uses that engine and does not cap unrelated steps or models. The `max_images` argument
 requires a Python SDK release generated from a Fern contract containing the field. Use
 the REST wire key `maxImages` with older SDK versions.
+The 50-image default is a fallback, not a universal provider-safe limit. When a provider
+or model supports fewer than 50 images, set an explicit `maxImages` to its tested lower
+limit. For DeepInfra `google/gemma-4-31B-it`, set `maxImages` to 30. Do not apply 30 to
+another provider or model without verifying its limit.
 
 ## 4. WorkflowPrompt
 

@@ -275,6 +275,10 @@ default. No separate route-specific image-count value overrides the selected eng
 the selected engine omits `maxImages`, GroundX uses the default of 50. An explicit
 positive value takes precedence over this default. The independent
 `openai-base64` serialized request-size guard may still remove images by byte size.
+The 50-image default is a fallback, not a universal provider-safe limit. When a
+provider or model supports fewer than 50 images, set an explicit `maxImages` to its
+tested lower limit. For DeepInfra `google/gemma-4-31B-it`, set `maxImages` to 30. Do not
+apply 30 to another provider or model without verifying its limit.
 
 The canonical `service` values (those listed in the SDK's `WorkflowEngineService`
 literal) are `openai`, `openai-base64`, `azure`, `deep-infra`, and `hosted`. Only
