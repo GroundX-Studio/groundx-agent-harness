@@ -397,7 +397,7 @@ This skill's example files and code blocks contain **placeholder credentials onl
 - **Discovery questionnaire that selects a credential pattern at deployment time** → `values-authoring.md` § 3.8.
 - **TLS / cert-manager / custom CA authoring** → `tls-and-certs.md`.
 - **License key procurement** → out of scope; contact EyeLevel / GroundX.
-- **Cloud IAM policy authoring for IRSA / WI / WIF** → out of scope; consult the cloud provider's documentation.
+- **Cloud IAM policy authoring (the policy JSON) for IRSA / WI / WIF** → out of scope; consult the cloud provider's documentation. *Scoping* the cluster administrative access plane — EKS access entries, the CI/CD deploy role's permissions and its GitHub-OIDC trust breadth, and minimizing standing cluster-admins — is covered in `terraform-aws.md` § 6.2.
 - **Sealed-secrets controller install, ESO install, helm-secrets plugin install** → out of scope; consult upstream documentation.
 - **Architectural rationale for the credential surface** → `groundx-architecture/references/identity-and-trust.md`.
 - **Architectural multi-tenancy enforcement** → `groundx-architecture/references/multi-tenancy.md`.

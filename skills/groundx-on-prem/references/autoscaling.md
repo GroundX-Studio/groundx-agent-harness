@@ -96,7 +96,7 @@ For the documented defaults per workspace component, see `workspace-service.md` 
 
 ## 5. The metrics server
 
-The custom metrics server (`metrics.enabled: true`) exposes a `/metrics` endpoint that the chart-rendered HPAs scrape via an `External` metrics source. It exposes:
+The custom metrics server (`metrics.enabled: true`) is what the chart's HPAs scale on. It registers the `external.metrics.k8s.io` aggregated API — a cluster-scoped `APIService` plus a `Role`/`RoleBinding` (see `install-flow.md` § 3.5) — that the chart's `type: External` HPAs read directly. **No separate Kubernetes external-metrics adapter (prometheus-adapter, KEDA, or similar) is needed: the chart's `metrics` microservice is that provider.** The same pod also exposes a Prometheus-format `/metrics` endpoint (§ 6) for optional observability scraping — a separate path the HPAs do not consume. It serves:
 
 - Pipeline throughput
 - API latency
@@ -186,7 +186,7 @@ If `kubectl describe hpa` shows `<unknown>` for the metric, the metrics server i
 - **Per-pod resource defaults and node-group placement** → `node-groups.md`.
 - **Cost modelling around HPA min/max footprint** → `cost-estimation.md`.
 - **Prometheus / Grafana setup beyond the ServiceMonitor toggle** → `monitoring.md`.
-- **External metrics adapter installation** → `monitoring.md` — the chart's metrics server is the GroundX-side source; the cluster also needs a Kubernetes external-metrics adapter for HPAs to consume the metrics.
+- **A separate external-metrics adapter (prometheus-adapter, KEDA)** → not needed and not used. The chart's `metrics` microservice registers the `external.metrics.k8s.io` API itself (§ 5), and the `type: External` HPAs read from it directly. Do not install a second adapter.
 - **Workspace runner specific HPA defaults** → `workspace-service.md` § 8.
 - **Architectural rationale for the two-axis model** → `groundx-architecture/references/observability.md`.
-- **Troubleshooting HPA / metrics-server failures** → `troubleshooting.md` § 4.
+- **HPA stuck on `<unknown>` / metrics not resolving** → § 10 (Verification) above; for a metrics pod that will not start, see `troubleshooting.md` § 3 (`wait-for-metrics`).

@@ -95,6 +95,16 @@ kubectl -n eyelevel create secret docker-registry chainguard-pull-secret \
 
 See `image-variants.md` § 6.
 
+### 1.6 Google-OCR enabled: `error converting YAML to JSON: ... mapping values are not allowed in this context`
+
+**Symptom.** With `layout.ocr.type: google` and a valid, present `credentials.json` (`ocr-mode.md` § 4), `helm template` / `helm install` / `helm upgrade` fails with `error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context`, pointing at a rendered `templates/app/celery.yaml`.
+
+**Cause.** A whitespace-chomp bug in `celery.yaml` (a `-}}` that collapses adjacent YAML keys) on chart versions before the Google-OCR render fix. It is triggered by enabling Google OCR; the credentials file itself is fine, so this is distinct from § 1.2 (the *missing*-file case) and from § 1.3 (a *schema* rejection). It is a chart-code defect, not a values error: no values change avoids it on an affected chart.
+
+**Fix.** Use a chart version that includes the Google-OCR render fix. The bug was observed on chart `0.2.6`; the fix shipped on the `0.2.7` line of the upstream `groundx-on-prem` chart. Pin the fixed version explicitly (`helm search repo groundx --versions`, then `--version`; see `install-flow.md` § 4.2). If you must stay on an affected chart, the only stopgaps are to switch to Tesseract (`layout.ocr.type: tesseract`) or patch the template locally, neither recommended for production.
+
+**Related.** For the `{layout.serviceName}-ocr-credentials-map` ConfigMap and its resolution when extract/workspace celery services are also enabled, see `ocr-mode.md` § 5.
+
 ## 2. Pod scheduling failures
 
 ### 2.1 Pods stuck `Pending` with `nodeSelector` not matching any node
