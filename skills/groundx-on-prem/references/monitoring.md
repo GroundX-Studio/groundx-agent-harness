@@ -184,7 +184,17 @@ For the architectural framing of alerting, route to `groundx-architecture/refere
 | Custom queue names (e.g., `workspace.command.queue: my-q`) | Make sure the metrics service is wired to scrape from your new queue. The chart's metrics-config-rendering aligns this automatically; manual queue renames outside the chart break the link. |
 | Multi-cluster monitoring | The chart doesn't multiplex across clusters. Run a separate Prometheus per cluster, or aggregate via Thanos / Cortex / Mimir at the upper layer. |
 
-## 11. What this file does not cover
+## 11. Monitoring on AWS CloudWatch / Container Insights
+
+The chart's first-class monitoring path is Prometheus + Grafana (above). The chart ships no CloudWatch integration, but an AWS operator who runs observability on CloudWatch / Container Insights instead of Prometheus can bridge to it — the chart exposes the same signals, only the collection layer differs. Nothing in the chart changes; you add AWS-side collectors:
+
+- **Metrics** — the metrics pod exposes a Prometheus-format `/metrics` endpoint (§ 1). Point a Prometheus-compatible CloudWatch collector at it: the **CloudWatch agent in Prometheus mode** or an **ADOT (AWS Distro for OpenTelemetry) collector** scraping `metrics.<namespace>.svc.cluster.local:443/metrics` and writing to a CloudWatch metrics namespace (the metrics Service exposes port `443`, forwarding to the pod's `8443`; a collector that reaches the Service by its DNS name must use `443`, not the pod port — the § 1 ServiceMonitor targets the pod's `8443` directly, which is why it differs). This is the same out-of-band scrape path noted in § 2 for non-operator Prometheus. The endpoint is HTTPS with a self-signed CA, so the collector needs the chart's `metrics-tls` CA (or `insecureSkipVerify`).
+- **Logs** — GroundX pods log to stdout; the chart ships no log-shipping layer (deployer responsibility, `groundx-architecture/references/observability.md`). Ship container logs to CloudWatch Logs with **Fluent Bit** — the standard EKS log path; Container Insights installs a Fluent Bit DaemonSet that covers this. (FireLens is an ECS-only log router and does not apply to EKS; FluentD is deprecated for Container Insights.)
+- **Alarms** — define **CloudWatch alarms** on the metrics you land (mirroring the starter conditions in § 9) plus the pod/queue signals Container Insights collects. The chart ships no alarm definitions (§ 9).
+
+This is a bridge, not a chart feature: you own the collector install, the IAM (the agents need CloudWatch Logs + metrics permissions, grantable via IRSA like the roles in `terraform-aws.md` § 6), and the alarm definitions. If you run both Prometheus and CloudWatch, scrape the one `/metrics` endpoint from whichever collector you standardize on.
+
+## 12. What this file does not cover
 
 - **Autoscaling that consumes these metrics** → `autoscaling.md`.
 - **GPU metrics via DCGM** → `gpu-operator.md` § 1 (the DCGM exporter is an operator feature, not GroundX-side).
@@ -193,3 +203,4 @@ For the architectural framing of alerting, route to `groundx-architecture/refere
 - **Multi-cluster aggregation** (Thanos, Cortex, Mimir) → upstream Prometheus ecosystem.
 - **Architectural framing of GroundX observability** → `groundx-architecture/references/observability.md`.
 - **Detailed Prometheus / Grafana setup** → `monitoring/README.md` in the upstream `groundx-on-prem` repo.
+- **Full CloudWatch / Container Insights setup** (collector install, IAM policy authoring, log-group retention, dashboards) → deployer responsibility; § 11 gives the endpoint-and-logs bridge, not a full AWS runbook.

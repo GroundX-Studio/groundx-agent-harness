@@ -131,14 +131,18 @@ See `node-groups.md` § 1.1.
 
 ## 6. IRSA — IAM Roles for Service Accounts
 
-The EKS module sets up IRSA for the common GroundX access patterns:
+The EKS module (`terraform/aws/eks/`) creates these IRSA roles:
 
 | IRSA role | Used by | Permits |
 | --- | --- | --- |
-| `s3-sqs-worker` (typical name) | Chart pods with `serviceAccount.name: s3-sqs-worker` | S3 access for `file.existing.serviceType: s3`, SQS access for per-topic `type: sqs` |
-| `external-dns` (if installed) | external-dns operator | Route53 record management |
-| `aws-load-balancer-controller` | AWS Load Balancer Controller | ELB / ALB provisioning |
-| `cluster-autoscaler` | Cluster Autoscaler | Node-group scaling |
+| `eyelevel-s3-sqs-worker-irsa` | Chart pods with `serviceAccount.name: s3-sqs-worker` | S3 access for `file.existing.serviceType: s3`, SQS access for per-topic `type: sqs` (`irsa.tf`) |
+| `AmazonEKSTFAutoscalerRole-<cluster>` (only when Terraform enables the cluster autoscaler) | Cluster Autoscaler SA in `kube-system` (installed by the same Terraform) | Node-group scaling (`autoscaler.tf`) |
+| `AmazonEKSTFEBSCSIRole-<cluster>` (only with the EBS storage driver) | `ebs-csi-controller-sa` in `kube-system` | EBS volume provisioning (`ebs.tf`) |
+| `AmazonEKSTFEFSCSIRole-<cluster>` (only with the EFS storage driver) | `efs-csi-controller-sa` in `kube-system` | EFS volume provisioning (`efs.tf`) |
+
+The EKS Terraform does **not** create an external-dns / Route53 role or an AWS-Load-Balancer-Controller role. If you run either operator, create its IRSA role yourself — see § 6.1 for the external-dns / Route53 role.
+
+**The bundled `s3-sqs-worker` policy is broad, not least-privilege.** `irsa.tf` grants `s3:*` and `sqs:*` on `Resource: *` — account-wide S3 and SQS administration. IRSA controls *which* identity the pod assumes (its ServiceAccount), not *what* that identity may do. For production, replace the bundled policy with one restricted to the exact buckets and queues the deployment uses (and, where possible, the specific actions), rather than shipping the `*:*`-on-`*` grant.
 
 Wire the chart pods to use IRSA via:
 
@@ -148,6 +152,50 @@ serviceAccount:
 ```
 
 The named ServiceAccount must be pre-created (typically by Terraform) with the right `eks.amazonaws.com/role-arn` annotation. See `credentials.md` § 9 for the credential-isolation context.
+
+### 6.1 Automated DNS with external-dns (Route53)
+
+By default the chart does **not** create DNS records — the install prereqs treat the ingress A/CNAME as a manual step (`install-flow.md` § 2). To have records created and updated automatically in Route53, run the `external-dns` operator and let it manage records off each ingress hostname:
+
+1. **IAM** — the GroundX Terraform does **not** create a Route53 IRSA role, so create one yourself: an IAM role whose trust policy is the IRSA trust for the external-dns ServiceAccount (the same `sts:AssumeRoleWithWebIdentity` / OIDC-subject shape the module uses for `s3-sqs-worker` in `irsa.tf`), with the Route53 policy the external-dns AWS provider requires — `route53:ChangeResourceRecordSets` on your hosted zone plus `route53:ListHostedZones`, `route53:ListResourceRecordSets`, and `route53:ListTagsForResources` (the external-dns AWS tutorial is the authoritative source for the exact action set). Bind it to the external-dns ServiceAccount via the `eks.amazonaws.com/role-arn` annotation.
+2. **Install external-dns itself** — it is a standard upstream operator (its own Helm chart / manifest), **not shipped by the GroundX chart**. Scope it to your hosted zone with `--provider=aws` and `--source=ingress`.
+3. **Annotate each ingress** so external-dns picks up the hostname. Every ingress-bearing microservice already exposes `ingress.hostName` and `ingress.annotations` (`values-yaml.md` § 5.10); add the external-dns hostname annotation there:
+
+```yaml
+groundx:
+  ingress:
+    enabled: true
+    ingressClassName: alb
+    hostName: api.mycorp.example.com
+    annotations:
+      external-dns.alpha.kubernetes.io/hostname: api.mycorp.example.com
+```
+
+external-dns then creates and updates the Route53 record pointing at the ingress load balancer, and reconciles it as the LB address changes. Repeat the `hostName` + annotation on every ingress-bearing service you expose (`groundx` — the primary API, the one configured in the example above — plus `layout.api`, `layoutWebhook`, `ranker.api`, `summary.api`, `extract.api`, `workspace.api`, `file`).
+
+If you do not run external-dns, DNS stays manual: create the A/CNAME records yourself after the ingress has an address (`install-flow.md` § 2).
+
+### 6.2 Scope the cluster administrative access plane (access entries, CI deploy role, OIDC trust)
+
+IRSA (§ 6) gives each *pod* its own **workload identity** — but not least privilege by default: the bundled `s3-sqs-worker` policy is broad (`s3:*` / `sqs:*` on `*`; see § 6), so IRSA scopes *who* the pod is, not *what* it may do. This section is a different plane: who and what may **administer** the cluster. Scope that access plane deliberately: an over-broad CI or admin role is a production-wide exposure. The harness's own Terraform builds the cluster, so this section keeps a harness-built cluster secure-by-default on the admin plane.
+
+**Prefer EKS access entries over the legacy `aws-auth` ConfigMap**, and grant each principal a scoped access policy rather than blanket `system:masters`:
+
+- **Deploy / CI principal** — the role that runs `helm upgrade --install` is **not** a pure namespace-scoped role: with the external-metrics adapter enabled the install creates a cluster-scoped object, and the install-flow preflight writes in other namespaces, so a `namespace: eyelevel`-only policy may not complete the install. Scope it to exactly what the install needs, still short of cluster-admin:
+  - **Namespaced work (the bulk)** — an `AmazonEKSEditPolicy` (or a custom Role / RoleBinding) with an **access scope of `namespace: eyelevel`** for the workloads, Services, ConfigMaps, and Secrets the chart renders there.
+  - **External-metrics adapter (`metrics.enabled: true`, required for HPA — `autoscaling.md` § 5)** — enabling it renders the `metrics` microservice, which creates both a cluster-scoped `APIService` (`v1beta1.external.metrics.k8s.io`) **and** a `Role` + `RoleBinding` in `namespace: eyelevel`. Two grants beyond the namespaced edit are then needed: a **custom ClusterRole** (never `AmazonEKSClusterAdminPolicy`) with the full helm-lifecycle verbs — `get`, `list`, `watch`, `create`, `update`, `patch`, `delete` (not `create`/`update` alone, or `helm upgrade`, rollback, and uninstall cannot manage the object) — on `apiservices.apiregistration.k8s.io`; and, in the `eyelevel` scope, those same lifecycle verbs (**no `bind`**) on `roles.rbac.authorization.k8s.io` and `rolebindings.rbac.authorization.k8s.io` — `AmazonEKSEditPolicy` maps to the built-in `edit` role, which withholds RBAC writes to prevent privilege escalation, so it cannot create these (use an `admin`-level namespaced policy instead). The `bind` verb is **not** needed here: it guards creating a binding that references a role whose permissions you don't already hold, but the metrics `Role` grants only `get`/`list`/`watch` on `deployments` and `pods` — already covered by `edit` — so the escalation check passes without it. If a future Role exceeded that, scope `bind` with `resourceNames` to the exact Role rather than granting it broadly. A ClusterRole grants nothing until it is **bound**: create the CI principal's EKS access entry with a Kubernetes group (`aws eks create-access-entry --kubernetes-groups …`) and bind the ClusterRole to that group with a `ClusterRoleBinding` whose subject is `kind: Group`. The managed EKS Access Policies are a fixed coarse set (view / edit / admin / cluster-admin) and none grants this scoped cluster-wide `apiservices` permission short of `AmazonEKSClusterAdminPolicy`, so a narrow grant needs this groups-plus-`ClusterRoleBinding` path — AWS's own guidance: "if none of the access policies meet your requirements … specify … group names … and create and manage Kubernetes RBAC objects" (*Create an access entry using Kubernetes groups*). With `metrics.enabled: false` (the default) the chart creates no cluster-scoped objects and neither grant is needed.
+  - **Node labels** — `patch nodes` for the `eyelevel_node` labels (`install-flow.md` § 3.5), if this principal rather than Terraform applies them.
+  - **Other namespaces** — write access in `kube-system` (the ALB-controller ServiceAccount annotation) and `nvidia-gpu-operator` (`--create-namespace` install), per the `install-flow.md` § 3.5 preflight. Grant those explicitly rather than falling back to cluster-admin.
+- **Human operators** — give day-to-day users a `namespace`-scoped edit/view policy; reserve `AmazonEKSClusterAdminPolicy` for a small, named break-glass set.
+
+**Constrain the CI deploy role's IAM and its GitHub-OIDC trust.** When CI assumes an AWS role via GitHub Actions OIDC (`credentials.md` § 12), scope both sides:
+
+- IAM permissions: only what the deploy needs — `eks:DescribeCluster` (required by `aws eks update-kubeconfig` to reach the cluster), read the image registry, and read the secret store, never `AdministratorAccess`. The CI principal reaches the cluster by **being** the IAM identity the EKS access entry above maps, or by `sts:AssumeRole` into an IAM role that the access entry maps; you do not "assume" an access entry itself — it is a principal-to-Kubernetes mapping, not a role.
+- OIDC trust subject: pin the trust-policy `token.actions.githubusercontent.com:sub` condition to a **specific repo and a protected environment** (for example `repo:my-org/my-repo:environment:production`), never a wildcard such as `repo:my-org/*`, which lets any repo in the org assume the deploy role.
+
+**Minimize standing cluster-admins.** Treat account `:root` and any `aws-auth` `system:masters` entries as break-glass only; move routine access to scoped access entries, and periodically audit who holds cluster-admin.
+
+The harness's Terraform creates the IRSA roles (§ 6) but does **not** create or scope the CI deploy role or the human access entries: you own that design. Authoring the specific IAM policy JSON is a cloud-provider concern (`credentials.md` § 16); this section is about *scoping* the access plane, not the policy syntax.
 
 ## 7. Storage classes
 

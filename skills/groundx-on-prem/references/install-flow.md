@@ -28,7 +28,7 @@ Before any helm command runs, the following must already be in place. The chart 
 | **Image registry access** | Image pull secrets configured for `cluster.imagePullSecrets`. | When pulling from a private registry (e.g., Chainguard's). |
 | **License key + admin credentials** | From EyeLevel / GroundX. | Required when the deployment is licensed. Set via `licenseKey` + `admin.*` in the secret companion file. |
 
-For TLS / DNS / ingress wiring details (cert-manager, ingress controller selection, OpenShift Route quirks), route to `references/tls-and-certs.md`.
+For TLS / DNS / ingress wiring details (cert-manager, ingress controller selection, OpenShift Route quirks), route to `references/tls-and-certs.md`. For automated Route53 DNS via external-dns (instead of creating records by hand), see `references/terraform-aws.md` § 6.1.
 
 ## 2.5 Cloud-authority gate — before any provisioning
 
@@ -163,6 +163,68 @@ This shorthand is for a result below the 10,000-row cap. If pagination was requi
 Deliberately **not** `helm get metadata`: that subcommand was added in Helm **3.13**, while this skill supports **v3.8+** (`references/cluster-requirements.md` § 3). On a v3.8–v3.12 client it fails with `unknown command "metadata"` — and that error looks a lot like "no release found", which is exactly how a live cluster gets misread as greenfield. `helm list`'s `chart` field has been present since v3.8 and carries the same version.
 
 Hand the discovered release, namespace and chart version to `references/upgrades.md` — the downgrade comparison lives there, in the path that actually has a deployed version to compare against.
+
+## 3.5.2 Audit an existing (brownfield) install — inventory and reconcile
+
+§ 3.5.1 answers "is GroundX installed here?". This section answers "what is actually running, and what is it using?" — the read-only inventory to run before planning an upgrade or a migration onto the chart (§ 6 of `deployment-options.md`). It needs read-only access only; it mutates nothing.
+
+**Step 0 — locate the cluster from AWS (when you don't already have kube access).** The rest of this skill assumes a working `kubectl` context; getting there from an AWS account is otherwise not covered:
+
+```bash
+aws sts get-caller-identity                                     # confirm account + identity
+aws eks list-clusters --region <region>                         # discover the cluster name(s)
+aws eks update-kubeconfig --name <cluster> --region <region>    # write a local kubeconfig entry
+kubectl config current-context                                  # confirm you are pointed at it
+```
+
+Establish the AWS session with the operator's standard login first (`aws sso login`, etc.) as in § 3.5. `aws eks update-kubeconfig` only writes a local kubeconfig entry — it mutates nothing in the cluster.
+
+**Step 1 — find the release, namespace, and chart version.** Run the cluster-wide, chart-matched `helm list` from § 3.5.1 and capture the `main` row's `name`, `namespace`, and `chart` (the deployed version).
+
+**Step 2 — inventory the workloads.** Against the discovered namespace `<ns>`:
+
+```bash
+kubectl -n <ns> get pods -o wide                                # microservices actually running
+kubectl get nodes -L eyelevel_node                              # node groups present (node-groups.md § 1)
+kubectl -n <ns> get pods -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[*].image}{"\n"}{end}'  # running images (image-variants.md)
+kubectl -n <ns> get hpa                                         # autoscalers present (autoscaling.md § 10)
+```
+
+**Step 3 — read the *supplied* values, then the *effective* config.** These are not the same thing:
+
+- `helm get values <release> -n <ns>` shows what the operator supplied at install, not merged chart defaults — useful for seeing which subsystems were overridden. Its output is **secret-bearing**, though: on the inline and secret-companion credential patterns the supplied values include the license key, the admin credentials, the OpenSearch `search.*` passwords, and the LLM API keys, so **do not** print it to a shared or logged terminal — read it into a gitignored file treated as secret, the same handling `credentials.md` applies to the secret companion file. (The exception is the ESO / `cluster.secrets`-referenced Secret pattern, where `helm get values` returns only the Secret reference, not the credential.)
+- The chart renders each subsystem's runtime config into the **`config-yaml-map` ConfigMap**, which the pods mount — but that ConfigMap stores several credentials in plaintext (the DB password, the OpenSearch `search.*` username/password, the summary OpenAI key), so **do not print it in full** (`-o yaml`) to a terminal, log, or shared session. Read only the non-secret endpoint/topology fields by projecting the rendered config, dropping any keyed credential line, and masking any credential embedded in an endpoint URL:
+
+  ```bash
+  kubectl -n <ns> get configmap config-yaml-map -o jsonpath='{.data.config\.yaml}' \
+    | grep -iE '^[[:space:]]*(addr|ro_addr|rw_addr|url|baseURL|baseUrl|bucketUrl|callbackURL|dashboardURL|broker|baseDomain|bucket|region|port|sslPort|type):' \
+    | sed -E 's|(://)[^/@[:space:]]+@|\1***@|g; s|([?&][^=&[:space:]]+=)[^&[:space:]]*|\1***|g; s|#[^[:space:]]+|#***|g'
+  ```
+
+  The `grep` is an explicit **key allowlist anchored at the key position** (`^[[:space:]]*<key>:`) — it selects only known endpoint/topology keys, not a substring anywhere on the line. The keys are the ones the *rendered* `config.yaml` uses (`ro_addr`/`rw_addr` for the DB, `baseURL`/`baseUrl`/`bucketUrl` for the services and object store, `broker` for the Kafka stream), not the `values.yaml` discriminator names — so the projection surfaces the DB host, the stream broker, and every service endpoint, not just ports and the bucket. That matters: a substring filter would sweep in a value like `reporting_user` (contains `port`) or an `email:` field (contains `domain`) and, because a whole-line exclusion checks `username` not `user`, could still print a `user:` line — a substring approach cannot be made safe for a shared or logged terminal. The trailing `sed` then masks credentials wherever they sit in a matched URL value — user-info (`https://user:pass@host` → `https://***@host`), query-string values (`?token=…` → `?token=***`), and a fragment (`#…` → `#***`). If a key you need is not in the allowlist, add it explicitly; if a value might carry a credential in some other inline form, read into a file and review before sharing.
+
+- Classify each backing service in-cluster vs external and read its endpoint using the discriminators in `service-substitution.md` § 2: `cache.existing.addr`, `db.existing.{ro,rw}`, `file.existing.url`, `search.existing.url`, `stream.existing.domain` (or per-topic `type`), and `summary.existing.url` / `serviceType` for the LLM engine (self-hosted GPU pod vs external LLM).
+
+**Step 4 — reconcile, and mind the divergence.** The `config-yaml-map` ConfigMap is not the whole story. The chart also injects credentials and some connection values as environment variables via `envFrom` (`cluster.secrets`), and the application reads those `GROUNDX_*` / `MYSQL_*` / `AWS_*` env vars at startup alongside the file (`credentials.md`); for the workspace token the file even renders empty and the env var is authoritative (`credentials.md`). So a value visible in `config-yaml-map` may be supplemented or superseded by the environment, and an endpoint that merely resolves and is network-reachable is **not** proof the pods actually use it. Confirm the effective wiring by inspecting the pod spec read-only — which Secrets and ConfigMaps are wired (as `env`, `envFrom`, **and** volume mounts) and which env var *names* are set, never their resolved values:
+
+```bash
+kubectl -n <ns> get pod <pod> -o jsonpath='{range .spec.containers[*]}{range .envFrom[*]}envFrom secret={.secretRef.name} configMap={.configMapRef.name}{"\n"}{end}{range .env[*]}env {.name}{"\n"}{end}{range .volumeMounts[*]}mount {.name} -> {.mountPath}{"\n"}{end}{end}{range .spec.volumes[*]}volume {.name} configMap={.configMap.name} secret={.secret.secretName}{"\n"}{end}'
+```
+
+This shows the `env` / `envFrom` **and volume** wiring — the Secret and ConfigMap names (including the `volume … configMap=` maps the pod mounts as files, which is how `config.yaml` and each service's `config.py` actually reach the container — env/envFrom alone would miss them) and the env var names, without printing any secret value. A ConfigMap is effective only if a container actually mounts it: match each `volume <name> configMap=<map>` to a `mount <name> -> <path>` line — a volume declared in `.spec.volumes` with no corresponding `volumeMounts` entry is **not** in use, so don't treat it as effective. Read the exact ConfigMap a mounted volume names, against a currently-running pod, so a renamed, stale, or unmounted map is not mistaken for the effective config.
+
+The per-service effective config is not all in `config-yaml-map`: the chart renders a `<svc>-config-py-map` ConfigMap per microservice (`extract`, `layout`, `ranker`, `summary`, `workspace`) that carries that service's own broker / endpoint / connection settings. Read those the same masked, non-secret way as Step 3 — they are ConfigMaps, so no Secret access is needed:
+
+```bash
+kubectl -n <ns> get configmap -o name | grep -- -config-py-map          # per-service config maps present
+kubectl -n <ns> get configmap <svc>-config-py-map -o jsonpath='{.data.config\.py}' \
+  | grep -iE '^[[:space:]]*(api_base|base_domain|base_url|broker|broker_type|brokerType|bucket|celery_broker_url|celery_result_backend|github_api_base_url|gitlab_api_base_url|layoutBroker|layoutResultBroker|metrics_broker|metricsBroker|mysql_database|mysql_host|mysql_port|ocrBase|region|searchBroker|searchResultBroker|summaryBroker|summaryResultBroker|uploadBase|uploadBaseURL|uploadBucket|uploadRegion|uploadReplaceURL|uploadURL|url)[[:space:]]*=' \
+  | sed -E 's|(://)[^/@[:space:]]+@|\1***@|g; s|([?&][^=&[:space:]]+=)[^&[:space:]]*|\1***|g; s|#[^[:space:]]+|#***|g'
+```
+
+As in Step 3, read the `config.py` key by name and match an **explicit allowlist of full assignment names anchored at line start** (`^[[:space:]]*<name>=`) — not a substring anywhere on the line (which would select an endpoint token *inside* a credential value, e.g. `mysql_password="…url=secret…"`), and not a token-substring *within* a name (`…url…`), which would sweep in a name that merely contains the token (e.g. `reporting_user` contains `port`). The trailing `sed` still masks any credential embedded in a matched URL value.
+
+Endpoints live in these ConfigMaps, not in the environment: the env vars injected via `envFrom` / `cluster.secrets` (`GROUNDX_*`, `MYSQL_PASSWORD`, `AWS_*`) are credentials, not connection targets. So inspecting their **names** (above) is enough to see which Secrets are wired — you do **not** need Secret-read (which a strictly read-only SSO role usually lacks) to inventory the endpoints. **Do not** run `kubectl -n <ns> exec <pod> -- env`: it prints the *resolved* values (the DB password, the `GROUNDX_*` keys, the workspace token) to your terminal and shell history. A strictly read-only SSO role usually cannot `exec` anyway — the `pods/exec` verb is not in the read-only set in `troubleshooting.md` § 0 (`get` / `describe` / `logs` / `helm status` / `helm get values`). For the field-by-field **structure** of the rendered `config.yaml`, route to `groundx-architecture/references/data-flow.md`; this section covers how to *inventory and reconcile* a running deployment, not the config schema.
 
 ## 4. Phase 2 — helm install (canonical sequence)
 

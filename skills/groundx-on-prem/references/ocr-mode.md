@@ -15,6 +15,8 @@ The chart's `groundx.layout.ocr.type` helper defaults to `tesseract` (literal �
 
 The chart doesn't strictly validate the `type` value (it's a free string passed through to the application's runtime config). `tesseract` and `google` are the values the application is built to handle.
 
+**Migrating from an existing hosted deployment?** These two are the *only* OCR backends the chart supports. A hosted GroundX deployment may run OCR on a backend that has **no chart equivalent** — for example AWS Textract, driven out-of-band by the hosted stack (SNS/Lambda), which the chart cannot reproduce. Migrating onto the chart therefore forces a switch to Tesseract or Google Cloud Vision. Treat that as a functional change, not a lift-and-shift: benchmark OCR output parity on your own document mix before cutover, because OCR-quality differences propagate downstream into layout, chunking, and search results. See `deployment-options.md` § 6 for the broader migration framing.
+
 ## 2. Decision matrix
 
 | Dimension | Tesseract | Google Cloud Vision |
@@ -88,7 +90,7 @@ The chart's helper checks that the file exists at template time and `fail`s the 
 > {{- end -}}
 > ```
 
-So a missing or mistyped path is caught at `helm install` / `helm template` time, not at runtime.
+So a missing or mistyped path is caught at `helm install` / `helm template` time, not at runtime. (A *present, valid* path can still fail to render on chart versions before the Google-OCR render fix, a separate `celery.yaml` whitespace-chomp bug — see `troubleshooting.md` § 1.6.)
 
 ### 4.3 Allow egress to vision.googleapis.com
 

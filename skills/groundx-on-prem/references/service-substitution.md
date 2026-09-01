@@ -290,6 +290,21 @@ A practical note from the same file: "visibility timeout must be 10+ min for all
 
 See `values-yaml.md` § 7 for the per-topic field surface.
 
+### 6.3 SQS vs MSK for production EKS — which to choose
+
+Both Amazon SQS and Amazon MSK (managed Kafka) are valid AWS-managed queues for the stream subsystem, but they differ sharply in chart support and semantics. For a **production EKS deployment the recommended default is SQS**, which is also the shape the chart's AWS-EKS example pre-selects (§ 6.2, `src/groundx/values/values.aws.services.yaml`). The rationale:
+
+| | SQS (recommended default) | MSK (managed Kafka) |
+| --- | --- | --- |
+| **Chart wiring** | First-class: per-topic `type: sqs` + `url`, with labeled recipes in § 6.1 / § 6.2. | Generic existing-Kafka path only (`stream.existing.domain`, § 4.5); no MSK-specific recipe beyond that. |
+| **Auth from the chart** | Fully wirable from values: IRSA (url-only per topic) or per-topic `key`/`secret`/`region`. | **Not wirable from the chart.** Chart 0.2.7 has no Kafka keystore/truststore or SASL-SCRAM mount, so MSK TLS/SASL/IAM auth needs an out-of-chart path (`tls-and-certs.md` § 4.4). |
+| **Operational model** | Fully managed, no brokers to size or run. Changes queue semantics: ordering, batching, and a 10+ minute visibility timeout per queue (§ 6.2). | Managed brokers you still size, patch-window, and pay for. Preserves Kafka semantics (ordering, replay, consumer groups). |
+| **Cross-region DR** | SQS is regional and does not replicate cross-region; rebuild queues per region. | Kafka topics replicate via MirrorMaker2 / MSK replication (`dr-cross-region-runbook.md` § 2). |
+
+**Choose SQS** unless you specifically need Kafka semantics (strict per-partition ordering, message replay, or existing Kafka consumer tooling). **Choose MSK only if** you need those *and* can supply broker auth outside the chart, because the chart cannot render MSK TLS/SASL/IAM credentials today.
+
+**Wiring MSK (the labeled path).** MSK is configured through the generic existing-Kafka block in § 4.5: set `stream.existing.domain` to the MSK bootstrap-broker endpoint and `port: 9094` (TLS). The chart connects its Kafka client to that broker, but it does **not** render MSK authentication material — `stream.{key,secret,region}` are SQS fallback credentials, **not** Kafka SASL credentials (§ 4.5). MSK IAM authentication and SASL/SCRAM therefore require an application-supported environment contract verified separately, a service mesh or proxy, or a reviewed chart change (`tls-and-certs.md` § 4.4). Settle that auth path before committing to MSK.
+
 ## 7. Operational implications of substitution choices
 
 | Choice | Tradeoffs |
