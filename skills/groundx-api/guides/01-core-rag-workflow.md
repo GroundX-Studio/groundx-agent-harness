@@ -100,11 +100,13 @@ Content-Type: application/json
 }
 ```
 
-For local files, the GroundX MCP server does not provide a direct tool. Upload the
-file to GroundX-hosted storage via the pre-signed URL service, then submit the
-returned hosted URL to `document_ingestremote`. See §5 in 02-ingest-patterns.md for
-the three-step process. For website crawls, use `document_crawlwebsite`. See §1 and
-§4 in 02-documents.md for full parameter tables and all supported `fileType` values.
+For local files, upload to GroundX-hosted storage via the pre-signed URL service, then
+submit the returned hosted URL to `document_ingestremote`. An MCP host that can read
+the local file and perform an HTTP PUT itself (not every MCP client can) drives the
+presign step with the `document_uploadlocal` tool (`groundx-mcp` skill); see §5 in
+02-ingest-patterns.md for the three-step process. For website crawls, use
+`document_crawlwebsite`. See §1 and §4 in 02-documents.md for full parameter tables
+and all supported `fileType` values.
 
 ## 4. Step 3 — Poll for completion
 

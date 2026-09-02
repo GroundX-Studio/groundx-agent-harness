@@ -72,6 +72,27 @@ a duplicate is harmless.
 Both `describe_operation` and `call_operation` use the argument name `operationId` (not
 `operation_id`). This is the same name used by `pkg/model/mcp/endpoint.go` in the MCP server.
 
+## 2b. Local-File Upload Tool
+
+`document_uploadlocal` requires the `groundx:ingest` scope — the same scope
+`document_ingestremote` requires, since a session that can't call `document_ingestremote`
+to do anything with an uploaded file shouldn't be able to get an upload target for one
+either — but no opt-in toolset, unlike `report_issue` (§2a), which needs the `report`
+toolset. It is not one of the 12 default tools and is not reachable through
+`call_operation` (its backing endpoint is not a GroundX API operation). It only closes
+the local-file gap for MCP hosts that can read the local file and perform the HTTP PUT
+themselves — not every MCP client can, no matter which toolsets or scopes it has.
+
+| tool | input | output |
+|---|---|---|
+| `document_uploadlocal` | `{ fileName, fileType }` | `{ url, method, header, hostedUrl }` — `header`: `Host` is normally automatic, `GX-HOSTED-URL` is `sourceUrl` data (not an S3 header), other entries go on the PUT |
+
+It returns a pre-signed upload target from the existing GroundX upload broker, not the
+uploaded document. The caller still has to PUT the file bytes to `url` (with the
+applicable `header` entries, per the breakdown above) before calling
+`document_ingestremote` with `hostedUrl` as `sourceUrl`. See
+`references/05-workflows.md` §4.1 for the full local-file flow.
+
 ---
 
 ## 3. Derived-Scope Rule

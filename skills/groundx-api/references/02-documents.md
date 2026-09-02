@@ -4,8 +4,9 @@ This reference covers the 14 document MCP operations: ingesting files from remot
 or websites; polling and cancelling ingest processes; listing and querying documents;
 updating document metadata; copying and deleting documents; and retrieving extract and
 X-Ray data. Local-file uploads are handled by a pre-signed URL pattern that feeds into
-`document_ingestremote` — the GroundX MCP server does not expose a dedicated
-local-upload tool. See §3.
+`document_ingestremote`. MCP clients have a dedicated tool for the presign step,
+`document_uploadlocal` (see the `groundx-mcp` skill); REST and SDK callers follow the
+same pattern manually. See §3.
 
 ## 1. Ingest overview
 
@@ -200,24 +201,28 @@ Save `processId` and poll §5 until `status` is `complete`.
 
 **Errors:** 400 — invalid document type or source URL; 401 — unauthorized for that bucket.
 
-## 3. Local files — SDK ingest or pre-signed upload service
+## 3. Local files — SDK ingest, MCP tool, or pre-signed upload service
 
-**The GroundX MCP server does not expose a tool for local-file upload.** A direct REST
-endpoint, `POST /v1/ingest/documents/local`, accepts `multipart/form-data` (a `blob`
-file part plus a `metadata` JSON part), but it is limited to 8 MB per file, one file
-per call, and does not support callbacks. **Note:** the SDKs currently send
-`application/json` to this endpoint and will not work as written; the multipart-only
-requirement needs to be reflected in the OpenAPI / Fern config first before the SDKs
-can call it.
+The direct REST endpoint `POST /v1/ingest/documents/local` accepts
+`multipart/form-data` (a `blob` file part plus a `metadata` JSON part), but it is
+limited to 8 MB per file, one file per call, and does not support callbacks. **Note:**
+the SDKs currently send `application/json` to this endpoint and will not work as
+written; the multipart-only requirement needs to be reflected in the OpenAPI / Fern
+config first before the SDKs can call it. This REST endpoint is not exposed as an MCP
+tool either.
 
 For local files in application code, prefer the Python SDK `client.ingest()` or
 `client.ingest_directory()` methods. They handle the pre-signed upload flow
-automatically, then submit the hosted URL to `document_ingestremote` (§2). If you are
-calling REST directly, use the same pre-signed URL pattern manually: upload to
-GroundX-hosted storage via the pre-signed URL service, then submit the resulting hosted
-URL to `document_ingestremote`. This avoids the 8 MB cap and the one-file-per-call
-constraint, and gives the same 25–50 MB file size limit and 50-file batch capacity as
-remote ingest. See §5 and §13 in 02-ingest-patterns.md for the manual and SDK flows.
+automatically, then submit the hosted URL to `document_ingestremote` (§2). An MCP host
+that can read the local file and perform an HTTP PUT itself (not every MCP client can)
+has a dedicated tool for the presign step, `document_uploadlocal` — see the
+`groundx-mcp` skill's `references/02-default-tools.md` §2b and
+`references/05-workflows.md` §4.1. If you are calling REST directly, use the same
+pre-signed URL pattern manually: upload to GroundX-hosted storage via the pre-signed
+URL service, then submit the resulting hosted URL to `document_ingestremote`. All
+three paths avoid the 8 MB cap and the one-file-per-call constraint, and give the same
+25–50 MB file size limit and 50-file batch capacity as remote ingest. See §5 and §13 in
+02-ingest-patterns.md for the manual and SDK flows.
 
 ### Pre-signed URL service
 
@@ -230,32 +235,42 @@ GET https://api.eyelevel.ai/upload/file?name={fileName}&type={fileExtension}
 
 `type` is the file extension without a leading dot (e.g. `pdf`, `docx`, `png`).
 
-**Response:**
+**Response** (fields verified live, 2026-08-27):
 ```json
 {
-  "URL": "https://s3.amazonaws.com/...",
+  "URL": "https://eyelevel-upload.s3.us-west-2.amazonaws.com/...",
+  "Method": "PUT",
   "Header": {
-    "Content-Type": ["application/pdf"]
+    "Gx-Hosted-Url": ["https://upload.eyelevel.ai/prod/file/ssp/....pdf"],
+    "Host": ["eyelevel-upload.s3.us-west-2.amazonaws.com"]
   },
-  "Method": "PUT"
+  "HostedURL": "https://upload.eyelevel.ai/prod/file/ssp/....pdf"
 }
 ```
+
+`Header` entries fall into three buckets — don't send them all indiscriminately:
+- `Host` — the S3 upload host; HTTP clients normally set this automatically from
+  `URL`, so no action is usually needed.
+- `GX-HOSTED-URL` (if present) — the same value as `HostedURL` below, riding along in
+  `Header` for callers that read response headers instead of the body. It's the value
+  to use as `sourceUrl` later — **not** a header to send to S3.
+- Any other entries — send them as request headers on the PUT.
 
 **Upload:**
 ```http
 PUT {URL}
-Content-Type: {Header["Content-Type"][0]}
 
 <raw file bytes>
 ```
 
-A `200` or `201` response indicates success.
+A `200` response indicates success.
 
 The pre-signed `URL` above is valid for 60 minutes; complete the PUT before it expires,
 or request a new one.
 
 **Hosted URL** — use as `sourceUrl` in the subsequent `document_ingestremote` call:
-- The value of `GX-HOSTED-URL` in the pre-signed URL response headers, if present.
+- The `HostedURL` field in the response body, if present.
+- Otherwise: the value of `GX-HOSTED-URL` in the pre-signed URL response headers.
 - Otherwise: the upload `URL` with its query parameters stripped.
 
 The hosted URL is unsigned and the issuing service sets no expiry on it, but do not
@@ -266,8 +281,8 @@ rather than reusing a stored URL.
 **Python SDK shortcut.** `client.ingest()` handles these three steps automatically when
 a local `file_path` is provided — it calls the pre-signed upload service, then submits
 to `document_ingestremote` with the hosted URL. This needs a `GROUNDX_API_KEY` to
-construct the client; an authenticated MCP session that does not expose a raw API key
-should use the manual request/upload/submit steps above instead:
+construct the client; an MCP session should use the `document_uploadlocal` tool
+(`groundx-mcp` skill) instead of the raw REST steps above:
 
 ```python
 client.ingest(
