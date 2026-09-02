@@ -44,12 +44,14 @@ operation directly.
 | Pre-signed upload → `document_ingestremote` | Files are on the local filesystem — see §5 |
 | `document_crawlwebsite` | Ingest content from a website |
 
-**The GroundX MCP server does not expose a tool for local-file upload.** The direct REST
-endpoint `POST /v1/ingest/documents/local` accepts `multipart/form-data`, but it is
-limited to 8 MB per file, one file per call, and no callbacks. For local files, use the
-pre-signed upload service instead (§5): upload the file to GroundX-hosted storage, then
-submit the returned URL to `document_ingestremote`. This gives the same 25–50 MB file
-size limit and 50-file batch capacity as remote ingest. If you're calling from the
+The direct REST endpoint `POST /v1/ingest/documents/local` accepts
+`multipart/form-data`, but it is limited to 8 MB per file, one file per call, and no
+callbacks, and is not exposed as an MCP tool. For local files, use the pre-signed
+upload service instead (§5): upload the file to GroundX-hosted storage, then submit the
+returned URL to `document_ingestremote`. This gives the same 25–50 MB file size limit
+and 50-file batch capacity as remote ingest. An MCP host that can read the local file
+and perform an HTTP PUT itself (not every MCP client can) drives the presign step with
+the `document_uploadlocal` tool (`groundx-mcp` skill); if you're calling from the
 Python SDK, prefer §1.1 — the SDK handles the pre-signed upload and ingest call for you.
 
 ## 2. Supported file types
@@ -159,10 +161,12 @@ Up to 50 documents may be submitted in a single call.
 
 ## 5. Local files: pre-signed upload service
 
-For files on the local filesystem, the GroundX MCP server does not provide a direct
-tool — upload the file to GroundX-hosted storage using the pre-signed URL service,
-then submit the returned hosted URL to `document_ingestremote`. This is a three-step
-process.
+For files on the local filesystem, upload the file to GroundX-hosted storage using the
+pre-signed URL service, then submit the returned hosted URL to `document_ingestremote`.
+This is a three-step process. An MCP host that can read the local file and perform an
+HTTP PUT itself (not every MCP client can) drives step 1 with the `document_uploadlocal`
+tool instead of the raw REST call below — see the `groundx-mcp` skill's
+`references/02-default-tools.md` §2b and `references/05-workflows.md` §4.1.
 
 ### Step 1 — Request a pre-signed upload URL
 
@@ -173,42 +177,52 @@ GET https://api.eyelevel.ai/upload/file?name={fileName}&type={fileExtension}
 ```
 
 `name` is the file's display name; `type` is the file extension without a leading dot
-(e.g. `pdf`, `docx`, `png`). The response is JSON:
+(e.g. `pdf`, `docx`, `png`). The response is JSON (fields verified live, 2026-08-27):
 
 ```json
 {
-  "URL": "https://s3.amazonaws.com/...",
+  "URL": "https://eyelevel-upload.s3.us-west-2.amazonaws.com/...",
+  "Method": "PUT",
   "Header": {
-    "Content-Type": ["application/pdf"]
+    "Gx-Hosted-Url": ["https://upload.eyelevel.ai/prod/file/ssp/....pdf"],
+    "Host": ["eyelevel-upload.s3.us-west-2.amazonaws.com"]
   },
-  "Method": "PUT"
+  "HostedURL": "https://upload.eyelevel.ai/prod/file/ssp/....pdf"
 }
 ```
 
-Extract `URL` (the upload destination), `Header` (required request headers — each value
-is a list; use the first element), and `Method` (always `"PUT"`).
+Extract `URL` (the upload destination), `Method` (always `"PUT"`), and `HostedURL`
+(see Step 3). `Header` entries fall into three buckets — each value is a list; use the
+first element:
+- `Host` — the S3 upload host; HTTP clients normally set this automatically from
+  `URL`, so no action is usually needed.
+- `Gx-Hosted-Url` (if present) — the same value as `HostedURL`, riding along for
+  callers that read response headers instead of the body. It's `sourceUrl` data for
+  Step 3 — **not** a header to send to S3.
+- Any other entries — send them as request headers on the PUT.
 
 The pre-signed `URL` is valid for 60 minutes. Complete Step 2 before it expires; after
 that, repeat Step 1 for a new one.
 
 ### Step 2 — Upload the file
 
-PUT the raw file bytes to the returned `URL` with the `Header` values applied:
+PUT the raw file bytes to the returned `URL`, applying only the `Header` entries the
+Step 1 breakdown says belong on the PUT (skip `Gx-Hosted-Url`):
 
 ```http
 PUT {URL}
-Content-Type: application/pdf
 
 <raw file bytes>
 ```
 
-A `200` or `201` response indicates success.
+A `200` response indicates success.
 
 ### Step 3 — Determine the hosted URL
 
 The `sourceUrl` to use in `document_ingestremote` is:
 
-- The value of `GX-HOSTED-URL` in the pre-signed URL response headers, if present.
+- The `HostedURL` field in the response body, if present.
+- Otherwise: the value of `GX-HOSTED-URL` in the pre-signed URL response headers.
 - Otherwise: the upload `URL` with its query parameters stripped (the clean S3 object URL).
 
 The hosted URL is unsigned and the issuing service sets no expiry on it, but do not
@@ -239,9 +253,9 @@ handles all three steps automatically when a local file path is provided — it 
 whether the `file_path` field is a URL or a local path, calls the pre-signed upload
 service for local paths, and routes everything through `document_ingestremote`. Use it
 in preference to implementing the three steps manually when a `GROUNDX_API_KEY` is
-available — the SDK client requires one to construct (`GroundX(api_key=...)`). An
-authenticated MCP session that does not expose a raw API key should use the three manual
-steps above instead.
+available — the SDK client requires one to construct (`GroundX(api_key=...)`). An MCP
+session should use the `document_uploadlocal` tool (`groundx-mcp` skill) instead of the
+three manual REST steps above.
 
 ## 6. Website crawl
 

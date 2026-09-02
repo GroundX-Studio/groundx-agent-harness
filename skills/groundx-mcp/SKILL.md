@@ -113,7 +113,9 @@ workflow example:
 This skill is standalone. If REST or SDK integration is needed after MCP setup, if the target
 is a dev environment, if MCP tools are missing, or if the needed operation is not covered by
 the MCP surface, see the `groundx-api` skill for REST base URL, SDK setup, and endpoint
-operation semantics. For local-file upload specifically, see
-`groundx-api/guides/02-ingest-patterns.md` §5 for the pre-signed upload steps (also
-cross-linked from this skill's `references/05-workflows.md` §4.1). Neither skill requires the
-other to be installed.
+operation semantics. Local-file upload is documented within this skill via the
+`document_uploadlocal` tool — see `references/02-default-tools.md` §2b and
+`references/05-workflows.md` §4.1; no `groundx-api` handoff is needed for it. That said,
+the tool only closes the gap for MCP hosts that can read the local file and perform the
+HTTP PUT themselves — not every MCP client can, and no `groundx-api` handoff changes
+that. Neither skill requires the other to be installed.

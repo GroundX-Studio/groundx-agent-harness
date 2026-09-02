@@ -96,15 +96,35 @@ asynchronous — the document is not searchable yet.
 
 ### 4.1 Local files
 
-No MCP tool uploads a local file directly. `document_ingestremote` only accepts a
-`sourceUrl` it can already reach. For a file on disk, first get it hosted through the
-pre-signed upload service, then submit the resulting URL exactly as in the example
-above — see `groundx-api/guides/02-ingest-patterns.md` §5 for the 3-step flow
-(request a pre-signed URL, PUT the file to it, submit the hosted URL to
-`document_ingestremote`). The pre-signed URL request does not require a GroundX API key.
-The pre-signed URL itself is valid for 60 minutes; the hosted URL
-used as `sourceUrl` is not signed and has no code-enforced expiry, but do not reuse one
-from an earlier session, request a fresh one instead.
+`document_ingestremote` only accepts a `sourceUrl` it can already reach — it cannot
+take a local filesystem path. For a file on disk, call `document_uploadlocal` first to
+get a pre-signed upload target, then submit the resulting hosted URL exactly as in the
+example above. This only works when the MCP host itself can read the local file and
+perform the HTTP PUT — not every MCP client can; a host limited to tool-calling alone
+cannot complete this flow. `document_uploadlocal` also requires the `groundx:ingest`
+scope, the same scope `document_ingestremote` requires (see §7 below) — a session that
+can't call `document_ingestremote` can't get an upload target either. This is a
+two-call flow:
+
+```json
+document_uploadlocal({ "fileName": "invoice", "fileType": "pdf" })
+```
+
+Returns `{ url, method, header, hostedUrl }`. PUT the file bytes to `url`, then call
+`document_ingestremote` with `hostedUrl` as `sourceUrl`, exactly as in the example
+above. `header` entries: `Host` is normally set automatically by the HTTP client from
+`url`; `GX-HOSTED-URL` (if present) is the same value as `hostedUrl` and is data for
+the `document_ingestremote` call, not a header to send to S3; send any other entries as
+request headers on the PUT. See `references/02-default-tools.md` §2b for the full tool
+reference.
+
+`document_uploadlocal` does not require a GroundX API key. The pre-signed `url` is
+valid for 60 minutes; the `hostedUrl` used as `sourceUrl` is not signed and has no
+code-enforced expiry, but do not reuse one from an earlier session — call
+`document_uploadlocal` again for a fresh one.
+
+REST or SDK callers without MCP access follow the same pattern manually — see
+`groundx-api/guides/02-ingest-patterns.md` §5.
 
 ---
 
@@ -177,6 +197,7 @@ bucket or group search, use `search_content`.
 | 2a. Create group | `group_create` | `groundx:write` |
 | 2b. Add bucket to group | `group_addbucket` | `groundx:write` |
 | 3. Ingest document | `document_ingestremote` | `groundx:ingest` |
+| 3a. Local file (§4.1) | `document_uploadlocal` | `groundx:ingest` |
 | 4. Poll for completion | `document_getprocessingstatusbyid` | `groundx:ingest` |
 | 5a. Search by bucket or group | `search_content` | `groundx:write` |
 | 5b. Search explicit document set | `search_documents` | `groundx:write` |
@@ -189,7 +210,9 @@ set. See `skills/groundx-mcp/references/02-default-tools.md` for the full visibi
 
 ## 8. Standalone note
 
-This workflow is fully supported with the `groundx-mcp` skill alone for remote (URL-reachable)
-documents. Two cases still need the `groundx-api` skill: local-file ingest, which needs the
-pre-signed upload steps in `groundx-api/guides/02-ingest-patterns.md` §5 (see §4.1 above), and
-REST or SDK fallback for driving ingest programmatically from a backend service.
+This workflow, including local-file ingest (§4.1), is documented entirely within the
+`groundx-mcp` skill — no `groundx-api` handoff needed to find the steps. That doesn't
+mean every MCP client can execute §4.1 end-to-end: it still needs an MCP host that can
+read the local file and perform the HTTP PUT itself. One case still needs the
+`groundx-api` skill: REST or SDK fallback for driving ingest programmatically from a
+backend service without MCP.
