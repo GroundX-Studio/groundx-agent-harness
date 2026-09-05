@@ -507,7 +507,16 @@ Expected: `200 OK` once the application has connected to all backing services. F
 
 ### 7.4 End-to-end smoke test
 
-Run an ingest against a known-good document through the GroundX API, wait for processing to complete, run a search query, verify the result. For the API call shape, route to `groundx-api/`.
+Run one known-good document through the deployed pipeline, then exercise each enabled capability against it. This section owns the deployment-side sequence; for the exact API call shapes (endpoints, payloads, SDK forms), route to `groundx-api/`.
+
+1. **Reach the API.** Port-forward as in § 7.3, or use the deployer-wired ingress endpoint (§ 4.5). Authenticate with the admin credential configured at install (`license-and-admin.md` § 2; § 5 explains the `admin.apiKey` / `admin.username` key relationship).
+2. **Ingest.** Upload a small known-good PDF via the ingest endpoint (shape → `groundx-api/`). Capture the returned **ingest-job process ID** for polling; the status response identifies each **document ID** — downstream logs and traces key on the document, not the ingest batch (`groundx-api/references/02-documents.md` § 10.1).
+3. **Poll status to completion.** Poll the ingest-status endpoint with the job ID until the process reports complete. Expect the first document after an install to be the slowest: it exercises every **enabled self-hosted inference stage** end to end, including first-inference warm-up. If status stops advancing, locate the stage with the per-document monitor chain (`monitoring.md` § 11), then route to `references/troubleshooting.md` § 4.
+4. **Search — if search is enabled.** Query for a distinctive phrase that appears only in the test document; verify the document returns with matching content.
+5. **Extraction — if extract is enabled.** Run the extract path against the same document (shape → `groundx-api/`; schema-first workflows → `groundx-extraction-workflows`).
+6. **Workspace — if workspace is enabled.** Workspace manages code projects — it does not answer from ingested documents. Run its own smoke (provision / publish path) per `workspace-service.md`.
+
+A pass means: ingest completes; search and extraction (when enabled) answer with content from the test document; the workspace check (when enabled) passes on its own terms. A disabled capability is skipped, not failed. Record the ingest-job process ID, the document ID, and the end-to-end wall time — the deployment's first working baseline.
 
 For common failure modes (stuck documents, queue back-pressure, GPU scheduling failures, summary engine misconfig), route to `references/troubleshooting.md`.
 

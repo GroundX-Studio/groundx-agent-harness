@@ -33,8 +33,10 @@ is 0 if no field fails (warnings allowed), 1 otherwise.
 import csv
 import json
 import os
+import re
 import sys
 import typing
+import unicodedata
 
 
 # ── normalization ──────────────────────────────────────────────────────────
@@ -63,12 +65,25 @@ def _field_value(value: typing.Any) -> typing.Any:
     return value
 
 
+def _normalize_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFC", value)
+    normalized = " ".join(normalized.split())
+    normalized = re.sub(r"\s*&\s*", " & ", normalized)
+    normalized = re.sub(
+        r"(?<=\d)\s+percent(?![\w-])",
+        "%",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    return " ".join(normalized.split())
+
+
 def normalize_value(val: typing.Any) -> str:
-    """Normalize a value for comparison: strip whitespace, normalize dates."""
+    """Normalize harmless text presentation and date syntax for comparison."""
     val = _field_value(val)
     if val is None:
         return ""
-    s = str(val).strip()
+    s = _normalize_text(str(val))
     if "/" in s and len(s) <= 10:
         parts = s.split("/")
         if len(parts) == 3:
@@ -76,6 +91,41 @@ def normalize_value(val: typing.Any) -> str:
             if len(y) == 4 and m.isdigit() and d.isdigit():
                 s = f"{y}-{m.zfill(2)}-{d.zfill(2)}"
     return s
+
+
+def _parsed_json_container(value: str) -> typing.Any:
+    try:
+        parsed = json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    return parsed if isinstance(parsed, (dict, list)) else None
+
+
+def _canonical_json_value(value: typing.Any) -> typing.Any:
+    if value is None:
+        return ("null",)
+    if isinstance(value, bool):
+        return ("boolean", value)
+    if isinstance(value, (int, float)):
+        return ("number", value)
+    if isinstance(value, str):
+        return ("string", normalize_value(value).casefold())
+    if isinstance(value, list):
+        return ("array", tuple(_canonical_json_value(item) for item in value))
+    if isinstance(value, dict):
+        return (
+            "object",
+            tuple(
+                sorted(
+                    (
+                        unicodedata.normalize("NFC", str(key)),
+                        _canonical_json_value(item),
+                    )
+                    for key, item in value.items()
+                )
+            ),
+        )
+    return (type(value).__name__, value)
 
 
 def _get_aliased(d: typing.Dict[str, typing.Any], key: str) -> typing.Any:
@@ -166,6 +216,15 @@ def compare_field(exp_val: typing.Any, ext_val: typing.Any) -> str:
     if ext_norm == "":
         return "FAIL (missing)"
 
+    exp_json = _parsed_json_container(exp_norm)
+    ext_json = _parsed_json_container(ext_norm)
+    if exp_json is not None and ext_json is not None:
+        return (
+            "PASS"
+            if _canonical_json_value(exp_json) == _canonical_json_value(ext_json)
+            else "FAIL"
+        )
+
     numeric = _numeric_match(exp_norm, ext_norm)
     if numeric is True:
         return "PASS"
@@ -176,7 +235,58 @@ def compare_field(exp_val: typing.Any, ext_val: typing.Any) -> str:
     return "FAIL"
 
 
-def classify_field(exp_val: typing.Any, ext_val: typing.Any) -> typing.Tuple[str, typing.Optional[str]]:
+def _accepted_value_paths(expected: typing.Dict[str, typing.Any]) -> set[str]:
+    paths = set((expected.get("singleton") or {}).keys())
+    for group_name, records in (expected.get("groups") or {}).items():
+        for record in records:
+            if isinstance(record, dict):
+                paths.update(f"{group_name}.{field}" for field in record)
+    return paths
+
+
+def validate_accepted_values(
+    accepted_values: typing.Optional[typing.Dict[str, typing.List[typing.Any]]],
+    expected: typing.Dict[str, typing.Any],
+) -> typing.Dict[str, typing.Tuple[typing.Any, ...]]:
+    """Validate optional case-owned scalar alternatives against the answer key."""
+    if accepted_values is None:
+        return {}
+    if not isinstance(accepted_values, dict):
+        raise ValueError("accepted values must be an object")
+    valid_paths = _accepted_value_paths(expected)
+    validated: typing.Dict[str, typing.Tuple[typing.Any, ...]] = {}
+    for path, alternatives in accepted_values.items():
+        if not isinstance(path, str) or not path.strip():
+            raise ValueError("accepted value field paths must be non-empty strings")
+        if path not in valid_paths:
+            raise ValueError(f"accepted value path {path!r} is an unknown expected field")
+        if not isinstance(alternatives, list) or not alternatives:
+            raise ValueError(f"accepted values for {path!r} must be a non-empty array")
+        if any(value is None or isinstance(value, (dict, list)) for value in alternatives):
+            raise ValueError(f"accepted values for {path!r} must contain non-null scalars")
+        validated[path] = tuple(alternatives)
+    return validated
+
+
+def _compare_field_with_accepted(
+    exp_val: typing.Any,
+    ext_val: typing.Any,
+    alternatives: typing.Iterable[typing.Any] = (),
+) -> typing.Tuple[str, typing.Optional[typing.Any]]:
+    status = compare_field(exp_val, ext_val)
+    if not status.startswith("FAIL"):
+        return status, None
+    for alternative in alternatives:
+        alternative_status = compare_field(alternative, ext_val)
+        if not alternative_status.startswith("FAIL"):
+            return alternative_status, alternative
+    return status, None
+
+
+def classify_field(
+    exp_val: typing.Any,
+    ext_val: typing.Any,
+) -> typing.Tuple[str, typing.Optional[str]]:
     """Return (status, miss_type) for one field within a record.
 
     miss_type classifies why a field is not a clean extraction hit:
@@ -196,30 +306,73 @@ def classify_field(exp_val: typing.Any, ext_val: typing.Any) -> typing.Tuple[str
     return status, "field-mismatch"
 
 
+def _classify_field_with_accepted(
+    exp_val: typing.Any,
+    ext_val: typing.Any,
+    alternatives: typing.Iterable[typing.Any],
+) -> typing.Tuple[str, typing.Optional[str], typing.Optional[typing.Any]]:
+    status, matched_accepted_value = _compare_field_with_accepted(
+        exp_val,
+        ext_val,
+        alternatives,
+    )
+    if normalize_value(exp_val) == "":
+        return status, "expected-null", matched_accepted_value
+    if status in ("PASS", "WARN (casing)"):
+        return status, None, matched_accepted_value
+    if normalize_value(ext_val) == "":
+        return status, "not-found", matched_accepted_value
+    return status, "field-mismatch", matched_accepted_value
+
+
 def compare_singleton(
     extracted: typing.Dict[str, typing.Any],
     expected_singleton: typing.Dict[str, typing.Any],
+    accepted_values: typing.Optional[
+        typing.Dict[str, typing.Tuple[typing.Any, ...]]
+    ] = None,
 ) -> typing.List[dict]:
+    accepted_values = accepted_values or {}
     results = []
     for field, exp_val in expected_singleton.items():
         ext_val = _get_aliased(extracted, field)
-        status = compare_field(exp_val, ext_val)
-        results.append({
+        status, matched_accepted_value = _compare_field_with_accepted(
+            exp_val,
+            ext_val,
+            accepted_values.get(field, ()),
+        )
+        result = {
             "field": field,
             "expected": exp_val,
             "extracted": ext_val if normalize_value(ext_val) != "" else "(empty)",
             "status": status,
-        })
+        }
+        if field in accepted_values:
+            result["accepted_values"] = list(accepted_values[field])
+        if matched_accepted_value is not None:
+            result["matched_accepted_value"] = matched_accepted_value
+        results.append(result)
     return results
 
 
-def _record_overlap(exp_record: dict, ext_record: dict) -> int:
+def _record_overlap(
+    exp_record: dict,
+    ext_record: dict,
+    *,
+    group_name: str,
+    accepted_values: typing.Dict[str, typing.Tuple[typing.Any, ...]],
+) -> int:
     """How many of the expected record's fields match the extracted record."""
     score = 0
     for field, exp_val in exp_record.items():
         if normalize_value(exp_val) == "":
             continue
-        if compare_field(exp_val, _get_aliased(ext_record, field)) in ("PASS", "WARN (casing)"):
+        status, _ = _compare_field_with_accepted(
+            exp_val,
+            _get_aliased(ext_record, field),
+            accepted_values.get(f"{group_name}.{field}", ()),
+        )
+        if status in ("PASS", "WARN (casing)"):
             score += 1
     return score
 
@@ -243,6 +396,11 @@ def _empty_field_counts() -> typing.Dict[str, int]:
 def compare_records(
     extracted_records: typing.List[dict],
     expected_records: typing.List[dict],
+    *,
+    group_name: str = "",
+    accepted_values: typing.Optional[
+        typing.Dict[str, typing.Tuple[typing.Any, ...]]
+    ] = None,
 ) -> typing.Dict[str, typing.Any]:
     """Pair expected and extracted records by best field overlap, then score
     each field WITHIN the matched records — never all-or-nothing.
@@ -257,6 +415,7 @@ def compare_records(
       - record_summary:  matched / expected / extra / not_found record counts.
       - field_summary:   (passed, scored) across the whole group.
     """
+    accepted_values = accepted_values or {}
     records_out: typing.List[dict] = []
     field_breakdown: typing.Dict[str, typing.Dict[str, int]] = {}
     used: set[int] = set()
@@ -271,7 +430,12 @@ def compare_records(
         for idx, ext_record in enumerate(extracted_records):
             if idx in used:
                 continue
-            score = _record_overlap(exp_record, ext_record)
+            score = _record_overlap(
+                exp_record,
+                ext_record,
+                group_name=group_name,
+                accepted_values=accepted_values,
+            )
             if score > best_score:
                 best_score = score
                 best_idx = idx
@@ -300,7 +464,12 @@ def compare_records(
         record_ok = True
         for field, exp_val in exp_record.items():
             ext_val = _get_aliased(match, field)
-            status, miss_type = classify_field(exp_val, ext_val)
+            field_path = f"{group_name}.{field}"
+            status, miss_type, matched_accepted_value = _classify_field_with_accepted(
+                exp_val,
+                ext_val,
+                accepted_values.get(field_path, ()),
+            )
             if miss_type == "expected-null":
                 bump(field, "expected_null")
             else:
@@ -310,13 +479,18 @@ def compare_records(
                 else:
                     bump(field, miss_type.replace("-", "_"))
                     record_ok = False
-            fields.append({
+            field_result = {
                 "field": field,
                 "expected": exp_val,
                 "extracted": ext_val if normalize_value(ext_val) != "" else "(empty)",
                 "status": status,
                 "miss_type": miss_type,
-            })
+            }
+            if field_path in accepted_values:
+                field_result["accepted_values"] = list(accepted_values[field_path])
+            if matched_accepted_value is not None:
+                field_result["matched_accepted_value"] = matched_accepted_value
+            fields.append(field_result)
         records_out.append({
             "label": label,
             "match": "matched",
@@ -352,20 +526,32 @@ def compare_records(
 def compare_extraction(
     extracted: typing.Dict[str, typing.Any],
     expected: typing.Dict[str, typing.Any],
+    *,
+    accepted_values: typing.Optional[typing.Dict[str, typing.List[typing.Any]]] = None,
 ) -> typing.Dict[str, typing.Any]:
     """Compare an extraction dict against normalized expected-answer structure.
 
     Returns a report: per-field singleton results, per-group record results, a
     summary of (pass, total) per section, and an overall has_failure flag.
     """
-    singleton_results = compare_singleton(extracted, expected.get("singleton") or {})
+    validated_accepted_values = validate_accepted_values(accepted_values, expected)
+    singleton_results = compare_singleton(
+        extracted,
+        expected.get("singleton") or {},
+        validated_accepted_values,
+    )
 
     group_results: typing.Dict[str, typing.Dict[str, typing.Any]] = {}
     group_summary: typing.Dict[str, typing.Dict[str, typing.Any]] = {}
     group_has_failure = False
     for group_name, exp_records in (expected.get("groups") or {}).items():
         ext_records = _resolve_group(extracted, group_name)
-        gr = compare_records(ext_records, exp_records)
+        gr = compare_records(
+            ext_records,
+            exp_records,
+            group_name=group_name,
+            accepted_values=validated_accepted_values,
+        )
         group_results[group_name] = gr
         rs = gr["record_summary"]
         group_summary[group_name] = {
