@@ -15,6 +15,8 @@ Asserts score_extraction.py:
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import score_extraction as compare  # noqa: E402
@@ -133,6 +135,110 @@ def test_value_when_answer_key_is_null_is_not_a_failure():
     st = _statuses(report["singleton"])
     assert not st["customer_account_id"].startswith("FAIL")
     assert report["has_failure"] is False
+
+
+def test_presentation_only_text_differences_match():
+    assert compare.compare_field("Z&N  Coffeehouse", "Z & N\u00a0Coffeehouse") == "PASS"
+    assert compare.compare_field("Caf\u00e9", "Cafe\u0301") == "PASS"
+
+
+def test_percentage_word_and_symbol_are_the_same_unit():
+    assert compare.compare_field("5%", "5 percent") == "PASS"
+    assert compare.compare_field("5% demand charge", "5 percent demand charge") == "PASS"
+    assert compare.compare_field("5% demand charge", "6 percent demand charge") == "FAIL"
+    assert compare.compare_field("5% demand charge", "5 percent usage charge") == "FAIL"
+    assert compare.normalize_value("5 percent-based limit") == "5 percent-based limit"
+
+
+def test_declared_accepted_value_matches_without_weakening_normal_comparison():
+    field = "employee_contributions.contribution_limit"
+    expected = {
+        "singleton": {
+            field: "0% to 92% of compensation in increments of 1%",
+        },
+        "groups": {},
+    }
+    extracted = {
+        "employee_contributions": {
+            "contribution_limit": "0 percent to 92 percent in increments of 1 percent",
+        }
+    }
+
+    strict = compare.compare_extraction(extracted, expected)
+    accepted = compare.compare_extraction(
+        extracted,
+        expected,
+        accepted_values={field: ["0% to 92% in increments of 1%"]},
+    )
+
+    assert strict["has_failure"] is True
+    assert accepted["summary"]["singleton"] == (1, 1)
+    assert accepted["has_failure"] is False
+    assert accepted["singleton"][0]["matched_accepted_value"] == (
+        "0% to 92% in increments of 1%"
+    )
+
+
+def test_declared_accepted_values_validate_fields_and_scalar_values():
+    expected = {"singleton": {"statement.total": "10.00"}, "groups": {}}
+
+    with pytest.raises(ValueError, match="unknown expected field"):
+        compare.compare_extraction(
+            {"statement": {"total": "10.00"}},
+            expected,
+            accepted_values={"statement.other": ["10.00"]},
+        )
+    with pytest.raises(ValueError, match="non-null scalar"):
+        compare.compare_extraction(
+            {"statement": {"total": "10.00"}},
+            expected,
+            accepted_values={"statement.total": [["10.00"]]},
+        )
+
+
+def test_declared_accepted_value_applies_to_repeating_group_fields():
+    expected = {
+        "singleton": {},
+        "groups": {"claims": [{"claim_id": "A1", "rate": "5%"}]},
+    }
+    extracted = {"claims": [{"claim_id": "A1", "rate": "five percent"}]}
+
+    report = compare.compare_extraction(
+        extracted,
+        expected,
+        accepted_values={"claims.rate": ["five percent"]},
+    )
+
+    assert report["summary"]["groups"]["claims"]["fields"] == (2, 2)
+    rate = next(
+        field
+        for field in report["groups"]["claims"]["records"][0]["fields"]
+        if field["field"] == "rate"
+    )
+    assert rate["matched_accepted_value"] == "five percent"
+
+
+def test_json_container_serialization_differences_match():
+    expected = '[{"name":"Z&N","enabled":true,"count":2}]'
+    extracted = '[ { "count": 2, "enabled": true, "name": "Z & N" } ]'
+
+    assert compare.compare_field(expected, extracted) == "PASS"
+
+
+def test_semantic_differences_still_fail():
+    pairs = (
+        ("Plan A", "Plan B"),
+        ("Plan A.", "Plan A"),
+        ("2", "3"),
+        ("true", "false"),
+        ("null", "[]"),
+        ("Cafe", "Caf\u00e9"),
+        ('["first","second"]', '["second","first"]'),
+        ('{"name":"Plan A"', '{"name":"Plan A"}'),
+    )
+
+    for expected, extracted in pairs:
+        assert compare.compare_field(expected, extracted) == "FAIL"
 
 
 def test_records_pair_without_hardcoded_match_key():

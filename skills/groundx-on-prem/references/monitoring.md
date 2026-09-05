@@ -184,7 +184,61 @@ For the architectural framing of alerting, route to `groundx-architecture/refere
 | Custom queue names (e.g., `workspace.command.queue: my-q`) | Make sure the metrics service is wired to scrape from your new queue. The chart's metrics-config-rendering aligns this automatically; manual queue renames outside the chart break the link. |
 | Multi-cluster monitoring | The chart doesn't multiplex across clusters. Run a separate Prometheus per cluster, or aggregate via Thanos / Cortex / Mimir at the upper layer. |
 
-## 11. Monitoring on AWS CloudWatch / Container Insights
+## 11. Following one document through the pipeline
+
+Fleet metrics (§ 5) say whether the system is healthy. This section answers the other question — **"where is my document right now?"** — during the post-install smoke test (`install-flow.md` § 7.4) or whenever one specific document is stuck while the fleet looks fine.
+
+**Get the identifiers right first.** Ingest returns an **ingest-job process ID** — poll the ingest-status endpoint with it (call shape → `groundx-api/`). The status response reports coarse states only (`queued`, `processing`, `complete`, …) — it never names an internal stage — and it identifies each **document ID** in the batch. Downstream worker logs key on the document (and its task), **not** the ingest-job ID, and a document also carries its own distinct lineage `processId` — see `groundx-api/references/02-documents.md` § 10.1 for the two-`processId` contract. Poll with the job ID; correlate everything below by **document ID**.
+
+A document moves through pipeline stages; each stage has a transport you can measure and workloads you can log-tail:
+
+| Stage | Transport | Workloads to log-tail (`-n eyelevel`, by label) |
+| --- | --- | --- |
+| Intake | `stream.topics.upload` and `stream.topics.preProcess` → default topics `file-upload`, `file-pre-process` | `app=upload`, `app=pre-process` |
+| Dispatch | `stream.topics.process` → default topic `file-process` | `app=process` |
+| Layout (correct → OCR ∥ layout → map → save, per page) | Celery over the `cache` Redis | `app=layout-process`, `app=layout-correct`, `app=layout-ocr`, `app=layout-map`, `app=layout-save`; GPU inference: `app=layout-inference` |
+| Summary | `stream.topics.summary` → default topic `file-summary` | `app=summary-client`, `app=summary-api`; GPU inference: `app=summary-inference` |
+| Finalize | `stream.topics.update` → default topic `file-update` | `app=queue` (status writer), served by the API (`app=groundx`) |
+
+(Workload names and `file-*` topic names are the default render's; per-topic `topic`/`groupId` overrides and service-name overrides change them — read the deployed values first. The layout step order is the `ai-server` per-page chain: `correctImage` → `detectOCR` ∥ `detectLayout` → `detectMap` → save. `ranker-*` is search-time, not part of ingest.)
+
+Diagnostic order — authoritative answer, then the systemic signal, then logs:
+
+```bash
+# 1) Poll ingest status with the JOB process ID; note the coarse state and
+#    collect the affected DOCUMENT ID(s)  (shape → groundx-api/)
+
+# 2) Is a stage's queue backing up (systemic), or is this one document stuck?
+#    Start with groundx_queue_backlog (§ 5) from the metrics pod where it reports
+#    your queues (its implementation ships in the metrics image — confirm coverage
+#    on non-default transports); otherwise use the transport-specific checks:
+#    Transport-specific (topics can be Kafka, SQS, or mixed per topic —
+#    values-authoring.md § 3.5.5):
+#      bundled Strimzi Kafka  — consumer-group lag (group IDs default to topic names):
+kubectl get pods -n eyelevel -l strimzi.io/cluster=stream-cluster   # find a broker pod
+kubectl exec -n eyelevel <kafka-broker-pod> -- \
+  bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --describe --group file-process
+#      external Kafka         — same query via your broker's approved client tooling
+#      AWS SQS                — queue depth / in-flight / oldest-message age via
+#                               CloudWatch or `aws sqs get-queue-attributes`
+
+# 3) Log-tail the stages for this DOCUMENT. Derive the lookback from the
+#    document's age (ingest start time, step 1) — a fixed 30m window on a
+#    45m-old document misses the pickup event and fakes a "lost" diagnosis:
+kubectl logs -n eyelevel -l app=layout-process --since=<document-age> --tail=5000 | grep -i <document-id>
+# repeat across the stage labels in table order (intake → finalize) until the
+# LAST event for this document is found; check the GPU inference pod for the
+# layout/summary stages too
+```
+
+How to read the combination:
+
+- **Status parked + stage queue backlog growing** → the stage is under-provisioned or its workers are failing; check the stage pods' restarts and route to `troubleshooting.md` § 4.
+- **Status parked + queue drained** → locate the document's **last** logged event across the stage labels (lookback ≥ the document's age). Classify the task as lost mid-flight (worker OOM/crash after take) **only when a log line shows it was dequeued or started and nothing follows it**. On the layout stage's default Redis/Valkey Celery broker — late acknowledgement, no `visibility_timeout` override — a lost task redelivers only after the visibility timeout expires (~1 hour), so a long park followed by a spontaneous retry is this signature; SQS-backed topics redeliver per the queue's own visibility timeout instead (10+ minutes, values-authoring.md § 3.5.5), and deployments that override broker transport options differ. **If no stage ever logged the document**, it was never dispatched — step back to the previous stage's queue and workloads instead. Route to `troubleshooting.md` § 4.
+- **Log lines show repeated re-processing of the same page/task** → a poison document or a task that dies at the same point each attempt; capture the log window before routing.
+
+## 12. Monitoring on AWS CloudWatch / Container Insights
 
 The chart's first-class monitoring path is Prometheus + Grafana (above). The chart ships no CloudWatch integration, but an AWS operator who runs observability on CloudWatch / Container Insights instead of Prometheus can bridge to it — the chart exposes the same signals, only the collection layer differs. Nothing in the chart changes; you add AWS-side collectors:
 
@@ -194,7 +248,7 @@ The chart's first-class monitoring path is Prometheus + Grafana (above). The cha
 
 This is a bridge, not a chart feature: you own the collector install, the IAM (the agents need CloudWatch Logs + metrics permissions, grantable via IRSA like the roles in `terraform-aws.md` § 6), and the alarm definitions. If you run both Prometheus and CloudWatch, scrape the one `/metrics` endpoint from whichever collector you standardize on.
 
-## 12. What this file does not cover
+## 13. What this file does not cover
 
 - **Autoscaling that consumes these metrics** → `autoscaling.md`.
 - **GPU metrics via DCGM** → `gpu-operator.md` § 1 (the DCGM exporter is an operator feature, not GroundX-side).
@@ -203,4 +257,4 @@ This is a bridge, not a chart feature: you own the collector install, the IAM (t
 - **Multi-cluster aggregation** (Thanos, Cortex, Mimir) → upstream Prometheus ecosystem.
 - **Architectural framing of GroundX observability** → `groundx-architecture/references/observability.md`.
 - **Detailed Prometheus / Grafana setup** → `monitoring/README.md` in the upstream `groundx-on-prem` repo.
-- **Full CloudWatch / Container Insights setup** (collector install, IAM policy authoring, log-group retention, dashboards) → deployer responsibility; § 11 gives the endpoint-and-logs bridge, not a full AWS runbook.
+- **Full CloudWatch / Container Insights setup** (collector install, IAM policy authoring, log-group retention, dashboards) → deployer responsibility; § 12 gives the endpoint-and-logs bridge, not a full AWS runbook.

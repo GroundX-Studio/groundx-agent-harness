@@ -6,12 +6,12 @@
   },
   "metadata": {
     "description": "GroundX agent runtime harness for API use, schema-first extraction, on-prem deployment, architecture, and supported GTM guidance.",
-    "version": "2.5.22"
+    "version": "2.5.28"
   },
   "plugins": [
     {
       "name": "groundx-agent-harness",
-      "version": "2.5.22",
+      "version": "2.5.28",
       "description": "GroundX agent runtime harness for API use, schema-first extraction, on-prem deployment, architecture, and supported GTM guidance.",
       "author": {
         "name": "Ben Fletcher",
