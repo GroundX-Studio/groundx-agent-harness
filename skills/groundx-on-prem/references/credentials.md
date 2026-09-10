@@ -310,7 +310,7 @@ Per credential, the recommended rotation cadence + how to roll without downtime:
 | Credential | Cadence | Rotation procedure |
 | --- | --- | --- |
 | License key | At renewal (annual) | Update the Secret. Pods read at startup. Restart pods to pick up new value. |
-| Bootstrap admin password | One-time at install. Rotate via the management API thereafter. | Don't rotate via values.yaml — use the API. |
+| Bootstrap admin password | Not applicable. | `admin.password` has no effect on-prem today; there is no working login or rotation path for it. See `identity-model.md` § 6. For access control, provision and rotate ordinary API keys instead (`identity-model.md` § 4–5). |
 | MySQL app password | Quarterly | Update the Secret. Update RDS / Percona user password to match. Roll pods (drain one at a time). |
 | MySQL privileged password | Quarterly | Update the Secret. Used only at install / upgrade time. |
 | LLM API keys | Per rotation policy (often quarterly) | Update the Secret. Roll pods. Keep the old key valid in the LLM provider for an overlap window. |

@@ -25,6 +25,7 @@ GroundX on Kubernetes.
 | TLS and certificates | `tls-and-certs.md` |
 | OCR mode | `ocr-mode.md` |
 | Credentials and placeholders | `credentials.md`, `license-and-admin.md` |
+| Authentication model and API keys | `identity-model.md` |
 | Image variants | `image-variants.md` |
 | Troubleshooting and operations | `troubleshooting.md`, `autoscaling.md`, `monitoring.md`, `upgrades.md` |
 | GPUs and OpenShift | `gpu-operator.md`, `openshift.md` |
