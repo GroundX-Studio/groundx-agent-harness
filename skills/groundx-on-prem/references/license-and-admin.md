@@ -32,7 +32,7 @@ The chart treats every admin field as optional. The schema (`values.schema.json:
 | --- | --- | --- |
 | `admin.apiKey` | Written to the rendered `config.yaml` as `admin.apiKey` and **also appended to the Python services' valid-API-keys list** alongside `admin.username` and `cluster.validApiKeys` (see § 5). Consumed by the in-cluster services at startup. | UUID format conventional. If omitted, the chart simply omits the `admin.apiKey` line from `config.yaml` (`config-yaml.yaml:98–100`). |
 | `admin.email` | Stored on the bootstrap administrator record. | Free-form string. Not validated at template time. |
-| `admin.password` | Stored on the bootstrap administrator record (hashed inside the application, not by the chart). | Plain string at the chart layer. Treat as a secret. |
+| `admin.password` | **Does not produce a working login.** The value is loaded but not written to the seeded admin account record and not used by the login path, which runs through Cognito, not this field. Setting it has no effect on-prem today. | Do not rely on this field for admin access. See `identity-model.md` § 6. |
 | `admin.username` | Doubles as the **internal API key used by in-cluster services** to call each other. Referenced via `groundx.admin.username` in `extract.client.apiKey`, `eyelevelSearch.apiKey`, `layout.client.apiKey`, and `owner.username` blocks in `config-yaml-map` (`templates/resources/config-yaml.yaml:128–144`, `:514–516`). | This is the non-obvious one — `admin.username` is not just a display name; it is the key in-cluster service calls authenticate with. Set it to a stable UUID. |
 | `admin.imageRepository` | Overrides the chart-wide image-repo prefix (default `public.ecr.aws/c9r4x6y5`). Every chart-rendered image path (`{prefix}/eyelevel/<service>:<tag>`) keys off this. | See § 4. |
 
@@ -133,7 +133,7 @@ Two UUIDs, one bootstrap password, one optional license, one email. Everything e
 
 When transitioning the deployment from install to operations:
 
-1. **Rotate `admin.password`** through the application UI or admin API, not through `helm upgrade`. The chart's value is the *bootstrap* password; once the cluster is live, the source of truth shifts to the application.
+1. **Do not rely on `admin.password` for login.** It has no effect on the on-prem login path today (see § 2 and `identity-model.md` § 6); there is no working admin-password login to rotate.
 2. **`admin.apiKey` and `admin.username` are not rotated through Helm.** They're set once and remain stable. If a rotation is needed (e.g., after a credential leak), the deployer must coordinate with the application's admin API to issue a new key, then `helm upgrade` the chart to match.
 3. **`licenseKey` tracks the customer's subscription.** Long-lived deployments should update it when the subscription is renewed — re-run `helm upgrade --install` after editing values.yaml. Enforcement is not currently active, but keeping the value accurate avoids future surprises.
 
@@ -145,6 +145,7 @@ When transitioning the deployment from install to operations:
 
 ## 9. What this file does not cover
 
+- **The runtime identity model — admin vs. ordinary keys, provisioning more keys, rotation, and its known caching limitation** → `identity-model.md`.
 - **Database / search / summary / stream / workspace credentials** → `credentials.md`.
 - **Field-by-field schema for the rest of values.yaml** → `values-yaml.md`.
 - **How `admin.imageRepository` interacts with image-variant choices (Chainguard, distroless)** → `image-variants.md`.
