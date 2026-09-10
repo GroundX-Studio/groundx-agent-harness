@@ -190,9 +190,11 @@ Once the operator is ready (the `Kafka` CRD must be registered):
 ```sh
 helm install groundx-kafka-cluster \
   groundx/groundx-strimzi-kafka-cluster \
-  --version 0.1.1 \
+  --version 0.2.7 \
   -n eyelevel
 ```
+
+> **Brownfield 0.1.x Kafka must migrate first.** This `helm install` is the greenfield path and assumes no existing `groundx-strimzi-kafka-cluster` release. A cluster already running the **0.1.x** subchart is on the old `kafka.strimzi.io/v1beta2` API and must be converted to `v1` before any `0.2.7` install or upgrade: follow the chart's own "Upgrading an existing 0.1.x install" runbook (`prereqs/kafka-cluster/README.md` in groundx-on-prem: operator hop to Strimzi 0.50.1 dual-serving, `strimzi-v1-api-conversion` + CRD upgrade, then `helm upgrade` to 0.2.7). Running this `helm install` against an existing 0.1.x release fails, and a plain Strimzi rolling upgrade does not perform the v1beta2 -> v1 conversion.
 
 ### 6.2 Seed values
 
@@ -221,7 +223,7 @@ For deployers running the GroundX chart with `imageType: chainguard`, the chart 
 | MinIO operator | `values.minio.operator.yaml` | Pins operator image to `cgr.dev/eyelevel.ai/minio-operator-fips`. References `chainguard-pull-secret`. |
 | MinIO tenant | `values.minio.tenant.yaml` | Pins tenant image to `cgr.dev/eyelevel.ai/minio-fips`. References `chainguard-pull-secret`. |
 | Strimzi operator | `values.strimzi.operator.yaml` | Pins all Strimzi operator + worker images to `cgr.dev/eyelevel.ai/strimzi-kafka-operator` and `cgr.dev/eyelevel.ai/strimzi-kafka`. References `chainguard-pull-secret`. |
-| Strimzi Kafka cluster | `values.strimzi.cluster.yaml` | Sets `node: eyelevel-cpu` and `cluster.version: 4.1.0`. Does **not** reference `chainguard-pull-secret` directly — the cluster CR inherits image-pull configuration from the Strimzi operator. |
+| Strimzi Kafka cluster | `values.strimzi.cluster.yaml` | Sets `node: eyelevel-cpu` and leaves the subchart cluster version (cluster.version) unset so Strimzi selects a supported default (the prior 4.1.0 pin is removed as of chart 0.2.7). Does **not** reference `chainguard-pull-secret` directly; the cluster CR inherits image-pull configuration from the Strimzi operator. |
 | NVIDIA | `values.nvidia.yaml` | Sets `operator.runtimeClass: nvidia-container-runtime`. Does **not** override NVIDIA operator images — those come from the upstream NVIDIA registry. The Chainguard NVIDIA variant overlaps content-wise with the AKS-specific seed. |
 | **OpenSearch** | None shipped | Deployers running OpenSearch on Chainguard must supply their own image overrides for the OpenSearch Helm chart. |
 
