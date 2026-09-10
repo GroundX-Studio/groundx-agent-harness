@@ -149,8 +149,10 @@ The GroundX chart doesn't strictly couple to specific backing-service versions, 
 | **MySQL** (Percona PXC 8.x) | Loose — SQL-compatible | Independently when ready; pay attention to major-version jumps (5.7 → 8.x) requiring data migration |
 | **Object store** (MinIO operator + tenant) | Loose — S3-protocol-compatible | Independently |
 | **Search** (OpenSearch 2.x) | Tight on the index version when migrating; loose otherwise | Coordinate with GroundX upgrades, especially across major OpenSearch versions |
-| **Stream** (Strimzi-managed Kafka) | Loose — Kafka protocol-compatible | Independently; rolling upgrades supported by Strimzi |
+| **Stream** (Strimzi-managed Kafka) | Loose for minor Strimzi/Kafka bumps; **tight for the `groundx-strimzi-kafka-cluster` 0.1.x -> 0.2.x jump** (v1beta2 -> v1 CRD conversion) | Minor Strimzi/Kafka: independently, rolling. The 0.1.x -> 0.2.x subchart jump is NOT a plain rolling upgrade; follow the conversion runbook (note below) |
 | **NVIDIA GPU Operator** (driver + device plugin) | Tight on the kernel / runtime combo | Coordinate with K8s upgrades, not GroundX upgrades |
+
+> **0.1.x `groundx-strimzi-kafka-cluster` -> 0.2.x is a CRD-API migration, not a rolling upgrade.** The 0.2.x subchart emits `kafka.strimzi.io/v1` resources; a 0.1.x cluster runs `v1beta2`. Before any `0.2.7` install or `helm upgrade`, convert the existing resources with the chart's own runbook (`prereqs/kafka-cluster/README.md` in groundx-on-prem): upgrade the Strimzi operator to 0.50.1 (dual-serving), run `strimzi-v1-api-conversion` + the CRD upgrade so stored CRs become `v1`, then `helm upgrade` to 0.2.7. `helm rollback` does not revert a CRD conversion. This gap (a brownfield 0.1.x Kafka release routed here as a plain rolling upgrade) is the specific case the conversion runbook covers.
 
 For canonical install commands per backing service, see `services-operators.md`.
 

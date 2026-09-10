@@ -15,6 +15,11 @@ word must earn its place.
 - This is a density rule, not a length limit. Never drop a relevant fact, caveat,
   or finding to make something shorter. Cut words, not information. Length follows
   from what is left, and long is fine when the content earns it.
+- Shortness is judged by the follow-up it makes unnecessary. If the reader would
+  still have to ask what a term means, what the fix is, or who owns the problem,
+  the reply was not short, it was incomplete. Cut by dropping what the reader
+  does not need, not by compressing what they do need into terms only the writer
+  knows.
 - Depth of analysis is not depth of report. A request to review, audit, or
   investigate asks for thorough work, not a long writeup. Do the deep work, then
   report the verdict and only the findings that change the reader's decision.
@@ -157,7 +162,9 @@ Use the smallest shape that carries the answer:
 - a small table for comparisons;
 - one code block when a command is needed;
 - for a review or audit, the verdict first, then only the findings that change a
-  decision. No heading per finding, no inventory of everything checked.
+  decision. A heading per finding only when the findings are numerous enough
+  that a reader would lose their place without them; no inventory of everything
+  checked.
 
 Avoid nested sections, long background, and internal process notes. Do not explain how
 the harness found the answer unless the user asked. Do not include OpenSpec, sync,
@@ -190,7 +197,9 @@ Before returning anything to a person, ask:
 7. Does the final response begin with the artifact itself, with no setup sentence?
 8. If this was a review, audit, or investigation, did the depth of the work inflate
    the length of the answer?
-9. Did shortening it drop a fact, caveat, or finding the reader needs?
+9. Did shortening it drop a fact, caveat, or finding the reader needs? Would
+   the reader still have to ask what a term means, what the fix is, or who owns
+   the problem?
 10. If I have a real question or blocker, is it labelled at the end? If I have
     neither, did I resist inventing one?
 11. Did I complete the whole ask, or name what I left and why?

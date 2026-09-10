@@ -127,6 +127,14 @@ what is reportable change, and a remembered version files noise.
 - [ ] For a gap, the skill's reference index was consulted before calling it
       silent.
 - [ ] `harness.version` was sent. A report without it is usually not actionable.
+- [ ] Correlation facts carry a UTC timestamp and the identifiers for every
+      failing call.
+- [ ] The title states observed behavior, and any mechanism it names was
+      directly observed.
+- [ ] A platform-behavior report carries discriminating checks, not an asserted
+      backend cause, and a bug also carries What would make this report wrong.
+- [ ] The suspected layer is named, or marked undetermined.
+- [ ] Nothing independently actionable remains in Other observations.
 - [ ] The draft was shown to the user in full before `confirm` was set.
 - [ ] The report stands alone for a reader who never saw the session.
 - [ ] No credential, key, or token appears in the narrative.
