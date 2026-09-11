@@ -75,7 +75,7 @@ what to fix.
 after fixing an expected-answer mapping, comparison logic, or to score the same
 run on another machine — **without paying for ingest again**. It imports only
 the SDK-free `score_extraction` engine, so it runs anywhere with no GroundX
-credentials. `aggregate_reports` lives in `score_extraction` and is shared by
+credentials. `aggregate_reports` lives in `batch_score.py` and is shared by
 both `batch_extraction` (live) and `batch_score.py` (offline).
 
 Artifact names matter:
@@ -299,3 +299,56 @@ or rescore, and check for regression.
 Do not stop because the loop is "good enough" without recording why each
 remaining FAIL or WARN is acceptable. The accuracy report is the
 hand-off artifact for the user to review; it should be self-explanatory.
+
+## Field comparison policies
+
+Use explicit, versioned profiles when a field's content has multiple valid
+representations. Keep expected answers and raw extraction values unchanged.
+Assign profiles to exact paths; `[]` traverses array members. An example policy:
+
+```json
+{
+  "version": 1,
+  "profiles": {
+    "currency": {"kind": "equivalence", "values": {"USD": ["USD", "currency_dollars"], "EUR": ["EUR", "currency_euros"]}},
+    "customer": {"kind": "source_review", "criterion": "Identify the same customer; incidental site labels may differ only when the source establishes that identity."}
+  },
+  "fields": {"items[].charges[].currency": "currency", "customer_name": "customer"}
+}
+```
+
+Currency aliases never convert amounts or infer a currency from an ambiguous
+symbol. Native nested JSON compares structurally: `55` and `55.0` are equal;
+strings, booleans, array order and duplicates remain significant. Only explicitly
+configured selection lists ignore outer order. Existing scalar rules remain.
+
+Single scoring accepts `--comparison-policy`, `--review-context`,
+`--review-decisions` and `--report-json`. Batch scoring accepts the same policy
+and `--review-context-dir` / `--review-decisions-dir`, each containing `<doc>.json`.
+Its per-document accuracy file preserves the complete `comparison_report`,
+including raw values and statuses, content statuses, policy, packets and decisions.
+Pending reviews appear in individual and aggregate reports and make the batch
+command exit nonzero. They never count as a pass.
+
+A source review first produces packets for remaining string mismatches, after
+record pairing. Supply context with `sources` entries containing a local PDF
+`reference`, its `sha256` and a one-based physical `page`. `field_definitions`
+maps each reviewed field path to its exact source description. `definition_source`
+contains the local YAML `reference`, `sha256`, and `fields` mapping those same
+field paths to arrays of YAML keys locating their descriptions. The scorer reads
+the files, verifies hashes, page bounds and description contents. This optional
+path uses `pypdf` and `PyYAML`; no GroundX credentials are needed.
+
+An independent reviewer reads the packet, field definition and cited source pages.
+Return a separate object with `version: 1` and `decisions`. Each decision contains
+`packet_sha256`, `decision` (`equivalent`, `wrong` or `unresolved`), `reviewer`
+with `id` and `version`, a specific `rationale`, and `citations` containing source
+`sha256` and physical `page`. Use equivalent only when evidence resolves identity;
+never strip numbers or legal-name components globally. Reviews cannot waive a
+missing value, type difference or missing record, or change record pairing.
+
+The packet binds all expected/extracted values, policy and verified context.
+Changed inputs require fresh review. Missing, stale, duplicate or mismatched
+receipts cannot produce a pass. Preserve raw comparison failures even when a
+content-equivalence decision passes. Content equivalence does not waive a
+separate output-shape contract.

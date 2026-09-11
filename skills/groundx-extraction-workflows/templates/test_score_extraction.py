@@ -225,6 +225,45 @@ def test_json_container_serialization_differences_match():
     assert compare.compare_field(expected, extracted) == "PASS"
 
 
+def test_declared_selection_list_is_unordered_without_mutating_inputs():
+    expected = {"singleton": {"plan.exclusions": '["A","B","A"]'}, "groups": {}}
+    actual = {"plan": {"exclusions": '["B","A","A"]'}}
+    assert compare.compare_extraction(actual, expected)["has_failure"]
+    report = compare.compare_extraction(actual, expected, unordered_array_fields=["plan.exclusions"])
+    assert not report["has_failure"]
+    assert report["singleton"][0]["extracted"] == '["B","A","A"]'
+    assert expected["singleton"]["plan.exclusions"] == '["A","B","A"]'
+
+
+def test_selection_list_preserves_duplicates_types_members_and_nested_order():
+    for expected, actual in [
+        ('["A","A","B"]', '["B","A"]'),
+        ('["A","B"]', '["A","C"]'),
+        ('[true,1]', '[1,1]'),
+        ('[1,"2"]', '[1,2]'),
+        ('[[1,2],3]', '[3,[2,1]]'),
+    ]:
+        assert compare.compare_field(expected, actual, unordered_array=True) == "FAIL"
+
+
+def test_selection_list_configuration_rejects_invalid_paths():
+    import pytest
+    expected = {"singleton": {"plan.exclusions": '["A"]'}, "groups": {}}
+    for fields in ["plan.exclusions", [""], [None], ["other"], ["plan.exclusions", "plan.exclusions"]]:
+        with pytest.raises(ValueError, match="unordered array"):
+            compare.compare_extraction({}, expected, unordered_array_fields=fields)
+
+
+def test_selection_list_rule_applies_to_record_pairing_and_alternatives():
+    expected = {"singleton": {}, "groups": {"records": [{"tags": '["A","B"]'}]}}
+    actual = {"records": [{"tags": '["B","A"]'}]}
+    assert not compare.compare_extraction(actual, expected, unordered_array_fields=["records.tags"])["has_failure"]
+    expected = {"singleton": {"plan.tags": '["C"]'}, "groups": {}}
+    report = compare.compare_extraction({"plan": {"tags": '["B","A"]'}}, expected,
+        unordered_array_fields=["plan.tags"], accepted_values={"plan.tags": ['["A","B"]']})
+    assert not report["has_failure"]
+
+
 def test_semantic_differences_still_fail():
     pairs = (
         ("Plan A", "Plan B"),

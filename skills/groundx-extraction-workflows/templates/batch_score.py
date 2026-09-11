@@ -112,6 +112,7 @@ def aggregate_reports(
             bucket.append(doc_pass / doc_total if doc_total else 0.0)
 
         doc_summaries.append({
+            **({"pending_reviews": report["comparison"]["pending_reviews"]} if "comparison" in report else {}),
             "doc": doc,
             "pass": doc_pass,
             "total": doc_total,
@@ -161,6 +162,8 @@ def aggregate_reports(
     group_top_misses = sorted(group_misses.items(), key=lambda kv: kv[1], reverse=True)[:15]
 
     return {
+        **({"pending_reviews": sum(e["report"].get("comparison", {}).get("pending_reviews", 0) for e in per_doc)}
+           if any("comparison" in e["report"] for e in per_doc) else {}),
         "documents": len(per_doc),
         "overall_accuracy": overall,
         "docs_with_structural_failure": docs_with_structural_failure,
@@ -182,6 +185,9 @@ def main() -> int:
     p.add_argument("--keys-dir", required=True, help="dir of mapped expected-answer JSON files (<doc>.json)")
     p.add_argument("--manifest", default=None, help="csv with filename + dimension columns")
     p.add_argument("--out", default=None, help="output dir for reports (default: run_dir)")
+    p.add_argument("--comparison-policy", help="shared field comparison policy JSON")
+    p.add_argument("--review-context-dir", help="source evidence contexts named <doc>.json")
+    p.add_argument("--review-decisions-dir", help="bound review decisions named <doc>.json")
     p.add_argument(
         "--artifact-kind",
         choices=("raw", "final"),
@@ -205,10 +211,15 @@ def main() -> int:
         with open(ext_path) as f:
             extracted = json.load(f)
         expected = score.load_answer_key(key_path)
-        report = score.compare_extraction(extracted, expected)
+        context_path = os.path.join(args.review_context_dir, base + ".json") if args.review_context_dir else None
+        decisions_path = os.path.join(args.review_decisions_dir, base + ".json") if args.review_decisions_dir else None
+        report = score.compare_extraction(extracted, expected, **score.load_scoring_options(args.comparison_policy, context_path, decisions_path))
         per_doc.append({"doc": base, "report": report})
         with open(os.path.join(out_dir, f"{base}.accuracy.json"), "w") as f:
-            json.dump(aggregate_reports([{"doc": base, "report": report}]), f, indent=2, default=str)
+            document_report = aggregate_reports([{"doc": base, "report": report}])
+            if "comparison" in report:
+                document_report["comparison_report"] = report
+            json.dump(document_report, f, indent=2, default=str)
 
     if not per_doc:
         print(f"no <doc>{suffix} with expected-answer JSON files under {args.run_dir}", file=sys.stderr)
@@ -223,7 +234,7 @@ def main() -> int:
         print(f"  {g}: {v['accuracy']:.1%} (n={v['n']} scored fields)")
     for d in agg["per_document"]:
         print(f"  {d['doc']}: {d['accuracy']:.1%}  ({d['pass']}/{d['total']})")
-    return 0
+    return 1 if agg.get("pending_reviews", 0) else 0
 
 
 if __name__ == "__main__":
