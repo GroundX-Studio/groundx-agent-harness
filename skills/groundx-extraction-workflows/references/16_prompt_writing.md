@@ -13,7 +13,8 @@ process first, then routes to the detailed prompt quality and improvement loop g
    prompt. Record the visible label, surrounding context, value shape, and nearby values
    that should not be used.
 4. Write field prompts with `description`, `identifiers`, `instructions`, `type`, and
-   optional `format`. Use `prompt-quality.md` for the checklist.
+   optional `format`, `required`, and `default`. Use `prompt-quality.md` for the
+   checklist.
 5. Put shared record-selection rules in group-level `prompt.instructions`. Do not repeat
    the same rule in every field when the whole group needs it.
 6. Validate and register the YAML with the server. Inspect captured rendered request
@@ -58,8 +59,10 @@ only when the intended output is text, including the literal text `"true"` or `"
 For `list` or `dict`, require a native JSON array or object. If structured data must live in a `str`, say
 "JSON-encoded string" and explicitly reject a native array or object. Runtime
 coercion can safely normalize compatible mismatches, but it is not a substitute
-for a clear output contract. Impossible values become null rather than failing
-the document or becoming empty placeholders.
+for a clear output contract. A failed conversion is not an approved final-null
+answer; downstream validation and missing-value rules still apply. When null is
+an allowed final value, include quoted `'null'` in the type list and specify
+when to return it.
 
 `format` is optional representation guidance preserved exactly as authored. It does not
 change or validate `type`. Prefer an applicable OpenAPI format such as `date`,
@@ -85,7 +88,7 @@ event_date:
       Do not use a report date, signature date, received date, or revision date.
       Return null if no event date is shown.
     format: YYYY-MM-DD
-    type: str
+    type: [str, 'null']
 ```
 
 Avoid vague prompts such as "find the relevant date". Say which date wins and which
