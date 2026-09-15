@@ -102,7 +102,7 @@ The server validates this source shape:
 | `_pseudo_groups.*` | `workflow_step`, required `role`, `fields`, and optional group `prompt`; no `include` |
 | Direct leaf field | `prompt`, plus `workflow_output_key` when the final group has direct `workflow_step` |
 | Pseudo field | `path`, plus optional full `prompt` override; the pseudo field key is the workflow output key |
-| Field `prompt` | required `description`, `identifiers`, `instructions`, and `type`; optional `format` |
+| Field `prompt` | required `description`, `identifiers`, `instructions`, and `type`; optional `format`, `required`, and `default` |
 
 Nested final fields are not supported yet. Model nested structures as flat
 fields or JSON-encoded string fields until route parsing supports paths deeper
@@ -407,6 +407,8 @@ that safe key in the pseudo field name and route it with `path`.
 | `workflow_output_key` | Safe internal key used by direct custom workflow output routing | Yes for direct routed fields; no for pseudo-routed final fields |
 | `description` | Plain-language meaning and scope of the field | Yes |
 | `format` | Optional output representation guidance, preserved as authored and not validated | No |
+| `required` | Boolean field-requiredness metadata, preserved in the extraction definition; separate from allowed value types | No |
+| `default` | SDK-compatible default metadata, preserved in the extraction definition; not inserted into the rendered extraction prompt | No |
 | `identifiers` | Non-empty list of distinct labels or stable source cues representing the breadth of ways the label may appear; about three is common, with more when justified | Yes |
 | `instructions` | Rules for choosing, rejecting, normalizing, or returning a value | Yes |
 | `type` | Enforced workflow value type: `str`, `int`, `float`, `bool`, `list`, `dict`, or a non-empty list of those types plus quoted `'null'` | Yes |
@@ -532,6 +534,16 @@ type:              # non-empty list for several allowed types
 Every list member must be a supported workflow type or the quoted string `'null'`.
 Scalar `type: 'null'`, an empty list, and unquoted YAML `null` are invalid.
 
+The authored `prompt.type` controls value handling. The compiled
+`leafFields.fieldType` summary can be `unknown` for a valid union; it is route
+and hash metadata, not a replacement type declaration. Preserve that summary.
+
+Allowing null does not require the output key to exist or define when null is
+the correct answer. State the final missing-value rule in the prompt, separately
+from incomplete page evidence. Server YAML validation does not prove that the
+deployed reconciliation, QA and save stages preserve a native null. Verify those
+boundaries before accepting a workflow that requires final null values.
+
 Source JSON Schema uses different names. Translate its vocabulary when authoring the
 workflow:
 
@@ -559,8 +571,11 @@ Exact values are preserved. Compatible mismatches are converted without an
 ordinary log: native booleans become lowercase `"true"` or `"false"` for `str`,
 numbers become JSON scalar text, native lists and dicts become compact JSON text
 for `str`, and JSON text can become a declared `list` or `dict`. An impossible
-conversion becomes null and does not fail sibling fields. Do not rely on this as
-prompt logic. Ask for the declared shape so conversion remains a safety boundary.
+conversion produces null with a content-free warning and does not fail sibling
+fields. That runtime fallback is not an accepted final answer; downstream
+validation and missing-value rules decide whether null is valid. Do not rely on
+this as prompt logic. Ask for the declared shape so conversion remains a safety
+boundary.
 
 ## 3. Group-level prompts
 

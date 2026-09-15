@@ -82,16 +82,18 @@ The prompt must state the output shape when ambiguity exists:
 Match `type` and instructions exactly:
 
 - For a native boolean, use `type: bool` and require JSON `true` or `false`.
+- If a final value may be null, add quoted `'null'` to the type list and state
+  its evidence rule. Key presence is a separate requirement.
 - Use `type: str` only when the intended flag output is text such as `"true"` or
   `"false"`.
 - For `list` or `dict`, require a native JSON array or object.
 - For structured data stored in `str`, require a JSON-encoded string and reject
   a native array or object.
 
-The runtime safely converts compatible mismatches through one SDK contract and
-uses null for impossible conversions. It does not replace impossible values
-with empty strings, arrays, or objects, and sibling fields continue. Write the
-prompt for the correct declared type instead of depending on conversion.
+The runtime converts compatible mismatches through one SDK contract. A failed
+conversion is not an approved final-null answer; downstream validation and
+missing-value rules still apply. Write the prompt for the declared type instead
+of depending on conversion.
 
 For enum fields, list the valid choices in the field instructions. If the source text
 does not exactly match an enum value and an `Other` choice exists, return `Other` and
@@ -151,7 +153,7 @@ effective_date:
       Do not use a signature date, revision date, print date, or an unselected option's date.
       Return null if no selected effective date is shown.
     format: YYYY-MM-DD
-    type: str
+    type: [str, 'null']
 ```
 
 Why this works:
