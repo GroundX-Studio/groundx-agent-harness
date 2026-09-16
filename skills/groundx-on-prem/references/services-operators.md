@@ -112,6 +112,8 @@ helm upgrade db-cluster percona/pxc-db \
 
 The operator handles in-place password rotation across cluster nodes.
 
+**Mode 2 constraint:** if the GroundX chart deploys against this operator (chart-deployed dedicated Percona), the chart's `db.privilegedUsername` / `db.privilegedPassword` must equal the root username/password this release seeds — see § 3.1's seed list above — these are dev-only seed defaults; override both sides for production — see `values-authoring.md` section 3.5.2's `db.privilegedUsername`/`db.privilegedPassword` constraint.
+
 ## 4. MinIO Operator + Tenant
 
 ### 4.1 Two-step install
@@ -135,6 +137,8 @@ helm install minio-cluster \
 
 - **operator**: `operator.nodeSelector.node: eyelevel-cpu-only`, `operator.replicaCount: 1`.
 - **tenant**: `tenant.name: minio-tenant`, `tenant.certificate.requestAutoCert: false` (no auto-TLS), `tenant.configSecret: accessKey: minio, secretKey: minio123` (defaults — rotate for production), `tenant.pools[0].servers: 1, size: 20Gi, volumesPerServer: 1, nodeSelector.node: eyelevel-cpu-only`.
+
+**Mode 2 constraint:** if the GroundX chart deploys against this tenant (chart-deployed dedicated MinIO), the chart's `file.username` / `file.password` must equal this tenant's `configSecret` — see § 4.2's seed values above — see `values-authoring.md` section 3.5.1's `file.username`/`file.password` constraint.
 
 ### 4.3 What the GroundX chart assumes
 
@@ -170,7 +174,7 @@ The seed `src/groundx/values/opensearch/values.yaml` sets:
 
 ### 5.3 What the GroundX chart assumes
 
-The chart's `groundx.search.serviceName` defaults to `opensearch`. The OpenSearch service lands at `opensearch-cluster-master.{namespace}.svc.cluster.local:9200` via the chart's standard naming pattern. The GroundX chart authenticates via `search.privilegedUsername` / `search.privilegedPassword` during init and `search.username` / `search.password` at runtime — both must match what's set in the OpenSearch deployment (the seed file aligns them).
+The chart's `groundx.search.serviceName` defaults to `opensearch`. The OpenSearch service lands at `opensearch-cluster-master.{namespace}.svc.cluster.local:9200` via the chart's standard naming pattern. The GroundX chart authenticates via `search.privilegedUsername` / `search.privilegedPassword` during init and `search.username` / `search.password` at runtime. The chart's `search.privilegedUsername` / `search.privilegedPassword` defaults already match the OpenSearch seed's admin credentials — see § 5.2's "Seed values" list above — and only break if one side changes without the other — these are dev-only seed defaults; rotate for production. `search.username` / `search.password` default to `eyelevel` / the same seed password, provisioned by the init job, and are not part of the seed-alignment claim. See `values-authoring.md` section 3.5.4 for the Mode 2 alignment note.
 
 ## 6. Strimzi Kafka
 

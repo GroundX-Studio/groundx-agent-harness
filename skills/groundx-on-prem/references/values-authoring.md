@@ -101,7 +101,7 @@ For each of the five backing services, ask: existing in-house, chart-deployed de
 | Option | Fields pinned |
 | --- | --- |
 | Existing customer-managed (in-house S3-compatible) | `file.enabled: false`, `file.bucketName`, `file.existing.url`, `file.existing.serviceType: minio` (or `s3` if S3-compatible). Credentials via `file.username` / `file.password` or `cluster.secrets`-referenced Secret. |
-| Chart-deployed dedicated (MinIO operator) | `file.enabled: true`, `file.bucketName`, `file.username` / `file.password`. MinIO operator must be pre-installed. |
+| Chart-deployed dedicated (MinIO operator) | `file.enabled: true`, `file.bucketName`, `file.username` / `file.password`. MinIO operator must be pre-installed. **Mode 2 constraint:** `file.username` / `file.password` must equal the MinIO tenant seed's `accessKey` / `secretKey` (documented in `services-operators.md` § 4) — these are dev-only seed defaults; override both sides for production. |
 | Cloud-managed (AWS S3 / equivalent) | `file.enabled: false`, `file.bucketName`, `file.existing.url`, `file.existing.region`, `file.existing.serviceType: s3`. Credentials via `file.username` / `file.password`, `cluster.secrets`-referenced Secret, or IRSA on `serviceAccount.name`. |
 
 **Cross-field implications:** S3 on EKS strongly prefers IRSA over inline keys. Mode-1 in-house S3-compatible at non-default port → set `file.existing.port`.
@@ -111,7 +111,7 @@ For each of the five backing services, ask: existing in-house, chart-deployed de
 | Option | Fields pinned |
 | --- | --- |
 | Existing customer-managed (in-house MySQL) | `db.enabled: false`, `db.dbName`, `db.existing.ro` / `db.existing.rw` / `db.existing.port`, `db.username` / `db.password`, `db.privilegedUsername` / `db.privilegedPassword`. If TLS, `db.existing.rootCerts`. |
-| Chart-deployed dedicated (Percona operator) | `db.enabled: true`, `db.dbName`. Percona operator must be pre-installed. |
+| Chart-deployed dedicated (Percona operator) | `db.enabled: true`, `db.dbName`, `db.privilegedUsername`, `db.privilegedPassword`. Percona operator must be pre-installed. **Mode 2 constraint:** `db.privilegedUsername` / `db.privilegedPassword` must equal the Percona operator's seeded root username/password (documented in `services-operators.md` § 3) — these are dev-only seed defaults; override both sides for production. |
 | Cloud-managed (AWS RDS / Azure Database for MySQL) | `db.enabled: false`, `db.dbName`, `db.existing.ro`/`rw`/`port`, credentials + `db.existing.rootCerts` (required when `require_secure_transport=ON`). |
 
 **Gotchas:** RDS / Azure Database for MySQL with `require_secure_transport=ON` requires `db.existing.rootCerts`. See `values.aks.yaml` for the canonical DigiCert root CA example.
@@ -131,7 +131,7 @@ For each of the five backing services, ask: existing in-house, chart-deployed de
 | Option | Fields pinned |
 | --- | --- |
 | Existing customer-managed | `search.enabled: false`, `search.existing.url`, `search.indexName`, `search.{username, password, privilegedUsername, privilegedPassword}`. |
-| Chart-deployed dedicated (OpenSearch operator) | `search.enabled: true`, `search.indexName`, plus credentials. OpenSearch operator must be pre-installed. |
+| Chart-deployed dedicated (OpenSearch operator) | `search.enabled: true`, `search.indexName`, plus credentials. OpenSearch operator must be pre-installed. **Mode 2 note:** the chart's `search.privilegedUsername` / `search.privilegedPassword` defaults already match the OpenSearch seed's admin credentials (documented in `services-operators.md` § 5.2/5.3) and only break if one side changes without the other. `search.username` / `search.password` default to `eyelevel` and the same seed password respectively, provisioned by the init job, and are not part of the seed-alignment claim — see `services-operators.md` § 5.3. |
 | Cloud-managed (AWS OpenSearch managed) | Existing customer-managed shape; `search.existing.url` points at managed endpoint. |
 
 **Cross-field implications:** Skipped entirely when `mode: ingest`. Pinned by § 3.2.
