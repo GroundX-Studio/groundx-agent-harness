@@ -103,7 +103,7 @@ See `image-variants.md` § 6.
 
 **Fix.** Use a chart version that includes the Google-OCR render fix. The bug was observed on chart `0.2.6`; the fix shipped on the `0.2.7` line of the upstream `groundx-on-prem` chart. Pin the fixed version explicitly (`helm search repo groundx --versions`, then `--version`; see `install-flow.md` § 4.2). If you must stay on an affected chart, the only stopgaps are to switch to Tesseract (`layout.ocr.type: tesseract`) or patch the template locally, neither recommended for production.
 
-**Related.** For the `{layout.serviceName}-ocr-credentials-map` ConfigMap and its resolution when extract/workspace celery services are also enabled, see `ocr-mode.md` § 5.
+**Related.** For the `{layout.serviceName}-ocr-credentials-map` Secret and its resolution when extract/workspace celery services are also enabled, see `ocr-mode.md` § 5.
 
 ## 2. Pod scheduling failures
 

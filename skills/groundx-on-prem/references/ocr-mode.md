@@ -1,6 +1,6 @@
 # OCR Mode — Tesseract vs Google Cloud Vision
 
-This file documents **the OCR decision a deployer makes once during install** — bundled in-cluster Tesseract vs Google Cloud Vision API — the trust-boundary trade-off, the exact field shape the chart expects (a packaged-file path, *not* inline JSON or a Secret), the egress posture, and the cross-field implications.
+This file documents **the OCR decision a deployer makes once during install** — bundled in-cluster Tesseract vs Google Cloud Vision API — the trust-boundary trade-off, the exact field shape the chart expects (a packaged-file path, *not* inline JSON and *not* a reference to a pre-existing Secret), the egress posture, and the cross-field implications.
 
 For the architectural picture of where OCR sits in the layout pipeline, route to `groundx-architecture/references/layout-ocr.md`. For the discovery-question framing, route to `values-authoring.md` § 3.6.3. For the field-level reference, route to `values-yaml.md` § 5.2.
 
@@ -62,7 +62,7 @@ Four steps. The non-obvious one is step 1.
 
 ### 4.1 Package the GCP service-account JSON in the chart
 
-The chart consumes the GCV credentials as a **packaged file**, not inline JSON or a Kubernetes Secret. At template-rendering time, the chart calls `.Files.Glob` against the path you supply, and if the file exists in the chart directory, it materializes a `ConfigMap` named `{layout.serviceName}-ocr-credentials-map` (default `layout-ocr-credentials-map`) carrying the JSON as `credentials.json`.
+The chart consumes the GCV credentials as a **packaged file**, not inline JSON and not a reference to a pre-existing Kubernetes Secret. At template-rendering time, the chart calls `.Files.Glob` against the path you supply, and if the file exists in the chart directory, it materializes a Kubernetes **Secret** named `{layout.serviceName}-ocr-credentials-map` (default `layout-ocr-credentials-map`) carrying the JSON under `stringData.credentials.json`.
 
 Place the GCP service-account JSON at a path inside the chart, e.g.:
 
@@ -109,20 +109,19 @@ Document each OCR call now sends a page image to a third party. Update:
 - The compliance attestation if the deployment is under FedRAMP / HIPAA / SOC 2 review — GCV likely requires a BAA or DPA.
 - The egress audit log if the cluster has one.
 
-## 5. The credential is a packaged file, not a Secret — why?
+## 5. Why the credential is supplied as a chart-packaged file
 
 A common reaction: "shouldn't the GCP credentials be a Kubernetes Secret instead of a packaged file?"
 
-The chart treats them as a packaged file because:
+They are: the chart renders them into a Kubernetes Secret (see § 4.1). The real question is whether the deployer should hand the chart a reference to a Secret they create and manage, versus a file packaged in the chart. The chart takes a packaged file because:
 
 1. **OCR credentials are install-time configuration**, not runtime-rotated credentials. The GCP service-account JSON is generated once when the integration is set up; rotation is rare and operator-driven.
 2. **The chart's `.Files.Glob` mechanism requires the file at template-render time.** Deferring it to a runtime-mounted Secret would mean the chart can't fail-fast on a missing file.
-3. **The ConfigMap stays inside the layout namespace and is never referenced by the `groundx` API pod or the Partner API.** The celery template (`templates/app/celery.yaml`) is what attaches the `credentials-volume` mount, and only celery-rendered pods carry the JSON on disk — the externally-reachable surfaces never receive it. **Note**: the celery template's volume reference is keyed on the per-iteration `service` field, so when `$hasOCR = "true"` the mount is added to every celery-rendered Deployment (layout-*, extract-*, workspace-*); only the `layout-*` services have a matching ConfigMap materialized (named `{layout.serviceName}-ocr-credentials-map`). In typical GCV-enabled deployments only the layout-* celery services are scheduled, and the reference resolves cleanly. Deployments enabling extract-* or workspace-* celery services concurrently with `layout.ocr.credentials` should verify resolution in `helm template` output first.
+3. **The Secret stays inside the layout namespace and is never referenced by the `groundx` API pod or the Partner API.** The celery template (`templates/app/celery.yaml`) is what attaches the `credentials-volume` mount, and only celery-rendered pods carry the JSON on disk — the externally-reachable surfaces never receive it. **Note**: the celery template scopes the OCR annotation, the `credentials-volume` mount, and the Secret volume to layout Celery workers only; non-layout celery services — `extract-*`, `workspace-*`, or any custom celery service — receive none of this OCR wiring, whether or not `layout.ocr.credentials` is set. Deployments enabling extract-* or workspace-* celery services concurrently with `layout.ocr.credentials` render and install cleanly, with no unintended reference to a nonexistent extract or workspace OCR credentials resource.
 
-**Compliance implications.** A ConfigMap carrying a service-account JSON is, in Kubernetes terms, not encrypted at rest in etcd by default (unlike a Secret with EncryptionConfiguration). For SOC 2 / FedRAMP-stringent deployments:
+**Compliance implications.** The rendered Secret carries the service-account JSON. A Kubernetes Secret is base64-encoded, not encrypted, at rest in etcd unless the cluster enables encryption at rest (EncryptionConfiguration). For SOC 2 / FedRAMP-stringent deployments:
 
 - Ensure cluster-wide etcd encryption at rest is enabled.
-- Or override the chart's ConfigMap-based pattern by patching the chart locally to use a Secret reference, then mounting that Secret into the layout-ocr celery pod.
 - Or use Google Cloud Workload Identity Federation on GKE — the pod's ServiceAccount is bound to a GCP service account, and no JSON file is needed at all. See `credentials.md` § 9.
 
 ## 6. Cross-field implications
@@ -133,8 +132,8 @@ The chart treats them as a packaged file because:
 | `layout.ocr.credentials: <path>` | The file must exist at `<chart-root>/<path>` at template-render time. The chart's `.Files.Glob` check fails the install otherwise. |
 | `layout.ocr.type: google` + air-gapped deployment | **Conflict.** GCV needs outbound internet egress. Use Tesseract for air-gapped. |
 | `layout.ocr.type: google` + FedRAMP / HIPAA compliance | **Requires deployer attestation.** GCV is a trust-boundary crossing — update the data-residency posture and confirm BAA / DPA with Google is in place. |
-| Switching `type` from `tesseract` to `google` after install | Update values.yaml + ship the packaged JSON file in the chart + `helm upgrade --install`. ConfigMap is created automatically. Celery pods restart to pick up the new mount (annotation hash on the ConfigMap forces a rollout). |
-| Switching `type` from `google` to `tesseract` after install | Set `layout.ocr.type: tesseract` and remove `credentials`/`project`. ConfigMap is no longer materialized (chart's `groundx.layout.hasOCRCredentials` returns false). Celery pods restart to Tesseract-only mode. |
+| Switching `type` from `tesseract` to `google` after install | Update values.yaml + ship the packaged JSON file in the chart + `helm upgrade --install`. The Secret is created automatically. Celery pods restart to pick up the new mount (annotation hash on the Secret forces a rollout). |
+| Switching `type` from `google` to `tesseract` after install | Set `layout.ocr.type: tesseract` and remove `credentials`/`project`. The Secret is no longer materialized (chart's `groundx.layout.hasOCRCredentials` returns false). Celery pods restart to Tesseract-only mode. |
 
 ## 7. Workload Identity (GKE) — the IRSA-equivalent for OCR
 

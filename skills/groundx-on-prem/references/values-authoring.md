@@ -178,7 +178,7 @@ For each of the five backing services, ask: existing in-house, chart-deployed de
 | Option | Fields pinned |
 | --- | --- |
 | Tesseract (default) | No fields pinned. `layout.ocr.type` left unset. |
-| Google Cloud Vision | `layout.ocr.type: google`, `layout.ocr.project: <gcp-project>`, and `layout.ocr.credentials: files/ocr/credentials.json` (the value is a path to a chart-packaged JSON file the deployer adds at install time; chart materializes a ConfigMap from it). See `references/ocr-mode.md` for the full setup. |
+| Google Cloud Vision | `layout.ocr.type: google`, `layout.ocr.project: <gcp-project>`, and `layout.ocr.credentials: files/ocr/credentials.json` (the value is a path to a chart-packaged JSON file the deployer adds at install time; chart materializes a Secret from it). See `references/ocr-mode.md` for the full setup. |
 
 **Cross-field implications:** GCV crosses the cluster trust boundary on every OCR call. Allow egress to `vision.googleapis.com`.
 
