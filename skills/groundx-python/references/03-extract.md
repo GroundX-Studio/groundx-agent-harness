@@ -11,10 +11,9 @@ minor-version range (`groundx[extract] >= 3.5, < 3.6`). This is a deliberate
 defensive default for an early-stage product surface — contributions should not
 assume backward-compatibility constraints that the team hasn't yet committed to.
 
-For the canonical contribution rules, see the repo's
-[`AGENTS.md`](https://github.com/eyelevelai/groundx-python/blob/main/AGENTS.md).
-The relevant sections are AGENTS.md §4 (the extract submodule) and
-AGENTS.md §5 (extending or adding a hand-written submodule).
+Open the repo's [`AGENTS.md`](https://github.com/eyelevelai/groundx-python/blob/main/AGENTS.md)
+as a router, then inspect `src/groundx/extract/`, `tests/extract/`,
+`.fernignore`, and the linked extraction contracts relevant to the change.
 
 ## 3.1 What the extract submodule is
 
@@ -76,8 +75,8 @@ follow the same pattern (Test* name + `__test__ = False`).
 For extending within `extract/`:
 
 - **New module in an existing subdir** — add the file, update the subdir's
-  `__init__.py` to re-export the public surface, add a corresponding test
-  under `tests/extract/<subdir>/` (mirroring the source path)
+  `__init__.py` to re-export the public surface, and extend an existing relevant
+  test or add a consequential case under `tests/extract/<subdir>/`
 - **New subdir under extract** — create with hand-written `__init__.py`; no
   `.fernignore` change needed (parent `src/groundx/extract` is already covered)
 
@@ -111,8 +110,8 @@ regen.
 Mock S3, Google Sheets, Redis, OpenAI, etc. The repo CI does not have live
 GroundX credentials and the extract unit tests do not require them.
 
-If a contribution needs to verify against the live GroundX API, gate it behind
-an env-var skip — see repo `AGENTS.md` §6.
+If a contribution needs live API verification, follow the repo's current
+test and credential guidance in `CONTRIBUTING.md` and its linked sources.
 
 ## 3.7 Pydantic V1 → V2 conventions
 

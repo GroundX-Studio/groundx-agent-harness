@@ -66,13 +66,13 @@ The four cells correspond to four real deployment archetypes. § 2 walks each.
 
 **What's skipped in `mode: ingest`:**
 - `search.*` block can be left at defaults; OpenSearch isn't deployed or wired.
-- The ranker microservices (`ranker.api`, `ranker.inference`) don't render.
+- The ranker microservices (`ranker.api`, `ranker.inference`) don't render (chart ≤ 0.2.5 and the 0.2.7 line; **broken on published 0.2.6** — see the version caveat below).
 - Retrieval queries return errors — the API only accepts ingest.
 
 **Example values file:** `examples/values.ingest-only.example.yaml`.
 
 **Cross-field implications:**
-- The retrieval-side microservices (`ranker.api`, `ranker.inference`) auto-disable when `mode: ingest`. Don't explicitly set their `enabled: false`.
+- The retrieval-side microservices (`ranker.api`, `ranker.inference`) auto-disable when `mode: ingest`; don't explicitly set their `enabled: false`. **Version caveat — published chart `0.2.6` (GX-36):** the auto-disable is broken on `0.2.6` — a branch-order regression makes the shipped `enabled: true` defaults win over ingest mode, so both ranker workloads render and `ranker-inference` carries the `eyelevel-gpu-ranker` node affinity: on an ingest-only cluster with no ranker GPU node group, that pod can never schedule. On `0.2.6`, explicitly set `ranker.api.enabled: false` **and** `ranker.inference.enabled: false`, and skip the `eyelevel-gpu-ranker` node group. Chart ≤ `0.2.5` auto-disables as described; the restoration is queued on the `0.2.7` line ([groundx-on-prem#96](https://github.com/eyelevelai/groundx-on-prem/pull/96)).
 - `search.enabled: false` is implied; setting it has no effect when `mode: ingest`.
 - HPA and metrics still apply to the ingest-side microservices.
 
@@ -144,7 +144,7 @@ Switching is supported but not trivial:
 
 | Mode | Cross-field implications |
 | --- | --- |
-| `mode: ingest` | `search.*` block can stay at chart defaults; OpenSearch deploy can be skipped (`search.enabled: false`). `ranker.*` microservices auto-disable. No retrieval-side egress. |
+| `mode: ingest` | `search.*` block can stay at chart defaults; OpenSearch deploy can be skipped (`search.enabled: false`). `ranker.*` microservices auto-disable (**0.2.6: broken** — set `ranker.{api,inference}.enabled: false` explicitly; GX-36). No retrieval-side egress. |
 | `mode: ingest` + `workspace.enabled: true` | Combine the above with workspace's RWX PVC + git egress + workspace credentials. Workspace publishes operate independently of the (absent) retrieval pipeline. |
 | `workspace.enabled: true` | `workspace.token` or `workspace.existingSecret` required. `workspace.pvc.{access: ReadWriteMany}` strongly preferred. NetworkPolicy must allow egress to the configured git remote. |
 | `workspace.enabled: false` | GroundX Workspace facade endpoints return errors. Don't set workspace credentials; they're ignored. |

@@ -19,8 +19,8 @@ collateral.
 
 Use this skill for **contributing to the `eyelevelai/groundx-python` repo**.
 The repo's own [`AGENTS.md`](https://github.com/eyelevelai/groundx-python/blob/main/AGENTS.md)
-is the canonical contribution guide. This skill helps agents decide whether the
-task is SDK-repo contribution work, then points to the right reference.
+routes to its current contributor guide, `.fernignore`, source, and tests. This
+skill identifies SDK-repo contribution work and the relevant references.
 
 ## Routing Contract
 
@@ -43,7 +43,7 @@ task is SDK-repo contribution work, then points to the right reference.
 
 1. `references/README.md` — choose the right path.
 2. [`groundx-python/AGENTS.md`](https://github.com/eyelevelai/groundx-python/blob/main/AGENTS.md)
-   — canonical setup, contribution, test, release, and generated-code rules.
+   — router to the current setup, contribution, test, release, and generated-code sources.
 
 Then open the matching reference:
 
@@ -59,13 +59,13 @@ Then open the matching reference:
 - Do not edit `pyproject.toml` to add dependencies or mypy config; use
   `.fern/metadata.json`.
 - Do not route SDK consumer questions here; route them to `groundx-api`.
-- Do not invent contribution rules. If this skill and the repo's `AGENTS.md`
-  disagree, the repo wins.
+- Do not invent contribution rules. Follow the repo's linked sources when they
+  disagree with this skill.
 
 ## Pre-Return Checklist
 
 - [ ] Confirmed this is SDK-repo contribution work, not SDK usage.
-- [ ] Opened the matching reference and checked the repo `AGENTS.md`.
+- [ ] Opened the matching reference and followed the repo `AGENTS.md` links.
 - [ ] For generated-code changes, described the upstream Fern/API-spec path.
 - [ ] For dependency changes, pointed at `.fern/metadata.json`.
 - [ ] For extract tests, pointed at `tests/extract/`.

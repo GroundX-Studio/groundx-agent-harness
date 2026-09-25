@@ -33,7 +33,7 @@ Is the user editing files inside the eyelevelai/groundx-python repo?
 → Document is *generated* by Fern from the upstream API definition (see
 `02-core-sdk.md`). Adding a field there means changing the upstream Fern API
 definition, not editing the generated file. This is **SDK-repo contribution
-work** — use this skill. The repo's AGENTS.md §3 covers the intake path
+work** — use this skill. The repo's AGENTS router points to the upstream Fern source
 (`AGENTS.md` linked from this skill's `02-core-sdk.md`).
 
 **"I want to use Document from my Python code."**
@@ -43,26 +43,25 @@ class surface (camelCase wire ↔ snake_case attribute mapping, etc.).
 
 **"I want to fix a bug in the extract module's prompt manager."**
 → Extract is hand-written (per `.fernignore`) — **SDK-repo contribution work**.
-Use this skill + the repo's `AGENTS.md` §4 for the extract-specific rules.
+Use this skill + the repo's linked extract source, tests, and contracts.
 
 **"I want to add an optional dep to `groundx[extract]`."**
 → SDK-repo contribution work. Edit `.fern/metadata.json`, not `pyproject.toml`
-(per repo `AGENTS.md` §4 + the harness skill's `02-core-sdk.md`).
+(see repo `.fern/metadata.json` and this skill's `02-core-sdk.md`).
 
 **"How does the extract agentic pipeline actually work?"**
 → Architectural question. Use `groundx-architecture`.
 
 **"Where do extract tests live?"**
 → This is borderline. If the question is *"I want to add a test, where does it
-go?"* — that's SDK-repo contribution work (use this skill + repo `AGENTS.md` §4).
+go?"* — that's SDK-repo contribution work (use this skill + repo `tests/extract/`).
 If the question is *"how is extract tested at the architecture level?"* — use
 `groundx-architecture`.
 
 ## 1.4 What this skill does not do
 
-- It does not replace the repo's `AGENTS.md`. The AGENTS.md is canonical for
-  contribution rules; this skill is the routing layer that helps agents *find*
-  the AGENTS.md when they have a contribution-shaped intent.
+- It does not replace the repo's `AGENTS.md` router or its linked contribution
+  rules; this skill helps agents find them for contribution-shaped work.
 - It does not document the SDK's consumer API surface. That lives in
   `groundx-api`.
 - It does not document extraction workflow methodology. That lives in

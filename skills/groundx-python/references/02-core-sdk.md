@@ -1,12 +1,10 @@
 # 2. Core SDK contribution
 
-For the canonical contribution rules, read the repo's
-[`AGENTS.md`](https://github.com/eyelevelai/groundx-python/blob/main/AGENTS.md).
-The high-leverage sections are AGENTS.md §1 (setup), AGENTS.md §2
-(generated-vs-hand-written), AGENTS.md §3 (contributing to generated code),
-AGENTS.md §6 (credentials), AGENTS.md §7 (release flow), and AGENTS.md §8
-(workflow). This reference summarizes the high-leverage points so an agent can
-plan a contribution before opening the repo.
+Open the repo's [`AGENTS.md`](https://github.com/eyelevelai/groundx-python/blob/main/AGENTS.md)
+as a router. Follow its `CONTRIBUTING.md` link for setup, tests, and releases;
+read `.fernignore` for the preserved-file boundary and follow the Fern link
+for generated API changes. This reference provides orientation before an agent
+opens those current sources.
 
 ## 2.1 The generated-vs-hand-written boundary is `.fernignore`
 
@@ -44,7 +42,7 @@ To change deps, extras, or mypy config: edit `.fern/metadata.json` under
 - `pyproject_toml` — string-of-TOML appended to the regenerated `pyproject.toml`;
   this is where existing mypy `[[tool.mypy.overrides]]` blocks live.
 
-The repo's `AGENTS.md` §4 walks through the full pattern with examples.
+Check the current `.fern/metadata.json` and `CONTRIBUTING.md` before editing.
 
 ## 2.3 Contributing to generated code
 
@@ -71,12 +69,10 @@ generator improvements.
 
 ### How to coordinate an upstream API-spec change
 
-The repo's `AGENTS.md` §3 says: external contributors open a GitHub issue on
-`eyelevelai/groundx-python` describing the needed shape change; a maintainer
-routes it to `eyelevelai/eyelevel-fern-config` and edits the OpenAPI definition
-there. Internal contributors with access to `eyelevel-fern-config` can edit the
-spec directly. Either way, the regenerated SDK arrives via the "Release Python
-SDK" workflow.
+The repo's `AGENTS.md` routes API-shape and generated-model changes to
+`eyelevelai/eyelevel-fern-config`. Inspect its OpenAPI source and downstream
+SDK consumers before proposing the change. The release flow is documented in
+the SDK's `CONTRIBUTING.md` and is human-owned.
 
 ### Why `.fernignore` matters operationally
 
@@ -90,7 +86,7 @@ and the next regen removed it. Always add a hand-written file to `.fernignore`
 ## 2.4 Hand-written tests for generated code
 
 Hand-written tests that exercise generated SDK code live under `tests/custom/`
-(per the repo's documented test convention, AGENTS.md §3). Everything else
+(linked by the repo's AGENTS router). Everything else
 under `tests/` (outside `tests/custom/` and `tests/extract/`) is regenerated
 test scaffolding.
 
@@ -118,4 +114,4 @@ poetry run pytest -rP -n auto -m aiohttp
 
 A `ruff` config exists in `pyproject.toml` but ruff is not currently a CI gate.
 For files you've changed: `poetry run ruff check <paths>` and
-`poetry run ruff format <paths>` (per repo `AGENTS.md` §8).
+`poetry run ruff format <paths>` (see repo `CONTRIBUTING.md`).

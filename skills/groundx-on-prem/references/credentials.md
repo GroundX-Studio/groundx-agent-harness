@@ -27,7 +27,7 @@ Every credential the chart consumes, grouped by where the application uses it:
 | Outbound extract LLM API key | `extract.agent.apiKey` | External LLM endpoint auth for the extract agent. |
 | Extract-side object-store credentials | `extract.file.{username, password}` | When the extract pipeline writes to a *different* S3 bucket than the ingest pipeline. AWS access key / secret for that bucket. |
 | Extract callback API key | `extract.callbackApiKey` | Validates inbound callbacks the extract pipeline POSTs results to. |
-| GCP service account JSON (OCR) | `layout.ocr.credentials` is a string path to a chart-packaged JSON file (e.g. `files/ocr/credentials.json`). Chart materializes a ConfigMap from the file at install time. | Google Cloud Vision API auth when `layout.ocr.type: google`. |
+| GCP service account JSON (OCR) | `layout.ocr.credentials` is a string path to a chart-packaged JSON file (e.g. `files/ocr/credentials.json`). Chart materializes a Secret from the file at install time. | Google Cloud Vision API auth when `layout.ocr.type: google`. |
 | GCP service account JSON (extract save) | `extract.save.gcpCredentials` | Google Drive / Sheets API auth when extracting to Google Drive. |
 | Workspace runner token | `workspace.token` | GitHub / GitLab `git push` auth. |
 | GitHub App private key | `workspace.github.privateKeyPem` or `workspace.github.privateKeySecret.{name,key}` | GitHub App token-minting key. |
