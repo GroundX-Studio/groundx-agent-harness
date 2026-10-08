@@ -108,6 +108,12 @@ A precise budget depends on workload (concurrent ingest rate, document size, sum
 
 The numbers above are **rough planning baselines**, not commitments. They assume the chart's default replica counts and worker / thread settings. For the canonical resource modelling, the upstream `groundx-on-prem` repo's `bin/estimate` workflow is the source of truth — route to `references/cost-estimation.md` for the deployment-side framing of that workflow.
 
+### 6.1 `layout-process` node ephemeral-disk sizing
+
+On an image built from `ai-server` with the GX-61 change, `layout-process` pages render to disk instead of holding a whole batch in memory (see `references/values-yaml.md` § 5.2 for `layout.process.renderDiskBudgetMi`). The chart sizes each `layout-process` pod's ephemeral-storage request as `workers × threads × renderDiskBudgetMi + 1024` MiB — 3072Mi at the chart's `layout.process` defaults (1 worker × 1 thread, `renderDiskBudgetMi: 2048`) — regardless of which image is deployed; an older image ignores the render-disk budget and renders each batch in memory instead.
+
+Node ephemeral-disk budget for `layout-process` must cover that per-pod request multiplied by the number of `layout-process` pods a node schedules, plus the `layout-process` image size. A larger `renderDiskBudgetMi`, or more `layout.process` workers or threads, scales the per-pod request linearly — recompute the node budget from the formula above rather than reusing the 3072Mi default figure whenever any of those three inputs changes.
+
 ## 7. What this file does not cover
 
 - **Per-microservice resource requests / limits** → `references/node-groups.md`.

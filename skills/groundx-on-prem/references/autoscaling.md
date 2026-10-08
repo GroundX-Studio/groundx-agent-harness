@@ -1,6 +1,6 @@
-# Autoscaling — HPA, External Metrics, Per-Pod Control
+# Autoscaling — HPA, External Metrics, Per-Service Control
 
-This file documents **how the GroundX chart's HPA story works** — the cluster-wide enable flag, the per-pod hpa toggle, the external-metrics server, the per-service threshold / target / throughput defaults, and the two-axis scaling model (pipeline throughput plus pod-specific metric).
+This file documents **how the GroundX chart's HPA story works** — the cluster-wide enable flag, the per-service hpa switch on the few services that accept it, the external-metrics server, the per-service threshold / target / throughput defaults, and the two-axis scaling model (pipeline throughput plus pod-specific metric).
 
 For the chart's per-pod resource defaults and node-group placement, route to `node-groups.md`. For the cost implications of HPA-on vs HPA-off, route to `cost-estimation.md`. For monitoring the metrics the autoscaler consumes, route to `monitoring.md`. For deployer-grade failure-mode diagnosis, route to `troubleshooting.md` § 3.
 
@@ -8,8 +8,8 @@ For the chart's per-pod resource defaults and node-group placement, route to `no
 
 | Knob | Default | Effect |
 | --- | --- | --- |
-| `cluster.hpa` | `false` | Cluster-wide HPA toggle. When `true`, the chart renders HorizontalPodAutoscaler resources for pods that have `replicas.hpa: true` (or inherit it). |
-| `<pod>.replicas.hpa` | inherits from `cluster.hpa` | Per-pod override. Set to `false` to disable HPA on a single pod even when `cluster.hpa: true`. |
+| `cluster.hpa` | `false` | Cluster-wide default for HPA. When `true`, the chart renders HorizontalPodAutoscaler resources for every service that autoscales. It only sets the default: a service in § 1.1 that sets `replicas.hpa: true` keeps its autoscaler even when `cluster.hpa` is `false`. |
+| `<svc>.replicas.hpa` | follows `cluster.hpa` | Per-service override, accepted on only a few services (§ 1.1). Set to `false` on one of them to disable HPA there even when `cluster.hpa: true`; set to `true` to keep it there even when `cluster.hpa: false`. Every other service rejects the key. |
 | `metrics.enabled` | `false` | Enables the custom metrics server pod that exposes the GroundX metrics the HPAs scale on. **Required** for HPA-driven scaling to work — without it, the HPAs render but have no metrics source. |
 
 To turn autoscaling on cluster-wide:
@@ -23,6 +23,14 @@ metrics:
 ```
 
 After install, verify with `kubectl get hpa -n eyelevel` — every autoscaled pod gets an HPA resource.
+
+### 1.1 Which services accept replicas.hpa
+
+**0.2.7**: `extract.agent`, `extract.api`, `extract.download`, `extract.save`, `workspace.api`, `workspace.provision`, `workspace.cleanup`, `workspace.command`, `workspace.publish`, `workspace.workspace`, `ranker.inference`
+
+**0.2.6**: `extract.agent`, `extract.api`, `extract.download`, `extract.save`, `workspace.api`, `workspace.provision`, `workspace.cleanup`, `workspace.command`, `workspace.publish`, `workspace.workspace`
+
+Every other service has no per-service switch: its `replicas` block sets `additionalProperties: false`, so `helm install` fails schema validation with `additional properties 'hpa' not allowed` if you set the key. The services that autoscale follow `cluster.hpa`. `metrics` and `largeFileDeliver` never get an autoscaler, and `largeFileDeliver` exists only on 0.2.7. To hold a service without the key at a fixed count, pin `replicas.min` equal to `replicas.max` (§ 8) or set `cluster.hpa: false`; the services without the key have no per-service value to override that.
 
 ## 2. The two-axis scaling model
 
@@ -51,24 +59,29 @@ These come from the per-service `groundx.<svc>.threshold.default` helpers (e.g.,
 
 The semantics of the three `replicas` fields differ by HPA mode:
 
-**HPA disabled** (`<pod>.replicas.hpa: false` or inherits from `cluster.hpa: false`):
+**HPA disabled** (`extract.api.replicas.hpa: false`, or any service following `cluster.hpa: false`):
 
 ```yaml
-<pod>:
-  replicas:
-    desired: 2     # the only field that matters; replica count is fixed at 2
+extract:
+  api:
+    replicas:
+      hpa: false     # needed when cluster.hpa is true; otherwise follows cluster.hpa
+      desired: 2     # replica count is fixed at 2
 ```
 
-**HPA enabled** (`<pod>.replicas.hpa: true`):
+**HPA enabled** (`extract.api.replicas.hpa: true`, or any service following `cluster.hpa: true`):
 
 ```yaml
-<pod>:
-  replicas:
-    desired: 1     # initial value at install; autoscaler then adjusts
-    min: 1         # lower bound
-    max: 16        # upper bound
-    hpa: true
+extract:
+  api:
+    replicas:
+      desired: 1     # initial value at install; autoscaler then adjusts
+      min: 1         # lower bound
+      max: 16        # upper bound
+      hpa: true
 ```
+
+With `cluster.hpa: false`, a service without the `hpa` key (§ 1.1) is held at its `desired` count. A § 1.1 service is held there only if it does not set `hpa: true`, because its own `hpa: true` overrides `cluster.hpa`.
 
 When HPA is enabled, the chart sets `desired` as the initial replica count; `min` and `max` bound the autoscaler's adjustment range.
 
@@ -82,7 +95,7 @@ Every autoscaled service ships with three default helpers:
 | `<svc>.target.default` | Fraction of the threshold the HPA aims for (typically `1`) |
 | `<svc>.throughput.default` | Per-replica throughput estimate (tokens/min or messages/min) for the pipeline-throughput axis |
 
-Each is overridable via `<pod>.replicas.{threshold, target, throughput}` in values.yaml. For example, to halve the workspace command worker's queue threshold:
+Each is overridable via `<svc>.replicas.{threshold, target, throughput}` in values.yaml. For example, to halve the workspace command worker's queue threshold:
 
 ```yaml
 workspace:
@@ -125,11 +138,11 @@ The chart **does not render** a `ServiceMonitor`. Inspect and apply the separate
 
 The per-pod max footprint is computed by `Σ (replicas.max × resources.limits)` for each pod, summed per node group. See `cost-estimation.md` § 4 for the manual sizing pattern and § 8 for the cost-modelling discipline.
 
-A common pattern: **HPA on for queue / task / api pods; HPA off (replicas fixed) for inference pods.** Inference pods consume GPU memory at a fixed multiple of GPU memory per pod, and the GPUs are expensive enough that overprovisioning at peak is rarely justified.
+A common pattern: **autoscale queue / task / api pods; hold inference pods at a fixed count by pinning `replicas.min` equal to `replicas.max`** (§ 8). Inference pods consume GPU memory at a fixed multiple of GPU memory per pod, and the GPUs are expensive enough that overprovisioning at peak is rarely justified.
 
-## 8. Per-pod HPA override pattern
+## 8. Holding inference pods at a fixed count
 
-To enable HPA cluster-wide but disable it on selected pods:
+`layout.inference` and `summary.inference` have no `replicas.hpa` key (§ 1.1), so a per-service `hpa: false` fails validation. To keep `cluster.hpa: true` and the metrics server for the rest of the cluster while holding these two at a fixed count, pin `replicas.min` equal to `replicas.max` and set `desired` to the same value:
 
 ```yaml
 cluster:
@@ -138,20 +151,50 @@ cluster:
 metrics:
   enabled: true
 
-summary:
-  inference:
-    replicas:
-      hpa: false        # disable HPA on summary-inference specifically
-      desired: 1
-
 layout:
   inference:
     replicas:
-      hpa: false        # disable HPA on layout-inference specifically
       desired: 1
+      min: 1
+      max: 1
+
+summary:
+  inference:
+    replicas:
+      desired: 1
+      min: 1
+      max: 1
 ```
 
-The chart's per-pod `hpa` field, when set, overrides the cluster-wide default. This is the standard pattern for keeping inference pods at fixed replicas while letting the orchestration tier autoscale.
+The chart still renders the HorizontalPodAutoscaler object for each pinned service, with `minReplicas` equal to `maxReplicas`, so the count is held and the metrics dependency remains.
+
+To turn autoscaling off for every service at once, set `cluster.hpa: false` and also remove, or set to `false`, any per-service `replicas.hpa: true` on the § 1.1 services; each service then runs at its `desired` count and no HorizontalPodAutoscaler is rendered. A § 1.1 service that still sets `hpa: true` keeps its autoscaler, because `cluster.hpa` only supplies the default when that key is absent. Turning it off cluster-wide also stops autoscaling for the services you wanted to keep autoscaled.
+
+On the services listed in § 1.1, the per-service switch overrides `cluster.hpa` for that service alone. For example, `extract.api` runs at a fixed count while the rest of the cluster autoscales:
+
+```yaml
+cluster:
+  hpa: true
+
+extract:
+  api:
+    replicas:
+      hpa: false
+      desired: 2
+```
+
+On 0.2.7 only, `ranker.inference` accepts the same switch (the published 0.2.6 chart rejects it):
+
+```yaml
+cluster:
+  hpa: true
+
+ranker:
+  inference:
+    replicas:
+      hpa: false
+      desired: 1
+```
 
 ## 9. Cross-field implications
 
@@ -159,7 +202,7 @@ The chart's per-pod `hpa` field, when set, overrides the cluster-wide default. T
 | --- | --- |
 | `cluster.hpa: true` | `metrics.enabled: true` is effectively required. Without the metrics server, HPAs have no signal and don't scale. |
 | `metrics.enabled: false` + `cluster.hpa: true` | HPAs render but show `<unknown>` for their target metric. Misleading state — not an outright failure, but the autoscaler does nothing. |
-| `<pod>.replicas.hpa: true` + missing `replicas.max` | The HPA defaults `max` to a chart-sensible value; verify by inspecting the rendered HPA resource. Always pin `max` explicitly for production. |
+| `extract.api.replicas.hpa: true` (or any autoscaled service) + missing `replicas.max` | The HPA defaults `max` to a chart-sensible value; verify by inspecting the rendered HPA resource. Always pin `max` explicitly for production. |
 | Custom worker queue names (e.g., `workspace.command.queue: my-command-queue`) | Keep them in values, not by editing templates — the metrics-server's queue config and the HPA's metric source must stay in sync. The chart wires both from the same value. |
 | HPA on + node-group capacity not increased | Pods scale up to `replicas.max` but stay `Pending` because node capacity is exhausted. Plan node-group capacity for `replicas.max × resources.requests` per pod, summed per node group. See `cost-estimation.md` § 4. |
 

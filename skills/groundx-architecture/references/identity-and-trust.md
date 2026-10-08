@@ -12,8 +12,8 @@ GroundX authenticates API callers through a small set of header patterns:
 
 - **Customer-tier** — the surface customers and customer-built applications use. `X-API-Key` set to the customer's key. Issued by the partner (via the partner API) and lives for the life of the account.
 - **Partner-tier (partner account)** — partners, internal middleware, and the Studio Harness operating on their own partner account. `X-API-Key` set to the partner key; no `X-Customer-Key`.
-- **Partner-tier (on behalf of a customer)** — partners operating *as* one of their managed customer accounts. `X-API-Key` set to the partner key; `X-Customer-Key` set to the target customer's key.
-- **Basic Auth** — reserved for the partner-tier login / register / password-reset flow that exchanges username + password for a partner API key. Not used for ongoing API operations.
+- **Partner-tier (on behalf of a customer)** — partners operating *as* one of their managed customer accounts. `X-API-Key` set to the partner key; `X-Customer-Key` set to the target customer's username, the UUID returned by login or register.
+- **Basic Auth** — reserved for the partner-tier login / register / password-reset flow that exchanges email + password for a partner API key. Not used for ongoing API operations.
 
 There is **no SSO, no OIDC, no SAML** at the customer-tier today. There is **no RBAC** inside a customer account — the `X-API-Key` is the entire customer-tier authentication surface. Query-time scoping (limiting a request to specific buckets, groups, or documents) is done via the API's filter parameters, not via a roles/users model.
 
@@ -50,9 +50,9 @@ For the full system topology see `overview.md` § 2. For the queue handoff after
 | --- | --- | --- | --- | --- |
 | Customer-tier | `X-API-Key: <customer key>` | Customer account | **None — issue once** | Customer applications; SDKs; customer-built frontends; the Studio Harness's customer-tier surfaces |
 | Partner-tier (partner account) | `X-API-Key: <partner key>` | Partner account itself | Not specified at this altitude | Partner middleware operating on its own account; partner-account introspection |
-| Partner-tier (on behalf of a customer) | `X-API-Key: <partner key>` + `X-Customer-Key: <customer key>` | Partner authenticated; acting as the named customer | (inherits from partner key) | Partner middleware operating on behalf of one of its managed customers |
+| Partner-tier (on behalf of a customer) | `X-API-Key: <partner key>` + `X-Customer-Key: <customer username (UUID)>` | Partner authenticated; acting as the named customer | (inherits from partner key) | Partner middleware operating on behalf of one of its managed customers |
 | Workspace facade | `X-API-Key: <workspace-capable key>` | Partner/admin or workspace-enabled account | (inherits from account key) | Studio Harness managed-project operations via `groundx-api` Workspace endpoints |
-| Basic Auth (login / register only) | `Authorization: Basic <user:pass>` | Partner credential exchange | n/a (credential flow) | Partner login, register, password reset — exchanges username + password for a partner API key. Not used for ongoing API operations. |
+| Basic Auth (login / register only) | `Authorization: Basic <user:pass>` | Partner credential exchange | n/a (credential flow) | Partner login, register, password reset — exchanges email + password for a partner API key. Not used for ongoing API operations. |
 
 *Source: auth headers and the X-API-Key / X-Customer-Key composition pattern align with GroundX customer and partner API documentation. The "issue-once, no rotation" + "no customer-tier SSO/OIDC/SAML" framing is a scoped internal-review finding, 2026-05-17.*
 
