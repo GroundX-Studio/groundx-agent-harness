@@ -339,7 +339,7 @@ Application microservices share the configuration pattern below where their sche
 - **`enabled`** (boolean) — Master switch for the microservice. Default `true` for always-on microservices; `false` for opt-in microservices (extract, workspace).
 - **`replicas.desired`** (int) — Replica count when HPA is off, or initial replica count when HPA is on.
 - **`replicas.min`** / **`replicas.max`** (int) — HPA bounds, used only when `cluster.hpa=true`.
-- **`replicas.{hpa, cooldown, gracePeriod, threshold, throughput}`** — Full per-microservice HPA configuration (used by `extract.*` sub-microservices and the workspace-runner sub-microservices). `hpa: true` enables autoscaling for this microservice independently of the global `cluster.hpa`. `cooldown` is the scale-down cooldown in seconds. `gracePeriod` is the pod-termination grace period. `threshold` is the per-replica throughput threshold that triggers scale-up. `throughput` is the per-replica target throughput.
+- **`replicas.{hpa, cooldown, gracePeriod, threshold, throughput}`** — Full per-microservice HPA configuration (used by `extract.*` sub-microservices and the workspace-runner sub-microservices). `hpa: true` enables autoscaling for this microservice independently of the global `cluster.hpa`. `cooldown` is the scale-down cooldown in seconds. `gracePeriod` is the pod-termination grace period. `threshold` is the per-replica throughput threshold that triggers scale-up. `throughput` is the per-replica target throughput. The six layout workload blocks accept `gracePeriod` alone, without the other HPA keys; see § 5.2.
 - **`resources.requests.cpu` / `memory`** — Kubernetes resource requests.
 - **`resources.limits.cpu` / `memory` / `nvidia.com/gpu`** — Kubernetes resource limits. GPU microservices set `nvidia.com/gpu: 1`.
 - **`image`** (string) — Container image override. Default comes from the chart's image-repository scheme; per-microservice override is used for air-gapped / Chainguard / pinned-version deployments.
@@ -355,6 +355,8 @@ Application microservices share the configuration pattern below where their sche
 - **`workers`** / **`threads`** (int) — Per-microservice worker × thread counts (Python microservices).
 - **`queue`** (string) / **`queueSize`** (int) — Microservice-specific queue name / queue-size tuning.
 - **`timeout`** (int, seconds) / **`timeoutKeepAlive`** (int, seconds) — Request timeouts (API microservices).
+- **`disruptionBudget.enabled`** (boolean, default `false`): renders a PodDisruptionBudget with `minAvailable: 1` for the microservice so a node drain cannot evict its last available pod. Available on the 0.2.7 chart line only; see § 5.11 for the replica warning.
+- **`topologySpreadConstraints`** (list of dicts, unset by default): Kubernetes topology spread constraints rendered as written on the pod spec. Available on the 0.2.7 chart line only; see § 5.11.
 
 The capability-group entries below call out the fields that are *unique* to each microservice rather than restating the common pattern.
 
@@ -372,7 +374,7 @@ The main API entry point. Standard CPU microservice; stateless; replicas scale h
 
 ### 5.2 `layout:` (Vision pipeline)
 
-The layout pipeline is a sub-tree of microservices (`layout.api`, `layout.correct`, `layout.inference`, `layout.map`, `layout.ocr`, `layout.process`, `layout.save`), each with the common pattern. Plus `layout.serviceName` for service-name override and `layout.podMemory` for a pod-level memory budget override applied across the sub-tree.
+The layout pipeline is a sub-tree of microservices (`layout.api`, `layout.correct`, `layout.inference`, `layout.map`, `layout.ocr`, `layout.process`, `layout.save`), each with the common pattern. Plus `layout.serviceName` for service-name override and `layout.podMemory` (string, default `2Gi`) — written into `ai-server`'s runtime config as a batch-sizing hint for the sub-tree, not a Kubernetes resource field; it does not set or override any microservice's actual pod memory request or limit. Set `<layout-microservice>.resources.requests.memory` or `<layout-microservice>.resources.limits.memory` for that.
 
 - **`layout.api`** — CPU microservice. Exposes the layout API. Plus `layout.api.{ingress.* (common ingress shape, see § 5.10), serviceType, timeout, threads, workers}` for external exposure and request tuning.
 - **`layout.inference`** — GPU microservice. Defaults to `nvidia.com/gpu: 1` requests and limits. ~2.5 GB GPU memory per worker+thread (chart default `1 × 6`). For GPU sizing details see `references/cluster-requirements.md` § 2.2 and `references/node-groups.md` § 3. Vision-model-specific fields:
@@ -387,8 +389,11 @@ The layout pipeline is a sub-tree of microservices (`layout.api`, `layout.correc
 - **`layout.ocr`** — CPU microservice (Tesseract). Switches to Google Cloud Vision when `layout.ocr.type: google` is set. The GCV credentials can be provided two ways:
   - **`layout.ocr.credentials`** (string) — Path to a GCP service-account JSON file *packaged in the chart* (e.g. `files/ocr/credentials.json`). At template time the chart calls `.Files.Glob` against this path; if the file exists, the chart materializes a `Secret` named `<layout-service>-ocr-credentials-map` carrying the JSON as `credentials.json`. Mounted into the layout-ocr pod. **Not inline JSON**; the value is a path string the chart resolves from packaged files.
   - **`layout.ocr.project`** — GCP project id written into the runtime config when the GCV path is used.
+  - **`layout.ocr.timeout`** (integer, default 120, range 1-250). Per-page Tesseract OCR timeout in seconds; the Google Cloud Vision OCR path ignores it (Tesseract-only). Two attempts each run at up to this timeout, so values above about 250 seconds risk exceeding ai-server's 600 second per-page Celery soft limit. Two separate preconditions apply: the field needs a `groundx-on-prem` chart build that includes it (an older chart package rejects it under the strict schema), and it takes effect only when the layout-ocr pod runs a layout-process image that includes ai-server's per-page OCR timeout (added to ai-server `master` on 2026-08-18). An image without that change ignores the key and has no per-page OCR timeout; only ai-server's 600 second per-page Celery soft limit applies. Leaving the field unset keeps the 120 second default (true for images that include that timeout). Upgrading to a chart build that includes this key restarts all seven layout pods once via the config-hash annotation, even when the field is left unset; each later change to the field restarts them again.
   - See `groundx-architecture/references/layout-ocr.md` § 5.2.
-- **`layout.process.batchSize`** (int) — Batch size for the layout-process worker.
+- **`layout.process.batchSize`** (int) — Batch size for the layout-process worker: the outer per-batch unit used for progress and memory-usage logging. On an image built from `ai-server` with the GX-61 change, it does not bound peak render memory — pages within a batch render to disk in fixed chunks of at most 4 pages regardless of `batchSize`. An older image renders each batch in memory instead, where `batchSize` does bound peak render memory.
+- **`layout.process.renderDiskBudgetMi`** (integer, minimum 1 per `values.schema.json`; default 2048, set by `templates/_helpers/app/layout-process.tpl`, not by the schema) — The per-process render-temp disk budget in MiB. The chart derives the `layout-process` pod's disk-backed `emptyDir` `sizeLimit` and `resources.requests.ephemeral-storage` from it as `workers × threads × renderDiskBudgetMi + 1024` MiB (3072Mi at the chart's `layout.process` defaults of 1 worker × 1 thread). Omitting the field keeps the chart's own default (2048 MiB). The budget takes effect only when the `layout-process` pod runs an image built from `ai-server` with the GX-61 change: that image renders pages to disk in fixed 4-page chunks against this budget, and also bounds a worker-loss retry so redelivery stops looping (see `references/troubleshooting.md` § 4.4). An older image ignores `LAYOUT_RENDER_DISK_BUDGET_MIB` and renders each batch in memory instead — though `pdf2image`'s own temporary copy of the source PDF still lands under whatever `TMPDIR` points to, which is the chart's `emptyDir` mount either way (old-image/new-chart pairing); a newer image paired with a chart that predates this field falls back to its own default temp directory and a 2048 MiB budget (new-image/old-chart pairing), so either pairing keeps working. If an operator sets `layout.process.resources.limits.ephemeral-storage`, it must be at least the computed request (`workers × threads × renderDiskBudgetMi + 1024` MiB), quoted or unquoted, written as a plain integer or a decimal with a digit on each side of the point (e.g. `4294967296` or `4.5Gi`, not `.5Gi` or `5.Gi`), with an optional exponent (`4e9`) and an optional suffix of `k`/`M`/`G`/`T`/`P`/`E` (decimal) or `Ki`/`Mi`/`Gi`/`Ti`/`Pi`/`Ei` (binary); a leading `+` (`+4Gi`) and the Kubernetes milli suffix `m` are both rejected. `layout.process.workers` and `layout.process.threads` must each be at least 1. A malformed quantity fails chart rendering with a message naming the rejected value; a well-formed quantity that is still below the computed request fails with a message naming the field and the computed minimum. See `references/cluster-requirements.md` § 6.1 for the node-level ephemeral-disk sizing rule this budget feeds.
+- **Layout worker grace period** (`layout.correct.replicas.gracePeriod`, `layout.map.replicas.gracePeriod`, `layout.ocr.replicas.gracePeriod`, `layout.process.replicas.gracePeriod`, `layout.save.replicas.gracePeriod`, `layout.inference.replicas.gracePeriod`; integer, minimum 1) — The pod termination grace period in seconds. Omitting it keeps the 900-second default and needs no values.yaml change. `layout.api` does not accept it. Each Supervisor Celery worker waits `max(1, gracePeriod - 30)` seconds to stop (870 at the default); a value below 31 gives a 1-second wait. Layout Celery acknowledges a task after it finishes, so a task cut off by the pod's SIGKILL waits for broker redelivery instead of being retried at once; a longer grace period lets in-flight pages finish. On node scale-down the effective grace period is the smaller of `gracePeriod` and the cluster autoscaler's `--max-graceful-termination-sec`, which defaults to 600 seconds and which the chart's bundled EKS Terraform leaves unset, so raise it to at least `gracePeriod` if node scale-down should honor the full grace period. Moving to a chart that carries this key restarts the six layout Deployments once. The key exists on the 0.2.7 chart line only, and a chart built from the 0.2.7 branch can still report version 0.2.6. The published 0.2.6 chart rejects it under the strict schema, so do not set it there. Probe a chart with `helm template probe <chart> --set layout.map.replicas.gracePeriod=900 >/dev/null`; a non-zero exit means the chart lacks the key.
 
 ### 5.3 `layoutWebhook:` / `preProcess:` / `process:` / `queue:` / `summaryClient:` / `upload:`
 
@@ -546,6 +551,83 @@ Every `<microservice>.ingress.*` block in the chart shares the same field set. M
 - **`paths`** (list of dicts) — Multi-path routing for non-trivial Ingresses.
 - **`tls`** (list of dicts) — TLS config (Secret reference + hosts).
 - **`apiVersion`** (string) — Override the `apiVersion` written into the Ingress resource (compat with older Kubernetes versions; chart picks a sensible default otherwise).
+
+### 5.11 Drain protection: `disruptionBudget` and `topologySpreadConstraints`
+
+Two per-microservice settings limit the damage of a node drain. `disruptionBudget.enabled: true` renders a `policy/v1` PodDisruptionBudget with `minAvailable: 1`, so a drain that goes through the Kubernetes eviction API waits instead of evicting the last available pod. `topologySpreadConstraints` is a list rendered as written on the pod spec, so the scheduler can keep replicas on different nodes. Both keys default to off, and with neither set the rendered output is unchanged. Every microservice in the table accepts both keys. Use the full path in values, for example `layout.map.disruptionBudget.enabled` or `summaryClient.topologySpreadConstraints`.
+
+| Settings key | Pod `app` label | `disruptionBudget.enabled` | `topologySpreadConstraints` |
+| --- | --- | --- | --- |
+| `groundx` | `groundx` | yes | yes |
+| `layout.api` | `layout-api` | yes | yes |
+| `layout.map` | `layout-map` | yes | yes |
+| `layout.ocr` | `layout-ocr` | yes | yes |
+| `layout.process` | `layout-process` | yes | yes |
+| `layout.correct` | `layout-correct` | yes | yes |
+| `layout.save` | `layout-save` | yes | yes |
+| `layout.inference` | `layout-inference` | yes | yes |
+| `ranker.api` | `ranker-api` | yes | yes |
+| `ranker.inference` | `ranker-inference` | yes | yes |
+| `summary.api` | `summary-api` | yes | yes |
+| `summary.inference` | `summary-inference` | yes | yes |
+| `summaryClient` | `summary-client` | yes | yes |
+| `preProcess` | `pre-process` | yes | yes |
+| `process` | `process` | yes | yes |
+| `queue` | `queue` | yes | yes |
+| `upload` | `upload` | yes | yes |
+| `largeFileDeliver` | `large-file-delivery` | yes | yes |
+| `layoutWebhook` | `layout-webhook` | yes | yes |
+| `metrics` | `metrics` | yes | yes |
+| `extract.api` | `extract-api` | yes | yes |
+| `extract.agent` | `extract-agent` | yes | yes |
+| `extract.download` | `extract-download` | yes | yes |
+| `extract.save` | `extract-save` | yes | yes |
+| `workspace.api` | `workspace-api` | yes | yes |
+| `workspace.cleanup` | `workspace-cleanup` | yes | yes |
+| `workspace.command` | `workspace-command` | yes | yes |
+| `workspace.provision` | `workspace-provision` | yes | yes |
+| `workspace.publish` | `workspace-publish` | yes | yes |
+| `workspace.workspace` | `workspace-workspace` | yes | yes |
+
+The pod `app` label is the rendered Deployment name of the 0.2.7 chart, taken from a chart render with every microservice enabled. If a deployment overrides a service name, confirm the label with `kubectl get deployment --show-labels` before copying it into a selector.
+
+**Replica warning.** Most microservices default to 1 replica, and a `minAvailable: 1` budget on a 1-replica service blocks node drains, because the only pod can never be evicted. A managed node group update on Amazon EKS drains through the eviction API and respects budgets, so it fails with a `PodEvictionFailure` error unless forced. Enable the budget only for a microservice that runs 2 or more replicas, by setting `replicas.desired` first. With autoscaling on (`cluster.hpa: true`, or `replicas.hpa: true` on a microservice whose schema accepts it: `ranker.inference` and the `extract` and `workspace` sub-microservices; every other microservice rejects `replicas.hpa` and follows `cluster.hpa`), `replicas.desired` is only the starting count and the chart's HorizontalPodAutoscaler takes its floor from `replicas.min`, which defaults to 1 for most services, so also set `replicas.min: 2` or the autoscaler can scale the service back to 1 replica. A budget protects against drains and other evictions through the eviction API, not against node failure.
+
+**Node capacity.** A budget needs 2 or more replicas and also somewhere to reschedule the evicted pod: 2 or more schedulable nodes in that service's node group (the chart's default node affinity pins each service to its group, and the `eyelevel-gpu-*` groups often have a single node), autoscaler or surge capacity, and a free GPU for the inference services. A managed node group update on Amazon EKS with the default update strategy adds new nodes before draining old ones; the minimal strategy, often chosen for GPU groups, and a plain `kubectl drain` do not (https://docs.aws.amazon.com/eks/latest/userguide/managed-node-update-behavior.html).
+
+**Version caveat.** Both keys exist on the groundx-on-prem 0.2.7 line only, and the version number alone does not tell you whether your chart has them: a chart built from the 0.2.7 branch can still report version 0.2.6 while carrying both keys. The published 0.2.6 chart in the registry has neither key in its schema and no PodDisruptionBudget template, so setting them there fails schema validation. Searching the chart's values for `disruptionBudget` is not a reliable check, because some 0.2.7 builds that lack this change already carry that key on the API services, and `topologySpreadConstraints` never appears in the values file. Before relying on the keys, run the schema probe `helm template probe <chart> --set layout.map.disruptionBudget.enabled=true --set-json 'layout.map.topologySpreadConstraints=[]' >/dev/null`; a non-zero exit (a schema error naming `layout/map`) means the chart does not have them.
+
+**Not covered.** `cache`, `cache.metrics` and the schema-migration Job do not accept either key. The bundled Redis runs a single replica, so a budget there would only block drains, and the schema-migration Job is not long running.
+
+The chart injects no `labelSelector` into a constraint, so the selector is yours to write. This example runs 2 layout-api replicas (`replicas.min: 2` matters only when autoscaling is on and is harmless otherwise), keeps 1 available during a drain, and keeps its replicas on different schedulable nodes:
+
+```yaml
+layout:
+  api:
+    replicas:
+      desired: 2
+      min: 2
+    disruptionBudget:
+      enabled: true
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
+        nodeTaintsPolicy: Honor
+        labelSelector:
+          matchLabels:
+            app: layout-api
+        matchLabelKeys:
+          - pod-template-hash
+```
+
+`whenUnsatisfiable: DoNotSchedule` is the Kubernetes default and refuses to place a pod that would break the constraint, whereas `ScheduleAnyway` only prioritizes nodes that minimize the skew, so it can leave both replicas on one node. `matchLabelKeys: [pod-template-hash]` limits the skew count to pods of the current Deployment revision, which the Kubernetes page gives as the way to tell revisions apart in a single Deployment; without it the count can include pods from the previous revision during a rolling update. `nodeTaintsPolicy: Honor` counts only untainted nodes and tainted nodes the pod tolerates, and a null value behaves like `Ignore`, which counts every node. Operational note: a cordoned node was observed to be skipped under `Honor`, and with the default `Ignore` a replacement pod stayed `Pending` during a drain. The constraint applies at every scheduling decision, and the scheduler does not rebalance running pods. Operational note: because `Honor` leaves the cordoned node out, during a drain the replacement pod can land beside the surviving replica and stay there after the node is uncordoned; a rollout restart of the Deployment rebalances the replicas. See https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/
+
+**Kubernetes version.** Per the same page, `nodeTaintsPolicy` became beta in 1.26 and GA in 1.33, and `matchLabelKeys` is beta and enabled by default from 1.27; the page notes each can be turned off by its own feature gate. The two degrade independently: a cluster older than a field's version, or with that field's gate turned off, does not honor it, so drop only that field and keep the other. Without `nodeTaintsPolicy`, `DoNotSchedule` can leave a replacement pod `Pending` during a drain; without `matchLabelKeys`, it can count old-revision pods during a rollout. On a cluster that supports neither, use the plain `DoNotSchedule` or `ScheduleAnyway` constraint and accept those trade-offs, remembering that `ScheduleAnyway` can leave both replicas on one node.
+
+**Budget limit.** A budget keeps at least one pod available, but an eviction terminates the evicted pod gracefully within its `terminationGracePeriodSeconds`, per https://kubernetes.io/docs/concepts/workloads/pods/disruptions/, so work in progress on that pod can still fail. Operational note: every service on the document path (ingest, layout, extraction and the `groundx` API) needs its own 2 or more replicas and its own budget, because one unprotected 1-replica service on the drained node still interrupts processing.
+
+For how a spread constraint interacts with the chart's default node affinity, and the effect of `DoNotSchedule` on a small cluster, see `references/node-groups.md` § 1.2.
 
 ## 6. Throughput model — `throughput:`
 

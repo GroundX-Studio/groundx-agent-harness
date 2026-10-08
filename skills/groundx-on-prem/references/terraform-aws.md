@@ -4,6 +4,8 @@ This file documents **the optional AWS-specific Terraform tooling shipped with t
 
 These tools are **AWS-specific and optional**. The GroundX chart is cloud-agnostic; AWS deployers can use any EKS provisioning approach. This file covers the *bundled* convenience tooling.
 
+**Supported status:** this bundled Terraform is an **optional** path for provisioning AWS infrastructure (a VPC and/or an EKS cluster) ahead of the Helm install, and the supported path for maintaining AWS infrastructure it already provisioned. `groundx-on-prem`'s 2025-11-04 migration retired the previous *hybrid terraform-helm approach to deploying the application itself* in favor of a pure Helm release — that change is about how GroundX is installed onto a cluster, not about this Terraform's role in provisioning or maintaining the cluster, which is unaffected. The supported sequence remains: (optional) Terraform provisioning of AWS infrastructure, followed by Helm for the application — see Phase 1 below and `install-flow.md`.
+
 For the cross-environment decision (EKS vs AKS vs GKE vs OpenShift vs on-prem), route to `deployment-options.md`. For the install flow that follows cluster provisioning, route to `install-flow.md`. For cost-modelling, route to `cost-estimation.md`.
 
 ## 1. What ships under `terraform/aws/`
@@ -230,6 +232,15 @@ aws_region   = "us-east-2"
 cluster_name = "groundx-prod"
 vpc_cidr     = "10.0.0.0/16"
 azs          = ["us-east-2a", "us-east-2b", "us-east-2c"]
+
+# Kubernetes version reaching the EKS control plane. Optional and null-defaulting --
+# omit for an existing deployment (leaves the running cluster's version untouched);
+# set explicitly only for a new cluster, or when deliberately adopting the key on an
+# existing one (read the cluster's actual running version first; EKS does not support
+# control-plane downgrades).
+environment_internal = {
+  eks_version = "1.35"
+}
 
 # Node group sizing per label
 node_groups = {
