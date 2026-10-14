@@ -53,6 +53,8 @@ The three inference deployments are the dominant cost driver on a vanilla deploy
 | `ranker-inference` | ~17.5 GB estimated footprint at `14×1` workers/threads; budget a 24 GB card class | Cannot reasonably be disabled — search ranking is core to RAG quality. CPU fallback is unreliable. |
 | `layout-inference` | ~2.5 GB × `worker × thread` (default `1×6` ≈ 15 GB) | CPU fallback is possible via explicit override but degrades layout quality. |
 
+**Host RAM is a second GPU-node cost input, separate from VRAM.** A GPU instance must also clear a host-RAM floor — `eyelevel-gpu-ranker` 30 GB, `eyelevel-gpu-layout` 12 GB, `eyelevel-gpu-summary` 30 GB (the RAM column of the Terraform README "Total Recommended Resources"; this citation is scoped to the RAM/disk columns, not the README's divergent VRAM column). Cost each GPU node on both its VRAM figure above and this host RAM floor, plus its root disk (`cluster-requirements.md` § 6.2) — an instance picked for VRAM alone can still be undersized on host RAM. See `cluster-requirements.md` § 2.3.
+
 The cost levers:
 
 1. **Drop summary-inference entirely** by routing to an external LLM. This is the single biggest GPU-cost reduction available; the `eyelevel-gpu-summary` node group disappears.

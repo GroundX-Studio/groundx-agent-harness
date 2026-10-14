@@ -61,7 +61,7 @@ The four cells correspond to four real deployment archetypes. § 2 walks each.
 | `mode` | `ingest` |
 | `workspace.enabled` | `false` |
 | Backing services required | Four (object store, DB, cache, queue). **Retrieval DB (OpenSearch) NOT required.** |
-| GPU node groups required | `eyelevel-gpu-layout`, `eyelevel-gpu-summary` (when `summary.api.enabled: true` + `summary.inference.enabled: true`). `eyelevel-gpu-ranker` not needed (ranker serves retrieval). |
+| GPU node groups required | `eyelevel-gpu-layout`, `eyelevel-gpu-summary` (when `summary.api.enabled: true` + `summary.inference.enabled: true`). `eyelevel-gpu-ranker` not needed (ranker serves retrieval); on the bundled Terraform it is still created unless the Terraform variable `var.cluster.search` is false (`setup-eks` with `SEARCH=false`), because `mode: ingest` does not reach Terraform. |
 | API exposure | `groundx` (ingest only); optionally `layoutWebhook` |
 
 **What's skipped in `mode: ingest`:**

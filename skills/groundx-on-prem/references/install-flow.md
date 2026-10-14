@@ -1,12 +1,18 @@
 # Install Flow
 
-This file documents the **ordered install workflow** for deploying GroundX onto a Kubernetes cluster. It covers the canonical AWS EKS happy path (the upstream `groundx-on-prem` repo's shipped workflow), plus the deviations needed for Mode-1 (existing customer-managed backing services) and Mode-2 (operator-deployed-dedicated backing services).
+This file documents the **ordered install workflow** for deploying GroundX onto a Kubernetes cluster. It covers the canonical Helm install (the upstream `groundx-on-prem` repo's shipped workflow for new clusters), the bundled Terraform's optional role for provisioning AWS infrastructure ahead of that install and for maintaining AWS infrastructure it already provisioned (§1), plus the deviations needed for Mode-1 (existing customer-managed backing services) and Mode-2 (operator-deployed-dedicated backing services).
 
 For values.yaml authoring, route to `references/values-yaml.md`. For backing-service decision logic, route to `references/services-prereqs.md`. For cluster prerequisites (chips, GPUs, k8s/helm versions, namespace, PV class), route to `references/cluster-requirements.md`.
 
-## 1. The shipped install path
+## 1. The shipped install path (optional Terraform provisioning, then Helm)
 
-The upstream `groundx-on-prem` repo ships two scripts that together describe the canonical AWS EKS install:
+The bundled Terraform below is an **optional** path for provisioning AWS infrastructure (a VPC
+and/or an EKS cluster) ahead of the Helm install (phase 1, §3), and the supported path for
+maintaining AWS infrastructure it already provisioned. `groundx-on-prem`'s 2025-11-04 migration
+retired the previous hybrid terraform-helm approach to deploying the *application itself* in favor
+of a pure Helm release — that is about how GroundX is installed onto a cluster, not about this
+Terraform's role in provisioning or maintaining the cluster, which is unaffected. The upstream
+`groundx-on-prem` repo ships two scripts that together describe that workflow:
 
 - **`terraform/aws/setup-eks`** — interactive bootstrap. Stands up the VPC + EKS cluster + storage class. Calls `bin/environment` under the hood. Writes `values.aws.local.yaml` + `storageclass/values.aws.local.yaml` based on the chosen storage driver (EFS or EBS).
 - **`bin/environment`** — terraform wrapper used by `setup-eks`. Drives `terraform/aws/vpc` and `terraform/aws/eks` (deploy and destroy).
