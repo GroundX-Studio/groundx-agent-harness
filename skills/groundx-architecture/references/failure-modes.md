@@ -16,7 +16,7 @@ Three architectural ideas drive failure handling:
 
 **Retry where retry helps; fail where retry doesn't.** External dependencies (3rd-party LLMs, OpenSearch reads) are retried because they have transient-failure characteristics. Store writes at the terminal step (`process` writing to file storage / OpenSearch / MySQL) fail the document because re-trying a partial write would leave an inconsistent terminal state. Auth-tier failures (MySQL/RDS unavailable, Redis unavailable for Celery state) fail closed because operating with broken auth or broken queue state is worse than failing.
 
-**Stateless pods + queue handoff make Kubernetes-default recovery sufficient for pod-loss scenarios.** A pod that crashes loses any in-memory work; Kubernetes restarts the pod; the queue retries the message. Celery retry configuration governs how many times a task retries before giving up; soft timeouts (~600s) catch stuck-but-not-crashed work.
+**Stateless pods + queue handoff make Kubernetes-default recovery sufficient for pod-loss scenarios.** A pod that crashes loses any in-memory work; Kubernetes restarts the crashed container in place (same pod); the queue retries the message. Celery retry configuration governs how many times a task retries before giving up, but only for a raised exception the task explicitly retries through the retry API — a worker loss (its process killed mid-task, e.g. by OOM) does not by itself count toward that limit. Soft timeouts (~600s) catch stuck-but-not-crashed work. For `layout-process` specifically, on an image built from `ai-server` with the GX-61 change, a worker loss is bounded to three total attempts (the initial attempt plus two retries), after which the task attempts the existing terminal failure callback and acknowledges the message, so the document does not loop forever; the other five Celery layout pods (`layout-inference`, `layout-ocr`, `layout-map`, `layout-save`, `layout-correct`) redeliver a lost worker's task without that bound. `layout-api` is the layout pipeline's HTTP entry point — a gunicorn pod with no Celery queue of its own — so neither the bound nor the unbounded-redelivery description applies to it.
 
 **The cloud stuck-document monitor covers the residual.** Some documents end up in a "started processing, never finished" state without a hard error (Celery task silently dropped, pod went away mid-step, etc.). The monitor is the recovery for this scenario — checks for documents whose `updated` timestamp is older than the per-stage cutoff and re-routes them.
 
@@ -48,9 +48,17 @@ Store dependencies for the auth path:
   Redis unavailable                  → Celery tasks fail (uses Redis as broker); document fails
 
 Pipeline pod crashes mid-document:
-  Celery retries via Celery configuration
+  Celery retries via Celery configuration, but a worker loss (process killed mid-task) is not
+    counted toward max_retries unless the task explicitly checks for it — the other five Celery
+    layout pods (layout-inference, layout-ocr, layout-map, layout-save, layout-correct) redeliver
+    a lost worker's task without a bound. layout-api has no Celery queue (HTTP entry point only).
+  layout-process (on an image built from ai-server with the GX-61 change): bounded to three total
+    attempts (initial attempt plus two retries), then one terminal failure callback attempt and
+    message acknowledgement, so the document does not loop
   Celery soft timeouts: ~600 seconds
-  Kubernetes restarts the crashed pod (default backoff)
+  Kubernetes restarts the crashed container in place (same pod, default backoff); a pool-worker
+    child process killed alone is recovered by Celery respawning that worker, no container/pod
+    restart
 
 Stuck-document recovery:
   Cloud stuck-document monitor (cloud-service only)
@@ -78,7 +86,8 @@ Queue overflow (Kafka / SQS over-capacity):
 | **`process` → MySQL/RDS write** (terminal step) | RDS write fails | **Document fails.** | Document ingest marked failed |
 | **`groundx` ingress → MySQL/RDS auth lookup** | RDS unavailable on cache miss | **Fails closed.** `groundx` cannot serve requests requiring auth. | API requests return errors; service-level outage from the customer's perspective |
 | **Redis unavailable** (Celery broker; auth cache) | Redis down | **Celery tasks fail because the broker is unavailable; documents fail.** Auth cache misses cascade to MySQL/RDS (degraded latency, not failure, on the auth path alone). | Ingest and document-processing fail; search may still serve if the request hits a path that doesn't touch Celery |
-| **Layout pipeline pod crash mid-document** (any of 7 layout pods) | Pod goes down | **Celery retries the task** per Celery configuration; soft timeouts ~600 seconds catch stuck-but-not-crashed work. Kubernetes restarts the pod. | Document may proceed after retry; if all retries exhausted, document fails. The cloud stuck-document monitor covers stuck cases |
+| **`layout-process` pod crash mid-document** (worker OOM-killed or otherwise lost, on an image built from `ai-server` with the GX-61 change) | Pod goes down | **Bounded to three total attempts** (initial attempt plus two retries), then one terminal failure callback attempt and message acknowledgement, so the document does not loop. On nodes that kill the whole container on OOM, every process in the container (the wrapping shell and its children, including the Celery worker) is killed together, so Kubernetes restarts the crashed container in place, same pod, between attempts. On nodes where only the worker process is killed, the container's other processes survive, so Celery respawns that worker inside the still-running container, with no container or pod restart, and the next attempt starts immediately rather than waiting on the broker's visibility timeout. | Document proceeds if a retry succeeds; after three attempts, document fails via the terminal callback. GroundX cloud's stuck-document monitor may resubmit a document still active 60 minutes after its last update, starting a fresh three-attempt budget as a new Celery message; on-prem has no stuck-document monitor, so the document stays in its last-reported failed state until a human or a future ticket acts on it |
+| **Other layout pipeline pod crash mid-document** (the other 5 Celery layout pods: `layout-inference`, `layout-ocr`, `layout-map`, `layout-save`, `layout-correct`; `layout-api` is the layout pipeline's HTTP entry point — a gunicorn pod with no Celery queue of its own — and is not part of this row) | Pod goes down | **Celery retries the task** per Celery configuration, but only for a raised exception the task explicitly retries through the retry API — a worker loss (its process killed mid-task, e.g. OOM) does not count toward `max_retries` for these five pods, so the broker redelivers a lost worker's task without a bound. Soft timeouts ~600 seconds catch stuck-but-not-crashed work. On nodes that kill the whole container on OOM, Kubernetes restarts the crashed container in place, same pod; on nodes where only the worker process is killed, Celery respawns that worker within the still-running container, with no container or pod restart. | Document may proceed after retry; if the worker loss keeps recurring, the document keeps looping (no bound), or if a raised, explicitly-retried error exhausts its retries, the document fails. The cloud stuck-document monitor covers stuck cases |
 | **Pod CrashLoopBackOff** | Pod can't start | **Kubernetes default backoff.** Operator intervention typically required to diagnose. | In-flight work may be lost; re-ingest may be required depending on which step crashed |
 | **Queue overflow** (Kafka / SQS over-capacity) | Queue rejects new messages | **Not observed in production; behavior undocumented;** presumed message loss for new ingests. | Speculative: new ingests may fail to enqueue; existing in-flight work continues |
 | **AZ outage** (cloud service) | One AZ goes offline | RDS / OpenSearch / S3 fail over automatically per managed-service defaults; Kubernetes reschedules pods to surviving AZs | Transparent to customers in most cases; transient pod restarts may cause brief delays |
@@ -100,7 +109,7 @@ Queue overflow (Kafka / SQS over-capacity):
 | OpenSearch read (search path) | Fails closed after 3 retries |
 | OpenSearch write (`process` terminal step) | Fails closed — document fails |
 | File storage write (`process` terminal step) | Fails closed — document fails |
-| Pod crash mid-document (layout / extract steps) | Fails to a retry (Celery) — fails open transiently, may fail closed after retries exhausted |
+| Pod crash mid-document (layout / extract steps) | Fails to a retry (Celery) — fails open transiently, may fail closed after retries exhausted. For `layout-process` specifically, the fail-closed terminal callback fires once a fixed three-attempt budget (initial attempt plus two retries) is exhausted, not an open-ended retry; the extract steps and the other five Celery layout pods (`layout-inference`, `layout-ocr`, `layout-map`, `layout-save`, `layout-correct`) retain the generic Celery-retry description. `layout-api` has no Celery queue and is not part of this row |
 | AZ outage | Fails open — managed-service defaults handle it |
 | Regional outage | Fails closed — no automatic recovery |
 

@@ -73,6 +73,8 @@ Per-question annotation in § 3 shows: the answer's implication, the exact value
 
 **Cross-field implications:** No GPUs → forced external summary + degraded layout + unsupported ranker. The agent should surface this trade-off explicitly to the user before continuing.
 
+**Host RAM, not just VRAM.** A GPU node also needs host RAM above a per-group floor (ranker 30 GB, layout 12 GB, summary 30 GB — `cluster-requirements.md` § 2.3); size the instance for both, not VRAM alone.
+
 **Gotchas:** `cluster.hasMig` is accepted by the schema in chart 0.2.7 but does not change rendered resources or scheduling. Configure MIG profiles through the NVIDIA operator, then set workload resource keys and placement explicitly. Spot instances are not recommended for the inference tier because pre-emption loses in-flight work.
 
 ### 3.4 Summary engine choice

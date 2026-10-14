@@ -40,6 +40,14 @@ Override any of these to match an existing label-value scheme, but set **all fiv
 
 The key (`eyelevel_node`) is not configurable through values.yaml — it is baked into the chart's `nodeAffinity` and `tolerations` templates. To use a different key entirely, override the per-microservice `affinity:` block, which replaces the chart's `nodeAffinity` outright. A per-microservice `nodeSelector:` block (§ 4) is **not** sufficient on its own: the chart renders it alongside its `requiredDuringSchedulingIgnoredDuringExecution` node affinity rather than in place of it, so the pod must still land on a node carrying `eyelevel_node` (or the legacy `node` key) with the expected value, and stays `Pending` when no such node exists.
 
+### 1.2 Spreading replicas across nodes
+
+A `topologySpreadConstraints` entry (see `references/values-yaml.md` § 5.11) is rendered on the pod spec alongside the chart's default node affinity, so it narrows placement within the eligible nodes. A custom `affinity` block replaces that default affinity outright, so a spread constraint does not substitute for the node-group targeting in § 1.
+
+A disruption budget or spread constraint only helps when an evicted pod has somewhere to go: keep 2 or more schedulable nodes in the service's node group (see `references/values-yaml.md` § 5.11, Node capacity).
+
+`whenUnsatisfiable: DoNotSchedule` (the Kubernetes default) tells the scheduler not to place a pod that would break the constraint, while `ScheduleAnyway` still schedules it and only prioritizes nodes that minimize the skew, so it can leave both replicas on one node. Operational note: with `DoNotSchedule` and the default `nodeTaintsPolicy`, a replacement pod created during a drain stayed `Pending` because the cordoned node still counted as a domain; setting `nodeTaintsPolicy: Honor` (a null value behaves like `Ignore`) counts only untainted nodes and tainted nodes the pod tolerates, which avoids that stall. Add `matchLabelKeys: [pod-template-hash]` so a rolling update counts only the current revision's pods. Both fields need a recent cluster (`nodeTaintsPolicy` beta since 1.26 and GA in 1.33, `matchLabelKeys` beta since 1.27, per the same page, and each can be turned off by its own feature gate); the two degrade independently, so on a cluster that lacks one (too old, or its gate off) drop only that field, and use the plain constraint only when neither is supported. Under `Honor` the replacement can land beside the surviving replica during a drain, and a rollout restart rebalances. Adding nodes to the group also avoids the stall. See `references/values-yaml.md` § 5.11 for the example and the budget limit, and the Kubernetes documentation on topology spread constraints: https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/
+
 ## 2. Why the GPU groups are separate
 
 A deployer might reasonably ask why `eyelevel-gpu-layout` / `eyelevel-gpu-ranker` / `eyelevel-gpu-summary` are three distinct labels rather than one `eyelevel-gpu` umbrella. The reasons:
@@ -62,9 +70,15 @@ The chart defaults for the three inference microservices (from the upstream `gro
 | `ranker-inference` | 14 | 1 | ~1.25 GB | ~17.5 GB (sized for 24 GB) |
 | `summary-inference` | 1 | 1 | ~12 GB | ~12 GB (sized for 24 GB Gemma 3) |
 
-Per-pod replica counts (`replicas:` in values.yaml) are 1 by default for each. Autoscaling (HPA) is **off** by default and turning it on multiplies the resource footprint by the autoscaler's max-replicas. See `references/autoscaling.md`.
+Per-pod replica counts (`replicas:` in values.yaml) default to 1, except `summary.inference`, which defaults to 2. Autoscaling (HPA) is **off** by default and turning it on multiplies the resource footprint by the autoscaler's max-replicas. See `references/autoscaling.md`.
 
-For the CPU + memory resource requests / limits per microservice (not GPU memory — Kubernetes-level CPU and memory `requests` and `limits`), the upstream `values.yaml`'s per-microservice block is the source of truth. The chart sets reasonable per-pod CPU + memory defaults; deployers tune them based on observed load.
+For the CPU + memory resource requests / limits per microservice (not GPU memory — Kubernetes-level CPU and memory `requests` and `limits`), the upstream `values.yaml`'s per-microservice block is the source of truth; deployers tune them based on observed load. These defaults are uneven across microservices. In particular, on the 0.2.7 chart line the default `ranker.inference.resources` sets a memory request (`1Gi`) and a GPU limit (`nvidia.com/gpu`) but **no memory limit** — its `limits` carry only `nvidia.com/gpu` — so a ranker pod's host-RAM use is unbounded and the `1Gi` request sits far below its real footprint at the default `14×1` worker/thread count. Size the ranker node for the GPU host-RAM floor in § 3.1, and set `ranker.inference.resources.limits.memory` explicitly (the full dotted path) if you want a cap — the `ranker-inference` helper passes a user-supplied `resources` block through.
+
+### 3.1 GPU node host RAM and node root disk
+
+**Host RAM floor (system memory, not VRAM).** Each GPU node group has a host-RAM floor distinct from the VRAM figures in § 3: `eyelevel-gpu-ranker` 30 GB, `eyelevel-gpu-layout` 12 GB, `eyelevel-gpu-summary` 30 GB (the RAM column of the Terraform README "Total Recommended Resources"). Pick an instance that clears both its VRAM figure and this host RAM floor — a card with enough VRAM on a host with too little RAM still OOMs. See `cluster-requirements.md` § 2.3.
+
+**Node root/ephemeral disk.** Separate from both GPU VRAM and backing-service PVC sizing. On the bundled Terraform path each node's root volume is `max(deployment_type.min_pv, nodes.node_groups.<group>_nodes.ebs.volume_size)`; `min_pv` defaults to 20, so each group boots at its per-group `ebs.volume_size` (CPU 30, GPU layout/ranker 75, GPU summary 100 GiB), raised to at least 120 GiB only on the chainguard-tagged image path. For self-provisioned nodes the Terraform README disk column is the recommendation (cpu-only 80, cpu-memory 20, gpu-layout 35, gpu-ranker 75, gpu-summary 100 GB). See `cluster-requirements.md` § 6.2 and `references/terraform-aws.md` § 8.
 
 ## 4. Custom node-group labels — how to override
 

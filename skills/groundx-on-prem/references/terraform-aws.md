@@ -4,6 +4,8 @@ This file documents **the optional AWS-specific Terraform tooling shipped with t
 
 These tools are **AWS-specific and optional**. The GroundX chart is cloud-agnostic; AWS deployers can use any EKS provisioning approach. This file covers the *bundled* convenience tooling.
 
+**Supported status:** this bundled Terraform is an **optional** path for provisioning AWS infrastructure (a VPC and/or an EKS cluster) ahead of the Helm install, and the supported path for maintaining AWS infrastructure it already provisioned. `groundx-on-prem`'s 2025-11-04 migration retired the previous *hybrid terraform-helm approach to deploying the application itself* in favor of a pure Helm release — that change is about how GroundX is installed onto a cluster, not about this Terraform's role in provisioning or maintaining the cluster, which is unaffected. The supported sequence remains: (optional) Terraform provisioning of AWS infrastructure, followed by Helm for the application — see Phase 1 below and `install-flow.md`.
+
 For the cross-environment decision (EKS vs AKS vs GKE vs OpenShift vs on-prem), route to `deployment-options.md`. For the install flow that follows cluster provisioning, route to `install-flow.md`. For cost-modelling, route to `cost-estimation.md`.
 
 ## 1. What ships under `terraform/aws/`
@@ -221,7 +223,7 @@ See `workspace-service.md` § 4.3.
 
 ## 8. env.tfvars — the configuration surface
 
-`env.tfvars.example` is the template; the deployer copies to `env.tfvars` and edits. Typical fields:
+`env.tfvars.example` is the template; the deployer copies to `env.tfvars` and edits. Node configuration lives in two separate variables: `nodes` carries each group's `ami_type`, `instance_types`, and `ebs { volume_size }` (root-disk size); `node_replicas` is the optional sizing override (`desired_size` / `min_size` / `max_size`), and when set it takes precedence over the per-group sizes in `nodes`.
 
 <!-- illustrative -->
 ```hcl
@@ -231,25 +233,55 @@ cluster_name = "groundx-prod"
 vpc_cidr     = "10.0.0.0/16"
 azs          = ["us-east-2a", "us-east-2b", "us-east-2c"]
 
-# Node group sizing per label
-node_groups = {
-  cpu_only = {
-    instance_types = ["m6i.xlarge"]
-    min_size       = 2
-    max_size       = 10
-    desired_size   = 2
-  }
-  gpu_summary = {
-    instance_types = ["g5.2xlarge"]
-    min_size       = 1
-    max_size       = 2
-    desired_size   = 1
-  }
-  # ... similar for cpu-memory, gpu-layout, gpu-ranker
+# Kubernetes version reaching the EKS control plane. Optional and null-defaulting --
+# omit for an existing deployment (leaves the running cluster's version untouched);
+# set explicitly only for a new cluster, or when deliberately adopting the key on an
+# existing one (read the cluster's actual running version first; EKS does not support
+# control-plane downgrades).
+environment_internal = {
+  eks_version = "1.35"
+}
+
+# Optional sizing override. All five keys are required (strict object type); a null
+# field keeps that group's size from `nodes` (eks.tf coalesces per field). Set a number
+# only for a size you want to change, against the Terraform README recommendations.
+node_replicas = {
+  cpu_memory  = { desired_size = null, min_size = null, max_size = null }
+  cpu_only    = { desired_size = null, min_size = null, max_size = null }
+  gpu_layout  = { desired_size = null, min_size = null, max_size = null }
+  gpu_ranker  = { desired_size = null, min_size = null, max_size = null }
+  gpu_summary = { desired_size = null, min_size = null, max_size = null }
 }
 ```
 
-The actual variable names live in `terraform/aws/eks/variables.tf` and `terraform/aws/vpc/common.tf`. Diff against the example file for the canonical surface.
+To change a group's AMI, instance types, or root-disk size, override `nodes`. It is a strict object type with no optional fields, so a partial block fails validation: copy the whole default `nodes` block from `terraform/aws/variables.tf` (all five groups: `cpu_memory_nodes`, `cpu_only_nodes`, `layout_nodes`, `ranker_nodes`, `summary_nodes`) into `env.tfvars` and edit it. If you deploy with `setup-eks`, it regenerates `env.tfvars` and applies it in the same run, so an override written beforehand is discarded. To change node groups afterwards, edit `env.tfvars` and re-apply with `bin/environment eks`; changing instance types, AMI, or root-disk size rolls that group's nodes. The pinned EKS module ignores `desired_size` changes on an existing node group, so resize a running group outside Terraform. Each group has this shape (the `ranker_nodes` defaults shown). Module defaults: the CPU groups use `AL2023_x86_64_STANDARD` + 30 GiB; `layout_nodes` / `ranker_nodes` use `AL2023_x86_64_NVIDIA` + 75 GiB; `summary_nodes` uses `AL2023_x86_64_NVIDIA` + 100 GiB.
+
+<!-- illustrative -->
+```hcl
+# Shape of nodes.node_groups.ranker_nodes, not a top-level variable: paste it inside the
+# full default `nodes = { node_groups = { ... } }` block copied from terraform/aws/variables.tf.
+ranker_nodes = {
+  ami_type       = "AL2023_x86_64_NVIDIA"
+  desired_size   = 1
+  ebs = {
+    delete_on_termination = true
+    encrypted             = true
+    iops                  = null
+    kms_key_id            = null
+    snapshot_id           = null
+    throughput            = null
+    volume_size           = 75
+    volume_type           = "gp2"
+  }
+  instance_types = ["g6e.xlarge"]
+  max_size       = 10
+  min_size       = 1
+}
+```
+
+Root-disk sizing goes through each node group's `block_device_mappings`, not the EKS node-group `disk_size` field — the pinned upstream module (`terraform-aws-modules/eks/aws`) ignores the node-group `disk_size` field whenever a custom launch template is used, and the bundled config always uses one (it sets `block_device_mappings`), so `disk_size` has no effect here regardless of AMI type. The bundled `eks.tf` provisions the root volume as `max(deployment_type.min_pv, nodes.node_groups.<group>_nodes.ebs.volume_size)` per group. `deployment_type.min_pv` defaults to 20 (`terraform/shared/variables.tf`), so on the default image path each group boots at its per-group `ebs.volume_size`; the bundled `setup-eks` raises `min_pv` to 120 only on the chainguard-tagged image path, where every group's effective root disk is at least 120 GiB (larger if its `volume_size` is larger). See `cluster-requirements.md` § 6.2 and `node-groups.md` § 3.1 for the recommendation.
+
+The actual variable declarations live in `terraform/aws/variables.tf` (the `nodes` and `node_replicas` variables) and `terraform/shared/variables.tf` (`deployment_type`, which carries `min_pv`). Diff against the example file for the canonical surface.
 
 ## 9. Day-2 — updates and tear-down
 

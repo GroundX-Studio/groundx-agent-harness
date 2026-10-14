@@ -14,7 +14,9 @@ credentials. This file is the canonical credential policy for installed agents.
 | LLM API key | `LLM_API_KEY` | Server-side middleware completions in scaffolded web UI projects |
 | LLM service/provider | `LLM_SERVICE` | Provider/service for server-side completions, such as `openai`, `anthropic`, or a custom provider |
 | LLM model ID | `LLM_MODEL_ID` | Exact completion model ID the scaffolded middleware should send to the LLM provider |
-| Customer username | `CUSTOMER_USERNAME` | Partner resource endpoints that require `X-Customer-Key` |
+| Customer username | `CUSTOMER_USERNAME` | The UUID `username` returned by `/customer/login` or `/customer/register`, never the email; sent as `X-Customer-Key` on Partner resource endpoints |
+
+`GROUNDX_PARTNER_API_KEY` (managed scaffold) and `PARTNER_API_KEY` (direct REST) name the same Partner key; keep whichever name the surface already uses.
 
 ## Required Agent Behavior
 

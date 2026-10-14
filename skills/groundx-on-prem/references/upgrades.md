@@ -197,7 +197,7 @@ Helm renders the chart and runs the same client-side validation as `helm install
 The chart's Deployments use rolling updates by default — old pods serve while new pods come up. For zero-downtime upgrades:
 
 - **API tier** (groundx, layout-api, summary-api, extract-api, workspace-api): handled by rolling updates. Set `replicas.desired: 2` or higher so at least one pod always serves.
-- **Worker tier** (celery workers): inflight tasks may be interrupted. The chart's `terminationGracePeriodSeconds` (configurable via `<pod>.replicas.gracePeriod`) gives workers time to finish in-flight tasks.
+- **Worker tier** (celery workers): inflight tasks may be interrupted. The chart's `terminationGracePeriodSeconds` is set through `replicas.gracePeriod` on the services whose schema lists it, including the `extract.*` sub-microservices, the workspace-runner sub-microservices and the six layout workloads (0.2.7 chart and later); a service whose schema does not list it keeps the Kubernetes default.
 - **Inference tier** (layout-inference, ranker-inference, summary-inference): GPU pods. Rolling updates work but require enough GPU capacity to schedule the new pod while the old still runs. With one GPU per inference pod, you need a spare GPU during the rollout, OR set `maxUnavailable: 1, maxSurge: 0` to drain-then-create (with downtime).
 - **Backing services**: each operator has its own zero-downtime story. Percona PXC supports rolling restarts. Strimzi supports rolling Kafka broker upgrades. OpenSearch single-node deployments have downtime; multi-node deployments support rolling restart.
 
