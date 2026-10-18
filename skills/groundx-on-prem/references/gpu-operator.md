@@ -30,14 +30,44 @@ helm install nvidia-gpu-operator \
   -f helm/values/nvidia/values.yaml
 ```
 
-The GroundX seed at `helm/values/nvidia/values.yaml` is deliberately thin:
+The GroundX seed at `helm/values/nvidia/values.yaml` (chart 0.2.7) sets the runtime class, turns the DCGM exporter off, and tolerates the GPU and GroundX node taints:
 
 ```yaml
 operator:
   runtimeClass: nvidia
+
+dcgmExporter:
+  enabled: false
+
+daemonsets:
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+    - key: eyelevel_node
+      operator: Exists
+      effect: NoSchedule
+
+node-feature-discovery:
+  worker:
+    tolerations:
+      - key: node-role.kubernetes.io/master
+        operator: Equal
+        value: ""
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/control-plane
+        operator: Equal
+        value: ""
+        effect: NoSchedule
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+      - key: eyelevel_node
+        operator: Exists
+        effect: NoSchedule
 ```
 
-That's the entire seed. Real installs typically add: a pinned driver version (see § 5), a tolerations block for GPU node taints, and operator features per the upstream NVIDIA docs.
+Real installs typically add a pinned driver version (see § 5) and operator features per the upstream NVIDIA docs. GPU metrics need `dcgmExporter.enabled: true`, because the seed turns the exporter off. On chart 0.2.6 the seed set only `operator.runtimeClass`, so add the tolerations yourself there, or the operator's daemonsets will not schedule on tainted GPU nodes.
 
 ## 3. AKS variant — `runtimeClass: nvidia-container-runtime`
 
@@ -48,6 +78,8 @@ On Azure AKS, the GPU node pool uses a different containerd runtime class name. 
 operator:
   runtimeClass: nvidia-container-runtime
 ```
+
+On chart 0.2.7 the AKS seed differs from `values.yaml` only in this runtime class; it carries the same `dcgmExporter`, `daemonsets`, and `node-feature-discovery` blocks shown in § 2.
 
 Install with:
 
@@ -70,7 +102,7 @@ On Red Hat OpenShift, the GPU Operator install differs in two ways:
 1. **Use the Red Hat OperatorHub** to install the NVIDIA GPU Operator, not Helm. OpenShift's OLM (Operator Lifecycle Manager) is the canonical install path.
 2. **Install the NVIDIA Node Feature Discovery operator first**, then the GPU Operator. NFD detects GPU presence on nodes; the GPU Operator then provisions the driver/runtime on flagged nodes.
 
-The chart's `cluster.type: openshift` flag doesn't affect the operator install — operator install is out-of-band. But the chart's `groundx.isOpenshift` helper (`_helpers/main.tpl:108–111`) does branch on this in other ways (see `openshift.md`).
+The chart's `cluster.type: openshift` flag doesn't affect the operator install — operator install is out-of-band. But the chart's `groundx.isOpenshift` helper (`_helpers/main.tpl:128–131`) does branch on this in other ways (see `openshift.md`).
 
 For the OpenShift AI quickstart deployment, route to `openshift.md`.
 

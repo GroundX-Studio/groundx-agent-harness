@@ -10,6 +10,8 @@ JSON, comparing extraction output to ground truth, or iterating field accuracy s
 in `groundx-extraction-workflows`. Use this skill for the platform API operations
 that extraction delegates here.
 
+For file policies, protected creation, private uploads, sharing and expired source links, read [`13-file-access.md`](./13-file-access.md) before choosing an upload or source-view path.
+
 ## Fast Path
 
 1. Read `../SKILL.md` to confirm this is customer-scoped GroundX platform work.
@@ -47,6 +49,7 @@ that extraction delegates here.
 | Bucket create/list/update/delete | `04-buckets.md` |
 | Group create/list/update/delete, add/remove buckets | `05-groups.md` |
 | Workflow CRUD and assignment | `06-workflows.md` |
+| Customer policy/readback, usage windows, existing key administration and REST-only credential creation | `07-customer-and-keys.md` |
 | Errors, limits, async ingest, pagination, rate limits | `08-errors-and-limits.md` |
 | Python SDK typed objects, REST-key to SDK-attr mappings, snake_case attributes | `12-python-sdk-objects.md` |
 | Complete ingest -> poll -> search -> LLM pattern | `../guides/01-core-rag-workflow.md` |

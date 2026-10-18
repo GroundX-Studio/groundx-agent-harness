@@ -1,5 +1,8 @@
 # Search
 
+Source/citation URLs follow effective file access and may expire. Retain document/page/chunk identity and refresh through authenticated search or an exact file-link request. Read `13-file-access.md` before storing or rendering source links; never expose API keys to a browser.
+
+
 This reference covers the two search operations: `search_content` for searching a bucket,
 group, or single document by ID, and `search_documents` for searching an explicit set of
 documents by UUID.
@@ -113,16 +116,19 @@ to English during the ingest pipeline, then pre-translate user queries or custom
 Search all documents within a bucket, group, or a single document. The `id` parameter
 accepts a `bucketId` or `groupId` (integer) or a `documentId` (UUID string).
 
-**MCP:**
+**MCP discovery:** List operations and describe `Search_content` first, then:
 ```json
 {
-  "id": 1234,
-  "query": "what are the termination conditions?",
-  "n": 5,
-  "verbosity": 1
+  "operationId": "Search_content",
+  "args": {
+    "id": 1234,
+    "query": "what are the termination conditions?",
+    "n": 5,
+    "verbosity": 1
+  }
 }
 ```
-Tool: `search_content`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -178,18 +184,21 @@ and `filter` are in the JSON body.
 Search a specific set of documents identified by their UUIDs. Use this when you know
 exactly which documents to search and want to exclude all others.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Search_documents` first, then:
 ```json
 {
-  "documentIds": [
-    "DOCUMENT_UUID_1",
-    "DOCUMENT_UUID_2"
-  ],
-  "query": "payment schedule",
-  "n": 10
+  "operationId": "Search_documents",
+  "args": {
+    "documentIds": [
+      "DOCUMENT_UUID_1",
+      "DOCUMENT_UUID_2"
+    ],
+    "query": "payment schedule",
+    "n": 10
+  }
 }
 ```
-Tool: `search_documents`
+Tool: `call_operation`
 
 **REST:**
 ```http

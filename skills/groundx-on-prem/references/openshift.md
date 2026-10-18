@@ -11,7 +11,7 @@ cluster:
   type: openshift     # default is "eks"; valid values include "eks", "aks", "gke", "openshift", "minikube"
 ```
 
-The chart's `groundx.clusterType` helper (`_helpers/main.tpl:51–54`) reads `cluster.type` (defaulting to `eks`) and lowercases it. Several behaviours branch on `clusterType == openshift`.
+The chart's `groundx.clusterType` helper (`_helpers/main.tpl:76–79`) reads `cluster.type` (defaulting to `eks`) and lowercases it. Several behaviours branch on `clusterType == openshift`.
 
 ## 2. What changes when `cluster.type: openshift`
 
@@ -53,7 +53,7 @@ The Route resource type is rendered when the deployment's ingress shape calls fo
 
 ### 2.3 Skip filesystem symlinks
 
-The chart's `groundx.createSymlink` helper (`_helpers/main.tpl:56–59`) returns `false` on OpenShift (and Minikube):
+The chart's `groundx.createSymlink` helper (`_helpers/main.tpl:81–84`) returns `false` on OpenShift (and Minikube):
 
 ```go-template
 {{- define "groundx.createSymlink" -}}
@@ -66,7 +66,7 @@ This affects init-container behaviour in inference pods that would normally crea
 
 ### 2.4 The `isOpenshift` helper
 
-`_helpers/main.tpl:108–111` exposes `groundx.isOpenshift` as a boolean for downstream conditionals:
+`_helpers/main.tpl:128–131` exposes `groundx.isOpenshift` as a boolean for downstream conditionals:
 
 ```go-template
 {{- define "groundx.isOpenshift" -}}

@@ -6,13 +6,13 @@ The architecture skill describes the system at 9 altitudes. This file picks one 
 
 ## 1. Microservice inventory
 
-GroundX deploys as a Helm chart. The microservices that always land on the cluster:
+GroundX deploys as a Helm chart. The microservices it can deploy; the label and Notes column say when each one renders:
 
 | Capability group | Microservices | Runtime | Notes |
 | --- | --- | --- | --- |
 | **API + orchestration** (always on) | `groundx`, `upload`, `queue`, `pre-process`, `process`, `summary-client`, `metrics`, `layoutWebhook` | Golang | CPU-only orchestration tier. For pod-level role definitions see `groundx-architecture/references/ingest-service.md` § 5. |
 | **Layout pipeline** (always on) | `layout-api`, `layout-process`, `layout-correct`, `layout-inference`, `layout-ocr`, `layout-map`, `layout-save` | Python | `layout-inference` is GPU-default (CPU possible — see § 4); the rest are CPU. For pod-level definitions see `groundx-architecture/references/layout-ocr.md` § 5. |
-| **Ranker** (always on) | `ranker-api`, `ranker-inference` | Python | `ranker-inference` is GPU. For depth see `groundx-architecture/references/hybrid-search.md` § 5. |
+| **Ranker** (retrieval-side) | `ranker-api`, `ranker-inference` | Python | `ranker-inference` is GPU. Retrieval-side — **not rendered under `mode: ingest`** on the 0.2.7 chart line (the published 0.2.6 chart is excepted: its ingest-mode auto-disable is broken, so ranker still renders there). Helm's `mode: ingest` does not reach Terraform: the bundled Terraform creates the `eyelevel-gpu-ranker` node group whenever the Terraform variable `var.cluster.search` is true (its default), so for an ingest-only cluster also set `search = false` in the Terraform `cluster` variable (run `setup-eks` with `SEARCH=false`). See `references/deployment-modes.md` § 2.2. For depth see `groundx-architecture/references/hybrid-search.md` § 5. |
 | **Summary stack** (default-on) | `summary-api`, `summary-inference` | Python | Only deployed when `summary.api.enabled: true` + `summary.inference.enabled: true` (the **default**). `summary-inference` is GPU and **requires** a GPU — it does not run on CPU. When set to `false`, `summary-client` calls an external LLM instead, and these two microservices are not deployed. For depth see `groundx-architecture/references/summary-service.md`. |
 | **Extract microservice** (opt-in) | `extract-api`, `extract-download`, `extract-agent`, `extract-save` | Python | Only deployed when `extract.enabled=true`. When disabled, these microservices **do not render at all** — there are no idle replicas. For depth see `groundx-architecture/references/extraction-architecture.md`. |
 | **Workspace runner** (opt-in) | `workspace-api`, `workspace-workspace`, `workspace-provision`, `workspace-command`, `workspace-publish`, `workspace-cleanup` | Python | Only deployed when `workspace.enabled=true`. Requires `workspace.token` or `workspace.existingSecret` for git credentials. For depth see `groundx-architecture/references/workspace-architecture.md`. |
@@ -54,7 +54,7 @@ Each GPU microservice has a worker+thread model. Resource sizing is per worker+t
 ### 4.1 `layout-inference`
 
 - **~2.5 GB GPU memory per worker+thread.**
-- **GPU is the default; CPU is possible** but the chart's default `resource.limits` and `resource.requests` request an `nvidia.com/gpu`. To run on CPU, the deployer must explicitly set `resource.limits` and `resource.requests` to CPU + memory values that *override* the GPU request. The fallback works (per `groundx-architecture/references/vision-model.md` § 5) but the deployer has to opt out of GPU deliberately.
+- **GPU is the default; CPU is possible.** Setting `layout.inference.deviceType: cpu` auto-strips the `nvidia.com/gpu` request/limit from the rendered `layout-inference` resources (chart 0.2.7) — no manual `resource.limits`/`resource.requests` override is needed for that. `deviceType: cpu` alone does **not** move the pod off the `eyelevel-gpu-layout` node group; retargeting the node-group affinity is a separate required step. The fallback works (per `groundx-architecture/references/vision-model.md` § 5) but the deployer has to opt out of GPU deliberately — see `references/values-authoring.md § 3.11` for the full two-part change. (This auto-strip is layout-only and does not apply to `ranker` or `summary`. `ranker-inference` carries an explicit `nvidia.com/gpu` request; `summary-inference` renders no GPU device request at all — its GPU comes from placement on the `eyelevel-gpu-summary` node group, not a device request — see § 4.2 / § 4.3.)
 
 ### 4.2 `ranker-inference`
 

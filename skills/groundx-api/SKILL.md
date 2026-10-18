@@ -33,6 +33,8 @@ When writing public Python docs or agent-facing Python examples, use
 Python docs; those lower-level generated names are for SDK-internals or
 operation-level references.
 
+Before file policies, protected creation, private uploads, sharing and expired source links, read `references/13-file-access.md`. Confirm target deployment and client support before using source-defined features.
+
 ## Routing Contract
 
 - **Role:** `reference`.

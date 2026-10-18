@@ -1,8 +1,9 @@
 # Coverage Checklist
 
-Track documentation status for every MCP tool and REST endpoint.
-Update the ☐→✓ column as each reference doc is written.
-Each phase starts by reading this file and ends by updating it.
+Track operation-reference coverage, not deployment or release status. Normalized aliases
+below identify operations; they are not all named tools. Use the default-tool list or
+list/describe/call from `groundx-mcp`; multipart local ingest and customer key creation
+are excluded. `13-file-access.md` covers policies, staging, sharing and expiry.
 
 ## 01-auth.md
 
@@ -32,6 +33,9 @@ _No individual operations — cross-cutting content._
 | ✓ | `documents_copy` | `POST /v1/ingest/copy` |
 | ✓ | `documents_delete` | `DELETE /v1/ingest/documents` |
 
+| ✓ | `document_retryfailedstage` (discovery) | `POST /v1/ingest/document/{documentId}/retry` |
+| ✓ | `documents_filelink` (discovery) | `POST /v1/ingest/document/{documentId}/file-link` |
+
 ## 03-search.md
 
 | Done | MCP Tool | REST |
@@ -48,6 +52,8 @@ _No individual operations — cross-cutting content._
 | ✓ | `bucket_get` | `GET /v1/bucket/{bucketId}` |
 | ✓ | `bucket_list` | `GET /v1/bucket` |
 | ✓ | `bucket_update` | `PUT /v1/bucket/{bucketId}` |
+
+| ✓ | `buckets_fileupload` (discovery) | `POST /v1/bucket/{bucketId}/file-upload` |
 
 ## 05-groups.md
 
@@ -81,12 +87,13 @@ _No individual operations — cross-cutting content._
 
 | Done | MCP Tool | REST |
 |---|---|---|
-| ✓ | `apikey_create` | `POST /v1/apikey` |
+| ✓ | `apikey_create` (customer MCP excluded) | `POST /v1/apikey` |
 | ✓ | `apikey_delete` | `DELETE /v1/apikey/{apiKey}` |
 | ✓ | `apikey_list` | `GET /v1/apikey` |
 | ✓ | `apikey_update` | `PUT /v1/apikey/{apiKey}` |
+| ✓ | `customer_update` (discovery) | `PUT /v1/customer` |
 | ✓ | `customer_get` | `GET /v1/customer` |
-| ☐ | (no first-class tool; use `list_operations`/`call_operation`) | `GET /v1/customer/usage` |
+| ✓ | `customer_getusage` (discovery) | `GET /v1/customer/usage` |
 | ✓ | `health_list` | `GET /v1/health` |
 | ✓ | `health_get` | `GET /v1/health/{service}` |
 

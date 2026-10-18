@@ -115,7 +115,7 @@ The chart's behaviour varies per target:
 | `openshift` | `runAsUser` omitted (SCC owns it); Route rendered instead of Ingress; symlink creation skipped. See `openshift.md`. |
 | `minikube` | Local-dev convenience; symlink creation skipped. Not for production. |
 
-The chart's `groundx.clusterType` helper (`_helpers/main.tpl:51–54`) defaults to `eks`. Other branches: `groundx.isOpenshift` (`_helpers/main.tpl:108–111`), `groundx.createSymlink` (`_helpers/main.tpl:56–59`).
+The chart's `groundx.clusterType` helper (`_helpers/main.tpl:76–79`) defaults to `eks`. Other branches: `groundx.isOpenshift` (`_helpers/main.tpl:128–131`), `groundx.createSymlink` (`_helpers/main.tpl:81–84`).
 
 ## 5. Per-target seed values files
 

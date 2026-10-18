@@ -1,5 +1,8 @@
 # Source-View UIs
 
+Before rendering source URLs, read `../references/13-file-access.md`. Keep GroundX keys server-side. Stable protected links need header auth; use an authenticated application proxy or native short-lived link for image/PDF views. Retain document/page/chunk identity and refresh expired citations through search or file-link rather than retrying an expired URL. Raw evidence and the `view=links` presentation are separate.
+
+
 How to build UIs that let users inspect the exact source material behind an LLM
 response — the rendered document page, the highlighted chunk region, visual element
 clippings, and document attribution. This pattern is essential for any chat
@@ -407,7 +410,7 @@ All coordinates are in the native pixel space of the page image (`page.width` ×
 
 ### 10.4 Fetching the map
 
-The map URL is publicly accessible given the correct `processId` and `documentId`.
+Map/source access follows the deployment's file policy; do not assume identifiers grant anonymous access. Use authenticated gateway reads or bounded saved-asset links where supported.
 Fetch it client-side or server-side — no API key is required:
 
 ```

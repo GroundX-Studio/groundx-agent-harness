@@ -1,6 +1,6 @@
 # Upgrades — Version-to-Version Helm Upgrade
 
-This file documents **the `helm upgrade` workflow for the GroundX chart** — pre-upgrade checks, schema migrations, ConfigMap-driven rollouts, backing-service version coordination, and the rollback path. The chart's general upgrade philosophy is *forward-only* with explicit deployer review at each schema bump.
+This file documents **the `helm upgrade` workflow for the GroundX chart** — pre-upgrade checks, schema migrations, hash-annotation-driven rollouts, backing-service version coordination, and the rollback path. The chart's general upgrade philosophy is *forward-only* with explicit deployer review at each schema bump.
 
 For chart-deployed operator versions (Percona, MinIO, Strimzi, OpenSearch, NVIDIA GPU Operator), route to `services-operators.md`. For the install-time flow that upgrades build on, route to `install-flow.md`. For air-gapped upgrades, route to `air-gapped.md` § 10.
 
@@ -124,16 +124,20 @@ A previously-permissive block (`additionalProperties: true`) flipped to `false`.
 
 The fix for all four: read the CHANGELOG, update values.yaml, render locally, then upgrade.
 
-## 4. ConfigMap-driven rollouts
+### 3.5 A resource changed kind (ConfigMap to Secret)
 
-Many of the chart's Deployments include a `config-hash` annotation on the Pod template, tying the rollout to the contents of the corresponding ConfigMap:
+Upgrading **`0.2.6` to `0.2.7`** (GX-17) flips seven same-named resources from `ConfigMap` to `Secret`: `config-yaml-map`, each `<svc>-config-py-map`, and `layout-ocr-credentials-map`. The names do not change, only the kind. This is invisible to values.yaml but breaks anything that references these resources **by kind** from outside the chart: GitOps pins that select `kind: ConfigMap`, External Secrets Operator mappings, audit or backup scripts running `kubectl get configmap <name>`, and any RBAC `Role` scoped to `configmaps` rather than `secrets`. The chart carries **no `helm.sh/hook` migration** for this flip (verified) — Helm simply deletes the old ConfigMap and creates the new Secret on upgrade. Before upgrading: retarget every external reference and RBAC grant to `kind: Secret` (and add base64 decode where a consumer read the resource's `data` field as plain text), then upgrade. `helm rollback` flips them back to ConfigMap (see § 6), so external references must tolerate whichever kind matches the deployed revision.
+
+## 4. Hash-annotation-driven rollouts
+
+Many of the chart's Deployments include a hash annotation (`config-hash`, `gunicorn-conf-hash`, `supervisord-hash`, or a sibling) on the Pod template, tying the rollout to the contents of the corresponding rendered resource — ConfigMap or Secret, depending on which annotation:
 
 ```go-template
 annotations:
   config-hash: {{ include (print $.Template.BasePath "/resources/" $mapPrefix "-config-py.yaml") $ | sha256sum }}
 ```
 
-When the ConfigMap's contents change (because `values.yaml` change re-rendered the config), the annotation changes, triggering a rolling restart of the Deployment.
+When the rendered resource's contents change (because `values.yaml` change re-rendered the config), the annotation changes, triggering a rolling restart of the Deployment.
 
 This means: **most `helm upgrade` operations that change runtime config automatically restart the affected pods**. No manual `kubectl rollout restart` needed.
 
@@ -172,7 +176,7 @@ Helm's rollback replays the previous chart + values + release-state. Caveats:
 
 - **PVCs are not rolled back.** Data written during the failed upgrade stays. If schema migrations ran on MySQL or OpenSearch, those are not reverted by `helm rollback`.
 - **External backing services are not rolled back.** Cloud-managed services and existing-infra databases follow their own rollback procedures.
-- **ConfigMap rollback IS supported** — the previous ConfigMap content is reinstated, and the `config-hash` annotation triggers a fresh rollout.
+- **Config-resource rollback IS supported** — the previous ConfigMap or Secret content is reinstated, and the corresponding hash annotation triggers a fresh rollout. Rolling `0.2.7` back to `0.2.6` also reverts the § 3.5 kind flip (the seven resources return to `ConfigMap`); external references and RBAC grants scoped by kind must tolerate whichever kind matches the revision now deployed.
 
 For data-side rollback, restore from snapshots taken pre-upgrade (§ 2 step 5).
 
@@ -197,7 +201,7 @@ Helm renders the chart and runs the same client-side validation as `helm install
 The chart's Deployments use rolling updates by default — old pods serve while new pods come up. For zero-downtime upgrades:
 
 - **API tier** (groundx, layout-api, summary-api, extract-api, workspace-api): handled by rolling updates. Set `replicas.desired: 2` or higher so at least one pod always serves.
-- **Worker tier** (celery workers): inflight tasks may be interrupted. The chart's `terminationGracePeriodSeconds` (configurable via `<pod>.replicas.gracePeriod`) gives workers time to finish in-flight tasks.
+- **Worker tier** (celery workers): inflight tasks may be interrupted. The chart's `terminationGracePeriodSeconds` is set through `replicas.gracePeriod` on the services whose schema lists it, including the `extract.*` sub-microservices, the workspace-runner sub-microservices and the six layout workloads (0.2.7 chart and later); a service whose schema does not list it keeps the Kubernetes default.
 - **Inference tier** (layout-inference, ranker-inference, summary-inference): GPU pods. Rolling updates work but require enough GPU capacity to schedule the new pod while the old still runs. With one GPU per inference pod, you need a spare GPU during the rollout, OR set `maxUnavailable: 1, maxSurge: 0` to drain-then-create (with downtime).
 - **Backing services**: each operator has its own zero-downtime story. Percona PXC supports rolling restarts. Strimzi supports rolling Kafka broker upgrades. OpenSearch single-node deployments have downtime; multi-node deployments support rolling restart.
 
@@ -245,7 +249,61 @@ helm history groundx -n eyelevel
 
 If any pod is stuck `Pending` or `CrashLoopBackOff`, the standard troubleshooting flow (see `troubleshooting.md`) applies — same diagnostics, just post-upgrade context.
 
-## 12. What this file does not cover
+## 12. Secure-by-default StorageClass encryption (groundx-storageclass chart >=0.1.2)
+
+**Not yet safe to rely on.** This section describes `groundx-storageclass` chart
+`>=0.1.2`'s behavior. The chart source carries the bump, but publishing it to the public
+Helm repo is a separate, not-yet-completed human hand-off (`src/build.sh`, PRIVILEGED,
+never automated). Confirm the published chart version before assuming any of the
+following applies to your install — on a chart still pinned to `<0.1.2`, there is no
+`lookup` guard, so an EBS-backed StorageClass renders whatever the values file supplies
+for `parameters.encrypted` (including nothing, if the values file omits it) rather than
+defaulting to `encrypted: "true"`. Setting that key explicitly on an **existing** install
+on this chart range adds a parameter the live StorageClass didn't have and breaks the
+upgrade (StorageClass parameters are immutable) — see `values-yaml.md`'s
+`groundx-storageclass` example for the existing-install vs new-install guidance.
+
+Once `>=0.1.2` is actually in use:
+
+- **New installs:** an EBS-backed StorageClass (provisioner `ebs.csi.aws.com`) renders
+  `parameters.encrypted: "true"` by default. Every opt-out spelling
+  (`"false"`, `false`, `null`, `""`) normalizes to omitting the `encrypted` key, for all
+  three EBS-only parameter keys (`type`, `encrypted`, `kmsKeyId`). Non-EBS provisioners
+  (`efs.csi.aws.com`, `file.csi.azure.com`, `filestore.csi.storage.gke.io`) never render
+  `encrypted` or `kmsKeyId`, regardless of chart defaults — this section does not apply to
+  them.
+- **Existing installs (the common upgrade case):** `helm upgrade --install` against a
+  live cluster where the named StorageClass already exists reads that class via
+  `lookup "storage.k8s.io/v1" "StorageClass" "" <name>` and re-renders its live
+  parameters verbatim. StorageClass parameters are immutable in Kubernetes, so the chart
+  never changes an existing class's `encrypted` value — **no action is needed** on
+  upgrade for a live cluster.
+- **No-live-cluster render flows (`helm template`, client-side dry-run, most GitOps
+  renderers):** the `lookup` call always resolves empty in these flows (a documented Helm
+  limitation), so they always render new-install defaults regardless of what is actually
+  deployed. An operator on one of these flows managing an existing class that `0.1.1`
+  created *without* an explicit `encrypted` value must set `parameters.encrypted: "false"`
+  explicitly in their values file, or the rendered manifest will disagree with the live
+  class (which Kubernetes will then reject as an immutable-field change, not silently
+  apply). This does not work for a class that `0.1.1` created *with* an explicit
+  `encrypted: "false"`: `0.1.2` never renders an explicit `false`, so the key is omitted and
+  the render still disagrees with the live class. For that class, use a live-cluster
+  `helm upgrade --install` (the `lookup` keeps the live value), stay on `0.1.1` in that
+  flow, or create a new StorageClass.
+- **Drift warning:** the chart's `templates/NOTES.txt` prints one line only when a `lookup`
+  hit finds any supplied (normalized) parameter, such as `encrypted`, `kmsKeyId` or `type`,
+  differing from the live class's `parameters`, and it names each one that was not applied.
+  Silent on a lookup miss (no existing class) or on agreement. Read that NOTES.txt output after every `helm upgrade --install` against this
+  chart.
+
+Existing backing stores (MySQL, OpenSearch, or any store reached without the chart's own
+TLS termination) are **not** covered by this StorageClass default. There is no `ssl: true`
+chart value for MySQL or OpenSearch connections — that key exists only for the Redis
+cache (`cache.existing.ssl: true`). For the real per-store TLS settings
+(`db.existing.rootCerts` for MySQL/RDS/Azure Database, OpenSearch's own TLS trust
+options), read `references/tls-and-certs.md` §4.
+
+## 13. What this file does not cover
 
 - **The initial install flow** → `install-flow.md`.
 - **Air-gapped image staging** → `air-gapped.md` § 10.

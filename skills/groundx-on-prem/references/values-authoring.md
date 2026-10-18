@@ -73,6 +73,8 @@ Per-question annotation in § 3 shows: the answer's implication, the exact value
 
 **Cross-field implications:** No GPUs → forced external summary + degraded layout + unsupported ranker. The agent should surface this trade-off explicitly to the user before continuing.
 
+**Host RAM, not just VRAM.** A GPU node also needs host RAM above a per-group floor (ranker 30 GB, layout 12 GB, summary 30 GB — `cluster-requirements.md` § 2.3); size the instance for both, not VRAM alone.
+
 **Gotchas:** `cluster.hasMig` is accepted by the schema in chart 0.2.7 but does not change rendered resources or scheduling. Configure MIG profiles through the NVIDIA operator, then set workload resource keys and placement explicitly. Spot instances are not recommended for the inference tier because pre-emption loses in-flight work.
 
 ### 3.4 Summary engine choice
@@ -82,13 +84,13 @@ Per-question annotation in § 3 shows: the answer's implication, the exact value
 | Option | Implication | Fields pinned |
 | --- | --- | --- |
 | Self-hosted (Gemma 3, default) | Requires GPU per § 3.3. ~24 GB GPU memory. No document content leaves the cluster on summary generation. | `summary.api.enabled: true`, `summary.inference.enabled: true`, `summary.inference.model.name`, `summary.inference.deviceUtilize`. |
-| External — OpenAI | Document content leaves cluster on every summary call. Outbound API key required. Allow egress to `api.openai.com`. | `summary.api.enabled: false`, `summary.inference.enabled: false`, `summary.existing.serviceType: openai`, `summary.existing.apiKey`. |
-| External — OpenAI-base64 | Same as OpenAI but base64-encodes image data in-request vs URL. Use when the model endpoint can't reach the cluster's storage. | `summary.existing.serviceType: openai-base64`. |
-| External — Azure OpenAI | Same trust-boundary implications as OpenAI; Azure-hosted endpoint. | `summary.existing.serviceType: azure`, `summary.existing.url`, `summary.existing.apiKey`. |
-| External — DeepInfra (or any other OpenAI-compatible endpoint) | The chart helper doesn't special-case `deep-infra` — the URL is what disables self-hosted, not the `serviceType` value. | `summary.existing.serviceType: deep-infra` (passes through to runtime), `summary.existing.url` (**required**), `summary.existing.apiKey`. See `references/engines.md` § 3.5. |
+| External — OpenAI | Document content leaves cluster on every summary call. Outbound API key required. Allow egress to `api.openai.com`. | `summary.api.enabled: false`, `summary.inference.enabled: false`, `summary.existing.serviceType: openai`, `summary.existing.apiKey`, `engines.default.engineId`. |
+| External — OpenAI-base64 | Same as OpenAI but base64-encodes image data in-request vs URL. Use when the model endpoint can't reach the cluster's storage. | `summary.existing.serviceType: openai-base64`, `engines.default.engineId`. |
+| External — Azure OpenAI | Same trust-boundary implications as OpenAI; Azure-hosted endpoint. | `summary.existing.serviceType: azure`, `summary.existing.url`, `summary.existing.apiKey`, `engines.default.engineId`. |
+| External — DeepInfra (or any other OpenAI-compatible endpoint) | On chart 0.2.7 any `serviceType` other than `eyelevel` makes the engine external; the URL is required because the runtime has no built-in endpoint for `deep-infra`. | `summary.existing.serviceType: deep-infra` (passes through to runtime), `summary.existing.url` (**required**), `summary.existing.apiKey`, `engines.default.engineId`. See `references/engines.md` § 3.5. |
 | ⚠ Not an external option: `serviceType: eyelevel` | `eyelevel` is the chart's *default* `summary.existing.serviceType` — it triggers self-hosted, not external. Don't pick this expecting an EyeLevel-hosted endpoint. | See `references/engines.md` § 3.6. |
 
-**Cross-field implications:** External summary removes the need for the `eyelevel-gpu-summary` node group entirely. Document content crossing the cluster boundary is a trust-boundary event — note for the user. See `groundx-architecture/references/summary-service.md` § 6 for the full trust framing.
+**Cross-field implications:** On chart 0.2.7 every external option needs `engines.default.engineId`, or the render fails. External summary removes the need for the `eyelevel-gpu-summary` node group entirely. Document content crossing the cluster boundary is a trust-boundary event — note for the user. See `groundx-architecture/references/summary-service.md` § 6 for the full trust framing.
 
 **Gotchas:** Test with the chart-default model first; switch engine afterward. Different engines have different output shape and latency profiles — answer-quality is not guaranteed equivalent across engines.
 
@@ -271,7 +273,23 @@ layout:
     node: eyelevel-cpu-memory  # 2. retarget off the GPU node group
 ```
 
-The GPU keys do not need to be overridden by hand, and should not be: the helper only strips them when `deviceType` is `cpu`, so a hand-written `resources` block that omits them is both redundant and misleading about what does the work. This handling is layout-only — `ranker` and `summary` keep their GPU requests whatever their `deviceType` says. Confirm with `helm template … | grep nvidia.com/gpu` before installing.
+The GPU keys do not need to be overridden by hand, and should not be: the helper only strips them when `deviceType` is `cpu`, so a hand-written `resources` block that omits them is both redundant and misleading about what does the work.
+
+**Version caveat — chart `0.2.6` and earlier.** The auto-strip is a `0.2.7` addition. On `0.2.6` the template has no GPU-strip logic, so `deviceType: cpu` is schema-valid but **inert** — the inherited `nvidia.com/gpu` request and limit stay on the rendered pod, which then remains GPU-constrained or unschedulable. It fails silently, not loudly. A `0.2.6` CPU configuration must null both GPU keys by hand **and** retarget off the `eyelevel-gpu-layout` node group:
+
+```yaml
+layout:
+  inference:
+    deviceType: cpu                      # no effect on 0.2.6, kept for forward-compat
+    node: eyelevel-cpu-memory            # retarget off the GPU node group
+    resources:
+      limits:
+        nvidia.com/gpu: null             # 0.2.6: strip the GPU limit by hand
+      requests:
+        nvidia.com/gpu: null             # 0.2.6: strip the GPU request by hand
+```
+
+Confirm with `helm template … | grep nvidia.com/gpu` that no `layout-inference` entry remains before installing on `0.2.6`. This handling is layout-only: the strip does not apply to `ranker` or `summary` whatever their `deviceType` says. `ranker-inference` carries an explicit `nvidia.com/gpu` request; `summary-inference` renders no GPU device request at all — its GPU placement comes from the `eyelevel-gpu-summary` node group. Confirm with `helm template … | grep nvidia.com/gpu` before installing (a default render shows exactly four entries: `layout-inference` and `ranker-inference`, limits and requests each).
 
 **Cross-field implications:** Do not use the bare label key `node` — it collides with reserved metric labels in Prometheus / Grafana. See `references/node-groups.md` § 1 for the full reasoning.
 

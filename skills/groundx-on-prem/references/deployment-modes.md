@@ -61,7 +61,7 @@ The four cells correspond to four real deployment archetypes. § 2 walks each.
 | `mode` | `ingest` |
 | `workspace.enabled` | `false` |
 | Backing services required | Four (object store, DB, cache, queue). **Retrieval DB (OpenSearch) NOT required.** |
-| GPU node groups required | `eyelevel-gpu-layout`, `eyelevel-gpu-summary` (when `summary.api.enabled: true` + `summary.inference.enabled: true`). `eyelevel-gpu-ranker` not needed (ranker serves retrieval). |
+| GPU node groups required | `eyelevel-gpu-layout`, `eyelevel-gpu-summary` (when `summary.api.enabled: true` + `summary.inference.enabled: true`). `eyelevel-gpu-ranker` not needed (ranker serves retrieval); on the bundled Terraform it is still created unless the Terraform variable `var.cluster.search` is false (`setup-eks` with `SEARCH=false`), because `mode: ingest` does not reach Terraform. |
 | API exposure | `groundx` (ingest only); optionally `layoutWebhook` |
 
 **What's skipped in `mode: ingest`:**
@@ -148,7 +148,7 @@ Switching is supported but not trivial:
 | `mode: ingest` + `workspace.enabled: true` | Combine the above with workspace's RWX PVC + git egress + workspace credentials. Workspace publishes operate independently of the (absent) retrieval pipeline. |
 | `workspace.enabled: true` | `workspace.token` or `workspace.existingSecret` required. `workspace.pvc.{access: ReadWriteMany}` strongly preferred. NetworkPolicy must allow egress to the configured git remote. |
 | `workspace.enabled: false` | GroundX Workspace facade endpoints return errors. Don't set workspace credentials; they're ignored. |
-| External summary configured (via `summary.existing.serviceType` ∈ `{openai, openai-base64, azure}` OR `summary.existing.url` set) | Orthogonal to mode. The chart's `groundx.summary.create` helper returns false → `summary-api` + `summary-inference` not deployed regardless of `mode`. `eyelevel-gpu-summary` node group not needed. See `references/engines.md` § 1. |
+| External summary configured (`summary.existing.serviceType` other than `eyelevel`, or an off-cluster `summary.existing.url`, plus `engines.default.engineId`) | Orthogonal to mode. The chart's `groundx.summary.create` helper returns false, so `summary-api` + `summary-inference` are not deployed regardless of `mode`. `eyelevel-gpu-summary` node group not needed. See `references/engines.md` § 1. |
 
 ## 5. Mode-vs-archetype mapping
 

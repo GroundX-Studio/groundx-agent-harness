@@ -4,7 +4,11 @@ Auth for the GroundX MCP server runs at the transport layer — never inside a t
 This file covers obtaining a key, the two supported auth paths (OAuth and `X-API-Key`), the
 MCP server URL, and how to diagnose the three most common failures.
 
+Never request, echo, `cat`, print, or otherwise surface a secret value in chat.
+
 ---
+
+Protected creation, policy updates, private staging, saved-asset sharing and expired citations use the standalone flow in [`07-file-access.md`](./07-file-access.md). Ordinary public tools and upload behavior remain unchanged.
 
 ## 1. Obtaining a GroundX API Key
 
@@ -72,7 +76,8 @@ These responses tell the client where to redirect the user and which grant types
 ### 3.2 Authorization-Code Flow
 
 1. The client redirects the user to the GroundX-hosted authorization page.
-2. The page prompts for a GroundX API key and validates it inside the deployment.
+2. The user enters a GroundX API key directly on the page, which validates it inside the
+   deployment — the MCP client and agent never see the raw key.
 3. On success the server issues short-lived MCP tokens and returns them to the client via the
    redirect URI.
 4. The raw API key is not transmitted after this step — the client holds only the MCP tokens.

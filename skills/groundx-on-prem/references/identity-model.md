@@ -1,10 +1,55 @@
 # Identity Model — On-Prem Authentication
 
-This file states what actually authenticates requests against a self-hosted GroundX deployment today, and how an operator gives access to more than one person. For the values.yaml fields that bootstrap the first key, see `license-and-admin.md`. For the open gap in interactive login, see GX-20 (tracked separately, not fixed by this file).
+This file states what authenticates requests against a self-hosted GroundX deployment and how an
+operator gives access to more than one person, across all three selectable identity modes. For
+the values.yaml fields that bootstrap the first key, see `license-and-admin.md`. For the full
+`cognito.*` field reference, see `values-yaml.md` § 2.
 
-## 1. What authenticates today
+## 1. What authenticates today — three identity modes
 
-On-prem GroundX, as currently configured, authenticates every request with a single header: `X-API-Key`, checked against the database. There is no SSO, OIDC, SAML, or interactive dashboard login wired up on-prem today, and no per-key scopes or permissions table. This is a current-configuration gap, not a product-wide limitation: GroundX Cloud already authenticates through Cognito, and GX-20 is extending configurable Cognito support to on-prem. A valid key is authenticated as whoever owns it; what that identity can then do is governed by the partner-boundary check in § 2, not by anything stored on the key itself.
+Every request is authenticated with a single header, `X-API-Key`, checked against the database, in
+every mode. A deployment additionally selects one of three password/human-identity modes through
+`cognito.mode` in `values.yaml`; the selection governs only whether — and how — a password-based
+login path exists alongside the always-on API-key path.
+
+**`apiKeyOnly`** — the default, active when the `cognito` block is omitted from values.yaml
+entirely, or `mode` is set to `apiKeyOnly` explicitly. Identity is limited to the seeded admin API
+key (`admin.apiKey`, see `license-and-admin.md`) plus durable, DB-backed customer/API-key rows the
+admin creates. Every human-identity route — login, register, password reset/confirm, and every
+Basic-Auth route — returns HTTP 501. No route on an `apiKeyOnly` install issues a mock or
+`test-token`.
+
+**`cognito`** — set `cognito.mode: cognito` plus `clientId`, `clientSecret`, `poolId`, and
+`region` (all four required; missing any one is a startup-fatal error, not a silent fallback to
+`apiKeyOnly` or a mock client). Wires a real Cognito client against the configured `poolId` and
+`region`, and additionally requires AWS credentials reaching the pod — standard AWS environment
+variables or an IRSA-bound service account — for the Cognito API calls to succeed. `cognito` calls
+out to `cognito-idp.<region>.amazonaws.com`, so it is not a valid choice for an air-gapped cluster.
+
+**`local`** — set `cognito.mode: local`; no other `cognito.*` key is required. Password login is
+verified against a bcrypt hash stored in MySQL (`partner_users.password`); a successful login
+returns the customer body with no `token` field at all (the field is omitted, not emptied).
+Password reset under `local` is performed through the existing superaccess-gated
+`customer/password/reset` route: the owning partner or an admin can reset that customer's
+password, while another partner is denied. There is no self-service password-change route. A password
+is first set when the admin creates the customer through `customer/register` (with a password) or
+resets one through `customer/password/reset` — `admin.password` sets nothing, and a customer that
+existed before the switch to `local` has no password until an admin resets it. The always-on
+API-key path above continues to work unchanged alongside `local` password login, and under `local`
+the MCP authorize page uses browser-based email/password authentication instead of API-key authentication. `local` makes no
+outbound network call to authenticate, so it is air-gapped-safe the way `cognito` is not.
+
+**Version requirement — this behavior is not on every published build.** The three-mode selection
+ships in the on-prem chart from **0.2.7** (the release that added the `cognito.*` values block)
+paired with a server image built from **GX-20** or later. An older published chart (0.2.6) rejects
+`cognito.*` at render, and a pre-GX-20 server image still issues a `test-token` and does not return
+the `apiKeyOnly` 501s — so on those builds this document's mode behavior does not yet apply. `local`
+additionally requires a server image built from **GX-53** or later; on an image without it,
+`cognito.mode: local` is rejected. Confirm the deployed chart and image versions before relying on a
+mode's behavior.
+
+A valid key is authenticated as whoever owns it; what that identity can then do is governed by the
+partner-boundary check in § 2, not by anything stored on the key itself.
 
 ## 2. Admin key vs. ordinary customer key — they are not interchangeable
 
@@ -44,16 +89,23 @@ Give the new key a name that identifies who or what it's for, then hand that key
 
 There is no regenerate-in-place. Rotation is three steps: create a new key, move whoever used the old key over to it, then delete the old one.
 
-**Known limitation:** deleting a key does not immediately revoke it. Validated keys are cached for up to 60 minutes, and deletion does not force-expire that cache entry, so a deleted key can keep working for up to an hour afterward. Plan key rotations (especially after a suspected leak) with that window in mind. The caching behavior itself is a backend fix candidate, tracked separately, not something this doc can work around.
+**Known limitation:** deleting a key does not immediately revoke it. Validated keys are cached for up to 60 minutes, and deletion does not force-expire that cache entry, so a deleted key can keep working for up to an hour afterward. Plan key rotations (especially after a suspected leak) with that window in mind. The caching behavior itself is a backend fix candidate; this doc does not attempt to work around it.
 
 ## 6. What this does not give you
 
-- No SSO, OIDC, SAML, or interactive dashboard login on-prem, as currently configured. GX-20 is extending configurable Cognito support to on-prem; until that lands, this is what's true here.
-- Setting `admin.password` in `values.yaml` does **not** produce a working login. It is not used by the login path today; see the correction in `license-and-admin.md` § 2.
+- SSO, OIDC, or SAML on-prem, under any `cognito.mode`. `cognito.mode: cognito` wires
+  Cognito-backed password login; it does not add SSO/OIDC/SAML federation on top of Cognito.
+- Interactive dashboard login when `cognito.mode: apiKeyOnly` (the default) — every
+  human-identity route returns HTTP 501 under this mode. Set `cognito.mode: cognito` or
+  `cognito.mode: local` in `values.yaml` (see `values-yaml.md` § 2) to enable a password-based
+  login path instead.
+- A working login from setting `admin.password` in `values.yaml`, under any mode. It is not used
+  by the login path; see the correction in `license-and-admin.md` § 2.
 
 ## 7. What this file does not cover
 
 - **values.yaml fields for the admin block and license key** → `license-and-admin.md`.
+- **The full `cognito.*` field reference (`mode`, `clientId`, `clientSecret`, `poolId`, `region`)**
+  → `values-yaml.md` § 2.
 - **Full API key-endpoint request/response contract** → `groundx-api/references/07-customer-and-keys.md`.
-- **Interactive login, SSO/OIDC decision, Cognito wiring** → GX-20; not fixed or worked around here.
 - **Database/search/file/summary credentials unrelated to identity** → `credentials.md`.

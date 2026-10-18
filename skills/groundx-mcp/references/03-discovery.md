@@ -7,6 +7,8 @@ subject to scope and explicit server denylist rules.
 
 ---
 
+Protected creation, policy updates, private staging, saved-asset sharing and expired citations use the standalone flow in [`07-file-access.md`](./07-file-access.md). Ordinary public tools and upload behavior remain unchanged.
+
 ## 1. When discovery is needed
 
 The default 12 tools cover the common ingest-to-search workflow (bucket creation, group
@@ -201,7 +203,7 @@ A few operations are not governed by the verb rule above:
 - **Credential / account-administration operations require `groundx:admin`.** Managing
   existing API keys — `APIKey_list`, `APIKey_update`, `APIKey_delete` — is callable only in an
   admin-scoped session; a `groundx:write` session receives a scope error.
-- **Creating API keys is not available through MCP.** `APIKey_create` is hidden from
+- **Creating API keys is not available through customer MCP.** `APIKey_create` is hidden from
   `list_operations` and rejected by `call_operation` regardless of scope — API keys are minted
   out of band (REST or the dashboard), never by an agent.
 
@@ -222,3 +224,11 @@ both `describe_operation` and `call_operation`.
 
 For the default 12 tools and their parameters, see `references/02-default-tools.md` — no
 discovery step is required for those.
+
+## Delegated calls
+
+Compatible Partner/admin sessions can supply top-level `customerUsername` to
+`call_operation`, outside `args`, with `groundx:partner` and the normal operation scope.
+It maps to the selected-customer header; membership/ownership checks still apply.
+Customer sessions reject it. Read `07-file-access.md` before delegated file operations
+and verify the connected build exposes the field. Ordinary calls remain unchanged.

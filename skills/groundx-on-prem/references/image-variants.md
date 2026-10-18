@@ -10,7 +10,7 @@ For the related admin field that overrides the chart-wide image-repo prefix, rou
 imageType: chainguard   # default is "" (unset → standard images)
 ```
 
-Top-level string field at the root of values.yaml. The chart's schema (`values.schema.json:7`) declares it as a free-form string. Only one value other than empty has chart-level effects: `chainguard`.
+Top-level string field at the root of values.yaml. The chart's schema (`values.schema.json:20`) declares it as a free-form string. Only one value other than empty has chart-level effects: `chainguard`.
 
 ## 2. What `imageType: chainguard` actually does
 
@@ -18,9 +18,9 @@ Surprisingly little is conditional on this flag. The chart branches on `imageTyp
 
 | Location | Effect when `imageType: chainguard` |
 | --- | --- |
-| `groundx.container.username` (`templates/_helpers/main.tpl:38–44`) | Container user UID becomes `65532` (Chainguard's `nonroot` convention). Otherwise `1001`. |
-| `groundx.golang.home` (`templates/_helpers/app/golang.tpl:1–8`) | The home-directory token used to build app config mount paths becomes `nonroot`. Otherwise `golang`. Consumed in `templates/app/golang.yaml:156` and `templates/app/metrics.yaml:197`. |
-| `templates/resources/layout-supervisord-conf.yaml:36–38` | The supervisord config for every layout-* celery worker gains an extra env var: `PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python`. This avoids the C++ protobuf binding (which the Chainguard distroless image doesn't ship). |
+| `groundx.container.username` (`templates/_helpers/main.tpl:63–69`) | Container user UID becomes `65532` (Chainguard's `nonroot` convention). Otherwise `1001`. |
+| `groundx.golang.home` (`templates/_helpers/app/golang.tpl:1–8`) | The home-directory token used to build app config mount paths becomes `nonroot`. Otherwise `golang`. Consumed in `templates/app/golang.yaml:162` and `templates/app/metrics.yaml:200`. |
+| `templates/resources/layout-supervisord-conf.yaml:39–41` | The supervisord config for every layout-* celery worker gains an extra env var: `PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python`. This avoids the C++ protobuf binding (which the Chainguard distroless image doesn't ship). |
 
 Everything else — image paths, pull secrets, dependency images, other runtime arguments — is **not auto-flipped** by the flag. To actually run Chainguard variants you must also:
 
@@ -106,7 +106,7 @@ cluster:
     - chainguard-pull-secret
 ```
 
-The chart consumes this list via `groundx.imagePullSecrets` (`templates/_helpers/main.tpl:79–87`) and attaches the secret references to every Pod spec. The secret itself must exist in the namespace before install — the chart does not create it. Provision pattern:
+The chart consumes this list via `groundx.imagePullSecrets` (`templates/_helpers/main.tpl:99–105`) and attaches the secret references to every Pod spec. The secret itself must exist in the namespace before install — the chart does not create it. Provision pattern:
 
 ```sh
 kubectl create namespace eyelevel
@@ -120,14 +120,14 @@ See `credentials.md` § 5 for the broader image-pull-secret pattern.
 
 ## 7. Busybox helper image
 
-The chart uses a busybox image for **`wait-for-<dependency>` init containers** — small `until nc -z` / `until wget` loops that block pod startup until cache, metrics, database, and callback services are reachable (`templates/app/api.yaml:85–115`, similar patterns elsewhere). It's overridable independently:
+The chart uses a busybox image for **`wait-for-<dependency>` init containers** — small `until nc -z` / `until wget` loops that block pod startup until cache, metrics, database, and callback services are reachable (`templates/app/api.yaml:93–114`, similar patterns elsewhere). It's overridable independently:
 
 ```yaml
 busybox:
   image: cgr.dev/eyelevel.ai/busybox-fips:latest
 ```
 
-Helper at `_helpers/main.tpl:25–31`. Default fallback is `{prefix}/eyelevel/busybox:1.0.0`.
+Helper at `_helpers/main.tpl:50–56`. Default fallback is `{prefix}/eyelevel/busybox:1.0.0`.
 
 ## 8. Cross-field implications
 

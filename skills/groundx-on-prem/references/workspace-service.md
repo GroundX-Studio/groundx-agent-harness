@@ -14,7 +14,7 @@ route to `values-yaml.md`.
 
 The workspace runner is an **internal-only** service family that provisions, edits, and publishes managed code projects on behalf of GroundX Studio Harness agents. Agents call the GroundX API Workspace facade; the GroundX API service calls the workspace runner; the runner owns the actual managed-repository operations.
 
-The runner is **disabled by default**. The chart's `groundx.workspace.create` helper (`_helpers/app/workspace.tpl:10–22`) returns `false` unless the deployer explicitly sets `workspace.enabled: true` and supplies either `workspace.token` or `workspace.existingSecret`. If `workspace.enabled: true` is set without one of those secret sources, the chart hard-fails at `helm install` with the message `"workspace requires workspace.token or workspace.existingSecret when enabled"` (`_helpers/app/workspace.tpl:15`).
+The runner is **disabled by default**. The chart's `groundx.workspace.create` helper (`_helpers/app/workspace.tpl:10–26`) returns `false` unless the deployer explicitly sets `workspace.enabled: true` and supplies either `workspace.token` or `workspace.existingSecret`. If `workspace.enabled: true` is set without one of those secret sources, the chart hard-fails at `helm install` with the message `"workspace requires workspace.token or workspace.existingSecret when enabled"` (`_helpers/app/workspace.tpl:15`).
 
 Enable the runner when:
 
@@ -102,9 +102,9 @@ Override to point at an external Celery broker if the deployer wants the workspa
 
 ### 4.3 Workspace cache PVC
 
-The workspace runner uses a server-side checkout cache for the secondary file API's reads / writes / patches / commands / diffs. The chart **always** renders this as a `PersistentVolumeClaim` — there's no `emptyDir` fallback in the chart code. The PVC is materialized by the chart (`_helpers/elements/pvc.tpl` via `groundx.renderPVC`) and mounted into the workspace-api pod (`_helpers/app/workspace.tpl:274–279` builds the `workspaceVolume` volume reference).
+The workspace runner uses a server-side checkout cache for the secondary file API's reads / writes / patches / commands / diffs. The chart **always** renders this as a `PersistentVolumeClaim` — there's no `emptyDir` fallback in the chart code. The PVC is materialized by the chart (`_helpers/elements/pvc.tpl` via `groundx.renderPVC`) and mounted into the workspace-api pod (`_helpers/app/workspace.tpl:329–334` builds the `workspaceVolume` volume reference).
 
-The chart-default PVC (`_helpers/app/workspace.tpl:262–272`):
+The chart-default PVC (`_helpers/app/workspace.tpl:317–327`):
 
 | Field | Default | Override surface |
 | --- | --- | --- |
@@ -113,7 +113,7 @@ The chart-default PVC (`_helpers/app/workspace.tpl:262–272`):
 | `access` | `cluster.pvAccessMode` | `workspace.pvc.access` |
 | `capacity` | `20Gi` | `workspace.pvc.capacity` |
 
-Note: the chart **ignores** a `workspace.pvc.enabled` field — `pvc.enabled` is explicitly `omit`ed at `_helpers/app/workspace.tpl:264`. Setting it has no effect on whether the PVC is created (it always is, when workspace is enabled). The chart relies on the cluster's default `StorageClass` (or whatever `cluster.pvClass` points at) to provision the underlying volume. Git remains the source of truth for managed-project content; the PVC just caches working-tree state for the secondary file API.
+Note: the chart **ignores** a `workspace.pvc.enabled` field — `pvc.enabled` is explicitly `omit`ed at `_helpers/app/workspace.tpl:319`. Setting it has no effect on whether the PVC is created (it always is, when workspace is enabled). The chart relies on the cluster's default `StorageClass` (or whatever `cluster.pvClass` points at) to provision the underlying volume. Git remains the source of truth for managed-project content; the PVC just caches working-tree state for the secondary file API.
 
 To override the cache PVC shape:
 
@@ -213,7 +213,7 @@ The workspace runner explicitly does **not** depend on the GroundX file store. W
 
 The workspace API is **intended for in-cluster traffic only**. The GroundX API Workspace facade is the single external entry point that routes to the workspace runner. This is an architectural invariant - see `groundx-architecture/references/identity-and-trust.md` § 6 (workspace runner trust boundary).
 
-The chart's `workspace.api.isInternal` field defaults to `true` (`_helpers/app/workspace-api.tpl:214`), and the workspace API ingress block under `workspace.api.ingress` exists in the schema for clusters that need a cluster-edge ingress (e.g., a service mesh sidecar requirement). A deployer *can* override `isInternal: false` and enable the ingress, but doing so contradicts the trust-boundary design - the workspace runner should be reachable only via the GroundX API Workspace facade.
+The chart's `workspace.api.isInternal` field defaults to `true` (`_helpers/app/workspace-api.tpl:228`), and the workspace API ingress block under `workspace.api.ingress` exists in the schema for clusters that need a cluster-edge ingress (e.g., a service mesh sidecar requirement). A deployer *can* override `isInternal: false` and enable the ingress, but doing so contradicts the trust-boundary design - the workspace runner should be reachable only via the GroundX API Workspace facade.
 
 ## 8. Autoscaling
 
@@ -251,7 +251,7 @@ For the full autoscaling story, route to `autoscaling.md`.
 
 ## 9. Disabling — turning off the runner cleanly
 
-Set `workspace.enabled: false` (or omit the block entirely). The chart skips rendering all 6 deployments, the workspace-related ConfigMaps, the workspace Secret, and the workspace-data PVC. The rendered GroundX `config.yaml` has no `workspace:` block. The GroundX API Workspace facade endpoints respond with "workspace not enabled" errors at runtime.
+Set `workspace.enabled: false` (or omit the block entirely). The chart skips rendering all 6 deployments, the workspace-related config resources (`workspace-config-py-map`, now a Secret; the `workspace-gunicorn-conf-py-map` ConfigMap and the five per-worker `workspace-{provision,workspace,command,publish,cleanup}-supervisord-conf-map` ConfigMaps), the workspace credentials Secret (for `WORKSPACE_RUNNER_TOKEN` / GitHub App / GitLab tokens), and the workspace-data PVC. The rendered GroundX `config.yaml` has no `workspace:` block. The GroundX API Workspace facade endpoints respond with "workspace not enabled" errors at runtime.
 
 If the workspace runner was previously enabled and the deployer disables it, the managed-project records in MySQL are not automatically deleted — they remain in the schema. Manual cleanup (or a one-off `helm hook` post-disable migration) is required if those records need to be purged.
 

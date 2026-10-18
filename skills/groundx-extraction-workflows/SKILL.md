@@ -40,6 +40,8 @@ it is missing, ask for a secure attachment or approved private path and the
 desired fields. Do not guess a schema, populate results, claim execution, or
 claim accuracy.
 
+For protected source assets, QC links and raw capture, read `references/4_sdk_integration.md`.
+
 ## Routing Contract
 
 - **Role:** `artifact`.

@@ -1,5 +1,8 @@
 # Errors and Limits
 
+File-access mutations and reads add policy, ownership and revision failures. Read `13-file-access.md` for 400/401/403/404/409 handling and fail-closed 503 with `Retry-After`. Private upload returns 201; failed-stage retry returns 202 and still requires status readback.
+
+
 Cross-cutting reference covering HTTP error codes, the async ingest pattern, pagination,
 and rate limits.
 
@@ -58,8 +61,9 @@ queued → training → processing → complete
 - Stop polling when status is `complete`, `error`, or `cancelled`
 - Check `progress.error.documents` on `complete` — a batch may partially succeed
 
-**Callback alternative:** All ingest operations accept `callbackUrl` and `callbackData`
-to receive push notifications instead of polling. See §1.4 in 02-documents.md.
+**Callback alternative:** `document_ingestremote`, `document_crawlwebsite`, and
+`document_update` accept `callbackUrl` and `callbackData` to receive push notifications
+instead of polling. See §1.4 in 02-documents.md.
 
 There is no platform-level timeout limit for document ingestion. Long-running ingest
 jobs remain in an in-flight status until they complete, fail, or are cancelled. When a

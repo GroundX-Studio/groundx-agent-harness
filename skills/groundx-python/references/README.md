@@ -7,6 +7,8 @@ The repo's own [`AGENTS.md`](https://github.com/eyelevelai/groundx-python/blob/m
 is canonical. Use this skill to decide whether the work belongs in the SDK repo
 or in another GroundX skill.
 
+For private staging, initial file policies and generated versus released SDK support, read [`02-core-sdk.md`](./02-core-sdk.md).
+
 ## Use This Skill When
 
 | Need | Read |

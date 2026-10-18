@@ -1,5 +1,8 @@
 # Ingest Patterns
 
+Before uploading protected bytes, read `../references/13-file-access.md`. Select bucket-owned private staging using inherited or requested per-file policy, including a protected file in a public bucket. Carry initial overrides through preparation, splitting, directory and bulk batches; use explicit REST until released helper support is verified. Preserve the ordinary public upload path.
+
+
 How to get documents into GroundX: which ingest method to use, what file types
 and sizes are accepted, how to attach metadata, and how to handle large batches.
 
@@ -161,101 +164,51 @@ Up to 50 documents may be submitted in a single call.
 
 ## 5. Local files: pre-signed upload service
 
-For files on the local filesystem, upload the file to GroundX-hosted storage using the
-pre-signed URL service, then submit the returned hosted URL to `document_ingestremote`.
-This is a three-step process. An MCP host that can read the local file and perform an
-HTTP PUT itself (not every MCP client can) drives step 1 with the `document_uploadlocal`
-tool instead of the raw REST call below — see the `groundx-mcp` skill's
-`references/02-default-tools.md` §2b and `references/05-workflows.md` §4.1.
+Use the configured GroundX API for public and protected uploads. This applies to
+hosted and on-prem deployments, including when read protection is disabled. There
+is no automatic hosted upload fallback. A compatible SDK `client.ingest()` handles
+the following steps; verify installed-client support before relying on it.
 
-### Step 1 — Request a pre-signed upload URL
+### Step 1: Request an upload URL
 
-This request does not require a GroundX API key.
+Authenticate with `X-API-Key` and the same selected customer used for ingest:
 
 ```http
-GET https://api.eyelevel.ai/upload/file?name={fileName}&type={fileExtension}
+POST {configuredApiBase}/bucket/{bucketId}/file-upload
+Content-Type: application/json
+
+{"fileName":"invoice.pdf","fileType":"pdf"}
 ```
 
-`name` is the file's display name; `type` is the file extension without a leading dot
-(e.g. `pdf`, `docx`, `png`). The response is JSON (fields verified live, 2026-08-27):
+For a protected file, include `"fileAccess":{"mode":"protected"}` in this request
+and later ingest. The API validates it before issuing a grant; disabled protection
+returns 403 before bytes can leave the client. Omitted/null policy inherits.
 
-```json
-{
-  "URL": "https://eyelevel-upload.s3.us-west-2.amazonaws.com/...",
-  "Method": "PUT",
-  "Header": {
-    "Gx-Hosted-Url": ["https://upload.eyelevel.ai/prod/file/ssp/....pdf"],
-    "Host": ["eyelevel-upload.s3.us-west-2.amazonaws.com"]
-  },
-  "HostedURL": "https://upload.eyelevel.ai/prod/file/ssp/....pdf"
-}
-```
+The 201 response contains `uploadId`, `uploadUrl`, `hostedUrl`, `expiresAt`, `method`
+and `headers`. The grant lasts at most 900 seconds. A file-capable MCP host can use
+`document_uploadlocal({"bucketId":1234,"fileName":"invoice.pdf","fileType":"pdf"})`
+or discover `Buckets_fileUpload`. Tool calls return instructions, not uploaded bytes.
 
-Extract `URL` (the upload destination), `Method` (always `"PUT"`), and `HostedURL`
-(see Step 3). `Header` entries fall into three buckets — each value is a list; use the
-first element:
-- `Host` — the S3 upload host; HTTP clients normally set this automatically from
-  `URL`, so no action is usually needed.
-- `Gx-Hosted-Url` (if present) — the same value as `HostedURL`, riding along for
-  callers that read response headers instead of the body. It's `sourceUrl` data for
-  Step 3 — **not** a header to send to S3.
-- Any other entries — send them as request headers on the PUT.
+### Step 2: Upload the file
 
-The pre-signed `URL` is valid for 60 minutes. Complete Step 2 before it expires; after
-that, repeat Step 1 for a new one.
+PUT the bytes to `uploadUrl` exactly as returned, using the returned required
+storage headers. Do not send GroundX credentials to native storage. Stop on a failed
+PUT; do not ingest an incomplete upload or select another signer.
 
-### Step 2 — Upload the file
+### Step 3: Ingest the returned hosted URL
 
-PUT the raw file bytes to the returned `URL`, applying only the `Header` entries the
-Step 1 breakdown says belong on the PUT (skip `Gx-Hosted-Url`):
+Submit `hostedUrl` as `sourceUrl` to the existing remote-ingest operation with the
+same bucket, owner and optional initial per-file policy. Complete PUT before `expiresAt`. Private reservations also require ingest submission
+before that deadline; accepted ingest binds the reservation, so later processing is
+not constrained by the upload window. Unreserved public sources remain ingestible
+after the PUT grant expires. Request and upload a new
+grant if it expires. Preserve the returned hosted URL instead of stripping a query
+from the native URL. Poll the returned process until documents complete.
 
-```http
-PUT {URL}
-
-<raw file bytes>
-```
-
-A `200` response indicates success.
-
-### Step 3 — Determine the hosted URL
-
-The `sourceUrl` to use in `document_ingestremote` is:
-
-- The `HostedURL` field in the response body, if present.
-- Otherwise: the value of `GX-HOSTED-URL` in the pre-signed URL response headers.
-- Otherwise: the upload `URL` with its query parameters stripped (the clean S3 object URL).
-
-The hosted URL is unsigned and the issuing service sets no expiry on it, but do not
-treat one from an earlier session as reusable: hosted URLs have been observed to stop
-resolving after enough time passes. Re-run Steps 1-2 for a fresh one rather than
-reusing a stored URL.
-
-Then submit to `document_ingestremote` exactly as you would any remote document, using
-this hosted URL as `sourceUrl`:
-
-```json
-{
-  "documents": [
-    {
-      "bucketId": 1234,
-      "sourceUrl": "{hosted URL from step 3}",
-      "fileName": "report.pdf",
-      "fileType": "pdf"
-    }
-  ]
-}
-```
-
-Tool: `document_ingestremote` → `ingest.processId`
-
-**Python SDK shortcut.** The `client.ingest()` method in the GroundX Python SDK
-handles all three steps automatically when a local file path is provided — it detects
-whether the `file_path` field is a URL or a local path, calls the pre-signed upload
-service for local paths, and routes everything through `document_ingestremote`. Use it
-in preference to implementing the three steps manually when a `GROUNDX_API_KEY` is
-available — the SDK client requires one to construct (`GroundX(api_key=...)`). An MCP
-session should use the `document_uploadlocal` tool (`groundx-mcp` skill) instead of the
-three manual REST steps above.
+Legacy anonymous `/upload/file?name=...&type=...` request and response formats remain
+available through the configured API's shared issuer. See `02-documents.md` for
+that compatibility shape; new integrations use bucket-owned issuance. Read
+`13-file-access.md` before protected creation or sharing.
 
 ## 6. Website crawl
 

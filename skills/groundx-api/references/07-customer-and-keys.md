@@ -7,11 +7,14 @@ keys, and checking service health.
 
 Retrieve account information associated with the current API key.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Customer_get` first, then:
 ```json
-{}
+{
+  "operationId": "Customer_get",
+  "args": {}
+}
 ```
-Tool: `customer_get`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -60,11 +63,14 @@ attributes. Access meters as `customer.subscription.meters.file_tokens.value`,
 
 List all API keys in the account.
 
-**MCP:**
+**MCP discovery:** List operations and describe `APIKey_list` first, then:
 ```json
-{}
+{
+  "operationId": "APIKey_list",
+  "args": {}
+}
 ```
-Tool: `apikey_list`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -87,11 +93,7 @@ Partner API guidance, when available) for cases where per-customer isolation is 
 Create a new API key with a given display name. Use this during key rotation to generate
 a replacement before deleting the old key.
 
-**MCP:**
-```json
-{ "apiKey": { "name": "production-key-2" } }
-```
-Tool: `apikey_create`
+**MCP:** Customer API-key creation is intentionally excluded, regardless of scope. Use the dashboard or authorized REST flow.
 
 **REST:**
 ```http
@@ -99,10 +101,10 @@ POST /v1/apikey
 X-API-Key: YOUR_API_KEY
 Content-Type: application/json
 
-{ "apiKey": { "name": "production-key-2" } }
+{ "name": "production-key-2" }
 ```
 
-The same `{ "apiKey": { "name": "..." } }` body shape works against both customer-tier
+The same `{ "name": "..." }` body shape works against both customer-tier
 (`X-API-Key` only) and partner-tier (`X-API-Key` + `X-Customer-Key`) callers.
 Partner-tier header construction is outside this customer-tier reference.
 
@@ -117,11 +119,17 @@ the old key via §5. This order ensures no service interruption.
 
 Rename an existing API key. The `apiKey` path parameter is the key value (UUID).
 
-**MCP:**
+**MCP discovery:** List operations and describe `APIKey_update` first, then:
 ```json
-{ "apiKey": "key-uuid", "name": "production-key-renamed" }
+{
+  "operationId": "APIKey_update",
+  "args": {
+    "apiKey": "key-uuid",
+    "name": "production-key-renamed"
+  }
+}
 ```
-Tool: `apikey_update`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -149,11 +157,16 @@ Ensure all consumers have switched to a different key before deleting. For incid
 response (suspected key compromise), rotate to a new key, switch consumers over, and
 treat the old key as compromised regardless of when delete was called.
 
-**MCP:**
+**MCP discovery:** List operations and describe `APIKey_delete` first, then:
 ```json
-{ "apiKey": "key-uuid" }
+{
+  "operationId": "APIKey_delete",
+  "args": {
+    "apiKey": "key-uuid"
+  }
+}
 ```
-Tool: `apikey_delete`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -171,11 +184,14 @@ In the GroundX cloud service, this is service-level availability monitoring: it 
 callers whether the service is available / unavailable at the service level, not a
 root-cause diagnostic report.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Health_list` first, then:
 ```json
-{}
+{
+  "operationId": "Health_list",
+  "args": {}
+}
 ```
-Tool: `health_list`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -235,11 +251,16 @@ status surface; Prometheus/Grafana are the operator-facing detail surface.
 Get the current health status of a specific service. The `service` path parameter
 accepts a service name (e.g. `search`, `ingest`).
 
-**MCP:**
+**MCP discovery:** List operations and describe `Health_get` first, then:
 ```json
-{ "service": "search" }
+{
+  "operationId": "Health_get",
+  "args": {
+    "service": "search"
+  }
+}
 ```
-Tool: `health_get`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -251,3 +272,36 @@ X-API-Key: YOUR_API_KEY
 single entry for the requested service.
 
 **Errors:** 400 — invalid service name.
+
+## Account file-access policy
+
+Customer readback includes confirmed `fileAccess`, `fileAccessRevision` and
+`effectiveFileAccess` where supported. `PUT /v1/customer` (`Customer_update`) changes only
+the file-access policy with required `fileAccess` and `fileAccessRevision`; explicit null
+clears the account override. MCP discovery requires `groundx:write`; customer readback
+requires `groundx:read`. Read `13-file-access.md` before making a change.
+
+## Aggregate usage
+
+`GET /v1/customer/usage` (`Customer_getUsage`) returns aggregate usage for the current
+account. Required query fields are `metric` (`searches` or `fileTokens`), `startTime`
+(inclusive) and `endTime` (exclusive). RFC3339 timestamps must align to minute boundaries;
+the server normalizes to UTC, rejects future ends and windows longer than 366 days.
+The account subscription/meter is resolved server-side, not passed by the caller.
+
+After list/describe, MCP (`groundx:read`) uses:
+
+```json
+{ "operationId": "Customer_getUsage", "args": { "metric": "searches", "startTime": "2026-07-15T00:00:00Z", "endTime": "2026-07-29T00:00:00Z" } }
+```
+
+Tool: `call_operation`. The response is
+`{ customer: { usage: { metric, meterId, value, startTime, endTime, usageAsOf } } }`;
+`meterId` is optional. `usageAsOf` reflects the latest available summary, not a claim of
+instant billing completeness. 400 means invalid metric/window; 404 means no current
+subscription or meter. Do not invent a generated SDK helper without checking its release.
+
+Existing key list/update/delete operations require `groundx:admin` through discovery.
+Credential creation is deliberately excluded from customer MCP, including advanced
+discovery; use authorized REST/dashboard or separate Partner provisioning. Treat key
+list output as credentials and never log or copy the raw values into artifacts.

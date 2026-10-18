@@ -35,6 +35,9 @@ cp "$SKILL_DIR/templates/.env.sample" .env
 python -m pip install -r requirements.txt
 ```
 
+Before you copy `.env.sample`, make sure `.env` is git-ignored in the working directory (add it to that
+directory's git ignore file if it is not), so the credentials you put in it never reach a commit.
+
 Use one credential mode in `.env` or the shell environment. Ordinary runs use
 `GROUNDX_API_KEY`. Delegated runs use `PARTNER_API_KEY` plus
 `CUSTOMER_USERNAME`; the partner key identifies the privileged actor and the

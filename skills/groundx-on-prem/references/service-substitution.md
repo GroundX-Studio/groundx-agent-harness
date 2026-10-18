@@ -44,7 +44,7 @@ So the *only* values.yaml signal needed to substitute a deployer-managed service
 | **Object store** (S3 / MinIO) | `file` | `file.existing.url` | MinIO operator + tenant | AWS S3, GCP Cloud Storage, Azure Blob, self-hosted MinIO, NetApp / Pure Storage S3 |
 | **Search** (OpenSearch) | `search` | `search.existing.url` | OpenSearch StatefulSet in `eyelevel-cpu-memory` node group | AWS OpenSearch Service, Aiven OpenSearch, self-hosted OpenSearch cluster |
 | **Stream** (Kafka) | `stream` | `stream.existing.domain` | Strimzi-managed Kafka cluster | AWS MSK, Confluent Cloud, Aiven Kafka, AWS SQS *(per-topic — see § 6)* |
-| **Summary** (LLM) | `summary` | EITHER `summary.existing.url` non-empty OR `summary.existing.serviceType` in `{openai, openai-base64, azure}` | Self-hosted gemma inference pod | OpenAI, Azure OpenAI, AWS Bedrock, any OpenAI-compatible endpoint |
+| **Summary** (LLM) | `summary` | A `summary.existing` engine whose `serviceType` is not `eyelevel` or whose `url` is off-cluster, plus `engines.default.engineId` (chart 0.2.7, § 4.6) | Self-hosted gemma inference pod | OpenAI, Azure OpenAI, AWS Bedrock, any OpenAI-compatible endpoint |
 
 All discriminator fields are strings. Setting one to an empty string is the same as omitting it — chart deploys in-cluster. Setting it to a non-empty value, the chart skips.
 
@@ -180,31 +180,38 @@ The chart supports SQS as a per-topic alternative — see § 6 below.
 
 The summary subsystem has a slightly different shape because the substitution decision is *also* a "use external API" decision, not just "use existing infra". See `engines.md` for the full picture; this section covers only the chart-level substitution mechanics.
 
-Discriminator (from `groundx.summary.create` in `templates/_helpers/app/summary.tpl:6–13`):
+Discriminator (chart 0.2.7 — `groundx.summary.create` in `templates/_helpers/app/summary.tpl:14–23`, which resolves `groundx.engines` and tests each engine with `groundx.engine.create` in `templates/_helpers/engines.tpl:68–72`):
 
 ```go-template
-{{- $urlEmpty := eq (dig "url" "" $ex) "" -}}
-{{- $stype := lower (coalesce (dig "serviceType" "" $ex) "eyelevel") | trim -}}
-{{- $svcAllowed := or (eq $stype "openai") (eq $stype "openai-base64") (eq $stype "azure") -}}
-{{- and $urlEmpty (not $svcAllowed) -}}
+{{- $engines := include "groundx.engines" . | fromYaml -}}
+{{- $localNeeded := false -}}
+{{- range $engine := $engines -}}
+  {{- if eq (include "groundx.engine.create" (dict "root" $ "engine" $engine)) "true" -}}
+    {{- $localNeeded = true -}}
+  {{- end -}}
+{{- end -}}
+{{- $localNeeded -}}
 ```
 
-`groundx.summary.create` returns `true` (chart deploys internal) only when **both** url is empty AND serviceType is *not* in the allowed-set. In practical terms: setting **either** `existing.url` to a non-empty value **or** `existing.serviceType` to one of `{openai, openai-base64, azure}` flips the chart to "use external" — the chart skips the self-hosted inference deployment.
+0.2.7 made this **engine-based**, replacing the 0.2.6 discriminator (which returned internal only when `existing.url` was empty **and** `existing.serviceType` was outside `{openai, openai-base64, azure}`; that fixed allowed-set no longer exists). `groundx.summary.create` now returns `true` (chart deploys the self-hosted summary inference) when **at least one resolved summary engine is local**: `groundx.engine.create` is true for an engine whose resolved `service` is `eyelevel` and whose `baseUrl` is the in-cluster summary API URL. With no `summary.existing` and no `engines` map (the default), the chart builds a single `default` engine that resolves local, so summary runs internally. Setting `summary.existing.*` and declaring engines flips it: any engine whose `service`/`serviceType` is not `eyelevel`, or whose `baseUrl`/`existing.url` points off-cluster, resolves external, and when no engine resolves local the chart skips the self-hosted inference pod.
+
+**On 0.2.7, configuring summary explicitly requires an engine id.** Setting `summary.existing` with no `engines` map fails the render with `explicit summary configuration requires engines.default.engineId`, and every `engines.<name>` must carry a non-empty `engineId`. The schema also requires an `engines.default` entry whenever `engines` is set (`values.schema.json:121–146`), so declare the external engine as `default`:
 
 ```yaml
 summary:
   existing:
     apiKey: sk-...
-    serviceType: openai                # one of: openai | openai-base64 | azure (when external)
-    # url is OPTIONAL for these serviceTypes — the chart's own example
-    # at src/groundx/values/values.openai.yaml notes:
-    #   "for serviceType == openai, openai-base64, or azure, url is not needed"
-    # url: https://api.openai.com/v1   # only needed for non-standard endpoints / custom routing
+    serviceType: openai                # external service identifier (0.2.7 has no fixed allowed-set)
+    # url is OPTIONAL for well-known service shapes; set it for custom/Azure/on-prem endpoints
+    # url: https://api.openai.com/v1
+engines:
+  default:
+    engineId: <external-model-or-deployment-id>   # REQUIRED on 0.2.7 when summary is configured
 ```
 
-For the three allowed serviceTypes (`openai`, `openai-base64`, `azure`), `url` can be omitted — the application has built-in URL handling for these well-known service shapes. Setting `url` is still valid (for custom routing, on-prem OpenAI-compatible gateways, or Azure deployment paths) but isn't required by the chart or the application.
+`url` can be omitted for well-known service shapes (the application has built-in URL handling); set it for custom routing, on-prem OpenAI-compatible gateways, or Azure deployment paths.
 
-`summary.existing.apiKey` falls back to `admin.apiKey` via `groundx.summary.apiKey` (`summary.tpl:15–19`), so for OpenAI-compatible deployments where the deployer already set `admin.apiKey` to the OpenAI key, the existing.apiKey can be omitted. This is the kind of overlap that's easy to miss — see `engines.md` § 2 for the full picture.
+Credential resolution runs through the engine, not a single `existing.apiKey` field: `groundx.summary.apiKey` (`summary.tpl:34–38`) reads the resolved `default` engine's `apiKey`, and `groundx.engine.settings` (`engines.tpl:22–30`) falls back to `admin.apiKey` only for a **local** engine — an external engine inherits `summary.existing.apiKey` (or an explicit `engines.default.apiKey`). See `engines.md` § 2 for the full picture.
 
 When `summary.existing.*` triggers external mode, the chart skips deploying the self-hosted inference pod. When the chart deploys internally, the inference deployment lands in the `eyelevel-gpu-summary` node group.
 
@@ -236,7 +243,7 @@ The chart deploys *nothing stateful* in this configuration — only the stateles
 
 ## 6. Stream-substitution at the topic level (per-topic `type`)
 
-The stream subsystem has one additional substitution path the others lack: **per-topic `type`**. Each topic block inside `stream.topics.<topic-name>` accepts a `type:` field that defaults to `kafka`. The helper at `templates/_helpers/services/topics.tpl:23–34` branches on this — when `type: kafka`, the broker, groupId, and topic-name fields are populated for the Kafka client; when set to anything else (typically `sqs` for AWS SQS), the broker/groupId/topic-name fields are omitted and the topic config carries only `key/region/secret/token/url`, which the application's runtime consumes as cloud-queue credentials.
+The stream subsystem has one additional substitution path the others lack: **per-topic `type`**. Each topic block inside `stream.topics.<topic-name>` accepts a `type:` field that defaults to `kafka`. The helper at `templates/_helpers/services/topics.tpl:27–38` branches on this — when `type: kafka`, the broker, groupId, and topic-name fields are populated for the Kafka client; when set to anything else (typically `sqs` for AWS SQS), the broker/groupId/topic-name fields are omitted and the topic config carries only `key/region/secret/token/url`, which the application's runtime consumes as cloud-queue credentials.
 
 So a deployer wanting Kafka for most pipeline topics but a cloud-queue alternative for a low-volume control-plane topic can set `type` on just that one topic. The rest of stream stays on Kafka (chart-deployed or existing). The chart itself doesn't validate the non-Kafka type value — it's a free string passed through to the application's runtime.
 
@@ -322,7 +329,7 @@ The chart imposes no preference. Most production deployments end up at "selectiv
 | `<svc>.existing.<discriminator>` non-empty | The chart skips chart-deploying that subsystem. Subsystem-specific replicas, resources, persistence, and node-selector fields under `<svc>` are ignored. Operator dependencies (Strimzi for stream, Percona for db, MinIO operator for file) are no longer required. |
 | `<svc>.existing.<discriminator>` empty + `enabled: false` | The chart neither deploys the subsystem nor routes to an existing one. The application's runtime config will lack the service. **For most subsystems this breaks the pipeline.** Only valid when the deployment mode actively skips the subsystem (e.g., `mode: ingest` legitimately removes search). |
 | `db.existing.ro` set but `db.existing.rw` empty (or vice versa) | The chart's `groundx.db.existing` helper returns false (both must be set). The chart will then chart-deploy MySQL — and the application will probably fail to connect to the half-configured "existing" endpoint. **Set both or neither.** |
-| `summary.existing.serviceType` to an unsupported value (e.g., `bedrock`) | The chart does **not** fail the install. `groundx.summary.create` simply ignores the value (the allowed-set check is only used to flip create=false; an unsupported value leaves create=true unless `existing.url` is also set). Setting only an unsupported serviceType yields a deployment with both a chart-deployed inference pod AND a bogus serviceType written into config. Allowed-set is `openai | openai-base64 | azure`. See `engines.md` § 2. |
+| `summary.existing.serviceType` to any non-`eyelevel` value (e.g., `openai`, `bedrock`) | On 0.2.7 you must also declare `engines.default.engineId` or the render fails. With engines declared, any non-`eyelevel` service resolves the engine external, so `groundx.summary.create` returns false and no self-hosted inference pod is rendered. There is no fixed allowed-set on 0.2.7; whether the runtime can actually reach the named service is a separate application concern (set `existing.url` for any endpoint without a built-in shape). See `engines.md` § 2. |
 | Chart-deployed mode + cluster lacks the required operator | Pods stay pending. For Kafka, Strimzi must be installed first. For MySQL via the Percona operator path, similar. The chart renders the StatefulSet but the operator-owned CRDs won't materialize without their operator. |
 
 ## 9. What gets rendered where — chart vs separate Helm releases
