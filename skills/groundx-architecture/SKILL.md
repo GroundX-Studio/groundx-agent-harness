@@ -18,6 +18,8 @@ Use this skill for architecture-shaped questions about GroundX: how the system w
 pipeline shape, trust model, data residency, observability, data flow, extraction QA,
 search, and technical due diligence facts.
 
+For file-delivery authorization, inheritance and native bearer grants, read `references/identity-and-trust.md`.
+
 ## Routing Contract
 
 - **Role:** `reference`.

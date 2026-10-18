@@ -14,17 +14,39 @@ credentials. This file is the canonical credential policy for installed agents.
 | LLM API key | `LLM_API_KEY` | Server-side middleware completions in scaffolded web UI projects |
 | LLM service/provider | `LLM_SERVICE` | Provider/service for server-side completions, such as `openai`, `anthropic`, or a custom provider |
 | LLM model ID | `LLM_MODEL_ID` | Exact completion model ID the scaffolded middleware should send to the LLM provider |
-| Customer username | `CUSTOMER_USERNAME` | Partner resource endpoints that require `X-Customer-Key` |
+| Customer username | `CUSTOMER_USERNAME` | The UUID `username` returned by `/customer/login` or `/customer/register`, never the email; sent as `X-Customer-Key` on Partner resource endpoints |
+
+`GROUNDX_PARTNER_API_KEY` (managed scaffold) and `PARTNER_API_KEY` (direct REST) name the same Partner key; keep whichever name the surface already uses.
 
 ## Required Agent Behavior
 
-If a task requires `GROUNDX_API_KEY`, `WORKSPACE_API_KEY`, `PARTNER_API_KEY`, or
-`LLM_API_KEY` and the key is not already available in the environment, current session,
-or user-provided context, ask the user for the key before making any API request. When
-asking for an LLM API key, also ask for the LLM service/provider and exact model ID; do
-not assume defaults for real completions.
+Never request, echo, `cat`, print, or otherwise surface a secret value in chat. If a
+task requires `GROUNDX_API_KEY`, `WORKSPACE_API_KEY`, `PARTNER_API_KEY`, or
+`LLM_API_KEY` and the key is not already available, resolve it through this default
+chain, in order, before considering any other path:
 
-When the user provides a key:
+1. The environment (`GROUNDX_API_KEY` or a deprecated alias). Non-interactive agents and
+   CI stay on this path.
+2. A stored refresh token under `~/.groundx-studio`, read by the server process directly.
+3. A browser sign-in the server itself opens (`credential_status`, then the next
+   workspace tool call signs the user in and stores the result). Do not ask the user to
+   paste a key when this path is available; drive the sign-in instead.
+4. A git-ignored `.env.local` the user edits themselves, consumed only through
+   `secretsFromLocal` or a file-reading command that never echoes its contents back to
+   chat. Scaffold-middleware secrets (`LLM_API_KEY`, `PARTNER_API_KEY`,
+   `GROUNDX_API_KEY`) are read from this file; an agent never inlines them into a shell
+   command or asks for them directly. See the archived design
+   `openspec/changes/archive/2026-08-07-unify-studio-mcp-credential` for why this chain
+   exists and why a refresh token, not a long-lived key, is what gets stored.
+
+`LLM_SERVICE`, `LLM_MODEL_ID`, and `APP_AUTH_MODE` are not secrets; ask for them inline in
+chat when needed.
+
+If every step above is unavailable (no environment variable, no stored credential, no
+browser, no `.env.local`), say so and name the non-interactive path
+(`GROUNDX_API_KEY` in the environment) rather than asking the user to paste a key.
+
+When a key reaches the agent through the environment or a local file:
 
 - Use it only for the current working session unless the user explicitly approves
   persistence.

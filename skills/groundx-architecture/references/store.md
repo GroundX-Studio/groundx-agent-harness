@@ -50,7 +50,7 @@ For the full system topology see `overview.md` § 4.4. For the inter-pod store a
 | Writers | `upload` (source file, URL-shared path); layout pipeline (per-page images, OCR text, detection results, mapped layouts); `pre-process` (orchestration intermediate artifacts); `summary-client` (summary intermediate artifacts); `process` (terminal X-Ray); `extract-save` (extraction results, when enabled) |
 | Readers | `groundx` (serves X-Ray on `GET /v1/ingest/document/xray/{documentId}`); downstream pods reading intermediate artifacts produced earlier in the pipeline; Extract microservice reads the X-Ray when extraction is enabled |
 | Notable artifacts | Source file (input); per-page rendered images; layout intermediate artifacts; **X-Ray** (terminal customer-facing aggregate JSON); extraction output (when enabled) |
-| Presigned-URL utility | Cloud-service deployments have a `FileUpload` Lambda utility; on-prem deployments need their own equivalent |
+| Upload/read transport | The legacy public broker remains the ordinary public upload path. Source-defined protected uploads reserve bucket-owned private staging and issue native PUT grants. Protected reads stream through FileAccess or use bounded native GET grants. Deployment support must be verified; see `groundx-on-prem/references/private-file-access.md`. |
 
 ### 5.2 Process Metadata DB
 

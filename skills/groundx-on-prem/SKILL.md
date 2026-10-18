@@ -25,6 +25,8 @@ Use this skill for deployment planning, values.yaml authoring, cluster sizing,
 air-gapped operation, OpenShift, upgrades, monitoring, troubleshooting, OCR mode,
 summary engine selection, and Kubernetes operational questions.
 
+For protected-file gateways, private upload, local MCP and storage acceptance, read `references/file-access.md` before writing deployment guidance.
+
 ## Routing Contract
 
 - **Role:** `reference`.

@@ -1,5 +1,8 @@
 # Document Understanding (X-Ray)
 
+Read `../references/13-file-access.md` before fetching protected source assets. Raw X-Ray/extract are immutable evidence; authenticated `?view=links` is a refreshed presentation copy. Stable protected URLs require header auth; browser views need an authenticated backend proxy or a bounded native share grant.
+
+
 How to access X-Ray — GroundX's structural document analysis — and when to use it
 instead of, or alongside, plain search.
 

@@ -115,3 +115,21 @@ poetry run pytest -rP -n auto -m aiohttp
 A `ruff` config exists in `pyproject.toml` but ruff is not currently a CI gate.
 For files you've changed: `poetry run ruff check <paths>` and
 `poetry run ruff format <paths>` (see repo `CONTRIBUTING.md`).
+
+## Private uploads and initial policies
+
+Preserved sync/async ingest and directory helpers own staging, batching, splitting and
+callbacks. Policy selection must happen before uploading bytes: inherited protection
+or a requested protected file in a public bucket selects bucket-owned private staging.
+Carry each initial `fileAccess` through prepared children and the remote-ingest envelope;
+omitted/null inherits. New resources need no prior revision; existing-ID retries must
+not bypass revision checks. Preserve the ordinary public broker path.
+
+Generated policy/link/upload models and methods come from Fern. Inspect `.fernignore`,
+the actual installed methods and release provenance before writing SDK examples. Source
+support is not a published package. Use the explicit REST flow in
+`groundx-api/references/13-file-access.md` until a compatible release is verified.
+Do not silently discard an unsupported policy or invent a generated method. The same
+reference owns stable header-auth reads, native bearer expiry, and raw versus presentation
+X-Ray. Configure private storage endpoints and CA trust in preserved transport code;
+never send GroundX API keys to native storage or through redirects to untrusted hosts.

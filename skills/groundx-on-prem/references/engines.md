@@ -1,6 +1,6 @@
 # Summary Engine Selection
 
-This file documents **the LLM-engine decision a deployer makes once during install** — self-hosted vs external (three chart-recognized service types plus a custom-URL escape hatch), the cost / trust / latency / quality trade-offs, the values.yaml field shape per option, and the cross-field implications.
+This file documents **the LLM-engine decision a deployer makes once during install** — self-hosted vs external (the well-known `openai` / `openai-base64` / `azure` shapes plus any custom OpenAI-compatible URL), the cost / trust / latency / quality trade-offs, the values.yaml field shape per option, and the cross-field implications.
 
 The summary engine is the single largest cost lever in a GroundX deployment. The decision interacts with cluster sizing (GPU vs no-GPU), trust boundaries (does document content leave the cluster?), and ongoing operational cost (GPU hours vs API tokens).
 
@@ -19,28 +19,28 @@ source before naming a model.
 
 ## 1. The engine options
 
-The chart's `groundx.summary.create` helper (in `src/groundx/templates/_helpers/app/summary.tpl`) decides whether to deploy the in-cluster summary stack. The decision boils down to:
+The chart's `groundx.summary.create` helper (in `src/groundx/templates/_helpers/app/summary.tpl`) decides whether to deploy the in-cluster summary stack. On chart 0.2.7 this is **engine-based** (it replaced the 0.2.6 rule that keyed on a fixed `{openai, openai-base64, azure}` serviceType set):
 
 ```
-self-hosted ← (summary.existing.url is empty) AND
-              (summary.existing.serviceType is NOT one of {openai, openai-base64, azure})
+self-hosted ← at least one resolved summary engine is LOCAL
+              (engine service == "eyelevel" AND engine baseUrl == the in-cluster summary API URL)
 ```
 
-So a deployer disables self-hosted by either (a) setting `summary.existing.url` to a non-empty endpoint, or (b) setting `summary.existing.serviceType` to one of three values the chart's helper recognizes without needing a URL.
+The chart resolves `engines` (via `groundx.engine.settings`) and deploys self-hosted if any engine resolves local. With no `summary.existing` and no `engines` map — the default — the chart builds one `default` engine that resolves local, so self-hosted runs. A deployer disables self-hosted by configuring `engines` so no engine resolves local: set the engine's `service`/`serviceType` to anything other than `eyelevel`, or point its `baseUrl` (or `summary.existing.url`) off-cluster. **0.2.7 also requires an engine id once summary is configured explicitly:** setting `summary.existing` with no `engines` map fails the render with `explicit summary configuration requires engines.default.engineId`, and every `engines.<name>` must carry a non-empty `engineId`. The schema also requires an `engines.default` entry whenever `engines` is set (`values.schema.json:121–146`).
 
 | Option | `summary.existing.serviceType` | URL required? | What it is |
 | --- | --- | --- | --- |
-| **Self-hosted Gemma 3** | unset (or any non-recognized value) AND no URL | n/a (self-hosted) | Bundled vLLM-served Gemma 3 model running on the cluster's GPU node group. Default. No external network egress from the summary path. |
+| **Self-hosted Gemma 3** | unset, or `eyelevel` with no off-cluster URL | n/a (self-hosted) | Bundled vLLM-served Gemma 3 model running on the cluster's GPU node group. Default. No external network egress from the summary path. |
 | **External OpenAI** | `openai` | optional (default OpenAI endpoint applied) | OpenAI public endpoint (`api.openai.com/v1/chat/completions`). |
 | **External OpenAI base64** | `openai-base64` | optional | OpenAI public endpoint with image data base64-encoded in-request (vs URL-passed). Use when the OpenAI endpoint can't reach the cluster's object store for image fetches. |
 | **External Azure OpenAI** | `azure` | recommended | Azure-hosted OpenAI deployment. URL points at the specific Azure deployment id. |
-| **External via custom URL** | any value (typically the engine name, e.g. `deep-infra`) | **required** | Any OpenAI-compatible endpoint the chart helper doesn't special-case. The chart passes `serviceType` through to the runtime config as the engine `service:` field, but skip-self-hosted depends on `url` being set, not on the chart recognizing the name. |
+| **External via custom URL** | any other value (typically the engine name, e.g. `deep-infra`) | **required** | Any OpenAI-compatible endpoint without a built-in shape. The chart passes `serviceType` through to the runtime config as the engine `service:` field. On 0.2.7 any non-`eyelevel` value resolves the engine external; the URL is where the runtime sends requests. |
 
 **Gotchas:**
 
-- `eyelevel` is the chart's *default* `summary.existing.serviceType` (when omitted entirely). That default means the chart still deploys self-hosted — `eyelevel` is **not** an external engine selector. Don't write `serviceType: eyelevel` expecting it to point at an EyeLevel-hosted endpoint without a URL — that combination leaves self-hosted enabled.
-- Setting `serviceType: deep-infra` without a URL leaves self-hosted enabled too. Always pair non-recognized engine names with `summary.existing.url`.
-- The application code may support more engine routings via `engines.default.type` at the runtime layer; the chart's `summary.create` skip logic only checks the three special-cased names.
+- `eyelevel` is the chart's *default* `summary.existing.serviceType` (when omitted entirely), and it is the one value that resolves **local**. That default is why an unconfigured chart still deploys self-hosted — `eyelevel` is **not** an external engine selector. Writing `serviceType: eyelevel` with no off-cluster `url`/`baseUrl` leaves the engine local and self-hosted enabled.
+- Any non-`eyelevel` `service`/`serviceType` resolves external (self-hosted skipped); an `eyelevel` engine pointed at an off-cluster `baseUrl`/`summary.existing.url` also resolves external. There is no fixed recognized-name set on 0.2.7.
+- Once you set `summary.existing` or any `engines.<name>`, each engine needs a non-empty `engineId`, or the render fails.
 
 ## 2. Decision matrix — five dimensions
 
@@ -97,6 +97,9 @@ summary:
     serviceType: openai
     # url: optional; defaults to api.openai.com/v1/chat/completions
     apiKey: <openai-api-key>     # treat as credential — see credentials.md
+engines:
+  default:
+    engineId: <model-id>         # required on chart 0.2.7
 ```
 
 **Cluster impact:** `eyelevel-gpu-summary` node group no longer needed. The summary microservices don't render at all.
@@ -113,6 +116,9 @@ summary:
     serviceType: openai-base64
     # url: optional (OpenAI default)
     apiKey: <openai-api-key>
+engines:
+  default:
+    engineId: <model-id>         # required on chart 0.2.7
 ```
 
 Same as OpenAI, but **image data is base64-encoded in-request** instead of URL-fetched by OpenAI. Use this when:
@@ -131,6 +137,9 @@ summary:
     serviceType: azure
     url: https://<resource-name>.openai.azure.com/openai/deployments/<deployment-name>
     apiKey: <azure-openai-key>
+engines:
+  default:
+    engineId: <model-id>         # required on chart 0.2.7
 ```
 
 **When to choose:**
@@ -148,11 +157,14 @@ summary:
 summary:
   existing:
     serviceType: deep-infra           # passed through to runtime config as engine `service:`
-    url: https://api.deepinfra.com/v1/openai   # REQUIRED — chart helper doesn't special-case deep-infra
+    url: https://api.deepinfra.com/v1/openai   # required: the runtime has no built-in endpoint for deep-infra
     apiKey: <deepinfra-api-key>
+engines:
+  default:
+    engineId: <model-id>              # required on chart 0.2.7
 ```
 
-**Important caveat:** the chart's `summary.create` helper does NOT recognize `deep-infra` (or any other non-special-cased value) as an automatic "skip self-hosted" trigger. The chart only skips self-hosted when `serviceType` is `openai` / `openai-base64` / `azure` **OR** when `url` is non-empty. So `deep-infra` requires `url` to be set; otherwise self-hosted stays enabled.
+**Important caveat:** on chart 0.2.7 a `serviceType` of `deep-infra` (any non-`eyelevel` value) resolves the engine external on its own, so the chart skips self-hosted regardless of `url`. The `url` is still **required for the application to reach DeepInfra at runtime** (DeepInfra has no built-in endpoint the way the well-known shapes do) — omitting it points the engine at no reachable endpoint, not back at self-hosted. (On 0.2.6 the chart's skip decision keyed on a fixed `{openai, openai-base64, azure}` set OR a non-empty `url`, so `deep-infra` without a `url` left self-hosted enabled; 0.2.7 removed that set.)
 
 **When to choose:**
 - Cost optimization. DeepInfra is often 2–5× cheaper than OpenAI for equivalent open-source models.
@@ -169,9 +181,10 @@ If EyeLevel-hosted summary is part of the procurement bundle, the procurement ma
 
 | Set this... | …and this is implied or required |
 | --- | --- |
-| `summary.existing.serviceType: openai` (or `openai-base64`, `azure`) | the chart's `groundx.summary.create` helper returns false — chart skips deploying `summary-api` + `summary-inference`. `eyelevel-gpu-summary` node group not needed. URL optional for OpenAI / OpenAI-base64; recommended for Azure. |
-| `summary.existing.url: <some-url>` (regardless of `serviceType`) | the chart's `groundx.summary.create` helper returns false — same effect. Use this path for any non-special-cased engine (`deep-infra`, custom OpenAI-compatible endpoint, EyeLevel-hosted). |
-| `summary.existing.serviceType` set to a non-recognized value (`deep-infra`, `eyelevel`, etc.) WITHOUT `summary.existing.url` | Self-hosted **stays enabled**. This is a common footgun — the chart's helper only special-cases 3 names. |
+| `summary.existing.serviceType: openai` (or `openai-base64`, `azure`, or any non-`eyelevel` value) + `engines.default.engineId` | the engine resolves external, so `groundx.summary.create` returns false — chart skips deploying `summary-api` + `summary-inference`. `eyelevel-gpu-summary` node group not needed. URL optional for OpenAI / OpenAI-base64; recommended for Azure; required for any endpoint without a built-in shape. |
+| `summary.existing.url: <off-cluster-url>` with an `eyelevel`/default engine + `engines.default.engineId` | the engine's `baseUrl` resolves off-cluster, so `groundx.summary.create` returns false — same effect. Use this path for a custom OpenAI-compatible endpoint or EyeLevel-hosted summary. |
+| `summary.existing` set with **no** `engines` map | **Render fails** (`explicit summary configuration requires engines.default.engineId`). 0.2.7 requires a declared engine with an id once summary is configured explicitly, and the schema requires that `engines` include a `default` entry. |
+| `summary.existing.serviceType: eyelevel` with no off-cluster `url`/`baseUrl` | Engine resolves **local** — self-hosted **stays enabled**. `eyelevel` is the local default, not an external selector. |
 | `summary.existing.apiKey` set inline | Treat as credential — move to `cluster.secrets`-referenced Secret or ESO. See `credentials.md` § 5–§ 6. |
 | External engine selected | Document content leaves the cluster on every summary call. Audit NetworkPolicy egress for the chosen endpoint. Update `groundx-architecture/references/data-residency.md` posture. |
 | No GPU available in the cluster | Forces external engine. Self-hosted Gemma 3 is not viable. (CPU fallback for the summary inference path is not architecturally supported.) |

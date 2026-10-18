@@ -1,5 +1,8 @@
 # Python SDK Typed Objects
 
+File-access API source support does not establish released SDK support. Before using initial `fileAccess`, policy revisions, file-link or private-upload methods, inspect the installed package/models and release provenance. Use the explicit REST flow in `13-file-access.md` until those methods and helper staging behavior are verified. Do not invent typed constructors or pass unknown fields that may be silently discarded.
+
+
 > **Scope:** this reference is for **using** the GroundX Python SDK from your own code
 > (consumer-side). For **contributing to the SDK repo itself** (fixing a bug in
 > extract, adding a `groundx[extract]` dep, working with the Fern boundary), use the

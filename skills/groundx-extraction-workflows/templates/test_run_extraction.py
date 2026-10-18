@@ -11,6 +11,7 @@ import sys
 import types
 import json
 import importlib
+import gzip
 
 import pytest
 
@@ -286,9 +287,13 @@ def test_delegated_run_reuses_one_customer_request_options_for_every_sdk_call(tm
     assert all(kwargs.get("request_options") == expected for _, kwargs in gx.calls)
 
 
-def test_real_sdk_ingest_keeps_customer_selector_off_object_store_upload(tmp_path, monkeypatch):
+@pytest.mark.parametrize("upload_api", [None, "https://api.eyelevel.ai/upload/file"])
+def test_real_sdk_ingest_keeps_customer_selector_off_object_store_upload(tmp_path, monkeypatch, upload_api):
     if groundx_module is None or getattr(groundx_module, "GroundX", object) is object:
         pytest.skip("groundx SDK is not installed")
+
+    import httpx
+    import inspect
 
     sdk_ingest = importlib.import_module("groundx.ingest")
     pdf_path = tmp_path / "sample.pdf"
@@ -319,13 +324,43 @@ def test_real_sdk_ingest_keeps_customer_selector_off_object_store_upload(tmp_pat
             }
         )
 
-    def fake_object_store_put(url, *, data, headers, timeout):
+    def fake_object_store_put(url, *, data, headers, timeout, **kwargs):
+        assert kwargs.get("allow_redirects", False) is False
         upload_calls.append(
             {"url": url, "data": data, "headers": headers, "timeout": timeout}
         )
         return FakeResponse()
 
-    client = groundx_module.GroundX(api_key="partner-key")
+    issuance_calls = []
+
+    def issue_upload(request):
+        issuance_calls.append(request)
+        assert request.headers["X-API-Key"] == "partner-key"
+        assert request.headers["X-Customer-Key"] == "customer-b"
+        if request.method == "GET":
+            assert upload_api is not None
+            assert request.url == "https://api.example.test/v1/bucket/101"
+            return httpx.Response(200, json={"bucket": {"bucketId": 101, "name": "public", "effectiveFileAccess": {"mode": "public", "urlTtlSeconds": 300}}})
+        assert request.url == "https://api.example.test/v1/bucket/101/file-upload"
+        assert request.method == "POST"
+        body = json.loads(request.content)
+        assert body["fileName"] == "sample.pdf"
+        assert body["fileType"] == "pdf"
+        assert body.get("fileAccess") is None
+        return httpx.Response(201, json={
+            "uploadId": "upload-1",
+            "uploadUrl": "https://objects.example.test/sample.pdf?signature=test",
+            "hostedUrl": "https://objects.example.test/sample.pdf",
+            "method": "PUT",
+            "headers": {"Content-Type": "application/pdf"},
+            "expiresAt": "2099-01-01T00:00:00Z",
+            "effectiveFileAccess": {"mode": "public", "urlTtlSeconds": 300},
+        })
+
+    transport = httpx.Client(transport=httpx.MockTransport(issue_upload))
+    client = groundx_module.GroundX(api_key="partner-key", base_url="https://api.example.test", httpx_client=transport)
+    default_upload_api = inspect.signature(client.ingest).parameters["upload_api"].default
+    uses_bucket_issuer = upload_api is None and default_upload_api is None
 
     def fake_ingest_remote(**kwargs):
         ingest_calls.append(kwargs)
@@ -349,15 +384,22 @@ def test_real_sdk_ingest_keeps_customer_selector_off_object_store_upload(tmp_pat
             )
         ],
         request_options=request_options,
+        **({"upload_api": upload_api} if upload_api else {}),
     )
+    transport.close()
 
     assert result.ingest.process_id == "process-1"
-    assert presign_calls == [
-        {
-            "url": "https://api.eyelevel.ai/upload/file",
-            "params": {"name": "sample.pdf", "type": "pdf"},
-        }
-    ]
+    if uses_bucket_issuer:
+        assert len(issuance_calls) == 1
+        assert presign_calls == []
+    else:
+        assert all(request.method == "GET" for request in issuance_calls)
+        assert presign_calls == [
+            {
+                "url": "https://api.eyelevel.ai/upload/file",
+                "params": {"name": "sample.pdf", "type": "pdf"},
+            }
+        ]
     assert upload_calls[0]["url"].startswith("https://objects.example.test/")
     assert upload_calls[0]["data"] == b"%PDF-1.4\nfixture\n"
     assert upload_calls[0]["headers"] == {"Content-Type": "application/pdf"}
@@ -996,6 +1038,48 @@ def test_extract_artifacts_trusts_section_shaped_get_extract_output():
     assert artifacts["raw_extract"] == raw_extract
     assert "final_output" not in artifacts
     assert artifacts["source"] == "get_extract"
+
+
+def test_raw_xray_capture_decodes_gzip_and_never_fetches_nested_asset_urls():
+    if groundx_module is None:
+        pytest.skip("real SDK transport requires the extraction dependencies")
+    import httpx
+    from groundx import GroundX
+
+    requests = []
+    assets = {
+        "protected": "https://files.example.test/layout/processed/task/doc/1.jpg",
+        "native": "https://storage.example.test/page.jpg?X-Amz-Signature=exact%2Bquery&X-Amz-Expires=60",
+        "external": "https://customer.example.test/source.pdf",
+    }
+    raw_extract = {"statement": {"account_number": "A-1"}}
+
+    def serve(request):
+        requests.append(request)
+        assert request.url.host == "api.example.test"
+        assert request.headers["X-API-Key"] == "test-api-key"
+        assert request.url.query == b""
+        if request.url.path.endswith("/xray/doc-1"):
+            body = {"chunks": [], "assetUrls": assets, "captureSequence": len(requests)}
+        else:
+            assert request.url.path.endswith("/extract/doc-1")
+            body = raw_extract
+        return httpx.Response(
+            200,
+            headers={"Content-Encoding": "gzip", "Content-Type": "application/json"},
+            content=gzip.compress(json.dumps(body).encode()),
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(serve)) as transport:
+        gx = GroundX(api_key="test-api-key", base_url="https://api.example.test/api", httpx_client=transport)
+        first = run_extraction.derive_extraction_artifacts(gx, "doc-1")
+        second = run_extraction.derive_extraction_artifacts(gx, "doc-1")
+
+    assert first["xray"]["assetUrls"] == second["xray"]["assetUrls"] == assets
+    assert first["xray"]["captureSequence"] == 1
+    assert second["xray"]["captureSequence"] == 3
+    assert first["raw_extract"] == second["raw_extract"] == raw_extract
+    assert len(requests) == 4
 
 
 def test_extract_artifacts_treats_empty_get_extract_dict_as_raw_unavailable():

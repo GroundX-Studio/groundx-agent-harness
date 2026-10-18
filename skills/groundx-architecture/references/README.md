@@ -5,6 +5,8 @@ about GroundX architecture: pipeline shape, components, trust model, data flow,
 search, extraction architecture, observability, residency, and deployment-invariant
 system behavior.
 
+For file-delivery authorization, inheritance and native bearer grants, read [`identity-and-trust.md`](./identity-and-trust.md).
+
 ## Fast Path
 
 1. Start in `../SKILL.md` for the public routing contract.

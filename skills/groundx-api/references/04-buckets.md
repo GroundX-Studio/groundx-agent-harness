@@ -1,7 +1,7 @@
 # Buckets
 
-This reference covers the five bucket operations: creating, listing, getting, renaming,
-and deleting buckets.
+This reference covers bucket lifecycle operations. Read `13-file-access.md` for initial
+`fileAccess`, inherited readback, revisioned policy updates and private `file-upload`.
 
 ## 1. Bucket overview
 
@@ -23,14 +23,21 @@ A bucket object contains:
 
 ## 2. bucket_create / POST /v1/bucket
 
-Create a new bucket. The `name` must be provided. The response includes the assigned
+Create a new bucket. The `name` must be provided. Optional `fileAccess` is applied at
+creation without a prior revision; omitted/null inherits. Do not create public then
+update to protected. The response includes the assigned
 `bucketId`, which must be saved and used in subsequent ingest calls.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Bucket_create` first, then:
 ```json
-{ "name": "my-bucket" }
+{
+  "operationId": "Bucket_create",
+  "args": {
+    "name": "my-bucket"
+  }
+}
 ```
-Tool: `bucket_create` → returns `bucket.bucketId`
+Tool: `call_operation` → returns `bucket.bucketId`
 
 **REST:**
 ```http
@@ -61,11 +68,16 @@ Content-Type: application/json
 
 List all buckets in the account.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Bucket_list` first, then:
 ```json
-{ "n": 20 }
+{
+  "operationId": "Bucket_list",
+  "args": {
+    "n": 20
+  }
+}
 ```
-Tool: `bucket_list`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -97,11 +109,16 @@ X-API-Key: YOUR_API_KEY
 
 Retrieve a single bucket by its `bucketId`.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Bucket_get` first, then:
 ```json
-{ "bucketId": 1234 }
+{
+  "operationId": "Bucket_get",
+  "args": {
+    "bucketId": 1234
+  }
+}
 ```
-Tool: `bucket_get`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -115,14 +132,21 @@ X-API-Key: YOUR_API_KEY
 
 ## 5. bucket_update / PUT /v1/bucket/{bucketId}
 
-Rename a bucket. Only the name is mutable; `bucketId` and document contents are
-unchanged.
+Rename a bucket or change its file-access override in separate requests. A policy-only write need not
+include `newName`; policy writes require the confirmed `fileAccessRevision`, including
+zero. Explicit `fileAccess: null` clears the override. See `13-file-access.md`.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Bucket_update` first, then:
 ```json
-{ "bucketId": 1234, "newName": "q1-contracts" }
+{
+  "operationId": "Bucket_update",
+  "args": {
+    "bucketId": 1234,
+    "newName": "q1-contracts"
+  }
+}
 ```
-Tool: `bucket_update`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -138,7 +162,7 @@ Content-Type: application/json
 | Parameter | Required | Description |
 |---|---|---|
 | `bucketId` | yes | ID of the bucket to rename (path) |
-| `newName` | yes | New display name for the bucket (body) |
+| `newName` | no | New display name for the bucket (body) |
 
 **Response:** `{ "bucket": { "bucketId": 1234, "name": "q1-contracts" } }`
 
@@ -149,11 +173,16 @@ Content-Type: application/json
 Delete the bucket identified by `bucketId`. This removes the bucket and all documents
 it contains. The operation is not recoverable.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Bucket_delete` first, then:
 ```json
-{ "bucketId": 1234 }
+{
+  "operationId": "Bucket_delete",
+  "args": {
+    "bucketId": 1234
+  }
+}
 ```
-Tool: `bucket_delete`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -164,3 +193,11 @@ X-API-Key: YOUR_API_KEY
 **Response:** `{ "message": "OK" }`
 
 **Errors:** 400 — invalid bucket ID; 401 — unauthorized to delete that bucket.
+
+## Private upload reservation
+
+`POST /v1/bucket/{bucketId}/file-upload` (`Buckets_fileUpload`) accepts `fileName` and
+`fileType`, returns 201 `{ uploadId, uploadUrl, hostedUrl, expiresAt, method, headers }`,
+and requires `groundx:write` through MCP discovery. Reserve before sending protected
+bytes. PUT to native storage, then submit `hostedUrl` through existing ingest. Read
+`13-file-access.md` for ownership, expiry and per-file policy requirements.

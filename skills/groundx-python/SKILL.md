@@ -22,6 +22,8 @@ The repo's own [`AGENTS.md`](https://github.com/eyelevelai/groundx-python/blob/m
 routes to its current contributor guide, `.fernignore`, source, and tests. This
 skill identifies SDK-repo contribution work and the relevant references.
 
+For private staging, initial file policies and generated versus released SDK support, read `references/02-core-sdk.md`.
+
 ## Routing Contract
 
 - **Use this skill for:**

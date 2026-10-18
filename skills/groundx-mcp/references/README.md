@@ -16,6 +16,8 @@ resolves is a `groundx-mcp` task by default.
 Do not assume knowledge from a previous session. Re-open the specific reference below before
 producing output.
 
+For file policies, protected creation, private uploads, sharing and expired source links, read [`07-file-access.md`](./07-file-access.md) before choosing an upload or source-view path.
+
 ## Reference Map
 
 | Topic | File | Use when... |

@@ -78,17 +78,23 @@ Both `describe_operation` and `call_operation` use the argument name `operationI
 `document_ingestremote` requires, since a session that can't call `document_ingestremote`
 to do anything with an uploaded file shouldn't be able to get an upload target for one
 either — but no opt-in toolset, unlike `report_issue` (§2a), which needs the `report`
-toolset. It is not one of the 12 default tools and is not reachable through
-`call_operation` (its backing endpoint is not a GroundX API operation). It only closes
+toolset. It is not one of the 12 default tools. With `bucketId`, it calls the same
+authenticated bucket file-upload operation available through `call_operation`. It only closes
 the local-file gap for MCP hosts that can read the local file and perform the HTTP PUT
 themselves — not every MCP client can, no matter which toolsets or scopes it has.
 
 | tool | input | output |
 |---|---|---|
-| `document_uploadlocal` | `{ fileName, fileType }` | `{ url, method, header, hostedUrl }` — `header`: `Host` is normally automatic, `GX-HOSTED-URL` is `sourceUrl` data (not an S3 header), other entries go on the PUT |
+| `document_uploadlocal` | `{ fileName, fileType, bucketId?, fileAccess? }` | `{ url, method, header, hostedUrl, uploadId?, expiresAt? }` — `header`: `Host` is normally automatic, `GX-HOSTED-URL` is `sourceUrl` data (not an S3 header), other entries go on the PUT |
 
-It returns a pre-signed upload target from the existing GroundX upload broker, not the
-uploaded document. The caller still has to PUT the file bytes to `url` (with the
+It returns upload instructions from the configured GroundX API. Supply `bucketId`
+for authenticated public or protected uploads, valid for at most 900 seconds. Omit it
+only for the legacy anonymous adapter, which retains its 60-minute upload lifetime.
+Forward a requested per-file `fileAccess` policy with `bucketId`, then send it again
+during ingest. A disabled server rejects it before returning a PUT grant. Non-null
+`fileAccess` without `bucketId` is rejected; the anonymous adapter cannot protect a
+file. Hosted and on-prem use the same issuer with their selected storage, with no
+hosted broker fallback. This operation returns no uploaded document. The caller still has to PUT the file bytes to `url` (with the
 applicable `header` entries, per the breakdown above) before calling
 `document_ingestremote` with `hostedUrl` as `sourceUrl`. See
 `references/05-workflows.md` §4.1 for the full local-file flow.

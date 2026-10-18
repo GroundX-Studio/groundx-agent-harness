@@ -4,6 +4,8 @@ Use this index when the public GroundX Agent Harness is installed and the work
 involves deploying, configuring, scaling, monitoring, upgrading, or troubleshooting
 GroundX on Kubernetes.
 
+Protected files, private staging, local MCP, image/SDK prerequisites and independent vendor acceptance: [`file-access.md`](./file-access.md).
+
 ## Fast Path
 
 1. Start in `../SKILL.md` for the public routing contract.

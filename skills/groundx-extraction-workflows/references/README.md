@@ -7,6 +7,8 @@ submitting YAML to the GroundX workflow compiler, running an extraction against 
 document, comparing extraction output to reviewer-provided expected answers, debugging
 a field, or planning a serious extraction pilot.
 
+For protected source assets, QC links and raw capture, read [`4_sdk_integration.md`](./4_sdk_integration.md).
+
 ## Fast Path
 
 1. Read `../SKILL.md`.

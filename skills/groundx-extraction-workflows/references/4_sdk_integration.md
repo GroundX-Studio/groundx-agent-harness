@@ -87,3 +87,20 @@ Harness implementation.
 
 For deployment details, use [`deploy.md`](./deploy.md). For endpoint semantics,
 use `groundx-api`.
+
+## Protected source assets and QC
+
+Before ingesting protected sources or opening their pages, read
+`groundx-api/references/13-file-access.md`. Private staging must precede bytes, including
+per-file protection in a public bucket. Preserve initial policy through split/bulk/crawl
+preparation; verify the installed SDK's helper/models before relying on it. Use explicit
+REST when released support is absent. Account/bucket/file inheritance and later revisioned
+updates do not alter extraction schemas, prompts, roles or routing.
+
+Capture raw `documents.get_extract()` and raw X-Ray unchanged. Authenticated `view=links`
+is a presentation copy for QC, never a replacement for raw captures, certified fixtures
+or answer keys. Protected image readers need supported credentialed transport or native
+bounded grants; MCP OAuth is not a storage credential. Keep keys server-side and off model
+URLs. Refresh expired QC links by asset identity rather than changing file policy.
+Existing extraction contracts remain unchanged; file-delivery acceptance requires
+independent deployment evidence.

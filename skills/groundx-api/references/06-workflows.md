@@ -210,15 +210,18 @@ updates, send explicit prompt objects for any step that must not become empty.
 Create a new workflow definition. All fields are optional — creating a workflow with no
 fields creates a default-configuration workflow.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Workflow_create` first, then:
 ```json
 {
-  "name": "technical-docs",
-  "chunkStrategy": "element",
-  "sectionStrategy": "chunks"
+  "operationId": "Workflow_create",
+  "args": {
+    "name": "technical-docs",
+    "chunkStrategy": "element",
+    "sectionStrategy": "chunks"
+  }
 }
 ```
-Tool: `workflow_create` → returns `workflow.workflowId`
+Tool: `call_operation` → returns `workflow.workflowId`
 
 **REST:**
 ```http
@@ -241,14 +244,17 @@ Validate a workflow definition without creating or modifying anything. The reque
 matches `workflow_create`, including authored workflow YAML in `yaml`; the server
 compiles and validates it, then returns the compiled workflow on success.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Workflow_validate` first, then:
 ```json
 {
-  "name": "technical-docs",
-  "yaml": "workflow: ..."
+  "operationId": "Workflow_validate",
+  "args": {
+    "name": "technical-docs",
+    "yaml": "workflow: ..."
+  }
 }
 ```
-Tool: `workflow_validate`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -269,11 +275,14 @@ return the same structured error shape as create.
 
 List all workflow definitions associated with the API key.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Workflow_list` first, then:
 ```json
-{}
+{
+  "operationId": "Workflow_list",
+  "args": {}
+}
 ```
-Tool: `workflow_list`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -288,11 +297,16 @@ X-API-Key: YOUR_API_KEY
 Look up a workflow by its `workflowId` (UUID), or by a `groupId` or `bucketId` to find
 the workflow currently assigned to that group or bucket.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Workflow_get` first, then:
 ```json
-{ "id": "workflow-uuid" }
+{
+  "operationId": "Workflow_get",
+  "args": {
+    "id": "workflow-uuid"
+  }
+}
 ```
-Tool: `workflow_get`
+Tool: `call_operation`
 
 Optional inputs:
 
@@ -324,15 +338,18 @@ to GroundX defaults. Omitted step settings return to defaults; they do not
 preserve previous custom values. This also applies when the update changes only
 the workflow name.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Workflow_update` first, then:
 ```json
 {
-  "id": "workflow-uuid",
-  "name": "technical-docs-v2",
-  "chunkStrategy": "size"
+  "operationId": "Workflow_update",
+  "args": {
+    "id": "workflow-uuid",
+    "name": "technical-docs-v2",
+    "chunkStrategy": "size"
+  }
 }
 ```
-Tool: `workflow_update`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -392,11 +409,16 @@ source definition.
 Delete a workflow definition by its `workflowId`. This removes the definition but does
 not affect documents already processed with it.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Workflow_delete` first, then:
 ```json
-{ "id": "workflow-uuid" }
+{
+  "operationId": "Workflow_delete",
+  "args": {
+    "id": "workflow-uuid"
+  }
+}
 ```
-Tool: `workflow_delete`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -411,11 +433,14 @@ X-API-Key: YOUR_API_KEY
 Get the workflow currently assigned at the account level (the default workflow applied
 to all files unless overridden).
 
-**MCP:**
+**MCP discovery:** List operations and describe `Workflow_get_account` first, then:
 ```json
-{}
+{
+  "operationId": "Workflow_get_account",
+  "args": {}
+}
 ```
-Tool: `workflow_get_account`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -430,11 +455,16 @@ X-API-Key: YOUR_API_KEY
 Assign a workflow to the account level. This becomes the default for all ingested files
 unless a more specific assignment (group, bucket) overrides it.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Workflow_add_to_account` first, then:
 ```json
-{ "workflowId": "workflow-uuid" }
+{
+  "operationId": "Workflow_add_to_account",
+  "args": {
+    "workflowId": "workflow-uuid"
+  }
+}
 ```
-Tool: `workflow_add_to_account`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -452,11 +482,14 @@ Content-Type: application/json
 Remove the account-level workflow assignment. After removal, ingest uses the GroundX
 default processing unless a group- or bucket-level workflow is assigned.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Workflow_remove_from_account` first, then:
 ```json
-{}
+{
+  "operationId": "Workflow_remove_from_account",
+  "args": {}
+}
 ```
-Tool: `workflow_remove_from_account`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -471,11 +504,17 @@ X-API-Key: YOUR_API_KEY
 Assign a workflow to a specific group or bucket. Files ingested into that group or bucket
 will use this workflow instead of the account-level default.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Workflow_add_to_id` first, then:
 ```json
-{ "id": 1234, "workflowId": "workflow-uuid" }
+{
+  "operationId": "Workflow_add_to_id",
+  "args": {
+    "id": 1234,
+    "workflowId": "workflow-uuid"
+  }
+}
 ```
-Tool: `workflow_add_to_id`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -500,11 +539,16 @@ Content-Type: application/json
 Remove the workflow assignment from the group or bucket identified by `id`. After
 removal, the account-level workflow (if any) applies again.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Workflow_remove_from_id` first, then:
 ```json
-{ "id": 1234 }
+{
+  "operationId": "Workflow_remove_from_id",
+  "args": {
+    "id": 1234
+  }
+}
 ```
-Tool: `workflow_remove_from_id`
+Tool: `call_operation`
 
 **REST:**
 ```http

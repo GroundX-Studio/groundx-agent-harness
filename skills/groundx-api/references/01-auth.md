@@ -20,14 +20,18 @@ Never hardcode the key in source code or commit it to version control. All examp
 in this skill use `YOUR_API_KEY` or `process.env.GROUNDX_API_KEY` as placeholders.
 
 If an installed agent needs to call the GroundX API and no key is available in the
-current environment, it should ask the user to paste or otherwise provide the key. The
-agent may reuse that key for subsequent requests in the current working session, but must
-not save it to long-lived model memory, source files, docs, logs, tests, or generated
-examples. For cross-session persistence, ask the user for explicit approval and store the
-key only in a user-approved environment variable, ignored `.env` file, or secret manager.
+current environment, it must not ask the user to paste or echo the key. Resolve it
+through the default credential chain in `credentials.md`: the environment, a stored
+refresh token, a browser sign-in, or a git-ignored `.env.local` the user edits
+themselves. The agent may reuse a resolved key for subsequent requests in the current
+working session, but must not save it to long-lived model memory, source files, docs,
+logs, tests, or generated examples. For cross-session persistence, ask the user for
+explicit approval and store the key only in a user-approved environment variable,
+ignored `.env` file, or secret manager. See `credentials.md` for the canonical policy.
 
-**Key rotation:** Use `apikey_list`, `apikey_create`, and `apikey_delete` to rotate
-keys without service interruption. See `references/07-customer-and-keys.md` for the
+**Key rotation:** Use authorized REST/dashboard key creation, switch consumers, then
+revoke the old key. Existing key administration is available through admin-scoped MCP
+discovery; customer MCP deliberately excludes key creation. See `references/07-customer-and-keys.md` for the
 full rotation pattern.
 
 ## 2. Environment and connection choice

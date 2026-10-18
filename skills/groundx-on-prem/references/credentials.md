@@ -96,6 +96,7 @@ The chart sees the merged result; helm treats both files as one values document.
 - Add `*.secret.yaml` to the deployer repo's gitignore at the root.
 - Add a gitleaks-style pre-commit hook to catch accidents.
 - Treat `values.<env>.secret.yaml` like any password file: backed up encrypted, never emailed, never pasted in chat.
+- Never request, echo, `cat`, print, or otherwise surface a secret value in chat — this applies to every pattern on this page, not just the file-based ones above.
 - **The same never-pasted-in-chat handling applies to `helm template` render output.** When `metrics.enabled: true` (not the chart default), the rendered manifest contains a chart-generated `metrics-tls` RSA private key regardless of which credential pattern the deployer chose for the input values — never paste raw render output into logs, PRs, or chat; redact the Secret `data`/`stringData` fields or save the full render to a local gitignored file treated as secret.
 
 **Limitations:** scales poorly past one or two environments — every operator who deploys needs a copy of the file. Use Pattern 3 / 4 / 5 / 6 in production.

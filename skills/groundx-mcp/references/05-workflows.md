@@ -1,5 +1,7 @@
 # GroundX MCP — End-to-End Document Workflow
 
+Protected creation, policy updates, private staging, saved-asset sharing and expired citations use the standalone flow in [`07-file-access.md`](./07-file-access.md). Ordinary public tools and upload behavior remain unchanged.
+
 ## 1. Overview
 
 This reference describes the standard end-to-end workflow for ingesting a document and
@@ -107,7 +109,7 @@ can't call `document_ingestremote` can't get an upload target either. This is a
 two-call flow:
 
 ```json
-document_uploadlocal({ "fileName": "invoice", "fileType": "pdf" })
+document_uploadlocal({ "bucketId": 1234, "fileName": "invoice", "fileType": "pdf" })
 ```
 
 Returns `{ url, method, header, hostedUrl }`. PUT the file bytes to `url`, then call
@@ -118,10 +120,21 @@ the `document_ingestremote` call, not a header to send to S3; send any other ent
 request headers on the PUT. See `references/02-default-tools.md` §2b for the full tool
 reference.
 
-`document_uploadlocal` does not require a GroundX API key. The pre-signed `url` is
-valid for 60 minutes; the `hostedUrl` used as `sourceUrl` is not signed and has no
-code-enforced expiry, but do not reuse one from an earlier session — call
-`document_uploadlocal` again for a fresh one.
+For a requested per-file policy, also pass `fileAccess` in this call and in ingest.
+The server checks it before issuing any grant. Non-null `fileAccess` without
+`bucketId` is rejected.
+
+With `bucketId`, the tool uses the authenticated bucket upload endpoint on the
+configured GroundX API for public and protected files. The grant lasts at most 900
+seconds; complete PUT before expiry, and also submit ingest before expiry for a
+private reservation. Unreserved public sources remain ingestible after PUT expiry.
+It works when read
+protection is disabled. API credentials never go to native storage.
+
+Legacy calls without `bucketId` retain the anonymous request/response format and
+60-minute upload grant through the configured API's `/upload/file` adapter. They do
+not default to a hosted broker. Use bucket-owned issuance for new integrations and
+all protected uploads.
 
 REST or SDK callers without MCP access follow the same pattern manually — see
 `groundx-api/guides/02-ingest-patterns.md` §5.

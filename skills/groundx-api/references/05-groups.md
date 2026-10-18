@@ -73,11 +73,16 @@ If `bucketName` was provided, `buckets` will contain the newly created bucket.
 
 List all groups in the account.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Group_list` first, then:
 ```json
-{ "n": 20 }
+{
+  "operationId": "Group_list",
+  "args": {
+    "n": 20
+  }
+}
 ```
-Tool: `group_list`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -98,11 +103,16 @@ X-API-Key: YOUR_API_KEY
 
 Retrieve a single group by its `groupId`, including all associated buckets.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Group_get` first, then:
 ```json
-{ "groupId": 42 }
+{
+  "operationId": "Group_get",
+  "args": {
+    "groupId": 42
+  }
+}
 ```
-Tool: `group_get`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -118,11 +128,17 @@ X-API-Key: YOUR_API_KEY
 
 Rename a group. Only the name is mutable.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Group_update` first, then:
 ```json
-{ "groupId": 42, "newName": "litigation-2026" }
+{
+  "operationId": "Group_update",
+  "args": {
+    "groupId": 42,
+    "newName": "litigation-2026"
+  }
+}
 ```
-Tool: `group_update`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -150,11 +166,17 @@ Associate an existing bucket with a group using `groupId` and `bucketId`. The bu
 must already exist (see 04-buckets.md). This is a path-only operation with no request
 body.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Group_addBucket` first, then:
 ```json
-{ "groupId": 42, "bucketId": 1234 }
+{
+  "operationId": "Group_addBucket",
+  "args": {
+    "groupId": 42,
+    "bucketId": 1234
+  }
+}
 ```
-Tool: `group_addbucket`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -172,11 +194,17 @@ Remove the association between a bucket and a group using `groupId` and `bucketI
 The bucket is not deleted — only the group membership is removed. Other group
 memberships the bucket may have are unaffected.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Group_removeBucket` first, then:
 ```json
-{ "groupId": 42, "bucketId": 1234 }
+{
+  "operationId": "Group_removeBucket",
+  "args": {
+    "groupId": 42,
+    "bucketId": 1234
+  }
+}
 ```
-Tool: `group_removebucket`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -193,11 +221,16 @@ X-API-Key: YOUR_API_KEY
 Delete the group identified by `groupId`. The buckets associated with the group are
 not deleted — only the group itself and its bucket associations are removed.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Group_delete` first, then:
 ```json
-{ "groupId": 42 }
+{
+  "operationId": "Group_delete",
+  "args": {
+    "groupId": 42
+  }
+}
 ```
-Tool: `group_delete`
+Tool: `call_operation`
 
 **REST:**
 ```http

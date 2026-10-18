@@ -27,6 +27,8 @@ path for GroundX tool use when the target environment supports it. Works install
 it does not require `groundx-api`, `groundx-extraction-workflows`, or any other GroundX
 skill.
 
+Before file policies, protected creation, private uploads, sharing and expired source links, read `references/07-file-access.md`. Confirm target deployment and client support before using source-defined features.
+
 ## Table of Contents
 
 - Setup (per-client install) → `references/01-setup.md`

@@ -116,43 +116,38 @@ document keywords, which can affect search. Use meaningful file names when they 
 domain context; use `searchData` / `filter` for structured metadata that should be
 explicitly available at search time.
 
-### 1.7 sourceUrl, textUrl, xrayUrl — direct S3 URLs
+### 1.7 File URLs and protected ingest
 
-The `sourceUrl`, `textUrl`, and `xrayUrl` fields returned by `document_get` (§10),
-`document_lookup` (§9), and `document_getprocessingstatusbyid` (§5) are direct S3 URLs
-that require no authentication. The unguessable UUID in the path is the access control
-(a capability-URL pattern, similar to Dropbox shared links or S3 presigned URLs).
+Source, text, X-Ray, extract, page and crop links follow effective file-access policy.
+Public stable links can be read anonymously; protected stable links require current
+API-key authentication. Search/presentation links may be temporary native grants.
+Read [`13-file-access.md`](./13-file-access.md) for policy inheritance, initial per-file
+`fileAccess`, private staging before bytes, sharing, expiry and browser alternatives.
+Do not assume every URL is anonymous or remains usable until document deletion.
 
-Treat the URLs as bearer tokens:
-
-- Do not log them verbatim — anyone reading the log line can fetch the original document
-  and the parsed X-Ray.
-- Do not surface them to end-user clients unless you intentionally want the client to be
-  able to read the underlying document; otherwise proxy them through your own
-  authenticated endpoint.
-- Assume each URL remains valid until the underlying document is deleted from the bucket
-  (deletion propagates to S3 within seconds), and that your own logs / support tickets /
-  LLM transcripts inherit that capability for the same lifetime.
 
 ## 2. document_ingestremote / POST /v1/ingest/documents/remote
 
-Ingest one or more documents from publicly accessible URLs.
+Ingest one or more documents from URLs the ingest service can fetch, including reserved private `hostedUrl` values. Each new document accepts optional initial `fileAccess`; omitted/null inherits. Choose private staging before bytes for protected files, including protected files in public buckets. See `13-file-access.md`.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Document_ingestRemote` first, then:
 ```json
 {
-  "documents": [
-    {
-      "bucketId": 1234,
-      "sourceUrl": "https://example.com/report.pdf",
-      "fileName": "report.pdf",
-      "fileType": "pdf",
-      "processLevel": "full"
-    }
-  ]
+  "operationId": "Document_ingestRemote",
+  "args": {
+    "documents": [
+      {
+        "bucketId": 1234,
+        "sourceUrl": "https://example.com/report.pdf",
+        "fileName": "report.pdf",
+        "fileType": "pdf",
+        "processLevel": "full"
+      }
+    ]
+  }
 }
 ```
-Tool: `document_ingestremote` → returns `ingest.processId`, `ingest.status`
+Tool: `call_operation` → returns `ingest.processId`, `ingest.status`
 
 **REST:**
 ```http
@@ -224,13 +219,24 @@ three paths avoid the 8 MB cap and the one-file-per-call constraint, and give th
 25–50 MB file size limit and 50-file batch capacity as remote ingest. See §5 and §13 in
 02-ingest-patterns.md for the manual and SDK flows.
 
-### Pre-signed URL service
+### Upload URL issuance
+
+Use `POST /v1/bucket/{bucketId}/file-upload` for public and protected uploads.
+Authenticate with the same customer API key, upload directly to the returned native
+URL, then ingest the returned `hostedUrl`. The upload grant lasts at most 900 seconds;
+complete PUT and ingest submission before expiry. Read protection need not be enabled.
+Hosted and on-prem use their configured API and storage. See `13-file-access.md` for
+exact fields, native headers and per-file policies.
+
+The following anonymous shape remains for legacy clients only. It is an adapter to
+the same issuer, not a separate signing implementation. Use the configured API base
+and `/upload/file`; never select the hosted broker for an on-prem deployment.
 
 This request does not require a GroundX API key.
 
 **Request:**
 ```http
-GET https://api.eyelevel.ai/upload/file?name={fileName}&type={fileExtension}
+GET {configuredApiOrigin}/upload/file?name={fileName}&type={fileExtension}
 ```
 
 `type` is the file extension without a leading dot (e.g. `pdf`, `docx`, `png`).
@@ -303,20 +309,23 @@ Crawl a publicly accessible website, following links recursively up to a configu
 and page cap. Not supported for on-premises deployments. The `sourceUrl` must include the
 protocol (`http://` or `https://`).
 
-**MCP:**
+**MCP discovery:** List operations and describe `Document_crawlWebsite` first, then:
 ```json
 {
-  "websites": [
-    {
-      "bucketId": 1234,
-      "sourceUrl": "https://docs.example.com",
-      "depth": 3,
-      "cap": 50
-    }
-  ]
+  "operationId": "Document_crawlWebsite",
+  "args": {
+    "websites": [
+      {
+        "bucketId": 1234,
+        "sourceUrl": "https://docs.example.com",
+        "depth": 3,
+        "cap": 50
+      }
+    ]
+  }
 }
 ```
-Tool: `document_crawlwebsite`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -358,11 +367,16 @@ that apply to the entire request: `callbackUrl` and `callbackData` — see §1.4
 Check the current status of an ingest process. Call this after any ingest operation until
 `status` reaches `complete` or `error`. A reasonable polling interval is 5 seconds.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Document_getProcessingStatusById` first, then:
 ```json
-{ "processId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" }
+{
+  "operationId": "Document_getProcessingStatusById",
+  "args": {
+    "processId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+  }
+}
 ```
-Tool: `document_getprocessingstatusbyid`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -423,11 +437,16 @@ and `progress.cancelled`.
 Cancel a running ingest process. Documents that have already completed processing are
 not removed; only queued or in-progress documents are cancelled.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Document_cancelProcess` first, then:
 ```json
-{ "processId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" }
+{
+  "operationId": "Document_cancelProcess",
+  "args": {
+    "processId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+  }
+}
 ```
-Tool: `document_cancelprocess`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -444,11 +463,17 @@ X-API-Key: YOUR_API_KEY
 
 List recent ingest processes, sorted from most recent to least recent.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Document_getProcesses` first, then:
 ```json
-{ "n": 20, "status": "complete" }
+{
+  "operationId": "Document_getProcesses",
+  "args": {
+    "n": 20,
+    "status": "complete"
+  }
+}
 ```
-Tool: `document_getprocesses`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -470,11 +495,18 @@ X-API-Key: YOUR_API_KEY
 
 List all documents across all resources in the account.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Document_list` first, then:
 ```json
-{ "n": 20, "filter": "report", "status": "complete" }
+{
+  "operationId": "Document_list",
+  "args": {
+    "n": 20,
+    "filter": "report",
+    "status": "complete"
+  }
+}
 ```
-Tool: `document_list`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -505,11 +537,17 @@ Pass it back in the next call to retrieve the next page.
 Look up documents associated with a specific `processId`, `bucketId`, or `groupId`. The
 `id` parameter accepts any of these integer identifiers.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Document_lookup` first, then:
 ```json
-{ "id": 1234, "n": 20 }
+{
+  "operationId": "Document_lookup",
+  "args": {
+    "id": 1234,
+    "n": 20
+  }
+}
 ```
-Tool: `document_lookup`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -556,11 +594,16 @@ resource.
 
 Retrieve full metadata for a single document by its `documentId` (UUID).
 
-**MCP:**
+**MCP discovery:** List operations and describe `Document_get` first, then:
 ```json
-{ "documentId": "9f7c11a6-24b8-4d52-a9f3-90a7e70a9e49" }
+{
+  "operationId": "Document_get",
+  "args": {
+    "documentId": "9f7c11a6-24b8-4d52-a9f3-90a7e70a9e49"
+  }
+}
 ```
-Tool: `document_get`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -598,19 +641,24 @@ Update mutable attributes of one or more existing documents. Updatable fields ar
 `fileName`, `filter`, and `searchData`. The update is asynchronous; it returns a
 `processId` that can be polled via §5.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Document_update` first, then:
 ```json
 {
-  "documents": [
-    {
-      "documentId": "9f7c11a6-24b8-4d52-a9f3-90a7e70a9e49",
-      "fileName": "q1-report.pdf",
-      "searchData": { "department": "finance" }
-    }
-  ]
+  "operationId": "Document_update",
+  "args": {
+    "documents": [
+      {
+        "documentId": "9f7c11a6-24b8-4d52-a9f3-90a7e70a9e49",
+        "fileName": "q1-report.pdf",
+        "searchData": {
+          "department": "finance"
+        }
+      }
+    ]
+  }
 }
 ```
-Tool: `document_update`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -667,16 +715,24 @@ Copy documents from one bucket to another. Either copy specific documents by `do
 or copy all documents from a source bucket with `fromBucket`. At least one of `documentIds`
 or `fromBucket` must be provided.
 
-**MCP:**
+A copy keeps the source document's processing and extraction results: it does not rerun
+extraction, and it does not run the destination bucket's post-processors (including callbacks
+the destination bucket configures as post-processing steps) or extraction review. The copy is
+searchable whenever its source is.
+
+**MCP discovery:** List operations and describe `Documents_copy` first, then:
 ```json
 {
-  "toBucket": 5678,
-  "documentIds": [
-    "9f7c11a6-24b8-4d52-a9f3-90a7e70a9e49"
-  ]
+  "operationId": "Documents_copy",
+  "args": {
+    "toBucket": 5678,
+    "documentIds": [
+      "9f7c11a6-24b8-4d52-a9f3-90a7e70a9e49"
+    ]
+  }
 }
 ```
-Tool: `documents_copy`
+Tool: `call_operation`
 
 To copy all documents from a bucket:
 ```json
@@ -712,11 +768,16 @@ Content-Type: application/json
 
 Delete a single document by its `documentId`.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Document_delete1` first, then:
 ```json
-{ "documentId": "9f7c11a6-24b8-4d52-a9f3-90a7e70a9e49" }
+{
+  "operationId": "Document_delete1",
+  "args": {
+    "documentId": "9f7c11a6-24b8-4d52-a9f3-90a7e70a9e49"
+  }
+}
 ```
-Tool: `document_delete1`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -733,16 +794,19 @@ X-API-Key: YOUR_API_KEY
 Delete multiple documents in a single request. Deletion is queued asynchronously; the
 response returns a `processId`.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Documents_delete` first, then:
 ```json
 {
-  "documentIds": [
-    "123e4567-e89b-12d3-a456-426614174000",
-    "9f7c11a6-24b8-4d52-a9f3-90a7e70a9e49"
-  ]
+  "operationId": "Documents_delete",
+  "args": {
+    "documentIds": [
+      "123e4567-e89b-12d3-a456-426614174000",
+      "9f7c11a6-24b8-4d52-a9f3-90a7e70a9e49"
+    ]
+  }
 }
 ```
-Tool: `documents_delete`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -771,11 +835,16 @@ The response is a freeform JSON object whose shape is determined by the workflow
 extract steps. See `06-workflows.md` for workflow authoring and the `groundx-extraction-workflows`
 skill for schema-first extraction authoring.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Document_getExtract` first, then:
 ```json
-{ "documentId": "9f7c11a6-24b8-4d52-a9f3-90a7e70a9e49" }
+{
+  "operationId": "Document_getExtract",
+  "args": {
+    "documentId": "9f7c11a6-24b8-4d52-a9f3-90a7e70a9e49"
+  }
+}
 ```
-Tool: `document_getextract`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -792,11 +861,16 @@ Retrieve X-Ray data for a document. X-Ray is a detailed structural analysis prod
 during ingest. The response is a freeform JSON object. The document object returned by
 `document_get` (§10) includes a `xrayUrl` field pointing to the full X-Ray payload.
 
-**MCP:**
+**MCP discovery:** List operations and describe `Document_getXray` first, then:
 ```json
-{ "documentId": "9f7c11a6-24b8-4d52-a9f3-90a7e70a9e49" }
+{
+  "operationId": "Document_getXray",
+  "args": {
+    "documentId": "9f7c11a6-24b8-4d52-a9f3-90a7e70a9e49"
+  }
+}
 ```
-Tool: `document_getxray`
+Tool: `call_operation`
 
 **REST:**
 ```http
@@ -805,3 +879,15 @@ X-API-Key: YOUR_API_KEY
 ```
 
 **Errors:** 400 — invalid document ID; 401 — unauthorized to access that document.
+
+## Failed-stage retry and saved-asset links
+
+`POST /v1/ingest/document/{documentId}/retry` (`Document_retryFailedStage`) accepts no
+body and returns 202 `{ "documentId": "DOCUMENT_ID", "status": "processing" }`.
+Poll/read back the existing document; 202 is not completion. A 409 means the stage is not
+eligible for retry. Do not re-ingest by default. MCP requires `groundx:ingest` and discovery.
+
+`POST /v1/ingest/document/{documentId}/file-link` (`Documents_fileLink`) issues a saved
+asset link, not bytes. Read `13-file-access.md` for selectors, expiry and bearer limitations.
+The same guide owns initial ingest/crawl/local-metadata policies, revisioned document
+updates (preserve the `documents` envelope), raw X-Ray versus `view=links`, and failures.

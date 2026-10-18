@@ -51,7 +51,9 @@ The three inference deployments are the dominant cost driver on a vanilla deploy
 | --- | --- | --- |
 | `summary-inference` | ~24 GB (Gemma 3 at default `1×1` workers/threads) | Disable via `summary.api.enabled: false` + `summary.inference.enabled: false` to drop this entirely and route to an external LLM (OpenAI / Azure / Bedrock). See `engines.md` and `service-substitution.md` § 4.6. |
 | `ranker-inference` | ~17.5 GB estimated footprint at `14×1` workers/threads; budget a 24 GB card class | Cannot reasonably be disabled — search ranking is core to RAG quality. CPU fallback is unreliable. |
-| `layout-inference` | ~2.5 GB × `worker × thread` (default `1×6` ≈ 15 GB) | CPU fallback is possible via explicit override but degrades layout quality. |
+| `layout-inference` | ~2.5 GB × `worker × thread` (default `1×6` ≈ 15 GB) | CPU fallback is possible via `layout.inference.deviceType: cpu` (chart 0.2.7), which auto-strips the GPU request/limit; retargeting off `eyelevel-gpu-layout` is a separate step. Layout-only: it does not touch `ranker` (an explicit `nvidia.com/gpu` request) or `summary` (no GPU device request; placed on the `eyelevel-gpu-summary` node group). See `values-authoring.md` § 3.11. |
+
+**Host RAM is a second GPU-node cost input, separate from VRAM.** A GPU instance must also clear a host-RAM floor — `eyelevel-gpu-ranker` 30 GB, `eyelevel-gpu-layout` 12 GB, `eyelevel-gpu-summary` 30 GB (the RAM column of the Terraform README "Total Recommended Resources"; this citation is scoped to the RAM/disk columns, not the README's divergent VRAM column). Cost each GPU node on both its VRAM figure above and this host RAM floor, plus its root disk (`cluster-requirements.md` § 6.2) — an instance picked for VRAM alone can still be undersized on host RAM. See `cluster-requirements.md` § 2.3.
 
 The cost levers:
 
