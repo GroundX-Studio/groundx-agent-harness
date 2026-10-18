@@ -1,8 +1,8 @@
 # Insurance claim — non-invoice fixture
 
 A **fully synthetic** fixture that proves the custom-step path is
-**domain-agnostic** beyond invoice-shaped output. Its group names — `claim` and
-`line_items` — are not invoice group names. Each group uses `workflow_step:` and
+**domain-agnostic** beyond invoice-shaped output. Its groups `claim`,
+`line_items` and `payments` retain their customer-facing names. Each uses `workflow_step:` and
 the YAML defines `workflow.custom_steps`.
 
 This is the non-invoice smoke gate from the extension model
@@ -15,12 +15,23 @@ JSON then proves the same non-invoice final shape is scoreable.
 
 | Path | What it is |
 |---|---|
-| `prompt.yaml` | Two groups with custom steps: `claim` (`kind: instruct`, singleton), `line_items` (`kind: keys`, repeating) |
-| `data/answer_key.json` | Synthetic expected-answer JSON in the runner output shape `{"claim": {...}, "line_items": [...]}` |
+| `prompt.yaml` | Singleton `claim` plus independent `line_items` and `payments`, both using record reconciliation and QA |
+| `data/answer_key.json` | Synthetic expected-answer JSON preserving all three final groups |
 
-No PDF, no identity/relationship metadata. This fixture proves topology, route shape,
-and scoring for a non-invoice final object. The invoice-domain fixture
-(`../utility-invoice/`) covers null-vs-miss and hosted metadata intent.
+No PDF or child relationship is included. Both independent collections use
+`role: meters`; this selects record processing, not meter terminology or JSON
+names. Identity uses the printed item/payment reference. Amounts are conflict
+fields rather than identity fields so competing observations reach review.
+Different printed identifiers remain separate. See `../../references/2_schema_design.md`,
+"Runtime role labels", for the adapter's scalar-identity limits.
+
+Server validation and self-scoring establish shape only. For processing proof,
+replay identical and disagreeing observations through SDK assembly, hosted
+load, reconciliation, QA and save. Require both conflicting amounts in the
+reconciliation request and exact reviewed final records, with no implicit
+`meter_charges` field. Check both collections independently and reverse branch
+completion to catch save clobbering. Synthetic provider responses do not prove
+live extraction accuracy.
 
 ## The proof
 

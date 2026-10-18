@@ -1,7 +1,7 @@
 # Synthetic insurance-claim fixture — the non-invoice smoke proof.
 #
 # This is the fitness gate that keeps the compiler honest: its group names
-# (`claim`, `line_items`) are not invoice names. Each group uses custom workflow
+# (`claim`, `line_items`, `payments`) are not invoice names. Each group uses custom workflow
 # metadata. If the compiler had silently re-hardcoded invoice group names, this
 # fixture would fail server validation.
 #
@@ -19,12 +19,17 @@ workflow:
   - name: claim_line_items
     level: chunk
     kind: keys
+  - name: claim_payments
+    level: chunk
+    kind: keys
   agent_chain:
   - parallel:
     - group: claim
       chain: [reconcile_statement, qa_statement, save_statement]
     - group: line_items
-      chain: [reconcile_charges, save_charges]
+      chain: [reconcile_meters, qa_meters, save_meters]
+    - group: payments
+      chain: [reconcile_meters, qa_meters, save_meters]
 
 claim:
   # Per-document singleton: one claim header per document.
@@ -63,8 +68,20 @@ claim:
 line_items:
   # Repeating records: the itemized loss / service lines on the claim.
   workflow_step: claim_line_items
-  role: charges
+  role: meters
+  unique_attrs: [item_id]
+  required_attrs: []
+  discriminator_attrs: [item_id]
+  conflict_attrs: [item_description, claimed_amount]
+  remaining_attrs: [item_id]
   fields:
+    item_id:
+      workflow_output_key: item_id
+      prompt:
+        description: the printed identifier for one damaged item
+        identifiers: [Item ID, Item number]
+        instructions: Copy the printed item identifier exactly.
+        type: str
     item_description:
       workflow_output_key: item_description
       prompt:
@@ -85,3 +102,27 @@ line_items:
         type:
         - int
         - float
+
+payments:
+  workflow_step: claim_payments
+  role: meters
+  unique_attrs: [payment_reference]
+  required_attrs: []
+  discriminator_attrs: [payment_reference]
+  conflict_attrs: [paid_amount]
+  remaining_attrs: [payment_reference]
+  fields:
+    payment_reference:
+      workflow_output_key: payment_reference
+      prompt:
+        description: the printed identifier for one payment
+        identifiers: [Payment reference, Payment ID]
+        instructions: Copy the printed payment identifier exactly.
+        type: str
+    paid_amount:
+      workflow_output_key: paid_amount
+      prompt:
+        description: the amount paid for this payment
+        identifiers: [Paid amount, Payment amount]
+        instructions: Copy the numeric payment amount without currency symbols.
+        type: [int, float]

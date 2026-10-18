@@ -139,6 +139,13 @@ declares an explicit `role:` on each executable direct or pseudo group, puts
 `workflow.agent_chain` with one branch per executable workflow group. Keep each
 executable custom step to 30 fields or fewer.
 
+Record the processing role and compatible review/save chain separately from
+scope and final names. For independent repeated records needing matching or
+conflict review, use `meters` with `reconcile_meters`, `qa_meters`, `save_meters`.
+Several independent groups are supported. `statement` can preserve an
+intentional unmatched list but does not execute its record identity policy.
+Read `2_schema_design.md`, "Runtime role labels", before selecting a role.
+
 Do not force an unrelated document into invoice-shaped group names. A claim form,
 contract, or schedule should use group names that match the desired JSON output
 and custom steps that match the extraction shape; see `2_schema_design.md` §1.
@@ -181,28 +188,29 @@ extraction_policy_version: v1
 
 workflow:
   custom_steps:
-    - name: charge_lines
+    - name: item_rows
       level: chunk
       kind: keys
   agent_chain:
     - parallel:
-        - group: charges
-          chain: [reconcile_charges, save_charges]
+        - group: line_items
+          chain: [reconcile_meters, qa_meters, save_meters]
 
-charges:
-  workflow_step: charge_lines
-  role: charges
-  unique_attrs: [charge_description_as_printed, charge_amount]   # dedup identical rows
-  match_attrs: [meter_number]                                    # link to the meters group
-  conflict_attrs: [charge_amount]                                # flag disagreeing amounts
-  passthrough: {from: statement, fields: [account_number]}        # copy from the statement group
+line_items:
+  workflow_step: item_rows
+  role: meters
+  unique_attrs: [item_id]
+  required_attrs: []
+  discriminator_attrs: [item_id]
+  conflict_attrs: [claimed_amount]
+  remaining_attrs: [item_id]
   fields:
-    charge_description_as_printed:
-      workflow_output_key: charge_description_as_printed
-      prompt: { ... }
-    charge_amount:
-      workflow_output_key: charge_amount
-      prompt: { ... }
+    item_id:
+      workflow_output_key: item_id
+      prompt: {type: str, description: Printed item identifier., identifiers: [Item ID], instructions: Copy the printed item identifier.}
+    claimed_amount:
+      workflow_output_key: claimed_amount
+      prompt: {type: float, description: Amount claimed for this item., identifiers: [Claimed amount], instructions: Copy the numeric claimed amount.}
 ```
 
 Every attr name must be a field that exists in the inventory/YAML. Record only
@@ -211,6 +219,13 @@ extract-only. If the customer describes behavior these four primitives cannot
 express (graph/sequencing links, multi-hop resolution), do not invent a workaround
 — surface it as a primitive gap per the escalation signal in the design and
 `6_known_limitations.md` §3.
+
+If amounts disagree for one independently identified item, use the independent
+record example in `../examples/insurance-claim/prompt.yaml` instead. Put its
+stable item identifier in `unique_attrs` and the amount in `conflict_attrs`;
+including the amount in identity would keep the competing readings apart.
+Verify that both readings reach reconciliation and the reviewed value survives
+save. A declared policy or successful compilation does not prove that behavior.
 
 ## 5. Field-coverage check before running
 

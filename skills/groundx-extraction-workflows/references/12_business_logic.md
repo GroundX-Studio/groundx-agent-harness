@@ -46,13 +46,23 @@ identity or relationships. Keep these concepts separate:
 
 ## YAML metadata vocabulary
 
-All keys are optional and declared on final groups:
+Keys are declared on final groups. Select their supported processing path first
+using `2_schema_design.md`, "Runtime role labels". The hosted statement path
+does not apply repeated-record identity or conflict policy. Independent record
+review uses `meters` with `reconcile_meters`, `qa_meters`, `save_meters`;
+multiple independent collections may use that role without sharing identities.
+The customer-facing group names remain unchanged.
+
+SDK generic assembly can merge records using identity metadata supplied to it.
+Hosted record review deliberately leaves those observations for the service's
+matcher so conflicting populated values survive. These are different consuming
+paths; passing server validation or inspecting metadata is not proof of review.
 
 | Key | Shape | Customer intent |
 |---|---|---|
 | `unique_attrs` | `list[str]` | Fields that establish one record's identity for supported deduplication behavior. Include a genuine per-record key such as claim number, circuit ID, site ID, or meter number. Description, date, amount, and category alone can collapse distinct records that happen to share values. |
 | `match_attrs` | `list[str]` | Printed fields that relate a child record to a parent record. |
-| `conflict_attrs` | `list[str]` | Fields whose distinct values should be surfaced as `<field>__conflicts` rather than silently selected. |
+| `conflict_attrs` | `list[str]` | Fields whose competing values the hosted record adapter retains for reconciliation. Final customer JSON contains reviewed fields, not synthesized `__conflicts` keys. |
 | `passthrough` | `{"from": "<parent_group>", "fields": [...]}` | Parent fields the supported runtime should propagate to related child records. |
 
 Example:
@@ -90,6 +100,20 @@ Ask the customer:
 Confirm the expected record count after identity behavior. A successful extract
 with far fewer records than the source is evidence that identity is too broad,
 not proof that deduplication worked.
+
+Confirm admission and separation too: `required_attrs` controls which records
+are admitted; `discriminator_attrs` prevents configured differences such as
+different history periods from merging; `remaining_attrs` preserves other
+rendered fields. Keep a disagreeing amount out of identity when it should be
+reviewed as one record. Two missing optional identity values can compare equal
+in the hosted record matcher, so do not treat identity as requiredness.
+
+Before acceptance, use identical observations, conflicting observations, and
+genuinely different identities. Check that duplicates combine, all competing
+values reach reconciliation, and different records survive final save. This
+also detects an accidentally selected statement path. The hosted adapter's
+identity values are strings or numbers; SDK list/object identity support does
+not imply equivalent hosted matching support.
 
 ## Product gaps
 
