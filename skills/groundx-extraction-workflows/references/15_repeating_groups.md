@@ -83,12 +83,19 @@ Two defenses:
 
 - Prompt: "Each physical row appears **once**; if the same line item is shown
   in multiple places, extract it a single time."
-- Product intent: declare `unique_attrs` on the group so the supported hosted
-  path can apply stable record identity. Harness does not deduplicate the raw
-  result. See `12_business_logic.md`.
+- Hosted processing: select `role: meters` and the matching reconcile, QA and
+  save chain for independent records needing review; declare identity and
+  conflict policy together. `unique_attrs` on a statement-role array alone
+  does not execute hosted record matching. Several independent collections may
+  use `meters` while retaining their customer-facing names. Harness does not
+  deduplicate the raw result. See `2_schema_design.md`, "Runtime role labels",
+  and `12_business_logic.md` for supported identities and policy.
 
 Dedup is a record-coverage fix (drives `extra` down), not a field-accuracy
 fix — verify it did not also drop a legitimately distinct record.
+For two observations of one identity with different readings, also verify both
+readings reach reconciliation. A lower row count that silently discards one
+reading is not a successful repair.
 
 ## 6. The iteration loop
 

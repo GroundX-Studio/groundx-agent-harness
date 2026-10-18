@@ -124,15 +124,39 @@ When hosted structured-output processing needs explicit roles, final groups and
 pseudo groups also declare a processing role. These are product runtime labels,
 not customer names:
 
-- `statement`: fields at the top level of the final structured object.
-- `meters`: one top-level array of meter objects.
-- `charges`: charge objects either at the top level or inside individual meter
-  objects.
+| Processing needed | Role and branch |
+|---|---|
+| Singleton fields, or an intentional list without record matching | `statement`, with `reconcile_statement`, `qa_statement`, `save_statement` |
+| Independent records whose duplicate observations or disagreements need review | `meters`, with `reconcile_meters`, `qa_meters`, `save_meters` |
+| Charge-style record processing, standalone or attached to a declared parent | `charges`, with the supported charge chain and any declared child relationship |
 
-Charges attach to meters through `match_attrs`; unmatched charges remain at
-statement level. Current runtime constraints allow only one `meters` group and
-one `charges` group, including pseudo groups. All other groups are `statement`.
-This is current implementation behavior, not a permanent product rule.
+`meters` is also the existing adapter for history rows, damaged items, payments
+and other independent records. Several such groups are supported and keep their
+own fields, policy and review results. Only one `charges` group is supported.
+Choose `charges` for its charge-processing behavior, not merely because output
+is a list. Independent records needing record QA use `meters`. Neither role names nor customer group names select JSON placement;
+compiled routes and `output_scope` own that.
+
+On the hosted statement path, adding `unique_attrs` does not make rows pass
+through record matching. Repeated-row conflicts are not statement scalar
+conflicts. A successful server validation alone does not prove matching or
+conflict review occurred. Replay duplicate and disagreeing observations through
+the intended hosted path and compare the final records.
+
+For record review, configure `unique_attrs` for identity, `required_attrs` for
+admission, `discriminator_attrs` for differences that must keep records apart,
+and `conflict_attrs` for fields whose alternative readings must reach review.
+Keep remaining rendered fields in `remaining_attrs`. An identity field is not
+automatically required: the original record matcher can compare two missing
+optional values as equal. Do not require a physical-meter identifier when the
+document has none. See `12_business_logic.md` and the independent groups in
+`../examples/insurance-claim/prompt.yaml`.
+
+The hosted record adapter supports string and numeric identifying values.
+SDK generic assembly also supports list and object identifiers, but its merge
+behavior is different and does not provide hosted conflict review. Do not
+convert those workflows to `meters` without a supported identity design, or
+remove needed policy merely to obtain a successful validation.
 
 Name groups after the domain (`claims`, `line_items`, `usage_records`). Every
 direct or pseudo group referenced by `workflow.agent_chain` must declare its
