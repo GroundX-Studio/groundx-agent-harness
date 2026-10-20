@@ -1,6 +1,6 @@
 # OCR Mode — Tesseract vs Google Cloud Vision
 
-This file documents **the OCR decision a deployer makes once during install** — bundled in-cluster Tesseract vs Google Cloud Vision API — the trust-boundary trade-off, the exact field shape the chart expects (a packaged-file path, *not* inline JSON and *not* a reference to a pre-existing Secret), the egress posture, and the cross-field implications.
+This file documents **the OCR decision a deployer makes once during install** — bundled in-cluster Tesseract vs Google Cloud Vision API — the trust-boundary trade-off, the exact field shape the chart expects (a packaged-file path that renders a Secret, or — on chart 0.2.7 — a pre-created Secret referenced through the top-level `google.existingSecret` value; the packaged path is *not* inline JSON), the egress posture, and the cross-field implications.
 
 For the architectural picture of where OCR sits in the layout pipeline, route to `groundx-architecture/references/layout-ocr.md`. For the discovery-question framing, route to `values-authoring.md` § 3.6.3. For the field-level reference, route to `values-yaml.md` § 5.2.
 
@@ -26,7 +26,7 @@ The chart doesn't strictly validate the `type` value (it's a free string passed 
 | **Quality** | Solid for typed text, English-heavy documents, and standard fonts. Degrades on handwriting, low-resolution scans, and non-Latin scripts. | Higher quality on edge cases — handwriting, mixed scripts, low-resolution scans, photographs of documents. Google's vision models are SOTA-class. |
 | **Latency** | In-cluster CPU call, sub-second per page after warm-up. | Network-bound. Adds 100–500 ms per page depending on geography + GCV load. |
 | **Air-gap compatibility** | Yes — fully self-contained. | No — outbound internet egress required. |
-| **Setup complexity** | None. Default. | Package a GCP service-account JSON in the chart, set 3 values fields, configure NetworkPolicy egress. |
+| **Setup complexity** | None. Default. | Supply a GCP service-account JSON — packaged in the chart (`layout.ocr.credentials`) or, on chart 0.2.7, via a pre-created Secret referenced through the top-level `google.existingSecret` value — set the values fields, configure NetworkPolicy egress. |
 
 **Two general patterns:**
 
@@ -58,11 +58,11 @@ layout:
 
 ## 4. Google Cloud Vision — full setup
 
-Four steps. The non-obvious one is step 1.
+Four steps. The non-obvious one is step 1. This walks the chart-packaged-file path. To supply the key through a pre-created Secret instead, follow § 7 (`google.existingSecret`): skip step 4.1 **and**, in step 4.2, leave `layout.ocr.credentials` unset and set `google.existingSecret` instead. A non-empty `layout.ocr.credentials` selects the packaged-file path, so leaving it set while step 4.1 is skipped bypasses your Secret and fails the install at the chart's `.Files.Glob` check.
 
 ### 4.1 Package the GCP service-account JSON in the chart
 
-The chart consumes the GCV credentials as a **packaged file**, not inline JSON and not a reference to a pre-existing Kubernetes Secret. At template-rendering time, the chart calls `.Files.Glob` against the path you supply, and if the file exists in the chart directory, it materializes a Kubernetes **Secret** named `{layout.serviceName}-ocr-credentials-map` (default `layout-ocr-credentials-map`) carrying the JSON under `stringData.credentials.json`.
+The chart consumes the GCV credentials as a **packaged file** — the JSON key is not inline in values.yaml. At template-rendering time, the chart calls `.Files.Glob` against the path you supply, and if the file exists in the chart directory, it materializes a Kubernetes **Secret** named `{layout.serviceName}-ocr-credentials-map` (default `layout-ocr-credentials-map`) carrying the JSON under `stringData.credentials.json`. On chart 0.2.7 the key file can instead be supplied as a pre-created Secret referenced through the top-level `google.existingSecret` value (see § 7); either way the layout-ocr application reads the key file mounted at `/app/credentials.json`.
 
 Place the GCP service-account JSON at a path inside the chart, e.g.:
 
@@ -79,8 +79,10 @@ layout:
   ocr:
     type: google                                # default is "tesseract"; set to "google" for GCV
     project: <gcp-project-id>                    # GCP project for the service account
-    credentials: files/ocr/credentials.json     # path to the packaged file (step 4.1)
+    credentials: files/ocr/credentials.json     # path to the packaged file (step 4.1); OMIT on the pre-created-Secret path
 ```
+
+For the pre-created-Secret path, omit `credentials` here and set the top-level `google.existingSecret` instead (see § 7). A non-empty `layout.ocr.credentials` selects the packaged-file path, so leaving it set would bypass the pre-created Secret and fail the install when the packaged file is absent.
 
 The chart's helper checks that the file exists at template time and `fail`s the install if it doesn't:
 
@@ -109,44 +111,44 @@ Document each OCR call now sends a page image to a third party. Update:
 - The compliance attestation if the deployment is under FedRAMP / HIPAA / SOC 2 review — GCV likely requires a BAA or DPA.
 - The egress audit log if the cluster has one.
 
-## 5. Why the credential is supplied as a chart-packaged file
+## 5. How the credential is supplied — packaged file or pre-created Secret
 
 A common reaction: "shouldn't the GCP credentials be a Kubernetes Secret instead of a packaged file?"
 
-They are: the chart renders them into a Kubernetes Secret (see § 4.1). The real question is whether the deployer should hand the chart a reference to a Secret they create and manage, versus a file packaged in the chart. The chart takes a packaged file because:
+They are: the chart renders the packaged file into a Kubernetes Secret (see § 4.1). On chart 0.2.7 the deployer also has the second option directly — hand the chart a reference to a Secret they create and manage, through the top-level `google.existingSecret` value (see § 7), instead of packaging the file. Either way the credential is a JSON key file; the layout-ocr application reads it at `/app/credentials.json` and has no keyless path. The chart-packaged file remains the simplest default because:
 
 1. **OCR credentials are install-time configuration**, not runtime-rotated credentials. The GCP service-account JSON is generated once when the integration is set up; rotation is rare and operator-driven.
-2. **The chart's `.Files.Glob` mechanism requires the file at template-render time.** Deferring it to a runtime-mounted Secret would mean the chart can't fail-fast on a missing file.
+2. **The chart's `.Files.Glob` mechanism resolves the packaged file at template-render time**, so a missing packaged file fails the install fast. The `google.existingSecret` path defers that check to pod start, where a missing or wrong Secret surfaces as a mount or startup failure instead.
 3. **The Secret stays inside the layout namespace and is never referenced by the `groundx` API pod or the Partner API.** The celery template (`templates/app/celery.yaml`) is what attaches the `credentials-volume` mount, and only celery-rendered pods carry the JSON on disk — the externally-reachable surfaces never receive it. **Note**: the celery template scopes the OCR annotation, the `credentials-volume` mount, and the Secret volume to layout Celery workers only; non-layout celery services — `extract-*`, `workspace-*`, or any custom celery service — receive none of this OCR wiring, whether or not `layout.ocr.credentials` is set. Deployments enabling extract-* or workspace-* celery services concurrently with `layout.ocr.credentials` render and install cleanly, with no unintended reference to a nonexistent extract or workspace OCR credentials resource.
 
-**Compliance implications.** The rendered Secret carries the service-account JSON. A Kubernetes Secret is base64-encoded, not encrypted, at rest in etcd unless the cluster enables encryption at rest (EncryptionConfiguration). For SOC 2 / FedRAMP-stringent deployments:
+**Compliance implications.** The Secret carrying the service-account JSON — whether the chart renders it from the packaged file or the deployer pre-creates it and references it through `google.existingSecret` — is base64-encoded, not encrypted, at rest in etcd unless the cluster enables encryption at rest (EncryptionConfiguration). For SOC 2 / FedRAMP-stringent deployments:
 
 - Ensure cluster-wide etcd encryption at rest is enabled.
-- Or use Google Cloud Workload Identity Federation on GKE — the pod's ServiceAccount is bound to a GCP service account, and no JSON file is needed at all. See `credentials.md` § 9.
+- When using the `google.existingSecret` path, keep the key file out of git — create the Secret directly or through a secret manager rather than packaging the JSON in the chart. Google Cloud Vision OCR has no keyless mode on 0.2.7, so the JSON key file is required either way. See `credentials.md` § 9.
 
 ## 6. Cross-field implications
 
 | Set this... | …and this is implied or required |
 | --- | --- |
-| `layout.ocr.type: google` | Must also set `layout.ocr.project` (GCP project id) and `layout.ocr.credentials` (path to packaged JSON file). |
+| `layout.ocr.type: google` | Must also set `layout.ocr.project` (GCP project id) and supply the JSON key file — either `layout.ocr.credentials` (path to a packaged JSON file) or a pre-created Secret via the top-level `google.existingSecret` value. |
 | `layout.ocr.credentials: <path>` | The file must exist at `<chart-root>/<path>` at template-render time. The chart's `.Files.Glob` check fails the install otherwise. |
 | `layout.ocr.type: google` + air-gapped deployment | **Conflict.** GCV needs outbound internet egress. Use Tesseract for air-gapped. |
 | `layout.ocr.type: google` + FedRAMP / HIPAA compliance | **Requires deployer attestation.** GCV is a trust-boundary crossing — update the data-residency posture and confirm BAA / DPA with Google is in place. |
-| Switching `type` from `tesseract` to `google` after install | Update values.yaml + ship the packaged JSON file in the chart + `helm upgrade --install`. The Secret is created automatically. Celery pods restart to pick up the new mount (annotation hash on the Secret forces a rollout). |
-| Switching `type` from `google` to `tesseract` after install | Set `layout.ocr.type: tesseract` and remove `credentials`/`project`. The Secret is no longer materialized (chart's `groundx.layout.hasOCRCredentials` returns false). Celery pods restart to Tesseract-only mode. |
+| Switching `type` from `tesseract` to `google` after install | Set `layout.ocr.type: google` + `layout.ocr.project`, then supply the JSON key file one of two ways — ship the packaged file in the chart and set `layout.ocr.credentials`, **or** (chart 0.2.7) reference a pre-created Secret via the top-level `google.existingSecret` value and leave `layout.ocr.credentials` unset — then `helm upgrade --install`. With the packaged file the chart materializes the Secret; with `google.existingSecret` the chart mounts the pre-created Secret. Either way the key is mounted at `/app/credentials.json`, and because the switch adds the OCR volume mount to the pod spec the layout Celery pods restart to pick it up. |
+| Switching `type` from `google` to `tesseract` after install | Setting `layout.ocr.type: tesseract` alone does **not** drop a chart-packaged credential: `groundx.layout.hasOCRCredentials` — and the `layout-ocr-credentials-map` Secret gated on it — key only on whether `layout.ocr.credentials` is a non-empty string, never on `type`. So with `layout.ocr.credentials` still set, the Secret stays materialized **and** stays mounted at `/app/credentials.json` (`$mountOCR` stays true via `hasOCR`). To actually remove the Google credential, **also clear `layout.ocr.credentials`** (the packaged-file path). The pre-created-Secret path differs: `sharedGoogle` is type-gated, so for a `google.existingSecret` mount (with `layout.ocr.credentials` unset) setting `type: tesseract` makes `sharedGoogle` go false and that mount drops on its own — the chart never managed that Secret, so leave `google.existingSecret` in place if other Google features use it. Once the mount drops, the layout Celery pods restart to Tesseract-only mode. |
 
-## 7. Workload Identity (GKE) — the IRSA-equivalent for OCR
+## 7. Supplying the key file via a pre-created Secret (`google.existingSecret`)
 
-When the cluster runs on GKE with Workload Identity Federation, the deployer can skip the packaged-JSON-file pattern entirely:
+On chart 0.2.7, a deployer who manages their own Kubernetes Secrets can skip packaging the JSON file in the chart directory and reference a pre-created Secret instead:
 
-1. Annotate the chart's `serviceAccount.name` (or per-microservice `layout.ocr.serviceAccount.name`) with `iam.gke.io/gcp-service-account=<sa>@<project>.iam.gserviceaccount.com`.
-2. Grant that GCP service account permission to call the Cloud Vision API (the exact IAM role depends on the project's setup — typically a Cloud Vision–scoped role; consult Google's Cloud Vision IAM docs for the current canonical role name).
-3. Set `layout.ocr.type: google` and `layout.ocr.project`.
-4. **Leave `layout.ocr.credentials` unset.** The application uses Application Default Credentials (ADC) and the bound GCP identity authenticates the call without a JSON file.
+1. Create a Secret in the GroundX namespace (the chart's `namespace` value, default `eyelevel`) holding the GCP service-account JSON under the key `credentials.json` (override the key with `google.secretKey`).
+2. Set `layout.ocr.type: google` and `layout.ocr.project`.
+3. Set the top-level `google.existingSecret: <secret-name>`.
+4. **Leave `layout.ocr.credentials` unset.** With `layout.ocr.type: google`, an empty `layout.ocr.credentials`, and `google.existingSecret` set, the chart mounts the referenced Secret at `/app/credentials.json`.
 
-This is the cleanest production pattern on GKE. See `credentials.md` § 9 for the broader workload-identity story.
+This is the pre-created-Secret path for operators who do not want the key file in the chart directory.
 
-On AWS EKS and Azure AKS, workload-identity-to-GCP federation is also possible but requires more setup (Workload Identity Federation cross-cloud). The packaged-JSON-file pattern is the simpler default off GKE.
+Google Cloud Vision OCR needs the JSON key file on disk in every case: the layout-ocr application reads it at `/app/credentials.json` and raises at startup if it is absent. There is no keyless (Workload Identity / Application Default Credentials) mode for Google OCR on 0.2.7 — binding a GKE ServiceAccount to a GCP service account does not by itself satisfy the application's key-file requirement. Running OCR without a key file would be an application change, not a values change. `credentials.md` § 9 covers how Workload Identity does replace static credentials for the *cloud* backing services (S3 / RDS / SQS / ElastiCache / OpenSearch).
 
 ## 8. What this file does not cover
 

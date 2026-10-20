@@ -48,10 +48,14 @@ printed text exactly:
 Apply the same verbatim rule to any field whose value is a printed label or
 identifier rather than a normalized quantity.
 
-## 3. Capture every row
+## 3. Capture every item
 
-One record per printed line item; do not merge, skip, or summarize. State the
-boundary of the group explicitly so the model knows where rows start and stop:
+Define one record per item in the intended output; do not merge, skip, or
+summarize. Items may be arranged by row or by column. For example, separately
+priced column entries remain separate when the requested unit is each priced
+component; their combined amount is a total. State this unit in the group
+instructions rather than treating a physical line as a universal record boundary.
+For a row-oriented table:
 
 > Extract one record for **every** line item in the charges table, top to
 > bottom, including zero-dollar and credit lines. Do not stop early; do not
@@ -75,14 +79,20 @@ items. Exclude them with explicit IS-NOT examples, in the group's own words:
 IS-NOT examples are more reliable than abstract rules — name the exact row
 types the document prints.
 
-## 5. One row per record; dedup cross-chunk duplicates
+These exclusions depend on the requested output. A summary or heading can be
+the only source for a requested value. Preserve that information when its
+meaning and scope match the request; do not apply a line-item exclusion to
+every document or every group. Group, field and rendered review rules must agree.
+
+## 5. One item per record; dedup cross-chunk duplicates
 
 When a workflow group aggregates across chunks, the same record can appear
 twice (a charge that spans a page break, a meter summarized in two places).
 Two defenses:
 
-- Prompt: "Each physical row appears **once**; if the same line item is shown
-  in multiple places, extract it a single time."
+- Prompt: "Each source item appears **once**; if the same item is shown
+  in multiple places, extract it a single time. Preserve distinct items when
+  several are printed on one line."
 - Hosted processing: select `role: meters` and the matching reconcile, QA and
   save chain for independent records needing review; declare identity and
   conflict policy together. `unique_attrs` on a statement-role array alone

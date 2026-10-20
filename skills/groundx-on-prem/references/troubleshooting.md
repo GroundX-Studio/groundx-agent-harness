@@ -218,6 +218,30 @@ The chart's app pods (`api.yaml`, `golang.yaml`, `celery.yaml`, etc.) ship init 
 
 **Fix.** `kubectl -n eyelevel rollout restart deployment <name>` forces a restart. For sweeping changes, rolling-restart all of the relevant subsystem's deployments.
 
+### 5.3 Single-replica GPU / ReadWriteOnce upgrade deadlock
+
+**Symptom.** During a `helm upgrade`, a single-replica GPU inference Deployment — `layout-inference`, `ranker-inference`, or `summary-inference`, each holding one GPU and mounting a model-cache volume whose access mode follows `cluster.pvAccessMode` (chart default `ReadWriteMany`; on EKS `gp3` is `ReadWriteOnce`-only and `efs-sc` is `ReadWriteMany` — see § 4 / § 2.3) — has its rollout hang. Two **independent** triggers produce the hang, and either alone is enough: (a) **single-GPU contention**, always present on these single-replica inference Deployments, leaves the new pod stuck `Pending` on `Insufficient nvidia.com/gpu`; (b) **`ReadWriteOnce` Multi-Attach**, present only when `cluster.pvAccessMode: ReadWriteOnce` (the EBS/`gp3` scenario), leaves the new pod stuck on a `Multi-Attach error` when it is scheduled onto a different node from the one whose running pod still holds the volume. Under the `ReadWriteMany` default only trigger (a) occurs. The per-service `<svc>.inference.updateStrategy` knob (Prevention, below) avoids both on the next upgrade.
+
+**Cause.** The chart's Deployments use the default `RollingUpdate` strategy. At one replica, `maxUnavailable` rounds down to 0, so Kubernetes must schedule the new pod *before* removing the old one. With a single GPU, the new pod cannot acquire the GPU the old pod still holds; and when the model-cache volume is `ReadWriteOnce`, the new pod additionally cannot attach the volume the old pod still mounts. Either condition stalls the new pod, so the upgrade never completes.
+
+**Recovery.** This step recovers any single-replica Deployment stuck because its old pod still holds the GPU or ReadWriteOnce volume the new pod needs — it does not address an unrelated stuck rollout (image-pull failure, crash loop, no schedulable node). Scale the stuck Deployment to zero, wait for the old pod to fully terminate (releasing the GPU or detaching the volume), then scale back to one:
+
+```sh
+kubectl -n eyelevel scale deployment <deployment> --replicas=0
+# then, once the old pod is gone:
+kubectl -n eyelevel scale deployment <deployment> --replicas=1
+```
+
+**Prevention (inference microservices only).** Set the per-service `<svc>.inference.updateStrategy` values knob to `Recreate` so the chart renders `strategy.type: Recreate` on the Deployment — Kubernetes then removes the old pod before creating the new one, avoiding the deadlock on the next upgrade. This knob exists only on the single-GPU inference microservices — `layout.inference`, `ranker.inference`, and `summary.inference` on chart 0.2.7 — and its value is a bare string:
+
+```yaml
+layout:
+  inference:
+    updateStrategy: Recreate
+```
+
+A single-replica non-inference Deployment that hits the same `Multi-Attach` ReadWriteOnce deadlock has no equivalent chart knob; recover it with the scale-to-zero-then-up step above. The chart does not apply a `Recreate` strategy by default; the default is Kubernetes' own `RollingUpdate`. Because `Recreate` removes the old pod *before* creating the new one, the new pod reuses the single GPU and the ReadWriteOnce volume the old pod frees, so the rollout completes on a single-GPU / RWO node with **no spare GPU or node capacity** to schedule a second pod — at the cost of a brief downtime during the swap, while no pod is serving. Apply it only to the affected inference service through the per-service `<svc>.inference.updateStrategy` knob above; do not make `Recreate` a global default. The downtime is acceptable for a single-replica inference service, which is already unavailable while its one pod is replaced.
+
 ## 6. Where to look when none of these match
 
 When the failure doesn't match a category above:

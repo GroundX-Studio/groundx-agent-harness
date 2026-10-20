@@ -27,7 +27,7 @@ Every credential the chart consumes, grouped by where the application uses it:
 | Outbound extract LLM API key | `extract.agent.apiKey` | External LLM endpoint auth for the extract agent. |
 | Extract-side object-store credentials | `extract.file.{username, password}` | When the extract pipeline writes to a *different* S3 bucket than the ingest pipeline. AWS access key / secret for that bucket. |
 | Extract callback API key | `extract.callbackApiKey` | Validates inbound callbacks the extract pipeline POSTs results to. |
-| GCP service account JSON (OCR) | `layout.ocr.credentials` is a string path to a chart-packaged JSON file (e.g. `files/ocr/credentials.json`). Chart materializes a Secret from the file at install time. | Google Cloud Vision API auth when `layout.ocr.type: google`. |
+| GCP service account JSON (OCR) | `layout.ocr.credentials` is a string path to a chart-packaged JSON file (e.g. `files/ocr/credentials.json`). Chart materializes a Secret from the file at install time. On 0.2.7, a pre-created Secret can be referenced instead through the top-level `google.existingSecret` value. Either way a JSON key file is required. | Google Cloud Vision API auth when `layout.ocr.type: google`. |
 | GCP service account JSON (extract save) | `extract.save.gcpCredentials` | Google Drive / Sheets API auth when extracting to Google Drive. |
 | Workspace runner token | `workspace.token` | GitHub / GitLab `git push` auth. |
 | GitHub App private key | `workspace.github.privateKeyPem` or `workspace.github.privateKeySecret.{name,key}` | GitHub App token-minting key. |
@@ -160,6 +160,7 @@ The chart wires the Secret's env-var-named keys into every pod via `envFrom`. Th
 - `workspace.gitlab.tokenSecret.{name, key}` — names a Secret + key holding the GitLab token (precise key reference).
 - `extract.agent.existingSecret: true` + `extract.agent.secretName: <name>` — looks for the LLM API key.
 - `extract.save.existingSecret: true` + `extract.save.secretName: <name>` — looks for the GCP service account JSON.
+- `google.existingSecret: <secret-name>` — references a pre-created Secret holding the Google Cloud Vision OCR key (key `credentials.json`, overridable via `google.secretKey`), mounted at `/app/credentials.json` when `layout.ocr.type: google` and `layout.ocr.credentials` is left empty.
 - `cluster.tls.existingSecret` is not a per-feature Secret reference. It is accepted by the schema but does not mount the named Secret or change rendered resources.
 
 **Chart-auto-materialized workspace Secrets.** When the deployer provides workspace credentials *inline* in values.yaml (rather than via Pattern 3's `existingSecret` / `secretName` references), the chart auto-materializes three separate Secrets:
@@ -265,12 +266,12 @@ Workload Identity (IRSA on AWS EKS, Azure Workload Identity, GKE Workload Identi
 | `stream.{key, secret}` (SQS) | IAM role grants SQS access. Omit `stream.key` / `stream.secret`. |
 | `extract.file.{username, password}` (S3) | Same as `file.*`. Omit. |
 | `extract.save.gcpCredentials` (GCP Drive / Sheets) | When the cluster runs on GCP with WIF, the GCP SA binding covers Drive access. |
-| `layout.ocr.credentials` (GCV) | Same — WIF on GCP gives Vision API access. |
 | `db.*` credentials | Limited — RDS / Azure Database / Cloud SQL support IAM auth, but the chart's MySQL driver may not. Test before relying on it. Most deployments still set `db.{username, password}` even with workload identity for the cluster. |
 | `cache.existing.*` credentials | Same — Redis Auth via cloud IAM is technology-specific. Most deployments still set Redis AUTH credentials out-of-band. |
 
 **What workload identity does NOT cover:**
 
+- Google Cloud Vision OCR (`layout.ocr.type: google`). The layout-ocr application always needs a JSON key file at `/app/credentials.json`; supply it as the packaged `layout.ocr.credentials` file or as a pre-created Secret referenced through the top-level `google.existingSecret` value. Binding a GKE ServiceAccount to a GCP service account does not grant keyless Vision OCR access — there is no keyless mode on 0.2.7.
 - License key (`licenseKey`)
 - Bootstrap admin (`admin.*`)
 - LLM API keys (`summary.existing.apiKey`, `extract.agent.apiKey`)

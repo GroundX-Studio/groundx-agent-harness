@@ -42,6 +42,12 @@ The user should not need to know the v1 YAML mechanics or the live-run
 checklist. If they provide source schema material, a sample document, and the
 report they want back, treat that as enough to start.
 
+Clarify the meaning of one output record and which source values are exact,
+estimated, derived or absent. A printed daily average and a monthly total are
+different values. Record whether estimates are permitted, the missing-value
+rule and required key presence. Do not infer extra measurements or field names
+merely because nearby source content looks related.
+
 Example user prompt:
 
 ```text

@@ -19,7 +19,22 @@ Teach the path in this order:
 6. Upload documents with `client.ingest(...)` and `Document(...)`.
 7. Poll until ingest completes.
 8. Read extracted JSON with `client.documents.get_extract(...)`.
-9. Improve the smallest YAML prompt that explains a missing or wrong value.
+9. Compare missing or wrong values with the source, X-Ray and saved workflow
+   settings. Evidence somewhere in X-Ray does not prove the model received it.
+10. Improve the smallest coherent YAML policy that explains a demonstrated
+    instruction problem. Check previously correct values and missing or extra
+    records as well as the reported error.
+
+Teach customers to define one output record and distinguish repeated observations
+from separate records. Use general examples such as claim items or schedules.
+For requested components, exclude a repeated total while preserving unique
+requested information that appears only in a summary. Specify whether estimates
+are allowed and preserve the meaning, dates, units, signs and missing-value rules.
+
+When a correct initial value disappears later, customers may need GroundX support
+to inspect private processing stages. Ask for document, process and workflow IDs,
+source location, expected value and raw result. Do not require private repository
+access, internal debugger commands, or reconstruction of the final JSON from X-Ray.
 
 The public guide can mention that GroundX uses the YAML names in the returned
 JSON. It does not need to describe how the SDK prepares workflow steps.

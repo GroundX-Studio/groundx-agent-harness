@@ -172,8 +172,9 @@ top-level object.
 
 Each chunk that contains a record returns a complete record object. Compiled
 custom routes write those records to the authored final group, such as
-`charges`. There is no reconciliation problem because each record is
-self-contained.
+`charges`. The array shape does not decide whether repeated observations of
+one record are matched or conflicting readings reach review. The configured
+processing role, policy and task chain decide that behavior.
 
 So a YAML step like:
 
@@ -216,7 +217,18 @@ from each chunk." If the output should be one final object, use
 | Does the field appear at most once per document? | custom step with `kind: instruct` |
 | Are there many of these, each with the same shape? | custom step with `kind: keys` |
 | Is this a second repeating record stream, such as meters beside charges? | custom step with `kind: summary` |
-| Will the same field appear in two chunks with different values? | custom step with `kind: keys` because the values are different records, not a reconciliation conflict |
+| Can observations of the same record disagree? | Keep stable identity separate from disputed values; select the supported record-review role and chain in `2_schema_design.md`, Runtime role labels |
+
+Choose the record unit before the step kind. Two readings of one claim item
+with different amounts can be one identity requiring review. Two distinct
+items with the same amount remain separate. Do not add a disputed amount to
+identity merely to avoid a conflict. `kind: keys` or `kind: summary` defines
+an array response, not proof that record matching or review executes.
+
+Use the existing processing choices in `2_schema_design.md`, Runtime role
+labels. Intentional lists without matching and supported SDK assembly remain
+valid; do not convert every array to hosted record review. Preserve each
+path's supported identity types and optional missing-identifier behavior.
 
 If a field is conceptually one-per-document but accidentally appears in
 multiple chunks (e.g. a footer reprints the account number on every page), an

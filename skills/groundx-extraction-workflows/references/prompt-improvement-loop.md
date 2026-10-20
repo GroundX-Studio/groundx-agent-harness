@@ -51,20 +51,38 @@ Use this before changing YAML:
    Expected-answer issues include unsupported values, wrong field mapping, or different
    normalization. If the expected answer is not source-supported, fix the expected answer
    or mark the field unscoreable. Do not change the prompt.
-2. If the source document does not contain the value, return or expect null. Do not
-   prompt around a value that is not there.
+2. If the source document does not support the value, follow the declared
+   missing-value rule, including null only where allowed and required key presence.
+   Do not prompt around a value that is not there.
 3. If X-Ray is missing the source evidence, classify this as X-Ray issues or platform
    behavior. Do not keep tightening prompts until the source evidence is available.
-4. If X-Ray has the source evidence and raw extract is wrong, fix one field prompt or
-   one group prompt rule.
-5. If raw extract omits supported identity or relationship behavior, preserve
+4. Verify the saved authored workflow revision and rendered request. Inspect the
+   text, page images and scope actually supplied, and the model that executed.
+   Evidence elsewhere in X-Ray and a requested model setting do not prove what
+   this request received. Resolve stale settings or missing request evidence
+   before changing wording.
+5. Compare the initial response with parsing/loading, record review, final save
+   and raw `get_extract`. Find the first incorrect result. A correct value
+   removed by later review is not an initial-reading failure. If private stage
+   evidence is unavailable, preserve the identifiers and ask GroundX support
+   to trace it; do not guess which prompt failed.
+6. If raw extract omits supported identity or relationship behavior, preserve
    the raw artifact and file a product defect in the owning repository. Do not
    add a Harness mutation fallback.
-6. If raw extract is missing, `progress.errors` is populated, or the run never reaches
+7. If raw extract is missing, `progress.errors` is populated, or the run never reaches
    extract retrieval, debug runtime processing failures before scoring or changing
    prompts.
-7. If captured rendered request evidence does not contain the YAML rule you changed,
+8. If captured rendered request evidence does not contain the YAML rule you changed,
    fix the server authoring path or stale workflow before running again.
+9. Once evidence identifies a missing or contradictory instruction, change one
+   coherent field or group policy. Compare all affected rendered instructions,
+   including review prompts. Test the correction and previously correct cases
+   with unchanged source checks; matching totals alone do not prove retention.
+
+When comparing models, keep source documents, prompts and checks identical and
+change only the model. Verify the executed model at each relevant stage. Keep
+repeat runs within the iteration budget, retain variation and failed candidates,
+and do not infer a universally better model or reliability rate from a few cases.
 
 ## One change per loop
 

@@ -122,7 +122,9 @@ For chart-deployed backing services, PVCs are provisioned against `cluster.pvCla
 
 Storage costs scale linearly with the ingested document volume in the OpenSearch index and the MinIO bucket. A rule-of-thumb for the OpenSearch index: ~3-5x the source document size, depending on the chunking and embedding dimension.
 
-## 7. Network egress
+## 7. Standing and recurring costs
+
+### 7.1 Network egress
 
 Outbound network from the cluster has cost implications for:
 
@@ -130,10 +132,52 @@ Outbound network from the cluster has cost implications for:
 | --- | --- | --- |
 | Cross-AZ within a single cloud region | When the cluster spans multiple AZs (typical for HA deployments) | Per-GB charge between AZs. |
 | To Google Cloud Vision | When `layout.ocr.type: google` is set | Per-API-call charge plus egress per image bytes. See `ocr-mode.md` § 2. |
-| To external LLM endpoints | When `summary.existing.url` routes to OpenAI / Azure / Bedrock | Egress per request bytes + the LLM provider's per-token charge. |
+| To external LLM endpoints | When `summary.existing.url` routes to OpenAI / Azure / Bedrock, or an enabled extract agent (`extract.agent.apiBaseUrl`) routes to an external model endpoint | Egress per request bytes + the LLM provider's per-token charge. |
+| To the configured Git provider API | When `workspace.enabled: true` — the workspace runner reaches its `gitProvider` remote (`github` by default, `api.github.com`; `gitlab.com/api/v4` for `gitlab`, both overridable). See `values-yaml.md` § 7. | Per-request egress to the git provider; avoidable by disabling workspace or using a Git server reachable without external egress. |
+| To Google Drive / Sheets | When `extract.save.driveId` + `extract.save.templateId` are set (extraction output written to Google Drive / Sheets). See `values-yaml.md` § 7. | Per-API-call egress; avoidable by leaving `extract.save` unset. |
+| To a public image registry | When images are pulled directly from a public registry (`public.ecr.aws`, or `cgr.dev` when `imageType: chainguard`) instead of from a mirror | Per-pull egress; avoidable by mirroring the images into a private registry (private ECR or a pull-through cache). |
+| To AWS Cognito | When `cognito.mode: cognito` (Cognito-backed password login) | Per-auth outbound call to `cognito-idp.<region>.amazonaws.com`; not air-gap-valid. See `identity-model.md` § 1. |
+| To `upload.groundx.ai` (model weights) | Inference pod first start, unless the model-cache PVC is pre-seeded | One-time weight download per model version; avoidable by pre-seeding the PVC — see `air-gapped.md` § 6.5. |
 | To cloud-managed backing services (cross-AZ) | RDS / OpenSearch Service / MSK / S3 in a different AZ than the cluster | Per-GB cross-AZ charge. |
 
-For air-gapped deployments, all of these collapse to zero — no external egress is possible. For high-throughput deployments with external services, egress can become a meaningful line item (10-20% of total cost in some shapes).
+For a fully self-hosted air-gapped deployment, these egress paths do not apply — no external egress is possible. In a cloud-connected shape, NAT/egress is a hard requirement whenever an external engine (e.g. OpenAI) is reached or images are pulled directly from a public registry (`public.ecr.aws`): no VPC endpoint removes the external-engine egress, and a direct public-registry pull needs egress unless the images are first mirrored into a private registry (e.g. a private ECR or a pull-through cache). For high-throughput deployments with external services, egress can become a meaningful line item (10-20% of total cost in some shapes).
+
+**Which configurations are actually offline-capable.** The egress list is not only about engines and images — identity matters too. When `cognito.mode: cognito` is set for password login, the pod makes an outbound call to `cognito-idp.<region>.amazonaws.com` on each auth; that is a mandatory egress path and is not air-gap-valid (per `identity-model.md` § 1). **Full offline operation requires every external egress path in the table above — every row except the cross-AZ data-transfer rows, which are cost-only and do not cross the air gap — to be disabled, pointed at an in-cluster endpoint, mirrored into the cluster, or pre-seeded.** The table above is the list this recipe draws from, so a newly added egress feature is closed off by giving it a row there rather than by maintaining a second enumeration in this sentence. Per-row levers include: a self-hosted `summary.inference` engine with no external `summary.existing` engine (the self-hosted summary path makes no external call); extraction either left disabled (`extract.enabled: false`, the chart default) or, if enabled, with `extract.agent.apiBaseUrl` pointed at an in-cluster endpoint rather than an external provider such as Bedrock and `extract.save` Google Drive / Sheets left unset; an **offline identity mode** (`apiKeyOnly` or `local`, per `identity-model.md` § 1), **not** `cognito`, which is not air-gap-valid; `layout.ocr.type: tesseract`; `workspace` left disabled or its Git provider pointed at an in-cluster remote; and the prepared-in-advance paths handled — `public.ecr.aws` / `cgr.dev` images mirrored into a private registry and the `upload.groundx.ai` model-cache PVC pre-seeded (see `air-gapped.md` § 6.5).
+
+### 7.2 What a parked cluster still costs
+
+Scaling a cluster to zero nodes stops compute spend but not every line. A parked (zero-node) cluster still bills:
+
+- **The EKS control-plane base charge** — AWS bills the control plane per hour regardless of node count.
+- **The extended-support surcharge** — when the cluster's upgrade policy is `EXTENDED` and its Kubernetes version has passed standard support, AWS adds a per-cluster hourly extended-support surcharge that applies even at zero nodes. `groundx-on-prem` does not itself set an EKS upgrade policy, so a newly created cluster carries AWS's default of `EXTENDED`; an existing cluster may carry a policy set outside this repo. Read the live policy with `aws eks describe-cluster --name <cluster> --query cluster.upgradePolicy`.
+- **CloudWatch control-plane log ingest** — when control-plane logging is enabled, the log streams keep ingesting (and billing) while the cluster is parked. Check which log types are enabled with `aws eks describe-cluster --name <cluster> --query cluster.logging`.
+- **Idle NAT gateway + Elastic IP** — a provisioned NAT gateway and its Elastic IP bill hourly whether or not traffic flows.
+- **Chart-created PersistentVolumeClaims** — the PVCs the chart provisions for its in-cluster stateful workloads stay allocated and keep billing after the cluster is scaled to zero nodes; the control plane is still up on a parked cluster, so list them with `kubectl get pvc -A`. Whether deleting a PVC stops the charge depends on its storage class (set by the `prereqs/storageclass` variant the deployment installed):
+  - **EBS gp3** (`prereqs/storageclass/values.ebs.example.yaml`: `provisioner: ebs.csi.aws.com`, `type: gp3`, `reclaimPolicy: Delete`) — each PVC provisions its own EBS volume, so under the default `Delete` reclaim policy deleting the PVC deletes that volume and its data and stops its charge. Back up any store that must survive the park before deleting its PVC. A `Retain` reclaim policy instead keeps the volume, which then still bills until it is deleted manually.
+  - **EFS** (`prereqs/storageclass/values.efs.example.yaml`: `provisioner: efs.csi.aws.com`, `provisioningMode: efs-ap`, a `fileSystemId` of an existing filesystem) — each PVC is an access point on a shared, pre-existing EFS filesystem, not its own volume. The EFS storage charge is on that filesystem, which is operator-provisioned and managed outside the chart, so deleting PVCs does not stop it (and the example's `reclaimPolicy: Retain` keeps the released PV and its access point as well). Manage and verify the filesystem separately, e.g. `aws efs describe-file-systems`.
+
+Budget these before parking a cluster, and decide per line whether to delete the resource (NAT / EIP), disable control-plane logging, or set a `STANDARD` upgrade policy before standard support ends (see below) — rather than assuming a zero-node cluster is free. Each of those carries a tradeoff; decide it deliberately rather than defaulting to the cheapest:
+
+- **Disabling control-plane logging** stops the CloudWatch ingest charge, but it **loses the audit / forensic trail** — the control-plane log streams are the record of API-server, authenticator, and controller activity, so turning them off leaves no evidence to reconstruct what happened during the parked window.
+- **The `STANDARD` upgrade policy** avoids the per-cluster extended-support surcharge, but only when it is set **before** the cluster's Kubernetes version reaches end of standard support. Under `STANDARD`, AWS performs an **automatic minor-version upgrade** of the cluster to the next supported version once standard support ends, whether or not that upgrade was planned (the groundx-on-prem chart repository `README.md`, "What happens when standard support ends"). A cluster that has **already entered extended support cannot be switched to `STANDARD`** to stop the surcharge: the only way out is to **upgrade its Kubernetes version** to one still in standard support (AWS EKS [upgrade-policy guidance](https://docs.aws.amazon.com/eks/latest/userguide/view-upgrade-policy.html): "Once your cluster has entered extended support, you cannot disable it. To change the version support policy setting, your cluster must be running on a Kubernetes version in standard support."). So `STANDARD`, chosen in time, trades the surcharge for losing version-pinning control, while `EXTENDED` keeps the version pinned but keeps paying, and leaving extended support later still requires a version upgrade. Pick per the deployment's change-control needs, not purely on cost.
+
+### 7.3 Managed-engine version lifecycle
+
+A managed backing-engine version (RDS / ElastiCache / OpenSearch) carries a standard-support end date that is independent of whether the version still accepts new instances: a version can resolve as `available` for new instances yet already sit past standard support. Once a version passes that standard-support end date, the provider adds an extended-support surcharge (for RDS, billed per-vCPU-hour) that can exceed the instance cost itself, so a "supported-looking" default can quietly bill extended support.
+
+Check the end date before pinning a version:
+
+- **RDS:** `aws rds describe-db-major-engine-versions` — its `SupportedEngineLifecycles[]` carry `LifecycleSupportName` (standard vs extended) and `LifecycleSupportEndDate`. (The plain instance-availability listing carries no support-end field, so it is not the end-date source.)
+- **ElastiCache / OpenSearch:** these expose no end-date field through their engine-version APIs — use the provider's published version-lifecycle calendar / console.
+
+Carry the check commands, not specific dates: lifecycle dates move, and a pinned date goes stale. For the prerequisite framing, see `services-prereqs.md` § 5.
+
+**Parking a managed engine is not uniform across services.** Stopping a managed backing engine to pause its compute charge behaves differently per engine, so a single "pause it while idle" assumption is wrong:
+
+- **RDS** can be stopped (`aws rds stop-db-instance`), but AWS **restarts automatically after 7 days** (the instance's `AutomaticRestartTime` shows when), so a stopped RDS resumes billing on its own — it is a temporary pause, not an indefinite park.
+- **ElastiCache** and **OpenSearch** Service have **no stop operation** — a provisioned cluster bills continuously until it is deleted (ElastiCache exposes only `batch-stop-update-action`, which pauses service-update application, not the cluster). To stop paying for these, back up and delete, then restore when needed.
+
+So park / stop savings apply to RDS compute only, and only for up to 7 days at a time; for ElastiCache and OpenSearch, delete-and-restore is the only real park. See `services-prereqs.md` § 5.
 
 ## 8. Cost-modelling discipline
 

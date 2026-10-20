@@ -369,19 +369,58 @@ def test_field_miss_types_not_found_and_expected_null():
     assert report["summary"]["groups"]["meters"]["fields"] == (1, 2)
 
 
-def test_unmatched_expected_record_is_not_found_with_field_counts():
-    expected = {"singleton": {}, "groups": {"meters": [
-        {"meter_id": "M1", "usage": "100"},
-        {"meter_id": "M2", "usage": "200"},
-    ]}}
-    extracted = {"meters": [{"meter_id": "M1", "usage": "100"}]}  # M2 absent
+@pytest.mark.parametrize(
+    "group,expected_rows,extracted_rows,matched,missing,extra,fields,has_failure",
+    [
+        pytest.param(
+            "meters",
+            [{"meter_id": "M1", "usage": "100"}, {"meter_id": "M2", "usage": "200"}],
+            [{"meter_id": "M1", "usage": "100"}],
+            1, 1, 0, (2, 4), True,
+            id="original-missing-meter",
+        ),
+        pytest.param(
+            "line_items",
+            [{"description": "Service", "amount": 100}, {"description": "Correction", "amount": -2}],
+            [{"description": "Service", "amount": 100}],
+            1, 1, 0, (2, 4), True,
+            id="missing-itemized-credit",
+        ),
+        pytest.param(
+            "line_items",
+            [{"description": "Service A", "amount": 70}, {"description": "Service B", "amount": 30}],
+            [{"description": "Service A", "amount": 70}, {"description": "Service B", "amount": 30},
+             {"description": "Combined services", "amount": 100}],
+            2, 0, 1, (4, 4), False,
+            id="extra-recap-is-reported-even-without-field-failure",
+        ),
+        pytest.param(
+            "line_items",
+            [{"description": "Peak service", "amount": 70}, {"description": "Off-peak service", "amount": 30}],
+            [{"description": "Combined service", "amount": 100}],
+            0, 2, 1, (0, 4), True,
+            id="itemized-components-replaced-by-equal-total",
+        ),
+        pytest.param(
+            "line_items",
+            [{"description": "Correction", "amount": -2}, {"description": "Late fee", "amount": 0}],
+            [{"description": "Late fee", "amount": 0}, {"description": "Correction", "amount": -2}],
+            2, 0, 0, (4, 4), False,
+            id="valid-credit-and-zero-fee",
+        ),
+    ],
+)
+def test_unmatched_expected_record_is_not_found_with_field_counts(
+    group, expected_rows, extracted_rows, matched, missing, extra, fields, has_failure,
+):
+    expected = {"singleton": {}, "groups": {group: expected_rows}}
+    extracted = {group: extracted_rows}
     report = compare.compare_extraction(extracted, expected)
-    gr = report["groups"]["meters"]
-    assert gr["record_summary"]["not_found"] == 1
-    assert gr["record_summary"]["matched"] == 1
-    # M2's two non-null fields counted as not-found, scored
-    assert report["summary"]["groups"]["meters"]["fields"] == (2, 4)
-    assert report["has_failure"] is True
+    assert report["groups"][group]["record_summary"] == {
+        "matched": matched, "expected": len(expected_rows), "extra": extra, "not_found": missing,
+    }
+    assert report["summary"]["groups"][group]["fields"] == fields
+    assert report["has_failure"] is has_failure
 
 
 def test_json_answer_key_keeps_nulls_and_groups():

@@ -136,9 +136,13 @@ extract/reconcile/QA prompt modules, debug the run before rewriting prompts:
 2. Retrieve `get_extract` and inspect the structured result.
 3. Retrieve `get_xray` and inspect the source chunk evidence.
 4. Compare the initial extraction result shape against the expected output shape.
-5. Use section summary, suggested text, and chunk evidence to decide whether the
-   YAML field prompt, extract wrapper, reconcile prompt, or QA prompt needs the
-   change.
+5. Verify the saved source revision, rendered request, evidence actually supplied
+   and executed model. Source evidence elsewhere in X-Ray is insufficient.
+6. Compare the actual initial response, review predecessor and reply, parsing and
+   final saved result to locate the first incorrect value. Request private
+   service evidence from GroundX support when it is not available publicly.
+7. Change instructions only for an evidenced instruction problem; follow
+   `prompt-improvement-loop.md` for controls, regression checks and stop conditions.
 
 This keeps the today-path manager executable while preserving the future goal:
 one YAML-driven `groundx-python/extract` abstraction.

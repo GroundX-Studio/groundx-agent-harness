@@ -53,7 +53,7 @@ For per-cloud-managed backing-service substitution, route to `service-substituti
 - GKE Autopilot mode handles node sizing automatically (though less control over the GroundX-required node groups).
 - Workload Identity Federation maps cleanly to chart `serviceAccount.name` for GCS / CloudSQL / Memorystore access.
 - GPU drivers pre-installed on GKE GPU node pools; no operator install needed (GKE manages it).
-- Cloud Vision API integration is closest on GCP (route `layout.ocr.type: google` with `layout.ocr.credentials: <gcp-service-account.json>`).
+- Cloud Vision API integration is closest on GCP (route `layout.ocr.type: google`, supplying the JSON key via a packaged `layout.ocr.credentials` file or a pre-created Secret through the top-level `google.existingSecret` value).
 
 **Caveats.**
 - GKE Autopilot's resource model can conflict with the chart's per-pod node selectors. Standard GKE (not Autopilot) is the cleaner target.

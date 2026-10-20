@@ -129,6 +129,17 @@ Production sizing is workload-driven. Key levers:
 
 For total cluster-wide budget framing, route to `references/cluster-requirements.md` § 6.
 
+### 5.3 GPU capacity is per availability zone
+
+GPU instance-type capacity is allocated per availability zone, not per region: a type such as `g5.2xlarge` can return `InsufficientInstanceCapacity` in one availability zone while the same type is available in another zone in the same region. When a GPU node group fails to create for that reason, pinning the node group to a single zone / subnet where the type has capacity is a legitimate response, not a workaround — check capacity per zone before sizing.
+
+The follow-on constraint is storage: EBS volumes are zone-locked — a volume lives in one availability zone and can only attach to a node in that zone. So once a node group holds EBS-backed PersistentVolumes, moving it to a different zone strands those volumes: the data does not move with the node group. What to do about a stranded volume depends on what it holds:
+
+- **GPU node groups** hold only the model-cache PVCs, and those are **disposable** — a cache lost to a zone move can simply be recreated in the new zone, after which the inference pods re-download the weights (or, on an air-gapped cluster, re-seed the cache from your mirror; there is no re-download). No backup is needed for a model cache.
+- **Stateful stores** — the process-metadata database, the OpenSearch / search data, and MinIO file storage — normally run on the CPU node groups (§ 5.2). When a move or single-zone pin touches the group holding one of these, its data **must be preserved with a backup and restore**, never just recreated: unlike a model cache, this data does not regenerate.
+
+Pinning a node group to a single availability zone also concentrates it in one AZ, which **reduces availability** / resilience to an AZ outage — a legitimate tradeoff to take for GPU capacity, but weigh it against the single-AZ failure risk, especially for a stateful store. Choose the zone before the node group holds state.
+
 ## 6. What this file does not cover
 
 - **Chip architecture, Kubernetes / Helm versions, namespace, PV class, cluster-wide budget** → `references/cluster-requirements.md`.
