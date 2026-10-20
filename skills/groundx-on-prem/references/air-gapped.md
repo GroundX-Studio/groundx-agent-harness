@@ -86,8 +86,10 @@ Air-gapped deployments force chart-side choices to avoid external egress:
 | Layout OCR via Google Cloud Vision (`layout.ocr.type: google`) | `vision.googleapis.com` unreachable | Use Tesseract: `layout.ocr.type: tesseract` (default). See `ocr-mode.md` § 2. |
 | Cloud-managed backing services (RDS, MSK, ElastiCache, S3, OpenSearch Service) | All unreachable | Run all backing services in-cluster via operators (Mode 2). See `service-substitution.md` § 5. |
 | ServiceMonitor scraping external Prometheus | Out-of-cluster Prometheus unreachable | Run Prometheus in-cluster (`kube-prometheus-stack` per `monitoring.md`). |
+| Workspace publishing to its Git provider API (`workspace.enabled: true` → `github` reaches `api.github.com`, `gitlab` reaches `gitlab.com/api/v4`) | Configured Git provider API unreachable | Leave `workspace.enabled: false` (chart default), or point `workspace.github.apiBaseUrl` / `workspace.gitlab.apiBaseUrl` at an in-cluster Git remote. |
+| Extraction output published to Google Drive / Sheets (`extract.save` with `driveId` + `templateId`, authed with a GCP service-account credential) | Google Drive / Sheets and the GCP service-account auth endpoint unreachable | Leave `extract.save.enabled: false` (chart default) — there is no in-cluster equivalent for Google Drive / Sheets, so this publish path must stay disabled. |
 
-**The air-gapped reference deployment is self-contained at runtime** — chart-deploys all backing services via in-cluster operators, uses self-hosted summary inference (Gemma 3 on a GPU), uses Tesseract OCR, and runs Prometheus / Grafana inside the same cluster — **with one pod-init exception: model weights are fetched from a hardcoded external host (§ 6.5) and must be staged or intercepted before inference pods can start with no egress.**
+**The air-gapped reference deployment assumes every config-gated egress path in the authoritative egress table (`cost-estimation.md` § 7.1) is turned off** (e.g. no external summary or extract engine, no Google Cloud Vision OCR, Cognito identity avoided, workspace publishing disabled, no `extract.save` target) — and runs everything else in-cluster: all backing services via in-cluster operators, self-hosted summary inference (Gemma 3 on a GPU), Tesseract OCR, and Prometheus / Grafana in the same cluster. Treat that as the assumed configuration, **not** a claim that this file enumerates every egress path: the authoritative list is `cost-estimation.md` § 7.1, the model weights are still fetched from a hardcoded external host at pod init (§ 6.5) and must be staged or intercepted, and § 9's deny-all NetworkPolicy plus the runtime egress probe is the empirical backstop — verify any path not disabled empirically rather than trusting a hand count.
 
 ## 6.5 Model-weight fetch — hardcoded egress at pod init
 
@@ -154,12 +156,12 @@ Before `helm install` in an air-gapped cluster:
 4. **Add the busybox helper image**.
 5. **Mirror every image to your internal registry.** Verify with `crictl pull` or `docker pull` against the mirror from a node.
 6. **Set `admin.imageRepository`, `cluster.imagePullSecrets`, and per-pod overrides** to reference the mirror.
-7. **Disable external engines** (summary external, Google Cloud Vision OCR).
+7. **Disable every config-gated egress path** listed in the authoritative egress table (`cost-estimation.md` § 7.1).
 8. **Stage model weights.** Populate each inference service's model-cache PVC (the chart-created `layout-model` / `ranker-model` / `summary-model` claims) with the extracted weights and the `complete.<version>` marker, or stand up the `upload.groundx.ai` intercept — § 6.5. Use the **service-specific** mechanics there rather than assuming one shared volume: each service gets its own claim, with its own default name and size (§ 6.5). Note § 6.5's caveat that populating the volume *before* first pod start is not yet a verified path. Skipping this does **not** block the pods — the init container still exits 0 and every inference pod starts with a poisoned, empty model cache that later replicas inherit (§ 6.5).
 9. **Grep the render for any remaining external references:**
 
    ```sh
-   helm template -f my-values.yaml ./src/groundx | grep -E 'cgr.dev|public.ecr|nvcr.io|googleapis|amazonaws|openai'
+   helm template -f my-values.yaml ./src/groundx | grep -E 'cgr.dev|public.ecr|nvcr.io|googleapis|amazonaws|openai|github.com|gitlab.com'
    ```
 
    Any hits are leaks to be patched. When `metrics.enabled: true` (not the chart default), the unfiltered render contains a chart-generated `metrics-tls` private key — redact before sharing the full output; see `references/credentials.md`.
@@ -219,6 +221,7 @@ See `upgrades.md` for the general upgrade flow; air-gapped just adds the mirror-
 | Air-gapped cluster | All operator releases (Percona, MinIO, Strimzi, OpenSearch, NVIDIA GPU Operator, Prometheus) must also be air-gapped — each operator's images mirrored, charts mirrored. |
 | `summary.existing.url: https://api.openai.com/v1` in an air-gapped cluster | Pod can't reach the URL; summary calls fail. Use self-hosted summary inference. |
 | `layout.ocr.type: google` in an air-gapped cluster | Pod can't reach `vision.googleapis.com`; OCR calls fail. Use Tesseract (the chart default). |
+| `workspace.enabled: true` or `extract.save.enabled: true` in an air-gapped cluster | The configured Git provider API or Google Drive / Sheets is unreachable and the publish fails. Leave each disabled (chart default); `workspace` can instead point at an in-cluster Git remote, but Google Drive / Sheets has no in-cluster equivalent, so `extract.save` must stay disabled. See the authoritative egress table (`cost-estimation.md` § 7.1). |
 | `admin.imageRepository` unset in an air-gapped cluster | All chart pods try to pull from `public.ecr.aws/c9r4x6y5` — fail. Must override. |
 | No model-weight staging in an air-gapped cluster | `download-model` init containers cannot reach the hardcoded `upload.groundx.ai` host, but they still exit 0 after writing a false `complete.<version>` marker; inference pods start with an empty cache and later replicas skip the download entirely. Pre-seed the model-cache PVC or intercept the host (§ 6.5). |
 | `cluster.imagePullSecrets` empty in an air-gapped cluster | If the mirror requires auth, all pulls fail. Provision the secret and reference it. |

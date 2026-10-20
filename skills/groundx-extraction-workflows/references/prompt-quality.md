@@ -125,6 +125,22 @@ the group:
 Do not copy group rules into every field. That makes prompts longer and easier to
 contradict.
 
+Check the complete rendered extraction and review instructions for a consistent
+selection policy. Changing one field cannot fix a group rule that forbids the
+same requested information. Revise the conflicting policy together, then test
+both the missing item and the previously correct items.
+
+Exclude repeated information because it repeats requested detail, not simply
+because it appears in a summary or beside a heading. Preserve a requested value
+when that is its only source. Separate output items by meaning, including
+distinct requested components printed in columns on one line.
+
+Keep printed signs, zeroes, decimal positions, dates and units. Prefer directly
+printed evidence over an estimate only for the same requested quantity, period
+and unit. Define whether estimates are permitted and how unsupported values
+follow the declared type, null and key-presence rules. Do not calculate or
+change values merely to agree with a total.
+
 ## Wrapper prompts
 
 Extract, reconcile, and QA wrappers should mainly carry the task frame:

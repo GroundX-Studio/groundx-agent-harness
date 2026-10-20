@@ -111,12 +111,25 @@ Good group prompt:
 items:
   prompt:
     instructions: |
-      Extract one record for each listed item with its own description.
-      Do not extract section headers, summary rows, repeated headers, or notes that do not name an item.
+      Extract each requested item supported by a source row, column, or labeled value.
+      Preserve distinct requested items even when they share a physical line.
+      Exclude a combined total that only repeats the requested items.
+      Retain a requested value when a summary or heading is its only source.
 ```
 
 Do not bury group-wide rules in one field. If the rule affects record selection, put it
-on the group.
+on the group. Check that field and rendered reconcile/QA instructions agree with it;
+repair a contradictory policy together rather than append competing exceptions.
+
+For example, a requested settlement amount may exist only in a summary. That
+does not make it an extra item. If the output instead requests each component,
+retain those components and exclude a total that repeats them. Let requested
+meaning, not a label such as summary or adjustment, determine eligibility.
+
+Preserve printed signs, zeroes and decimal positions. Prefer a printed value
+over a chart estimate for the same requested quantity, period and unit. A daily
+average is not a monthly total. State whether estimates or derivation are
+allowed; otherwise follow the declared missing-value and key-presence rules.
 
 ## Dates, names, codes, and selected values
 

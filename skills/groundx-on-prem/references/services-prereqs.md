@@ -135,6 +135,15 @@ The chart does **not** enforce version floors on the existing-customer-managed (
 
 For the operator-deployed Mode 2 path, the chart pulls in the operator's own defaults — the operator vendors specify their supported versions.
 
+**Engine-version lifecycle, not just the floor.** A version floor is a minimum, not a safe default. A managed engine version (RDS / ElastiCache / OpenSearch) also carries a standard-support end date that is independent of whether the version still accepts new instances: a version can resolve as `available` for new instances yet already sit past standard support, at which point the provider adds an extended-support surcharge (for RDS, billed per-vCPU-hour) that can exceed the instance cost itself. Check the end date before pinning a version:
+
+- **RDS:** `aws rds describe-db-major-engine-versions` — its `SupportedEngineLifecycles[]` carry `LifecycleSupportName` (standard vs extended) and `LifecycleSupportEndDate`. (The plain instance-availability listing carries no support-end field, so it cannot be the end-date source.)
+- **ElastiCache / OpenSearch:** these expose no end-date field through their engine-version APIs — use the provider's published version-lifecycle calendar / console.
+
+Carry the check commands, not specific dates. See `cost-estimation.md` § 7.3 for the cost framing.
+
+**Parking a managed store has a per-service lifecycle, not a single pause.** RDS can be stopped to pause compute but **auto-restarts after 7 days**, so the saving is temporary; ElastiCache and OpenSearch Service have **no stop operation**, so a provisioned cluster keeps billing until deleted (delete-and-restore from backup is the only real park for those two). Plan the per-service lifecycle before relying on parking a store to save cost. See `cost-estimation.md` § 7.2-7.3 for the cost framing.
+
 ## 6. Operator-specific subsystems
 
 When in Mode 2, the chart depends on several operators that ship separately:
