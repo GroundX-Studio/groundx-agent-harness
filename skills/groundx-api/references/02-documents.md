@@ -889,5 +889,5 @@ eligible for retry. Do not re-ingest by default. MCP requires `groundx:ingest` a
 
 `POST /v1/ingest/document/{documentId}/file-link` (`Documents_fileLink`) issues a saved
 asset link, not bytes. Read `13-file-access.md` for selectors, expiry and bearer limitations.
-The same guide owns initial ingest/crawl/local-metadata policies, revisioned document
+The same guide owns initial ingest/crawl/local-metadata policies, document
 updates (preserve the `documents` envelope), raw X-Ray versus `view=links`, and failures.

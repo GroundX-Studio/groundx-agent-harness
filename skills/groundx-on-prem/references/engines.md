@@ -48,7 +48,7 @@ The summary engine choice trades off five dimensions. No engine wins on all five
 
 | Dimension | Self-hosted | External (OpenAI / Azure OpenAI / any OpenAI-compatible URL) |
 | --- | --- | --- |
-| **GPU cost** | High — needs ≥24 GB GPU (e.g. NVIDIA L4 / A10G / A100). At ~$0.50–$1/hr per GPU on AWS g5, this is the deployment's dominant cost line. | None. Pure pass-through to the external API. |
+| **GPU cost** | High — the default summary values need a 48 GB GPU (e.g. NVIDIA L40S on `g6e.xlarge`); a 24 GB card runs one copy with the `cluster-requirements.md` § 2.3 values. This GPU is usually the deployment's dominant cost line. | None. Pure pass-through to the external API. |
 | **Per-call cost** | Free (after GPU is provisioned). | Pay-per-token. At OpenAI gpt-5-mini rates: ~$1 per million input tokens, ~$3 per million output tokens. Per-document costs scale linearly with document size. |
 | **Trust boundary** | Closed — document content stays inside the cluster. The summary pipeline reads from in-cluster object store and writes back to in-cluster OpenSearch. **Critical for FedRAMP, regulated verticals, and air-gapped deployments.** | Open — document content (preprocessed chunks) leaves the cluster on every summary call. Trust-boundary crossing. See `groundx-architecture/references/summary-service.md` § 6 + `groundx-architecture/references/identity-and-trust.md` § 6.2. |
 | **Latency floor** | Low — GPU inference is in-cluster, sub-second per call after model warm-up. | Network-bound — adds 200–800 ms per call depending on geo + LLM provider load. Cold-start jitter on the LLM side. |
@@ -70,18 +70,18 @@ summary:
   api:
     enabled: true
   inference:
-    enabled: true                # required; ~24 GB GPU
-    deviceUtilize: 0.48          # default; raise to ~0.95 for max throughput
+    enabled: true                # required; defaults sized for a 48 GB GPU
+    deviceUtilize: 0.48          # default; per copy, 2 copies share one GPU
     model:
       name: google/gemma-3-4b-it
       # dataType, maxInputTokens, maxOutputTokens, maxRequests, swapSpace tunable
 ```
 
 **Cluster prerequisites:**
-- A node in the `eyelevel-gpu-summary` node group with ≥24 GB GPU memory (NVIDIA L4 16 GB is not enough at default model sizing).
+- A node in the `eyelevel-gpu-summary` node group with a 48 GB GPU for the default summary values, or a 24 GB GPU with the single-copy values in `cluster-requirements.md` § 2.3 (tested on an NVIDIA A10G only).
 - NVIDIA GPU Operator installed.
 
-**Sizing:** chart default `summary.inference.replicas.desired: 1`. Scale up for higher throughput. Each replica needs its own 24 GB GPU.
+**Sizing:** the chart default is `summary.inference.replicas.desired: 2`, two copies at `summary.inference.deviceUtilize: 0.48`. The copies share the summary GPU unless `summary.inference.resources` requests `nvidia.com/gpu`, so keep copies × `summary.inference.workers` × `summary.inference.deviceUtilize` at or below 1 per summary GPU node. To scale out, add summary GPU nodes and give each copy its own GPU through `summary.inference.resources`; see `autoscaling.md` § 8.
 
 For the per-microservice fields, see `values-yaml.md` § 5.5.
 
@@ -188,7 +188,7 @@ If EyeLevel-hosted summary is part of the procurement bundle, the procurement ma
 | `summary.existing.apiKey` set inline | Treat as credential — move to `cluster.secrets`-referenced Secret or ESO. See `credentials.md` § 5–§ 6. |
 | External engine selected | Document content leaves the cluster on every summary call. Audit NetworkPolicy egress for the chosen endpoint. Update `groundx-architecture/references/data-residency.md` posture. |
 | No GPU available in the cluster | Forces external engine. Self-hosted Gemma 3 is not viable. (CPU fallback for the summary inference path is not architecturally supported.) |
-| Self-hosted + want HPA | Enable `cluster.hpa` and `metrics.enabled`, then tune `summary.inference.replicas.{min,max}` and `throughput.services.summary.{api,inference}`. Each replica needs its own GPU. |
+| Self-hosted + want HPA | Enable `cluster.hpa` and `metrics.enabled`, then tune `summary.inference.replicas.{min,max}` and `throughput.services.summary.{api,inference}`. Copies share a GPU by default, so cap `summary.inference.replicas.max` at the copies the summary GPUs hold and give each copy its own GPU through `summary.inference.resources` (`autoscaling.md` § 8). |
 
 ## 5. Workload identity does NOT cover this
 

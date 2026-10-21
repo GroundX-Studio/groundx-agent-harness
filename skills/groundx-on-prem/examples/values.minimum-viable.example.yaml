@@ -1,7 +1,7 @@
 # Minimum-viable GroundX deployment.
 #
 # Every backing service chart-deployed dedicated (Mode 2).
-# Self-hosted summary stack (requires a 24 GB GPU).
+# Self-hosted summary stack; the default summary values are sized for a 48 GB GPU (24 GB values: references/cluster-requirements.md § 2.3).
 # No extract, no workspace, no Chainguard, no air-gapped.
 #
 # Walk references/values-authoring.md § 3 first to confirm this archetype fits.
@@ -40,7 +40,7 @@ file:
   bucketName: eyelevel
 
 search:
-  enabled: true            # chart-managed OpenSearch via the OpenSearch operator
+  enabled: true            # consumes the separate opensearch/opensearch Helm release (no operator)
   indexName: prod-1
 
 stream:
@@ -65,7 +65,7 @@ workspace:
 metrics:
   enabled: false           # set true (and cluster.hpa: true) to enable HPA
 
-# ---------- Self-hosted summary stack (requires 24 GB GPU) ----------
+# ---------- Self-hosted summary stack (defaults sized for a 48 GB GPU; for 24 GB see references/cluster-requirements.md § 2.3) ----------
 
 summary:
   api:

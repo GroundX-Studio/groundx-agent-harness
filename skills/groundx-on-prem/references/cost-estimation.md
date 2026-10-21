@@ -22,7 +22,7 @@ The chart's `src/groundx/values.yaml` is the source of truth for per-microservic
    - `resources.requests.{cpu, memory}` and `resources.limits.{cpu, memory}`.
    - `node` (the target node group label).
 3. Sum per node group: `Σ (replicas × resources.requests.{cpu, memory})` for the minimum footprint, `Σ (replicas.max × resources.limits.{cpu, memory})` for max burst at full HPA scale-out.
-4. Add backing-service capacity (cache, db, file, search, stream — each chart-deployed via its own operator-managed Helm release, see `services-operators.md`).
+4. Add backing-service capacity (cache, db, file, search, stream: each chart-deployed as its own Helm release, operator-managed except OpenSearch; see `services-operators.md`).
 5. Add storage (PVCs from chart-deployed backing services, plus the workspace cache PVC if enabled).
 6. Pair the per-node-group footprint with the underlying compute pricing (cloud-provider instance pricing, on-prem hardware amortization, etc.).
 
@@ -38,7 +38,7 @@ Cost shows up in four buckets that materially differ in scale:
 | --- | --- | --- |
 | **GPU compute** | `layout-inference`, `ranker-inference`, `summary-inference` deployments. Each needs an NVIDIA GPU with specific memory minimums. | Highest. Single biggest line item on most deployments. |
 | **CPU compute — orchestration + non-inference pipeline** | API tier, queue, pre-process, process, summary-client, the layout sub-microservices (correct, map, ocr, process, save), workspace runner, extract subsystem. | Medium. Scales with throughput and HPA settings. |
-| **Backing services (cache, db, file, search, stream)** | Mode-dependent — chart-deployed in-cluster (operator-managed Helm releases) vs cloud-managed (RDS / S3 / OpenSearch Service / MSK / ElastiCache). | Highly variable. Cloud-managed is usually higher per unit but eliminates ops cost. |
+| **Backing services (cache, db, file, search, stream)** | Mode-dependent: chart-deployed in-cluster (Helm releases, operator-managed except OpenSearch) vs cloud-managed (RDS / S3 / OpenSearch Service / MSK / ElastiCache). | Highly variable. Cloud-managed is usually higher per unit but eliminates ops cost. |
 | **Persistent storage** | OpenSearch index, MinIO bucket / S3, MySQL data, optional workspace PVC. | Grows with ingested document volume + retention. |
 
 Network egress (between AZs, to/from cloud-managed services) is a fifth bucket; the chart doesn't drive it directly but trust-boundary-crossing engines (Google Cloud Vision OCR, external LLMs) generate measurable egress. See `ocr-mode.md` § 2 and `engines.md`.
@@ -49,11 +49,11 @@ The three inference deployments are the dominant cost driver on a vanilla deploy
 
 | Inference deployment | Default GPU memory per pod | Notes |
 | --- | --- | --- |
-| `summary-inference` | ~24 GB (Gemma 3 at default `1×1` workers/threads) | Disable via `summary.api.enabled: false` + `summary.inference.enabled: false` to drop this entirely and route to an external LLM (OpenAI / Azure / Bedrock). See `engines.md` and `service-substitution.md` § 4.6. |
+| `summary-inference` | A 48 GB GPU for the default 2 copies at `summary.inference.deviceUtilize: 0.48` (24 GB with the single-copy values in `cluster-requirements.md` § 2.3) | Disable via `summary.api.enabled: false` + `summary.inference.enabled: false` to drop this entirely and route to an external LLM (OpenAI / Azure / Bedrock). See `engines.md` and `service-substitution.md` § 4.6. |
 | `ranker-inference` | ~17.5 GB estimated footprint at `14×1` workers/threads; budget a 24 GB card class | Cannot reasonably be disabled — search ranking is core to RAG quality. CPU fallback is unreliable. |
 | `layout-inference` | ~2.5 GB × `worker × thread` (default `1×6` ≈ 15 GB) | CPU fallback is possible via `layout.inference.deviceType: cpu` (chart 0.2.7), which auto-strips the GPU request/limit; retargeting off `eyelevel-gpu-layout` is a separate step. Layout-only: it does not touch `ranker` (an explicit `nvidia.com/gpu` request) or `summary` (no GPU device request; placed on the `eyelevel-gpu-summary` node group). See `values-authoring.md` § 3.11. |
 
-**Host RAM is a second GPU-node cost input, separate from VRAM.** A GPU instance must also clear a host-RAM floor — `eyelevel-gpu-ranker` 30 GB, `eyelevel-gpu-layout` 12 GB, `eyelevel-gpu-summary` 30 GB (the RAM column of the Terraform README "Total Recommended Resources"; this citation is scoped to the RAM/disk columns, not the README's divergent VRAM column). Cost each GPU node on both its VRAM figure above and this host RAM floor, plus its root disk (`cluster-requirements.md` § 6.2) — an instance picked for VRAM alone can still be undersized on host RAM. See `cluster-requirements.md` § 2.3.
+**Host RAM is a second GPU-node cost input, separate from VRAM.** A GPU instance must also clear a host-RAM floor — `eyelevel-gpu-ranker` 30 GB, `eyelevel-gpu-layout` 12 GB, `eyelevel-gpu-summary` 30 GB (the RAM column of the Terraform README "Total Recommended Resources"; this citation is scoped to the RAM/disk columns; of the README's VRAM figures only the ranker one diverges from this page). Cost each GPU node on both its VRAM figure above and this host RAM floor, plus its root disk (`cluster-requirements.md` § 6.2) — an instance picked for VRAM alone can still be undersized on host RAM. See `cluster-requirements.md` § 2.3.
 
 The cost levers:
 
@@ -61,7 +61,7 @@ The cost levers:
 2. **Right-size the layout GPU** by tuning `layout.inference.workers` and `layout.inference.threads`. Reducing from `1×6` to `1×3` cuts the GPU memory requirement to ~7.5 GB, opening up smaller (cheaper) cards like the L4 16 GB.
 3. **Co-locate workloads via MIG / time-slicing** when GPU memory budget allows — single A100 80 GB can host `layout-inference` + `ranker-inference` + `summary-inference` simultaneously via MIG.
 
-HPA on the inference deployments multiplies the GPU footprint by `replicas.max`. Each replica needs its own GPU (or MIG slice). Plan accordingly.
+HPA on the inference deployments multiplies the GPU footprint by `replicas.max`. Each `layout-inference` and `ranker-inference` replica needs its own GPU (or MIG slice). `summary-inference` copies share one GPU unless `summary.inference.resources` requests it, so cap `summary.inference.replicas.max` at the copies the summary GPUs hold (`autoscaling.md` § 8). Plan accordingly.
 
 ## 4. CPU compute — the orchestration + pipeline tier
 

@@ -117,7 +117,7 @@ The canonical OpenShift install sequence is materially different from EKS / AKS 
 
 4. **OpenShift AI operator.** Via OperatorHub. Provides higher-level managed AI workflows; not strictly required for GroundX but often installed alongside.
 
-5. **Backing-service operators** (Strimzi, Percona, OpenSearch). Strimzi and OpenSearch are available via OperatorHub; Percona usually via its own Helm chart. See `services-operators.md`.
+5. **Backing-service operators** (Strimzi, Percona) and the OpenSearch Helm release. Strimzi is available via OperatorHub; Percona usually via its own Helm chart. OpenSearch is the `opensearch/opensearch` Helm release, with no operator and no OperatorHub step. See `services-operators.md`.
 
 6. **GroundX chart install** with `cluster.type: openshift` set.
 

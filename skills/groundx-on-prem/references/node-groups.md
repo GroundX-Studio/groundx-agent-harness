@@ -52,7 +52,7 @@ A disruption budget or spread constraint only helps when an evicted pod has some
 
 A deployer might reasonably ask why `eyelevel-gpu-layout` / `eyelevel-gpu-ranker` / `eyelevel-gpu-summary` are three distinct labels rather than one `eyelevel-gpu` umbrella. The reasons:
 
-- **Different GPU memory profiles.** `summary-inference` needs ~24 GB per pod (Gemma 3). `ranker-inference`'s default `14×1` worker×thread footprint is ~17.5 GB (sized for a 24 GB card); a smaller GPU such as a T4 (16 GB) hosts the ranker at reduced worker/thread sizing (the 24 GB figure is the chart default, not an inherent floor — see `cluster-requirements.md` §2.3). `layout-inference` scales with worker count (`~2.5 GB × worker × thread`) and can be much smaller. Pinning the right card class to the right workload is materially easier with separate node groups.
+- **Different GPU memory profiles.** The default summary values (2 `summary-inference` copies at `summary.inference.deviceUtilize: 0.48`, sharing one GPU because summary requests no `nvidia.com/gpu`) are sized for a 48 GB GPU; a 24 GB card needs the single-copy values in `cluster-requirements.md` § 2.3. `ranker-inference`'s default `14×1` worker×thread footprint is ~17.5 GB (sized for a 24 GB card); a smaller GPU such as a T4 (16 GB) hosts the ranker at reduced worker/thread sizing (the 24 GB figure is the chart default, not an inherent floor — see `cluster-requirements.md` §2.3). `layout-inference` scales with worker count (`~2.5 GB × worker × thread`) and can be much smaller. Pinning the right card class to the right workload is materially easier with separate node groups.
 - **Different scaling behaviors.** The layout vision model, the re-ranker, and the summary LLM have different concurrency, latency, and queue-depth profiles. Separate node groups let the deployer scale each axis independently.
 - **Different cost levers.** A deployer with no on-prem summary requirement can disable both `summary.api.enabled` and `summary.inference.enabled` and never provision `eyelevel-gpu-summary` nodes at all — the biggest single GPU cost driver disappears. Keeping the labels distinct makes the toggle clean.
 
@@ -68,7 +68,7 @@ The chart defaults for the three inference microservices (from the upstream `gro
 | --- | --- | --- | --- | --- |
 | `layout-inference` | 1 | 6 | ~2.5 GB | ~15 GB |
 | `ranker-inference` | 14 | 1 | ~1.25 GB | ~17.5 GB (sized for 24 GB) |
-| `summary-inference` | 1 | 1 | ~12 GB | ~12 GB (sized for 24 GB Gemma 3) |
+| `summary-inference` | 1 | 1 | `summary.inference.deviceUtilize` × GPU memory (0.48 default) | 2 copies × 0.48 of one GPU (defaults sized for a 48 GB GPU; 24 GB values in `cluster-requirements.md` § 2.3) |
 
 Per-pod replica counts (`replicas:` in values.yaml) default to 1, except `summary.inference`, which defaults to 2. Autoscaling (HPA) is **off** by default and turning it on multiplies the resource footprint by the autoscaler's max-replicas. See `references/autoscaling.md`.
 
@@ -114,7 +114,7 @@ The smallest viable cluster for a vanilla deployment (`summary.api.enabled: true
 - 1 × `eyelevel-cpu-memory` node (multi-core, more RAM) for `pre-process` and memory-hungry layout sub-microservices.
 - 1 × `eyelevel-gpu-layout` node with enough GPU memory for the default `1×6` worker+thread layout-inference (~16 GB+).
 - 1 × `eyelevel-gpu-ranker` node with a 24 GB GPU (or a T4/16 GB at reduced worker/thread sizing).
-- 1 × `eyelevel-gpu-summary` node with a 24 GB GPU (sufficient for Gemma 3).
+- 1 × `eyelevel-gpu-summary` node with a 48 GB GPU for the default summary values, or a 24 GB GPU with the single-copy values in `cluster-requirements.md` § 2.3.
 
 The same physical GPU node can serve multiple node-group labels if the deployer is willing to MIG-partition the card or co-schedule with care, but this is **not** how the chart is shipped — the default pattern is one node group per label.
 
@@ -125,7 +125,7 @@ Production sizing is workload-driven. Key levers:
 - **HPA on.** Each inference pod scales horizontally; budget for `max-replicas × per-replica-cost` per GPU label.
 - **`summary.api.enabled: false` + `summary.inference.enabled: false`.** Removes the `eyelevel-gpu-summary` node group entirely. Document content then leaves the cluster on each summary call — see `architecture.md` § 3.3.
 - **Extract / workspace.** When `extract.enabled=true` or `workspace.enabled=true`, the corresponding microservices need a CPU-tier node group (default `eyelevel-cpu-only`).
-- **Backing services.** Operator-deployed Percona / OpenSearch / Kafka / MinIO consume their own CPU + memory + storage budgets. See `references/services-prereqs.md`. These typically land on `eyelevel-cpu-only` or `eyelevel-cpu-memory` (deployer's choice, configured via their own operator's CRDs).
+- **Backing services.** Mode 2 Percona / OpenSearch / Kafka / MinIO consume their own CPU + memory + storage budgets. See `references/services-prereqs.md`. These typically land on `eyelevel-cpu-only` or `eyelevel-cpu-memory` (deployer's choice, configured through each operator's CRDs, or through the values of the OpenSearch Helm release, which has no operator).
 
 For total cluster-wide budget framing, route to `references/cluster-requirements.md` § 6.
 

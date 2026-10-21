@@ -1,7 +1,7 @@
 # Minikube / kind single-node developer environment.
 #
 # Everything bundled (Mode 2 across the board).
-# External LLM summary engine (most dev clusters don't have a 24 GB GPU).
+# External LLM summary engine (most dev clusters lack the 48 GB GPU the default summary values need; 24 GB values: references/cluster-requirements.md § 2.3).
 # Inline credentials in this file — acceptable for dev only, never production.
 # No HPA, no metrics, no ServiceMonitor.
 

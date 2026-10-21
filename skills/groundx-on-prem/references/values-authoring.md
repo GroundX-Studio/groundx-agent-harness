@@ -67,8 +67,8 @@ Per-question annotation in § 3 shows: the answer's implication, the exact value
 
 | Option | Implication | Fields pinned |
 | --- | --- | --- |
-| Yes, 24 GB+ per GPU available, multiple GPUs | Self-hosted summary stack is viable. Layout, ranker, and summary inference all run on GPU. | No specific field; informs § 3.4. |
-| Yes, smaller GPUs (e.g., T4 16 GB) | Self-hosted summary stack is **not** viable at default sizing (Gemma 3 needs 24 GB). Layout and ranker can still run. | Forces § 3.4 to "external LLM". |
+| Yes, 24 GB+ per GPU available, multiple GPUs | Self-hosted summary stack is viable: the default summary values need a 48 GB GPU, and a 24 GB card runs one copy with the values in `cluster-requirements.md` § 2.3. Layout, ranker, and summary inference all run on GPU. | No specific field; informs § 3.4. |
+| Yes, smaller GPUs (e.g., T4 16 GB) | Self-hosted summary stack is **not** viable at the default values, which are sized for a 48 GB GPU; the single-copy values were tested only on a 24 GB card. Layout and ranker can still run. | Forces § 3.4 to "external LLM". |
 | No GPUs available | Forces all inference to external services. Significant cost-and-trust-boundary implications. | Forces § 3.4 to "external LLM"; `summary.api.enabled: false`, `summary.inference.enabled: false`. layout must be moved to CPU via the **two-part** change in § 3.11 (`layout.inference.deviceType: cpu` **plus** retargeting off `eyelevel-gpu-layout`) — `deviceType` alone leaves the pod on the GPU node group, and performance is degraded. `ranker.inference` is not architecturally supported on CPU for production. |
 
 **Cross-field implications:** No GPUs → forced external summary + degraded layout + unsupported ranker. The agent should surface this trade-off explicitly to the user before continuing.
@@ -83,7 +83,7 @@ Per-question annotation in § 3 shows: the answer's implication, the exact value
 
 | Option | Implication | Fields pinned |
 | --- | --- | --- |
-| Self-hosted (Gemma 3, default) | Requires GPU per § 3.3. ~24 GB GPU memory. No document content leaves the cluster on summary generation. | `summary.api.enabled: true`, `summary.inference.enabled: true`, `summary.inference.model.name`, `summary.inference.deviceUtilize`. |
+| Self-hosted (Gemma 3, default) | Requires GPU per § 3.3. The default values need a 48 GB GPU; a 24 GB card runs one copy with the `cluster-requirements.md` § 2.3 values. No document content leaves the cluster on summary generation. | `summary.api.enabled: true`, `summary.inference.enabled: true`, `summary.inference.model.name`, `summary.inference.deviceUtilize`. |
 | External — OpenAI | Document content leaves cluster on every summary call. Outbound API key required. Allow egress to `api.openai.com`. | `summary.api.enabled: false`, `summary.inference.enabled: false`, `summary.existing.serviceType: openai`, `summary.existing.apiKey`, `engines.default.engineId`. |
 | External — OpenAI-base64 | Same as OpenAI but base64-encodes image data in-request vs URL. Use when the model endpoint can't reach the cluster's storage. | `summary.existing.serviceType: openai-base64`, `engines.default.engineId`. |
 | External — Azure OpenAI | Same trust-boundary implications as OpenAI; Azure-hosted endpoint. | `summary.existing.serviceType: azure`, `summary.existing.url`, `summary.existing.apiKey`, `engines.default.engineId`. |
@@ -133,7 +133,7 @@ For each of the five backing services, ask: existing in-house, chart-deployed de
 | Option | Fields pinned |
 | --- | --- |
 | Existing customer-managed | `search.enabled: false`, `search.existing.url`, `search.indexName`, `search.{username, password, privilegedUsername, privilegedPassword}`. |
-| Chart-deployed dedicated (OpenSearch operator) | `search.enabled: true`, `search.indexName`, plus credentials. OpenSearch operator must be pre-installed. **Mode 2 note:** the chart's `search.privilegedUsername` / `search.privilegedPassword` defaults already match the OpenSearch seed's admin credentials (documented in `services-operators.md` § 5.2/5.3) and only break if one side changes without the other. `search.username` / `search.password` default to `eyelevel` and the same seed password respectively, provisioned by the init job, and are not part of the seed-alignment claim — see `services-operators.md` § 5.3. |
+| Chart-deployed dedicated (`opensearch/opensearch` Helm release) | `search.enabled: true`, `search.indexName`, plus credentials. The separate `opensearch/opensearch` Helm release is installed first (`services-operators.md` § 5); there is no OpenSearch operator. **Mode 2 note:** the chart's `search.privilegedUsername` / `search.privilegedPassword` defaults already match the OpenSearch seed's admin credentials (documented in `services-operators.md` § 5.2/5.3) and only break if one side changes without the other. `search.username` / `search.password` default to `eyelevel` and the same seed password respectively, provisioned by the init job, and are not part of the seed-alignment claim; see `services-operators.md` § 5.3. |
 | Cloud-managed (AWS OpenSearch managed) | Existing customer-managed shape; `search.existing.url` points at managed endpoint. |
 
 **Cross-field implications:** Skipped entirely when `mode: ingest`. Pinned by § 3.2.
@@ -304,7 +304,7 @@ Five named archetypes. When a deployment matches an archetype exactly, the agent
 **Pre-canned answers:**
 - 3.1 Target platform → AWS EKS.
 - 3.2 Deployment mode → Full platform.
-- 3.3 GPU availability → Yes, 24 GB+.
+- 3.3 GPU availability → Yes; a 48 GB summary GPU for the default summary values, or a 24 GB one with the single-copy values in `cluster-requirements.md` § 2.3.
 - 3.4 Summary engine → Self-hosted (Gemma 3).
 - 3.5 Backing services → Cloud-managed across the board (S3 / RDS / ElastiCache / AWS OpenSearch managed / SQS).
 - 3.6 Capability toggles → Extract: per deployment. Workspace: per deployment. OCR: Tesseract default.
@@ -320,7 +320,7 @@ Five named archetypes. When a deployment matches an archetype exactly, the agent
 
 ### 4.2 AKS-with-Azure-services
 
-**Profile:** Production Azure deployment. Backing services cloud-managed (Azure Database for MySQL with TLS, Azure Cache for Redis, Azure Blob via S3-compat or AKS-bundled MinIO, AKS-bundled Strimzi or Event Hubs). Chainguard images for compliance. Workload Identity for cloud auth. GPUs on `NC` / `ND` series. Self-hosted summary stack on a 24 GB GPU.
+**Profile:** Production Azure deployment. Backing services cloud-managed (Azure Database for MySQL with TLS, Azure Cache for Redis, Azure Blob via S3-compat or AKS-bundled MinIO, AKS-bundled Strimzi or Event Hubs). Chainguard images for compliance. Workload Identity for cloud auth. GPUs on `NC` / `ND` series. Self-hosted summary stack on a 48 GB GPU, or on a 24 GB GPU with the single-copy values in `cluster-requirements.md` § 2.3.
 
 **Pre-canned answers:**
 - 3.1 Target platform → Azure AKS.
@@ -346,7 +346,7 @@ Five named archetypes. When a deployment matches an archetype exactly, the agent
 - 3.2 Deployment mode → Full platform.
 - 3.3 GPU availability → Yes (procured GPU hardware).
 - 3.4 Summary engine → Self-hosted (only legal option in an air-gapped deployment).
-- 3.5 Backing services → All chart-deployed-dedicated (operators pre-installed via OperatorHub or manual).
+- 3.5 Backing services: all chart-deployed-dedicated (operators pre-installed via OperatorHub or manually; OpenSearch is a plain Helm release with no operator).
 - 3.6 Capability toggles → Extract: per deployment; workspace: typically off; OCR: Tesseract (GCV would require external egress).
 - 3.7 Security → Chainguard + air-gapped + custom CA on each supported ingress and backing-service TLS surface. The chart has no cluster-wide TLS switch.
 - 3.8 Identity → Static keys in Kubernetes Secret via `cluster.secrets`.
@@ -358,7 +358,7 @@ Five named archetypes. When a deployment matches an archetype exactly, the agent
 
 ### 4.4 Minikube / dev (everything bundled)
 
-**Profile:** Single-node developer environment. Everything bundled (Mode 2 across the board). Often GPU-less or single GPU. HPA off. External summary engine (because the dev cluster doesn't have a 24 GB GPU). Inline credentials acceptable.
+**Profile:** Single-node developer environment. Everything bundled (Mode 2 across the board). Often GPU-less or single GPU. HPA off. External summary engine (because the dev cluster usually has neither the 48 GB GPU the default summary values need nor a 24 GB one for the single-copy values). Inline credentials acceptable.
 
 **Pre-canned answers:**
 - 3.1 Target platform → Minikube / kind.

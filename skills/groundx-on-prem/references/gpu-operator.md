@@ -14,7 +14,7 @@ The NVIDIA GPU Operator is a Helm release that installs, on every GPU node:
 - **DCGM Exporter** (optional) — GPU metrics for Prometheus.
 - **MIG Manager** (optional) — partitions a single physical GPU into multiple smaller logical GPUs.
 
-Without the operator, GroundX's three inference deployments (`layout-inference`, `ranker-inference`, `summary-inference`) **schedule onto GPU nodes but fail to acquire GPUs** — `nvidia.com/gpu` resource registrations don't exist, and `nvidia-smi` inside containers returns no device.
+Without the operator, GroundX's three inference deployments (`layout-inference`, `ranker-inference`, `summary-inference`) **cannot use a GPU** — `nvidia.com/gpu` resource registrations don't exist, and `nvidia-smi` inside containers returns no device. `layout-inference` and `ranker-inference` request `nvidia.com/gpu` by default; `summary-inference` does not request `nvidia.com/gpu` by default and reaches its GPU through placement on the `eyelevel-gpu-summary` node group.
 
 ## 2. The canonical install
 
@@ -136,7 +136,7 @@ A single physical GPU (typically an A100 or H100) can host multiple GroundX infe
 
 A100 80GB and H100 80GB support **MIG partitioning** — a single GPU is split into multiple smaller GPUs (e.g., 7×10GB instances on A100 80GB, or 3×40GB instances). Each MIG instance is exposed as a separate `nvidia.com/gpu` resource.
 
-For GroundX, MIG lets one A100 80GB host `layout-inference` (15GB instance), `ranker-inference` (24GB instance), and `summary-inference` (24GB instance) simultaneously — instead of three separate GPU nodes.
+For GroundX, MIG lets one A100 80GB host `layout-inference` (15GB instance) and `ranker-inference` (24GB instance) simultaneously — instead of separate GPU nodes. `summary-inference` uses a MIG instance only when `summary.inference.resources` requests `nvidia.com/gpu`, because it requests none by default. Size that instance with the single-copy values in `cluster-requirements.md` § 2.3; those values were tested on a full 24 GB A10G, not on a MIG instance.
 
 ```yaml
 mig:

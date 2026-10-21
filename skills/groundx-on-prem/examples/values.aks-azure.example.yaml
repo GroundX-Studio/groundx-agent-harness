@@ -89,7 +89,7 @@ stream:
 
 # ---------- External Azure OpenAI summary engine ----------
 #
-# If self-hosted Gemma 3 is preferred (requires 24 GB GPU on an NC/ND-series node):
+# If self-hosted Gemma 3 is preferred (defaults sized for a 48 GB GPU on an NC/ND-series node; 24 GB values: references/cluster-requirements.md § 2.3):
 #   summary:
 #     api: { enabled: true }
 #     inference: { enabled: true }

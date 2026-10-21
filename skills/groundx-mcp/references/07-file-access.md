@@ -52,36 +52,37 @@ Partner resource/provisioning tools retain their own account-mode and scope rule
 
 ## Protect an account or create a protected bucket
 
-Read the current account policy/revision, then use its actual confirmed revision:
+Send the desired account policy directly:
 
 ```json
 call_operation({ "operationId": "Customer_get", "args": {} })
-call_operation({ "operationId": "Customer_update", "args": { "fileAccess": { "mode": "protected", "urlTtlSeconds": 300 }, "fileAccessRevision": 0 } })
+call_operation({ "operationId": "Customer_update", "args": { "fileAccess": { "mode": "protected", "urlTtlSeconds": 300 } } })
 ```
 
-Zero is a valid revision. Read back after the write. For a new bucket, describe
+No revision lookup is needed. The latest successful update takes effect. Read back after the write. For a new bucket, describe
 `Bucket_create`, then create with initial policy in the same request:
 
 ```json
 call_operation({ "operationId": "Bucket_create", "args": { "name": "contracts", "fileAccess": { "mode": "protected" } } })
 ```
 
-Creation has no previous revision. Omitted or null initial `fileAccess` inherits.
-Policy resolution is account, bucket, file. A protected ancestor cannot be reopened;
-share lifetimes cannot exceed ancestor ceilings. `fileAccess` may contain `mode`,
+Omitted or null initial `fileAccess` inherits.
+For each field, document settings take priority over bucket settings, then account
+settings. Omitted fields use the broader value. Explicit public mode and longer
+sharing lifetimes are allowed. An issued temporary link works without API credentials
+until its storage expiry, regardless of later policy changes. `fileAccess` may contain `mode`,
 `urlTtlSeconds` (1..604800), or both; an empty object or null nested value is invalid.
 
 Document policy changes permit one document and no ordinary metadata/callback changes
-in the same request. For existing buckets/files, use the current confirmed revision on every policy write.
+in the same request. Policy writes need only the desired settings. Legacy revision fields are optional and ignored.
 Omitted `fileAccess` leaves the override unchanged; explicit null clears it and inherits:
 
 ```json
-call_operation({ "operationId": "Bucket_update", "args": { "bucketId": 1234, "fileAccess": null, "fileAccessRevision": 0 } })
-call_operation({ "operationId": "Document_update", "args": { "documents": [{ "documentId": "DOCUMENT_ID", "fileAccess": null, "fileAccessRevision": 0 }] } })
+call_operation({ "operationId": "Bucket_update", "args": { "bucketId": 1234, "fileAccess": null } })
+call_operation({ "operationId": "Document_update", "args": { "documents": [{ "documentId": "DOCUMENT_ID", "fileAccess": null }] } })
 ```
 
-Describe those operations first. A 409 requires fresh readback and a new decision; do
-not blindly replace the revision. A policy replacement does not merge previous fields.
+Describe those operations first. A 409 indicates an ownership or source conflict; inspect it before retrying. A policy replacement does not merge previous fields.
 
 ## Upload local files before ingest
 
@@ -121,7 +122,7 @@ files, bulk batches and directory helpers; crawl entries similarly carry an init
 policy to their generated documents. Omitted/null initial policy inherits. Never upload
 to the public broker then change policy. An expired PUT needs a fresh private reservation.
 Keep the same owner/bucket and poll `document_getprocessingstatusbyid` until complete.
-Existing-ID retries are not a bypass of revisioned policy updates.
+Existing-ID retries do not replace saved policies; use the update operation.
 
 ## Share a page and refresh citations
 
