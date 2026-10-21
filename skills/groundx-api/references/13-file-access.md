@@ -22,29 +22,33 @@ standalone MCP steps, use `groundx-mcp/references/07-file-access.md`.
 
 `fileAccess` is a partial override with `mode: "public" | "protected"` and/or
 `urlTtlSeconds: 1..604800`. An empty object and null nested fields are invalid.
-Resolution runs account, bucket, then file. A protected ancestor cannot be reopened;
-a descendant cannot raise an ancestor's share-lifetime ceiling. An inherited default
-without a restrictive override is public with a 300 second share lifetime. Stable
-public URLs do not expire just because a share lifetime is configured.
+For each field, use document settings first, then bucket settings, then account
+settings. Omitted fields use the broader value. Explicit public mode and longer
+sharing lifetimes are allowed. Defaults are public mode and a 300-second sharing
+lifetime. Stable public URLs never expire. An issued temporary sharing link works
+without API credentials until its storage expiry, regardless of later policy changes.
 
-Read `fileAccess`, `fileAccessRevision` and `effectiveFileAccess` from customer, bucket
+Read `fileAccess` and `effectiveFileAccess` from customer, bucket
 or document readback. `fileAccess: null` means no local override. The effective value is
 the confirmed inherited result, not another override to copy into every child.
 
-| Action | Request | Revision |
-| --- | --- | --- |
-| Create bucket | `POST /v1/bucket`, `{ "name": "contracts", "fileAccess": { "mode": "protected" } }` | No prior revision |
-| Ingest remote/local file | Each document or local metadata entry carries its own optional `fileAccess` | No prior revision for a new file |
-| Crawl website | Each website entry carries optional `fileAccess`; generated documents inherit that requested override | No prior revision for new files |
-| Change account default | `PUT /v1/customer`, `{ "fileAccess": { "mode": "protected" }, "fileAccessRevision": 0 }` | Use current confirmed revision, including zero |
-| Change bucket override | `PUT /v1/bucket/{bucketId}`, same policy/revision fields; omit rename fields on policy-only writes | Current bucket revision |
-| Change file override | `PUT /v1/ingest/documents`, `{ "documents": [{ "documentId": "DOCUMENT_ID", "fileAccess": null, "fileAccessRevision": 0 }] }` | Current file revision |
+| Action | Request |
+| --- | --- |
+| Create bucket | `POST /v1/bucket`, `{ "name": "contracts", "fileAccess": { "mode": "protected" } }` |
+| Ingest remote/local file | Each document or local metadata entry carries its own optional `fileAccess` |
+| Crawl website | Each website entry carries optional `fileAccess`; generated documents keep that policy |
+| Change account default | `PUT /v1/customer`, `{ "fileAccess": { "mode": "protected" } }` |
+| Change bucket override | `PUT /v1/bucket/{bucketId}`, same policy fields; omit rename fields |
+| Change file override | `PUT /v1/ingest/documents`, `{ "documents": [{ "documentId": "DOCUMENT_ID", "fileAccess": null }] }` |
+
+Send the desired policy directly, without fetching a revision first. The latest
+successful update takes effect. Legacy revision fields are optional and ignored.
 
 On creation, omitted or null `fileAccess` inherits. For an existing resource, omission
-leaves the override unchanged; explicit null plus the current revision clears it. A
+leaves the override unchanged; explicit null clears it. A
 policy replacement is not a merge of its previous fields. Policy updates permit one document per request and cannot be mixed with ordinary metadata
 or callback changes. Existing-ID ingest/retry does
-not become an unrevisioned policy-update shortcut. Read back the confirmed policy before
+not replace saved policies; use the update operation. Read back the confirmed policy before
 reporting success. Do not implement protected creation as create-public then update.
 
 Two different initial file overrides belong inside the existing document envelope:
@@ -59,7 +63,7 @@ Two different initial file overrides belong inside the existing document envelop
 ```
 
 Preserve each override through bulk/directory batching, Office/PDF preparation, CSV
-splitting and crawl expansion. A public override is valid only where ancestors permit it.
+splitting and crawl expansion. An explicit public override takes priority over broader protection settings.
 
 ## Local-file upload flow
 
@@ -143,12 +147,12 @@ as immutable raw evidence or replace certified fixtures with it.
 | 400 | Fix policy, selector or lifetime. No empty policy object or null nested field. |
 | 401 / 403 | Resolve credentials, selected customer, scope or ownership. A disabled deployment also rejects policy writes and non-null initial policies with 403. Do not blind-retry. |
 | 404 | Check the saved document/asset exists for this owner. File-link returns 404 when file access is disabled; upload issuance remains available. |
-| 409 | Reread revision/ownership state and reconsider the mutation before resubmitting. |
+| 409 | Check ownership and source state and reconsider the mutation before resubmitting. |
 | 503 | Honor `Retry-After`; protection remains fail-closed while trustworthy state is unavailable. |
 
 Policy updates commit in one transaction. A precommit failure keeps the previous
-settings and revision. After a timeout or lost response, read the current settings
-before retrying: commit may have succeeded, and the old revision then returns 409.
+settings. After a timeout or lost response, read the current settings
+before retrying: commit may have succeeded.
 There is no pending-policy workflow or background recovery.
 
 `POST /v1/ingest/document/{documentId}/retry` retries the currently failed HTTP delivery callback using saved output and callback settings. **202** returns `{ "documentId": "DOCUMENT_ID", "status": "processing" }`;

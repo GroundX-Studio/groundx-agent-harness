@@ -169,6 +169,39 @@ summary:
 
 The chart still renders the HorizontalPodAutoscaler object for each pinned service, with `minReplicas` equal to `maxReplicas`, so the count is held and the metrics dependency remains.
 
+**Summary copies per GPU.** `summary-inference` requests no `nvidia.com/gpu` by default, so the scheduler can place several copies on one summary GPU node, where they share its GPU. The per-node budget is copies × `summary.inference.workers` × `summary.inference.deviceUtilize`, at most 1 on every summary GPU node. With more than one summary GPU node, or with `cluster.hpa: true` letting the count rise above 1 (the chart default `summary.inference.replicas.max` is 32), cap `summary.inference.replicas.max` at the copies the summary GPUs hold and keep each copy on its own GPU: request a GPU per copy through `summary.inference.resources` (preferred, so a copy with no free GPU waits instead of loading beside another), or spread the copies one per node with `summary.inference.topologySpreadConstraints` (`whenUnsatisfiable: DoNotSchedule`, see `values-yaml.md` § 5.11).
+
+Copies on more than one node also need ReadWriteMany storage for the summary model volume. Every copy mounts the one `summary-model` claim, whose access mode follows `cluster.pvAccessMode` unless `summary.inference.pvc.access` overrides it. A `ReadWriteOnce` claim mounts from one node only, so the copy on the second node never starts. Set `summary.inference.pvc.access: ReadWriteMany` with a ReadWriteMany storage class in `summary.inference.pvc.class`. On an existing install also set a new `summary.inference.pvc.name`: Kubernetes rejects any change to a bound claim's access mode or class, so the upgrade must create a new claim, and the model is downloaded again into it. Do not change `cluster.pvAccessMode` on an existing install to fix summary; every chart claim that follows it would change, and the upgrade fails. A fresh install may use either `cluster.pvAccessMode: ReadWriteMany` or the `summary.inference.pvc` keys. Without a ReadWriteMany storage class, keep summary on one node (the single-replica ReadWriteOnce paragraph in `cluster-requirements.md` § 5). For two 24 GB summary GPU nodes running the single-copy values from `cluster-requirements.md` § 2.3:
+
+```yaml
+cluster:
+  hpa: true
+
+metrics:
+  enabled: true
+
+summary:
+  inference:
+    replicas:
+      desired: 1
+      min: 1
+      max: 2
+    workers: 1
+    deviceUtilize: 0.9
+    updateStrategy: Recreate
+    resources:
+      limits:
+        nvidia.com/gpu: 1
+      requests:
+        nvidia.com/gpu: 1
+    pvc:
+      access: ReadWriteMany
+      class: <rwx-storage-class>
+      name: summary-model-rwx
+```
+
+The chart's default `summary.inference.resources` CPU and memory requests still apply beside the GPU request. Keep `summary.inference.updateStrategy: Recreate` from those values (`upgrades.md` § 8). Replace `<rwx-storage-class>` with a storage class that supports ReadWriteMany. The new name gives an existing install a new claim instead of changing its bound `summary-model` claim. Leave out the `pvc` block when the `summary-model` claim is already `ReadWriteMany`. On an air-gapped cluster the new claim starts empty; seed it as `air-gapped.md` § 6.5 describes.
+
 To turn autoscaling off for every service at once, set `cluster.hpa: false` and also remove, or set to `false`, any per-service `replicas.hpa: true` on the § 1.1 services; each service then runs at its `desired` count and no HorizontalPodAutoscaler is rendered. A § 1.1 service that still sets `hpa: true` keeps its autoscaler, because `cluster.hpa` only supplies the default when that key is absent. Turning it off cluster-wide also stops autoscaling for the services you wanted to keep autoscaled.
 
 On the services listed in § 1.1, the per-service switch overrides `cluster.hpa` for that service alone. For example, `extract.api` runs at a fixed count while the rest of the cluster autoscales:

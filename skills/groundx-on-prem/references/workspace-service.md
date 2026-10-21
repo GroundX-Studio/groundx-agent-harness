@@ -122,7 +122,7 @@ workspace:
   pvc:
     access: ReadWriteMany       # prefer RWM when multiple workspace pods share the cache
     capacity: 25Gi
-    class: efs-sc               # storage class supporting the chosen access mode
+    class: eyelevel-pv          # storage class supporting the chosen access mode
     name: workspace-data
 ```
 

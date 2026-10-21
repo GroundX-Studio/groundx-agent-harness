@@ -6,7 +6,7 @@
 # Retrieval DB: AWS OpenSearch Service
 # Queue: AWS SQS
 # Workload identity: IRSA bound to serviceAccount.name
-# Summary engine: self-hosted Gemma 3 on g5 / p4d GPU nodes
+# Summary engine: self-hosted Gemma 3; the default summary values are sized for a 48 GB GPU (g6e.xlarge, the bundled Terraform summary default)
 # Ingress: AWS Load Balancer Controller (ALB)
 # Observability: kube-prometheus-stack via ServiceMonitor + HPA on
 
@@ -135,12 +135,13 @@ groundx:
       alb.ingress.kubernetes.io/success-codes: "200"
 
 # ---------- Self-hosted summary stack ----------
+# With cluster.hpa: true, cap summary.inference.replicas.max at the copies the summary GPUs hold (references/autoscaling.md § 8).
 
 summary:
   api:
     enabled: true
   inference:
-    enabled: true                  # 24 GB GPU required (e.g. g5.xlarge with A10G, or p4d for A100)
+    enabled: true                  # defaults sized for a 48 GB GPU; for a 24 GB GPU see references/cluster-requirements.md § 2.3
 
 # ---------- Capability toggles ----------
 

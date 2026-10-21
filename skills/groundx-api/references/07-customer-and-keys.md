@@ -275,9 +275,9 @@ single entry for the requested service.
 
 ## Account file-access policy
 
-Customer readback includes confirmed `fileAccess`, `fileAccessRevision` and
+Customer readback includes confirmed `fileAccess` and
 `effectiveFileAccess` where supported. `PUT /v1/customer` (`Customer_update`) changes only
-the file-access policy with required `fileAccess` and `fileAccessRevision`; explicit null
+the file-access policy with required `fileAccess`; explicit null
 clears the account override. MCP discovery requires `groundx:write`; customer readback
 requires `groundx:read`. Read `13-file-access.md` before making a change.
 

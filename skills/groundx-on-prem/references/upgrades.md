@@ -2,7 +2,7 @@
 
 This file documents **the `helm upgrade` workflow for the GroundX chart** — pre-upgrade checks, schema migrations, hash-annotation-driven rollouts, backing-service version coordination, and the rollback path. The chart's general upgrade philosophy is *forward-only* with explicit deployer review at each schema bump.
 
-For chart-deployed operator versions (Percona, MinIO, Strimzi, OpenSearch, NVIDIA GPU Operator), route to `services-operators.md`. For the install-time flow that upgrades build on, route to `install-flow.md`. For air-gapped upgrades, route to `air-gapped.md` § 10.
+For chart-deployed operator and release versions (Percona, MinIO, Strimzi, NVIDIA GPU Operator, and the OpenSearch Helm release), route to `services-operators.md`. For the install-time flow that upgrades build on, route to `install-flow.md`. For air-gapped upgrades, route to `air-gapped.md` § 10.
 
 ## 1. The basic upgrade command
 
@@ -202,8 +202,9 @@ The chart's Deployments use rolling updates by default — old pods serve while 
 
 - **API tier** (groundx, layout-api, summary-api, extract-api, workspace-api): handled by rolling updates. Set `replicas.desired: 2` or higher so at least one pod always serves.
 - **Worker tier** (celery workers): inflight tasks may be interrupted. The chart's `terminationGracePeriodSeconds` is set through `replicas.gracePeriod` on the services whose schema lists it, including the `extract.*` sub-microservices, the workspace-runner sub-microservices and the six layout workloads (0.2.7 chart and later); a service whose schema does not list it keeps the Kubernetes default.
-- **Inference tier** (layout-inference, ranker-inference, summary-inference): GPU pods. Rolling updates work but require enough GPU capacity to schedule the new pod while the old still runs. With one GPU per inference pod, you need a spare GPU during the rollout, OR set `maxUnavailable: 1, maxSurge: 0` to drain-then-create (with downtime).
-- **Backing services**: each operator has its own zero-downtime story. Percona PXC supports rolling restarts. Strimzi supports rolling Kafka broker upgrades. OpenSearch single-node deployments have downtime; multi-node deployments support rolling restart.
+- **Inference tier** (layout-inference, ranker-inference): GPU pods. Rolling updates work but require enough GPU capacity to schedule the new pod while the old still runs. With one GPU per inference pod, you need a spare GPU during the rollout, OR set `maxUnavailable: 1, maxSurge: 0` to drain-then-create (with downtime).
+- **Summary inference** (summary-inference): requests no GPU by default, so the default rolling update schedules a new copy beside the old one on the same GPU. When the running copies already fill that GPU, the new copy fails to load with `less than desired GPU memory utilization`, never becomes Ready, and the rollout stalls; it is not `Pending` on `Insufficient nvidia.com/gpu`. Set `summary.inference.updateStrategy: Recreate`, which stops the old copies before the new one starts, so summary is briefly unavailable on each upgrade that changes the summary pod. Observed with the 24 GB values in `cluster-requirements.md` § 2.3; for the 48 GB defaults the same recommendation is derived from the rolling-update behavior, not tested on a 48 GB card.
+- **Backing services**: each backing service has its own zero-downtime story. Percona PXC supports rolling restarts. Strimzi supports rolling Kafka broker upgrades. OpenSearch single-node deployments have downtime; multi-node deployments support rolling restart.
 
 ## 9. Major-version chart upgrades
 

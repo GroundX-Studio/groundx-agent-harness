@@ -220,7 +220,7 @@ The GroundX chart renders `KafkaTopic` CRDs (`templates/services/stream-topics.y
 
 ## 7. Chainguard variants
 
-For deployers running the GroundX chart with `imageType: chainguard`, the chart ships paired Chainguard seed files under `src/groundx/values/chainguard/` for **four** of the five operators (no OpenSearch Chainguard variant ships in the chart — deployer-supplied overrides are required for OpenSearch on Chainguard):
+For deployers running the GroundX chart with `imageType: chainguard`, the chart ships paired Chainguard seed files under `src/groundx/values/chainguard/` for **four** of the five releases this file covers (no OpenSearch Chainguard variant ships in the chart; deployer-supplied overrides are required for OpenSearch on Chainguard):
 
 | Subsystem | Chainguard seed file | What it does |
 | --- | --- | --- |
@@ -244,7 +244,7 @@ The MinIO and Strimzi operator Chainguard seeds reference `chainguard-pull-secre
 
 ## 8. Renaming releases — propagating service-name overrides
 
-The GroundX chart and each operator-managed Helm release agree on service names. If a deployer renames either side, both must stay in sync:
+The GroundX chart and each backing-service Helm release (the operator releases and the OpenSearch release) agree on service names. If a deployer renames either side, both must stay in sync:
 
 | If you set... | …in the GroundX chart, the operator release must produce... |
 | --- | --- |

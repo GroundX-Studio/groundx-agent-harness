@@ -81,10 +81,11 @@ This list exists because downstream skills must not claim these:
 ### 5.5 File delivery authorization
 
 The source-defined file-access feature resolves account, bucket and file overrides.
-Protected ancestors cannot be reopened and share lifetimes cannot exceed ancestor
-ceilings. Initial creation applies policy before a usable resource is published;
+For each field, document settings take priority over bucket settings, then account
+settings. Omitted fields use broader values. Explicit public mode and longer sharing
+lifetimes are allowed. Initial creation applies policy before a usable resource is published;
 private staging is selected before protected source bytes, including per-file protection
-in a public bucket. Later policy changes use confirmed revisions and fail closed while
+in a public bucket. Later policy changes use the latest successful write and fail closed while
 state is untrustworthy. Protected stable URLs authenticate current API-key ownership at
 the streaming file gateway; native signed grants are reusable bearer capabilities until
 expiry and cannot be revoked by changing a GroundX key or policy. Raw stored evidence is

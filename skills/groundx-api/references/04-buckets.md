@@ -1,7 +1,7 @@
 # Buckets
 
 This reference covers bucket lifecycle operations. Read `13-file-access.md` for initial
-`fileAccess`, inherited readback, revisioned policy updates and private `file-upload`.
+`fileAccess`, inherited readback, policy updates and private `file-upload`.
 
 ## 1. Bucket overview
 
@@ -24,7 +24,7 @@ A bucket object contains:
 ## 2. bucket_create / POST /v1/bucket
 
 Create a new bucket. The `name` must be provided. Optional `fileAccess` is applied at
-creation without a prior revision; omitted/null inherits. Do not create public then
+creation omitted/null inherits. Do not create public then
 update to protected. The response includes the assigned
 `bucketId`, which must be saved and used in subsequent ingest calls.
 
@@ -133,8 +133,7 @@ X-API-Key: YOUR_API_KEY
 ## 5. bucket_update / PUT /v1/bucket/{bucketId}
 
 Rename a bucket or change its file-access override in separate requests. A policy-only write need not
-include `newName`; policy writes require the confirmed `fileAccessRevision`, including
-zero. Explicit `fileAccess: null` clears the override. See `13-file-access.md`.
+include `newName`. Send only the desired policy; no revision lookup is needed. Explicit `fileAccess: null` clears the override. See `13-file-access.md`.
 
 **MCP discovery:** List operations and describe `Bucket_update` first, then:
 ```json

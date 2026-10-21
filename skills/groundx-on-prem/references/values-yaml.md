@@ -439,7 +439,7 @@ Two flavors of summary execution:
 
 **Flavor A — self-hosted summary stack** (default):
 - `summary.api.enabled: true` — Service-side wrapper around the inference model.
-- `summary.inference.enabled: true` — GPU inference. Gemma 3 model. ~12 GB GPU memory per worker+thread; 24 GB total sized for `1 × 1`.
+- `summary.inference.enabled: true` — GPU inference. Gemma 3 model. The default 2 copies at `summary.inference.deviceUtilize: 0.48` are sized for a 48 GB GPU; for a 24 GB card see `references/cluster-requirements.md` § 2.3.
 - `summaryClient` calls the in-cluster `summary-api`.
 
 `summary.api.*` (common pattern) plus:
@@ -449,7 +449,7 @@ Two flavors of summary execution:
 - **`summary.api.threads` / `workers` / `timeout`** — Worker / thread / request-timeout tuning.
 
 `summary.inference.*` (common pattern) plus the vision-model-style fields:
-- **`summary.inference.deviceUtilize`** (float 0–1.0, default `0.48`) — Fraction of GPU memory the inference pod is allowed to use. High-throughput deployments may raise this after GPU-capacity testing.
+- **`summary.inference.deviceUtilize`** (float 0–1.0, default `0.48`) — Fraction of the GPU's memory each summary worker may use. The default 2 copies × 0.48 is sized for a 48 GB GPU. Keep copies × `summary.inference.workers` × `summary.inference.deviceUtilize` at or below 1 on every summary GPU node, because summary copies share a GPU unless `summary.inference.resources` requests one. The tested 24 GB values are in `references/cluster-requirements.md` § 2.3.
 - **`summary.inference.deviceType`** (string) — `"gpu"` (default) or `"cpu"` (not architecturally supported for production).
 - **`summary.inference.model.{name, dataType, maxInputTokens, maxOutputTokens, maxRequests, swapSpace}`** — vLLM-style tuning. `name` is the Hugging Face model id.
 - **`summary.inference.model.kwargs`** (dict) — Accepted by the schema but read by no chart template on 0.2.7, so it has no effect. It never reached the summary inference server; on chart 0.2.6 it served only as the extract agent's fallback `model_kwargs`. Set extract-side arguments with `extract.agent.model.kwargs` (§ 5.7).
@@ -457,7 +457,7 @@ Two flavors of summary execution:
 - **`summary.inference.pvc.{access, class, name, capacity}`** — Optional PVC for model-weight caching.
 - **`summary.inference.queue`** — Internal queue name override.
 - **`summary.inference.runtimeClassName`** — Kubernetes `runtimeClass` for the GPU runtime.
-- **`summary.inference.updateStrategy`** (string) — Deployment update strategy; typically `"Recreate"` for single-GPU reasons.
+- **`summary.inference.updateStrategy`** (string) — Deployment update strategy. Set `"Recreate"`: summary requests no GPU, so the default rolling update starts a new copy beside the old one, and on a GPU the running copies already fill the new copy fails to load. With `Recreate` summary is briefly unavailable on each upgrade that changes the summary pod. See `references/upgrades.md` § 8.
 - **`summary.defaultKitId`** (int) — Default "kit" id for summary generation (application-level configuration).
 - **`summary.serviceName`** — Service name override.
 

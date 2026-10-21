@@ -104,8 +104,8 @@ From `terraform/aws/eks/`:
 | `eks.tf` | EKS cluster control plane, OIDC provider for IRSA. |
 | `node_assignments.tf` | EKS managed node groups for each of the five `eyelevel-*` node-group labels (`eyelevel-cpu-only`, `eyelevel-cpu-memory`, `eyelevel-gpu-layout`, `eyelevel-gpu-ranker`, `eyelevel-gpu-summary`). Each labeled with `eyelevel_node=<value>` for the chart's nodeAffinity to match. |
 | `autoscaler.tf` | Kubernetes Cluster Autoscaler — scales node groups based on Pod-pending events. Complements (doesn't replace) the chart's HPA-on-pods. |
-| `ebs.tf` | EBS CSI driver + IRSA role + default `gp3` StorageClass. |
-| `efs.tf` | EFS CSI driver + IRSA role + ReadWriteMany-capable StorageClass. |
+| `ebs.tf` | EBS CSI driver add-on + IRSA role. No StorageClass (§ 7). |
+| `efs.tf` | EFS CSI driver add-on + IRSA role + the EFS file system, its mount targets and security group. No StorageClass (§ 7). |
 | `helm_release.tf` | Optional bootstrap Helm releases (e.g., AWS Load Balancer Controller). |
 | `irsa.tf` | IAM Roles for Service Accounts — IRSA roles for S3, SQS, RDS access. |
 | `outputs.tf` | Cluster endpoint, kubeconfig data, node-group names. |
@@ -201,29 +201,50 @@ The harness's Terraform creates the IRSA roles (§ 6) but does **not** create or
 
 ## 7. Storage classes
 
-The EBS / EFS Terraform modules configure two storage classes:
+The bundled `setup-eks` path generates values for one StorageClass, named `eyelevel-pv` by default. The name is the `name` in the `pv` block of the Terraform `cluster` variable (`pv = { name = "eyelevel-pv", ... }`). The EKS Terraform module creates no StorageClass (§ 4). After the Terraform apply, `setup-eks` writes the class values to `src/groundx/prereqs/storageclass/values.aws.local.yaml` and prints the command that installs the class: `helm upgrade --install groundx-storageclass src/groundx/prereqs/storageclass -f src/groundx/prereqs/storageclass/values.aws.local.yaml`. A PVC that names `gp3` or `efs-sc` binds only if the cluster already has a class with that name.
 
-- **`gp3`** (default) — EBS-backed, ReadWriteOnce. Suitable for most chart-deployed backing services (Percona, OpenSearch, Redis, MinIO).
-- **`efs-sc`** — EFS-backed, ReadWriteMany. Suitable for workspace cache PVC when multi-replica access is needed.
+The class follows the storage driver:
 
-Set in values.yaml:
+| Storage driver | Class `setup-eks` generates | `cluster.pvAccessMode` |
+| --- | --- | --- |
+| EFS | Provisioner `efs.csi.aws.com`, not the default class, `reclaimPolicy: Retain`. | `ReadWriteMany` |
+| EBS | Provisioner `ebs.csi.aws.com`, EBS volume type `gp3`, the default class, `reclaimPolicy: Delete`. | `ReadWriteOnce` |
+
+`setup-eks` also writes `cluster.pvClass` and `cluster.pvAccessMode` into `src/groundx/values.aws.local.yaml`, the values file in the `groundx` install command it prints:
 
 ```yaml
 cluster:
-  pvClass: gp3              # default storage class for most PVCs
-  pvAccessMode: ReadWriteOnce
-
-workspace:
-  pvc:
-    class: efs-sc           # override for the workspace cache when RWX is needed
-    access: ReadWriteMany
+  pvClass: eyelevel-pv
+  pvAccessMode: ReadWriteMany   # ReadWriteOnce on EBS
 ```
 
-See `workspace-service.md` § 4.3.
+The workspace and inference model-cache PVCs default to this class and access mode. See `workspace-service.md` § 4.3 to override the workspace claim.
 
 ## 8. env.tfvars — the configuration surface
 
 `env.tfvars.example` is the template; the deployer copies to `env.tfvars` and edits. Node configuration lives in two separate variables: `nodes` carries each group's `ami_type`, `instance_types`, and `ebs { volume_size }` (root-disk size); `node_replicas` is the optional sizing override (`desired_size` / `min_size` / `max_size`), and when set it takes precedence over the per-group sizes in `nodes`.
+
+If you deploy with `setup-eks`, let it finish first, because it rewrites `env.tfvars`. Then edit the `node_replicas` block that `setup-eks` wrote, and add one only if it is absent: `setup-eks` writes `node_replicas` only when run with `SEARCH=false`. Do not add `environment_internal` either: `setup-eks` always writes `environment_internal` when it creates the cluster, so edit that block instead. Terraform rejects an `env.tfvars` that assigns the same variable twice ("Attribute redefined"). Re-apply with `bin/environment eks`.
+
+The `node_replicas` block has this shape:
+
+<!-- illustrative -->
+```hcl
+# Optional sizing override. All five keys are required (strict object type); a null
+# field keeps that group's size from `nodes` (eks.tf coalesces per field). Set a number
+# only for a size you want to change, against the Terraform README recommendations.
+node_replicas = {
+  cpu_memory  = { desired_size = null, min_size = null, max_size = null }
+  cpu_only    = { desired_size = null, min_size = null, max_size = null }
+  gpu_layout  = { desired_size = null, min_size = null, max_size = null }
+  gpu_ranker  = { desired_size = null, min_size = null, max_size = null }
+  gpu_summary = { desired_size = null, min_size = null, max_size = null }
+}
+```
+
+When you edit the block `setup-eks` wrote, change only the groups you want to resize and keep its other values.
+
+A hand-written `env.tfvars` (without `setup-eks`) looks like this, plus the `node_replicas` block above when you want it:
 
 <!-- illustrative -->
 ```hcl
@@ -240,17 +261,6 @@ azs          = ["us-east-2a", "us-east-2b", "us-east-2c"]
 # control-plane downgrades).
 environment_internal = {
   eks_version = "1.35"
-}
-
-# Optional sizing override. All five keys are required (strict object type); a null
-# field keeps that group's size from `nodes` (eks.tf coalesces per field). Set a number
-# only for a size you want to change, against the Terraform README recommendations.
-node_replicas = {
-  cpu_memory  = { desired_size = null, min_size = null, max_size = null }
-  cpu_only    = { desired_size = null, min_size = null, max_size = null }
-  gpu_layout  = { desired_size = null, min_size = null, max_size = null }
-  gpu_ranker  = { desired_size = null, min_size = null, max_size = null }
-  gpu_summary = { desired_size = null, min_size = null, max_size = null }
 }
 ```
 

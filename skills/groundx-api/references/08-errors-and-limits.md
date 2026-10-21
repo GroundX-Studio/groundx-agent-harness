@@ -1,6 +1,6 @@
 # Errors and Limits
 
-File-access mutations and reads add policy, ownership and revision failures. Read `13-file-access.md` for 400/401/403/404/409 handling and fail-closed 503 with `Retry-After`. Private upload returns 201; failed-stage retry returns 202 and still requires status readback.
+File-access mutations and reads add policy and ownership failures. Read `13-file-access.md` for 400/401/403/404/409 handling and fail-closed 503 with `Retry-After`. Private upload returns 201; failed-stage retry returns 202 and still requires status readback.
 
 
 Cross-cutting reference covering HTTP error codes, the async ingest pattern, pagination,
