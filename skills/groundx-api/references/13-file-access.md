@@ -18,6 +18,152 @@ and membership/ownership checks still apply. Never place either credential in a 
 MCP OAuth authenticates MCP calls; its bearer token is not a file-host credential. For
 standalone MCP steps, use `groundx-mcp/references/07-file-access.md`.
 
+## Python quick start
+
+These examples use GroundX Python SDK 4.1.4. Install or upgrade with
+`pip install --upgrade groundx`. Confirm that your deployment supports file
+protection before uploading sensitive files.
+
+Keep the API key in your server environment. For dev or on-prem, set
+`GROUNDX_BASE_URL` to that deployment's API base, including `/api`.
+
+```python
+import os
+from groundx import GroundX, Document, DocumentUpdate, FileAccessPolicy
+
+client = GroundX(
+    api_key=os.environ["GROUNDX_API_KEY"],
+    base_url=os.environ.get("GROUNDX_BASE_URL", "https://api.groundx.ai/api"),
+)
+policy = FileAccessPolicy(mode="protected", url_ttl_seconds=300)
+```
+
+Choose the narrowest scope you need. Account settings provide the default; bucket
+and document settings override it field by field. A document can explicitly allow
+public access even when its bucket or account is protected.
+
+### Account default
+
+```python
+client.customer.update(file_access=policy)
+```
+
+### Bucket settings
+
+Create a protected bucket:
+
+```python
+created = client.buckets.create(name="private-documents", file_access=policy)
+BUCKET_ID = created.bucket.bucket_id
+```
+
+For an existing bucket, set `BUCKET_ID` to its bucket ID, then update its settings:
+
+```python
+client.buckets.update(BUCKET_ID, file_access=policy)
+```
+
+### Protect a file during upload and ingest
+
+Set the policy before uploading, including when the destination bucket is public.
+The helper requests an upload link from your configured API, uploads to storage and
+submits the document with its policy.
+
+```python
+result = client.ingest(
+    documents=[Document(
+        bucket_id=BUCKET_ID,
+        file_path="contract.pdf",
+        file_access=policy,
+    )],
+    wait_for_complete=True,
+)
+```
+
+Check individual document status before using the result. For remote files, set
+`file_path` to the source URL and supply `file_name` and `file_type` on `Document`.
+GroundX must be able to read that source. Protection does not secure a copy on a
+third-party host.
+
+### Change an existing file
+
+Replace the placeholder below with an owned document ID from a document lookup
+or the dashboard. A policy update contains one document and no metadata, rename
+or callback changes. It does not rerun processing.
+
+```python
+DOCUMENT_ID = "your-document-id"
+client.documents.update(documents=[
+    DocumentUpdate(document_id=DOCUMENT_ID, file_access=policy),
+])
+```
+
+On creation, an omitted policy inherits. On update, omitting `file_access` leaves
+the current override unchanged; `None` clears it. A supplied policy replaces the
+previous override. No revision lookup or revision argument is required. Read the
+resource again to confirm its saved and effective settings:
+
+```python
+account = client.customer.get().customer
+bucket = client.buckets.get(BUCKET_ID).bucket
+document = client.documents.get(DOCUMENT_ID).document
+```
+
+Inspect `file_access` for the saved override and `effective_file_access` for the
+settings in effect. If the document is absent, check its ID, owner and processing
+status before continuing.
+
+### Share the original file temporarily
+
+Select the saved asset explicitly. This example shares the original document:
+
+```python
+from groundx import AssetSelectorZero
+
+link = client.documents.file_link(
+    DOCUMENT_ID,
+    asset=AssetSelectorZero(kind="source"),
+    expires_in_seconds=60,
+)
+download_url = link.url
+expires_at = link.expires_at
+```
+
+`AssetSelectorZero` is the generated SDK type for stored source, X-Ray and extract
+selectors. A temporary link is separate from the policy hierarchy. Anyone who has
+it can download and forward it until expiry. No GroundX key is sent with that
+storage request. Key revocation or a later policy change does not revoke an
+already issued link. See [asset selectors below](#read-share-and-refresh-saved-assets) for pages,
+crops and other stored outputs.
+
+For a stable protected URL, use the authenticated server-side request in
+[Read, share and refresh saved assets](#read-share-and-refresh-saved-assets).
+
+### Remove an override
+
+Run a clearing request only when you intend to remove that scope's settings.
+Clearing all applicable overrides makes stable links public.
+
+Clear the account settings and use the public system defaults:
+
+```python
+client.customer.update(file_access=None)
+```
+
+Clear a bucket's settings and inherit the account settings:
+
+```python
+client.buckets.update(BUCKET_ID, file_access=None)
+```
+
+Clear a document's settings and inherit bucket and account settings:
+
+```python
+client.documents.update(documents=[
+    DocumentUpdate(document_id=DOCUMENT_ID, file_access=None),
+])
+```
+
 ## Policy and inheritance
 
 `fileAccess` is a partial override with `mode: "public" | "protected"` and/or
