@@ -129,10 +129,11 @@ db:
       -----END CERTIFICATE-----
 ```
 
-**When required:** AWS RDS / Azure Database for MySQL with `require_secure_transport=ON`. Without `rootCerts`, the connection fails at TLS handshake.
+**When required:** AWS RDS / Azure Database for MySQL with `require_secure_transport=ON`, or an RDS Proxy with Require Transport Layer Security on. Without `rootCerts`, GroundX connects without TLS, and a server with `require_secure_transport=ON` or a proxy that requires TLS rejects the connection.
 
 **Where to get the cert:**
-- AWS RDS: download from [Amazon Trust Services](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html). Use the regional or global root CA bundle.
+- AWS RDS, direct connection: the RDS CA bundle (global-bundle.pem, or the bundle for your Region) from [Using SSL/TLS with RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html).
+- AWS RDS Proxy: the Amazon Trust Services root CAs, all in one PEM, per [RDS Proxy concepts, TLS/SSL](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-proxy.howitworks.html). See `services-prereqs.md` § 3.2 for the rest of the RDS Proxy setup.
 - Azure Database for MySQL: download the DigiCert Global Root G2 PEM (canonical in `values.aks.yaml` of the upstream repo).
 - Google Cloud SQL: download from the Cloud SQL instance's "Connections" tab.
 
@@ -221,7 +222,7 @@ Ingress-controller-managed Secret rotation follows the controller's behavior. Ap
 | --- | --- | --- |
 | Set `cluster.tls.existingSecret` expecting cluster-wide TLS | The value is accepted but has no rendered effect, leaving the requirement unmet. | Configure a service mesh or another customer-controlled TLS layer. |
 | Use Let's Encrypt with HTTP-01 solver on an internal-only LoadBalancer | ACME challenge can't reach the LB; cert issuance fails. | Switch to DNS-01 solver, or use a private CA via cert-manager. |
-| Forget `db.existing.rootCerts` on RDS with `require_secure_transport=ON` | App pods fail to connect to DB | Set `db.existing.rootCerts` to the RDS root CA PEM (see § 4.1). |
+| Forget `db.existing.rootCerts` on RDS with `require_secure_transport=ON`, or on an RDS Proxy that requires TLS | GroundX connects without TLS and the server or proxy rejects it, so app pods fail to connect to DB | Set `db.existing.rootCerts` to the RDS CA bundle for direct RDS, or to the Amazon Trust Services root CAs for RDS Proxy (see § 4.1). |
 | Rotate application trust material without reloading affected pods | Pods can continue using the old trust state | Follow the supplying mechanism's reload procedure; roll the affected deployment when it loads trust only at startup. |
 | Mix Ingress TLS + LoadBalancer TLS termination | TLS double-termination or hostname mismatch | Pick one: either chart `Ingress` with cert references, or cloud LB with ACM/Key Vault cert. Don't both. |
 | Use a wildcard cert with an Ingress that requires SAN matching | TLS handshake fails | Ensure the cert's SAN list includes the chart's exact hostname. |

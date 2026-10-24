@@ -18,7 +18,7 @@ Every credential the chart consumes, grouped by where the application uses it:
 | MySQL TLS root CA | `db.existing.rootCerts` or `db.rootCerts` | Verifies the DB's TLS cert. Multi-line PEM. |
 | Object store credentials | `file.{username, password}` (bundled MinIO and external S3) | Reads / writes uploaded documents, intermediate artifacts, X-Rays. |
 | Cache credentials | `cache.existing.{addr, port, ssl, isCluster}` + Redis AUTH (out-of-band) | Bundled Redis is auth-less; external Redis often requires a password set via env or sidecar. |
-| Search credentials | `search.{username, password, privilegedUsername, privilegedPassword}` | OpenSearch index reads + management. |
+| Search credentials | `search.{username, password, privilegedUsername, privilegedPassword}` | OpenSearch index reads + management. `search.password` and `search.privilegedPassword` must be supplied whenever `mode` is not `ingest` (chart-deployed and existing OpenSearch alike) and have no chart default from the first chart release after 0.2.7; published 0.2.7 and earlier still ship the public default, so on those versions set both yourself. Each comes from values or from the cluster credentials Secret: `search.password` or `SEARCH_PASSWORD`, and `search.privilegedPassword` or `SEARCH_INIT_PASSWORD`, in `eyelevel-secret-credentials` (listed in `cluster.secrets`). A value goes in the secret companion values file (Pattern 2 or the SOPS pattern), not the main reviewed or committed values file. Values win over the Secret, so leave the values key empty or absent when the Secret supplies it. The Secret route applies only from the first chart release after 0.2.7: published 0.2.7 and earlier still ship a non-empty default, and a values key that is set wins over the Secret, so on those versions set both passwords in values. From that release the chart rejects a published default given as a value; a Secret-delivered password is not render-validated, so never put a published default in `SEARCH_PASSWORD` or `SEARCH_INIT_PASSWORD`. The Secret route needs the `groundx` and `process` images that the same chart release deploys by default (their tag is the chart's `appVersion`; both log in to OpenSearch: the API to search, the indexing worker to write the index); if you override either with `groundx.image` or `process.image`, override both with images built from that chart release or later, and for a tag that is not a version number (such as `chainguard` or a mirrored tag) confirm with the image provider that both images read `SEARCH_PASSWORD` / `SEARCH_INIT_PASSWORD`, or set `search.password` and `search.privilegedPassword` in values instead. The route is direct-helm only (the Terraform operator still takes values). `search.password` set in values is rotated by changing it and running `helm upgrade`, and a Secret-delivered `SEARCH_PASSWORD` needs `groundx` restarted and then `process`, because both read it at pod start and `groundx` re-creates its OpenSearch user with it at startup; the admin password is first rotated inside OpenSearch (see the OpenSearch passwords row below). In `mode: ingest` none is needed from the first chart release after 0.2.7. |
 | Queue (SQS) credentials | `stream.{key, secret}` at the top level, or per-topic overrides under each `stream.topics.<topic-name>` block (the `key` and `secret` sub-fields) | AWS access key / secret for SQS topics. |
 | Queue token | `stream.token` at the top level, or per-topic override under each `stream.topics.<topic-name>` block (the `token` sub-field) | Token-based auth for stream backends that support it (alternative to key/secret pairs). |
 | File-store token | `file.token` | Token-based auth for object-store backends that support it (alternative to username/password). |
@@ -53,6 +53,8 @@ Six patterns. Pick one per credential type, not one for the whole deployment. Mi
 | **Workload Identity** (IRSA / AKS WI / GKE WIF) | No credential in values.yaml at all. The ServiceAccount is bound to a cloud IAM role that grants the chart's pods access to AWS / Azure / GCP services. | **Replaces** Patterns 1–6 for cloud service credentials (S3, RDS, SQS, ElastiCache, AOS). Pattern 3+ still needed for non-cloud credentials (LLM API keys, GitHub tokens, license key). |
 
 **Decision tree for picking a pattern per credential:**
+
+Exception for the whole tree: each of `search.password` and `search.privilegedPassword` comes from values (the Pattern 2 secret companion values file or a Pattern 6 SOPS values file) or from the cluster credentials Secret as `SEARCH_PASSWORD` and `SEARCH_INIT_PASSWORD` in `eyelevel-secret-credentials` (listed in `cluster.secrets`). The Secret route applies only from the first chart release after 0.2.7, is not render-validated, needs the `groundx` and `process` images that the same chart release deploys by default (both log in to OpenSearch: the API to search, the indexing worker to write the index; the Search credentials row above covers `groundx.image` and `process.image` overrides), and is direct-helm only.
 
 1. **Is this a cloud-service credential** (AWS S3 / SQS / RDS / ElastiCache, Azure Database / Cache / Blob, GCP Storage / SQL)?
    - Yes → prefer workload identity (IRSA / AKS WI / GKE WIF). No credential goes in values.yaml.
@@ -99,7 +101,7 @@ The chart sees the merged result; helm treats both files as one values document.
 - Never request, echo, `cat`, print, or otherwise surface a secret value in chat — this applies to every pattern on this page, not just the file-based ones above.
 - **The same never-pasted-in-chat handling applies to `helm template` render output.** When `metrics.enabled: true` (not the chart default), the rendered manifest contains a chart-generated `metrics-tls` RSA private key regardless of which credential pattern the deployer chose for the input values — never paste raw render output into logs, PRs, or chat; redact the Secret `data`/`stringData` fields or save the full render to a local gitignored file treated as secret.
 
-**Limitations:** scales poorly past one or two environments — every operator who deploys needs a copy of the file. Use Pattern 3 / 4 / 5 / 6 in production.
+**Limitations:** scales poorly past one or two environments — every operator who deploys needs a copy of the file. Use Pattern 3 / 4 / 5 / 6 in production. For `search.password` and `search.privilegedPassword`, either use a values file (this pattern or Pattern 6) or, from the first chart release after 0.2.7, supply `SEARCH_PASSWORD` and `SEARCH_INIT_PASSWORD` through the cluster credentials Secret.
 
 ## 5. Pattern 3 — Kubernetes Secret reference (groundx-secret prereq chart)
 
@@ -122,6 +124,8 @@ data:
   MYSQL_USER: <app-user>
   MYSQL_USERNAME: <app-user>             # alias to MYSQL_USER on some deployments
   MYSQL_PASSWORD: <app-password>
+  SEARCH_PASSWORD: <search-app-password>
+  SEARCH_INIT_PASSWORD: <opensearch-admin-password>
   WORKSPACE_RUNNER_TOKEN: <git-token>
   GITLAB_TOKEN: <gitlab-api-token>       # only when gitProvider is gitlab
   GITHUB_APP_PRIVATE_KEY_PEM: |
@@ -129,6 +133,8 @@ data:
     ...
     -----END PRIVATE KEY-----
 ```
+
+The `SEARCH_PASSWORD` and `SEARCH_INIT_PASSWORD` keys take effect only from the first chart release after 0.2.7, with the `groundx` and `process` images that release deploys by default (both log in to OpenSearch; see the Search credentials row); on published 0.2.7 and earlier set both search passwords in values.
 
 Install once, before the main chart:
 
@@ -293,7 +299,7 @@ So workload identity reduces but does not eliminate the credential surface. Mix 
 A real deployment typically mixes patterns. Common production composition:
 
 - **Workload identity** for AWS S3 / SQS access (no credential in values.yaml).
-- **External Secrets Operator** synced from AWS Secrets Manager for: license key, bootstrap admin, LLM API keys, GitHub App private key, MySQL credentials, OpenSearch credentials.
+- **External Secrets Operator** synced from AWS Secrets Manager for: license key, bootstrap admin, LLM API keys, GitHub App private key, MySQL credentials. From the first chart release after 0.2.7, OpenSearch credentials can be added to the same synced Secret: `SEARCH_PASSWORD` for `search.password` and `SEARCH_INIT_PASSWORD` for `search.privilegedPassword` (in `eyelevel-secret-credentials`, listed in `cluster.secrets`), or kept in a values file (secret companion or SOPS). A Secret-delivered search password is not render-validated, and the route needs the `groundx` and `process` images that the same chart release deploys by default (both log in to OpenSearch: the API to search, the indexing worker to write the index; the Search credentials row above covers `groundx.image` and `process.image` overrides).
 - **Service-mesh or gateway configuration** for in-cluster TLS. The chart's `cluster.tls.existingSecret` field has no rendered effect.
 - **Per-feature `existingSecret`** fields for workspace runner + extract agent that point at the ESO-synced Secret.
 
@@ -313,6 +319,7 @@ Per credential, the recommended rotation cadence + how to roll without downtime:
 | --- | --- | --- |
 | License key | At renewal (annual) | Update the Secret. Pods read at startup. Restart pods to pick up new value. |
 | Bootstrap admin password | Not applicable. | `admin.password` has no effect on-prem today; there is no working login or rotation path for it. See `identity-model.md` § 6. For access control, provision and rotate ordinary API keys instead (`identity-model.md` § 4–5). |
+| OpenSearch passwords | Per your security policy | Application password (`search.password` or `SEARCH_PASSWORD`): for a value, set a new value and upgrade; for the Secret, update `SEARCH_PASSWORD` in `eyelevel-secret-credentials` and restart `groundx`, wait for it, then restart `process` (both read it at start, `groundx` re-creates its OpenSearch user with it at startup, and a `helm upgrade` with unchanged values does not restart them); either way the GroundX API re-creates its user. Admin password (`search.privilegedPassword` or `SEARCH_INIT_PASSWORD`): rotate inside OpenSearch with the backup-based `securityadmin.sh` route for both routes (see `upgrades.md` and the chart README "Upgrading an Existing Install"), then set the new value and upgrade, or update the Secret key and restart `groundx` and then `process`. A value change plus restart alone leaves OpenSearch on the old admin password while the API keeps running, so confirm the rotation by logging in as `admin`: the new password must succeed and the old one must be rejected. The chart rejects a published default for either key given as a value, and does not check the Secret, so never set one by either route. Rotating these passwords does not by itself secure OpenSearch (the install still trusts the demo TLS certificates and the application user has broad privileges); for production also replace the demo certificates and restrict network access. |
 | MySQL app password | Quarterly | Update the Secret. Update RDS / Percona user password to match. Roll pods (drain one at a time). |
 | MySQL privileged password | Quarterly | Update the Secret. Used only at install / upgrade time. |
 | LLM API keys | Per rotation policy (often quarterly) | Update the Secret. Roll pods. Keep the old key valid in the LLM provider for an overlap window. |
@@ -321,7 +328,7 @@ Per credential, the recommended rotation cadence + how to roll without downtime:
 | In-cluster TLS cert | Per the service mesh or gateway policy | Use that system's rotation procedure. `cluster.tls.existingSecret` does not distribute the cert. |
 | AWS access keys (when not using IRSA) | Per IAM policy (often 90 days) | Switch to IRSA. If keys are unavoidable, update the Secret + IAM policy together. |
 
-**Universal rotation tip:** the chart reads most credentials at pod startup, not via watch. Rotation requires a pod restart for the new value to take effect. Use a `kubectl rollout restart deployment` per affected microservice to roll cleanly.
+**Universal rotation tip:** the chart reads most credentials at pod startup, not via watch. Rotation requires a pod restart for the new value to take effect. This does not apply to the OpenSearch admin password; see the OpenSearch row above, which also covers the Secret-delivered search passwords (`SEARCH_PASSWORD`, `SEARCH_INIT_PASSWORD`): they are read at pod start, so restart `groundx` and then `process` after changing them. Use a `kubectl rollout restart deployment` per affected microservice to roll cleanly.
 
 ## 12. CI/CD secret injection
 
@@ -368,7 +375,7 @@ For values.yaml composition:
 | Helm `-f` order wrong | A `values.yaml` later in `-f` order overrides credentials in the secret companion. | Put `-f values.prod.secret.yaml` LAST (rightmost) so it wins. |
 | Rotating a credential without restarting pods | New value never gets read; pods continue with the cached startup value. | `kubectl rollout restart` after every credential rotation. |
 | `cluster.imagePullSecrets` missing for Chainguard pulls | Pods stuck in `ImagePullBackOff`. | Always set `cluster.imagePullSecrets: [<chainguard-pull-secret>]` when `imageType: chainguard`. |
-| `db.existing.rootCerts` omitted for managed DB with TLS-required | DB connection fails with TLS handshake error. | Set the rootCerts PEM bundle. See `values-yaml.md` § 4.2. |
+| `db.existing.rootCerts` omitted for managed DB with TLS-required | GroundX connects without TLS, and a server or proxy that requires TLS rejects the connection. | Set the rootCerts PEM bundle: the RDS CA bundle for direct RDS, the Amazon Trust Services root CAs through RDS Proxy. See `tls-and-certs.md` § 4.1. |
 | Mixing inline `db.password` + `cluster.secrets`-referenced `MYSQL_PASSWORD` | One wins, one is silently ignored — usually the inline one. | Pick one pattern per credential, not both. |
 
 ## 15. Placeholder discipline for documentation

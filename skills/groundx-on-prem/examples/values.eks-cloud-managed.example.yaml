@@ -83,6 +83,7 @@ db:
     port: 3306
     # Required when the RDS parameter group has require_secure_transport=ON.
     # Provide the RDS root CA PEM bundle, or leave commented if TLS isn't enforced.
+    # Direct RDS uses the RDS CA bundle (global-bundle.pem); through RDS Proxy use the Amazon Trust Services root CAs and set both db.existing.ro and db.existing.rw to the proxy's default endpoint (see references/services-prereqs.md section 3.2).
     # rootCerts: |
     #   -----BEGIN CERTIFICATE-----
     #   ...
@@ -99,6 +100,8 @@ file:
 
 search:
   indexName: prod-1
+  password: <search-password>
+  privilegedPassword: <search-priv-password>
   existing:
     url: https://<opensearch-domain>.<region>.es.amazonaws.com
 
