@@ -30,6 +30,24 @@ origin inventory and rollback; do not duplicate an operator runbook in applicati
 - Upgrade legacy HTTP links to HTTPS before adding auth headers. Do not send credentials
   to an HTTP redirect. Historical source repair remains an operator-owned procedure.
 
+## Existing documents
+
+Use compatible API, gateway and worker images. Stop older writers, run the normal
+database upgrade, then deploy compatible writers before resuming ingestion. The
+upgrade builds a historical-reference index once, reading task metadata in small
+batches without accessing storage. Follow the [existing-file upgrade procedure](https://github.com/eyelevelai/groundx-on-prem/blob/0.2.8/docs/agents/private-file-access.md#upgrade-existing-files-before-activation).
+
+An older original without a binding migrates on first access. The service uses
+indexed current or historical references, verifies the saved file and current owner,
+then saves the binding. Downloads do not scan the database or storage. No separate
+binding backfill command is required. Deleted documents and detected conflicts remain
+unavailable; legacy shared-source repair remains an operator procedure.
+
+Verify owner access to old originals and X-Ray, and anonymous/wrong-owner denial for
+protected files. The API must support saved HTTP references under configured HTTPS
+roots. Never send credentials over HTTP. Keep native storage private. These rules
+apply to S3 and compatible local stores, with separate acceptance for each deployment.
+
 ## Local API and MCP use
 
 Use the local API base and local MCP hostname from the installed deployment. Every upload uses the local API and configured storage, for public and protected

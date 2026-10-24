@@ -65,7 +65,7 @@ The four cells correspond to four real deployment archetypes. § 2 walks each.
 | API exposure | `groundx` (ingest only); optionally `layoutWebhook` |
 
 **What's skipped in `mode: ingest`:**
-- `search.*` block can be left at defaults; OpenSearch isn't deployed or wired.
+- From the first chart release after 0.2.7, no search password needs to be set and the chart renders none (published 0.2.7 and earlier still render the default passwords); OpenSearch isn't deployed or wired.
 - The ranker microservices (`ranker.api`, `ranker.inference`) don't render (chart ≤ 0.2.5 and the 0.2.7 line; **broken on published 0.2.6** — see the version caveat below).
 - Retrieval queries return errors — the API only accepts ingest.
 
@@ -144,7 +144,7 @@ Switching is supported but not trivial:
 
 | Mode | Cross-field implications |
 | --- | --- |
-| `mode: ingest` | `search.*` block can stay at chart defaults; OpenSearch deploy can be skipped (`search.enabled: false`). `ranker.*` microservices auto-disable (**0.2.6: broken** — set `ranker.{api,inference}.enabled: false` explicitly; GX-36). No retrieval-side egress. |
+| `mode: ingest` | From the first chart release after 0.2.7, no search password needs to be set and none is rendered (published 0.2.7 and earlier still render the defaults); OpenSearch deploy can be skipped (`search.enabled: false`). Every other mode requires `search.password` and `search.privilegedPassword` from that release; on published 0.2.7 and earlier, set both yourself because the public default is still shipped. `ranker.*` microservices auto-disable (**0.2.6: broken** — set `ranker.{api,inference}.enabled: false` explicitly; GX-36). No retrieval-side egress. |
 | `mode: ingest` + `workspace.enabled: true` | Combine the above with workspace's RWX PVC + git egress + workspace credentials. Workspace publishes operate independently of the (absent) retrieval pipeline. |
 | `workspace.enabled: true` | `workspace.token` or `workspace.existingSecret` required. `workspace.pvc.{access: ReadWriteMany}` strongly preferred. NetworkPolicy must allow egress to the configured git remote. |
 | `workspace.enabled: false` | GroundX Workspace facade endpoints return errors. Don't set workspace credentials; they're ignored. |
