@@ -42,6 +42,8 @@ file:
 search:
   enabled: true            # consumes the separate opensearch/opensearch Helm release (no operator)
   indexName: prod-1
+  password: <search-password>
+  privilegedPassword: <search-priv-password>
 
 stream:
   enabled: true            # chart-managed Kafka via Strimzi

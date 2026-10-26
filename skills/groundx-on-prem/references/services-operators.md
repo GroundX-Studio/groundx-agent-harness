@@ -150,12 +150,50 @@ For the chart's bucket naming (`file.bucketName`), the deployer must ensure the 
 
 ### 5.1 Single-step install (no separate operator)
 
-```sh
+Choose the OpenSearch admin password first. It must be the same value you later supply as `search.privilegedPassword` in values (normally your secret companion values file) or, from the first chart release after 0.2.7, as `SEARCH_INIT_PASSWORD` in the `eyelevel-secret-credentials` Secret. Supply it to OpenSearch through a Kubernetes Secret, so the password is not written into the OpenSearch StatefulSet pod spec where anyone who can read pods in the namespace could see it. Restrict permissions before each file exists, and create it in an editor rather than with a shell command so the password is not saved to your shell history. Run `umask 077` in your shell first, then create `opensearch-admin-secret.yaml` in an editor with this content, and confirm it is owner-only with `chmod 600 opensearch-admin-secret.yaml`:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: opensearch-admin
+  namespace: eyelevel
+type: Opaque
+stringData:
+  OPENSEARCH_INITIAL_ADMIN_PASSWORD: "<opensearch-admin-password>"
+```
+
+Apply the Secret, then delete the local `opensearch-admin-secret.yaml` file:
+
+```bash
+kubectl apply -f opensearch-admin-secret.yaml
+```
+
+Create `opensearch-admin.values.yaml`, which references the Secret instead of embedding the password, so this file holds no credential:
+
+```yaml
+extraEnvs:
+  - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: opensearch-admin
+        key: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+```
+
+Then install OpenSearch with both values files:
+
+```bash
 helm repo add opensearch https://opensearch-project.github.io/helm-charts/
 helm repo update
 
-helm install opensearch opensearch/opensearch -n eyelevel -f helm/values/opensearch/values.yaml
+helm install opensearch opensearch/opensearch -n eyelevel -f helm/values/opensearch/values.yaml -f opensearch-admin.values.yaml
 ```
+
+Choose a password you have not published anywhere. From the first chart release after 0.2.7 the GroundX chart rejects a known published default for `search.password` or `search.privilegedPassword` given as a value and fails to render if you supply one (a Secret-delivered `SEARCH_PASSWORD` or `SEARCH_INIT_PASSWORD` is not render-validated, so never put a published default there either), so an upgrade that silently keeps the old default (for example `helm upgrade --reuse-values`) will not deploy. Published 0.2.7 and earlier do not reject it, so on those versions choose and set a new password yourself.
+
+OpenSearch requires `OPENSEARCH_INITIAL_ADMIN_PASSWORD` at every start, not only on first initialization. On an already-initialized data volume it is still read at boot, and a start without it exits with `No custom admin password found` (observed on image digest `sha256:8e95a30f…`). Keep `-f opensearch-admin.values.yaml` on every `helm upgrade opensearch …`, not just the first install, and pin the OpenSearch image to a digest. The value is consumed only to initialize an empty volume; changing it on an existing volume does not rotate the stored admin password (rotate with the backup-based route in `upgrades.md`). The Secret must exist before OpenSearch starts, which the order above ensures.
+
+Rotating these passwords does not by itself secure OpenSearch for production: the documented install still trusts OpenSearch's demo TLS certificates, and the GroundX application user has broad privileges. For production, also replace the demo certificates with operator-supplied ones and restrict network access to OpenSearch.
 
 ### 5.2 Seed values
 
@@ -170,11 +208,11 @@ The seed `src/groundx/values/opensearch/values.yaml` sets:
 - `resources.requests: {cpu: 200m, memory: 512Mi}`
 - `majorVersion: 2.16.0`
 - Image: `public.ecr.aws/c9r4x6y5/eyelevel/opensearch:latest` (chart-distributed copy)
-- `extraEnvs[].OPENSEARCH_INITIAL_ADMIN_PASSWORD: R0otb_*t!kazs` (matches the GroundX chart's `search.privilegedPassword` default)
+- From the first chart release after 0.2.7, no admin password is seeded (published 0.2.7 and earlier seed the public default): the seed file sets no `OPENSEARCH_INITIAL_ADMIN_PASSWORD`. The operator supplies it through a Kubernetes Secret referenced by `extraEnvs[].valueFrom.secretKeyRef` in § 5.1.
 
 ### 5.3 What the GroundX chart assumes
 
-The chart's `groundx.search.serviceName` defaults to `opensearch`. The OpenSearch service lands at `opensearch-cluster-master.{namespace}.svc.cluster.local:9200` via the chart's standard naming pattern. The GroundX chart authenticates via `search.privilegedUsername` / `search.privilegedPassword` during init and `search.username` / `search.password` at runtime. The chart's `search.privilegedUsername` / `search.privilegedPassword` defaults already match the OpenSearch seed's admin credentials — see § 5.2's "Seed values" list above — and only break if one side changes without the other — these are dev-only seed defaults; rotate for production. `search.username` / `search.password` default to `eyelevel` / the same seed password, provisioned by the init job, and are not part of the seed-alignment claim. See `values-authoring.md` section 3.5.4 for the Mode 2 alignment note.
+The chart's `groundx.search.serviceName` defaults to `opensearch`. The OpenSearch service lands at `opensearch-cluster-master.{namespace}.svc.cluster.local:9200` via the chart's standard naming pattern. Both `search.password` and `search.privilegedPassword` are needed from the first chart release after 0.2.7 whenever `mode` is not `ingest`, and both are operator-supplied by values or by the cluster credentials Secret (`SEARCH_PASSWORD`, `SEARCH_INIT_PASSWORD` in `eyelevel-secret-credentials`, listed in `cluster.secrets`; the Secret route needs the `groundx` and `process` images that the same chart release deploys by default (both log in to OpenSearch: the API to search, the indexing worker to write the index); if you override either with `groundx.image` or `process.image`, override both with images built from that chart release or later, and for a tag that is not a version number (such as `chainguard` or a mirrored tag) confirm with the image provider that both images read `SEARCH_PASSWORD` / `SEARCH_INIT_PASSWORD`, or set `search.password` and `search.privilegedPassword` in values instead): that release has no default for either, while published 0.2.7 and earlier still ship the public default, so set both in values there (the Secret route does not apply on those versions). `search.privilegedPassword` (or `SEARCH_INIT_PASSWORD`) must equal the OpenSearch admin password supplied in § 5.1. `search.password` is a separate application credential and is not an OpenSearch seed value: the GroundX API provisions `search.username` with `search.password` at startup, authenticating with `search.privilegedUsername` / `search.privilegedPassword`. See `values-authoring.md` section 3.5.4 for the Mode 2 admin-password rule and the upgrade note.
 
 ## 6. Strimzi Kafka
 
