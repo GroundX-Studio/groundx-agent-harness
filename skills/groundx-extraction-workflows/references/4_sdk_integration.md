@@ -104,3 +104,12 @@ bounded grants; MCP OAuth is not a storage credential. Keep keys server-side and
 URLs. Refresh expired QC links by asset identity rather than changing file policy.
 Existing extraction contracts remain unchanged; file-delivery acceptance requires
 independent deployment evidence.
+
+Worker `ContainerUploadSettings.public_read` is not a customer file policy. See
+`groundx-on-prem/references/file-access.md` before changing it. It defaults to
+`True`; extraction also uses `False` for image validation/delivery. Accept the
+current document's original PNG/JPG source as well as generated pages/crops.
+Do not change the flag to bypass a failed check. Use existing service credentials for authorized originals and
+generated pages/crops. Preserve authorization on external and signed links. Test
+full extraction for public/protected images; successful downloads and X-Rays do
+not prove that extraction works.

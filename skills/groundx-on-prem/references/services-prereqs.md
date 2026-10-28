@@ -110,9 +110,9 @@ On that error, check target health first (the `TargetHealth` field from `aws rds
 | Aspect | Value |
 | --- | --- |
 | What it holds | Hot process state, frequently-accessed API query results, metric scratch |
-| Mode 1 — existing | `cache.existing.addr` → in-house Redis endpoint |
+| Mode 1 — existing | `cache.existing.addr` → in-house Redis endpoint, plus `cache.metrics.enabled: false` so the metrics server shares it (`tls-and-certs.md` § 4.3). Redis AUTH goes in `cache.password` (plus `cache.username` for an ACL user); see `values-authoring.md` § 3.5.3 |
 | Mode 2 — operator-deployed | Chart deploys Redis (operator-managed) |
-| Mode 3 — cloud-managed | Set `cache.existing.addr` to point at AWS ElastiCache (Redis) or Azure Cache for Redis |
+| Mode 3 — cloud-managed | Set `cache.existing.addr` to point at AWS ElastiCache (Redis) or Azure Cache for Redis, plus `cache.metrics.enabled: false` and Redis AUTH in `cache.password` as in Mode 1 |
 | Default operator | Redis operator (chart-managed) |
 | Architecture depth | `groundx-architecture/references/store.md` |
 

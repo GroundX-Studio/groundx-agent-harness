@@ -2,7 +2,7 @@
 
 This file documents **how TLS and certificates fit into a GroundX deployment**: ingress TLS, backing-service TLS, OpenShift Route TLS, and the inert cluster-wide schema field.
 
-The chart **does not** own the TLS authoring lifecycle. It exposes per-Ingress TLS references and selected backing-service trust values, but no cluster-wide certificate or general CA-bundle mount. This file describes the prereqs the deployer is responsible for.
+The chart **does not** own the TLS authoring lifecycle. It exposes per-Ingress TLS references and selected backing-service trust values, but no cluster-wide certificate. Chart 0.2.7 has no general CA-bundle mount; the 0.2.8 chart line and later can mount one private CA bundle into every GroundX application workload (§ 3.2). This file describes the prereqs the deployer is responsible for.
 
 For backing-service-specific TLS details (DB root CAs, OpenSearch certs), route to `services-prereqs.md` and `values-yaml.md` § 4. For the Secret-handling patterns that hold TLS material, route to `credentials.md` § 8.
 
@@ -107,11 +107,54 @@ Do not use this field to satisfy an in-cluster TLS requirement. Enforce service-
 If the cluster uses a custom CA that issues *external* certs (e.g., a corporate Vault PKI), GroundX pods may need to trust that CA for outbound calls (to backing services, LLM endpoints, etc.). The chart does not have a single `customCABundle` field — instead:
 
 - For DB outbound TLS: set `db.existing.rootCerts` to the PEM bundle (see § 4.1).
-- For other outbound destinations: chart 0.2.7 has no general CA-bundle mount. Use certificates already trusted by the workload image, a service mesh or proxy, or a reviewed chart change.
+- For other outbound destinations on chart 0.2.7: chart 0.2.7 has no general CA-bundle mount. Use certificates already trusted by the workload image, a service mesh or proxy, or a reviewed chart change.
+- For other outbound destinations on the 0.2.8 chart line and later: set `fileAccess.caSecretName` to the name of a Secret whose key `ca.crt` holds a complete PEM bundle, meaning the public root CAs plus your private CA. The key sits under `fileAccess` but does not need file access enabled. The chart mounts the bundle at `/var/run/groundx/file-access/ca.crt` and sets `SSL_CERT_FILE` to that path in every GroundX application workload, including the metrics server and the database migration Job, with file access on or off. Create the Secret in the chart namespace before the install or upgrade that sets the value. A missing Secret or `ca.crt` key makes the install or upgrade fail. On a fresh install the pods do not start. On an upgrade the pre-upgrade schema-migration Job mounts the Secret first, so its pod is expected not to start, the upgrade fails at that hook, and the running pods stay on the previous revision. The `ca.crt` key must hold the complete bundle, not only the private CA: some clients in the GroundX Python services trust only that file once `SSL_CERT_FILE` is set, so a private-CA-only bundle breaks LLM calls (httpx 0.28.1) and public S3 uploads (minio 7.2.20). That behavior was observed in the extract image, not in a chart deployment (GX-130 ticket comment, 2026-10-26). The GroundX Go services load it as their system trust. Do not assume every Python client in the GroundX workers honors `SSL_CERT_FILE`. The `ai-server` Redis clients do (§ 4.3); test every other Python connection before relying on it.
+
+Start from a public root bundle, such as `/etc/ssl/certs/ca-certificates.crt` copied from a GroundX Go image or your OS's Mozilla-derived bundle. Append your CA's PEM to a copy of it named `ca-bundle.pem`, then create the Secret:
+
+```sh
+kubectl create secret generic <ca-secret-name> --from-file=ca.crt=ca-bundle.pem -n <namespace>
+```
+
+To tell whether a chart has this behavior, render the metrics Deployment with file access off and count `SSL_CERT_FILE`:
+
+```sh
+helm template probe <chart> --set fileAccess.enabled=false --set fileAccess.caSecretName=probe-ca --set metrics.enabled=true --show-only templates/app/metrics.yaml | grep -c SSL_CERT_FILE
+```
+
+A count of 1 means the chart has this behavior. A count of 0, or a render error, means it does not; chart 0.2.7 rejects the key. Checking only that the chart accepts the key is not enough: 0.2.8 charts built before this behavior accept `fileAccess.caSecretName` but mount it only when file access is enabled, and never in the metrics Deployment. Pipe the render straight into `grep`, because it includes the chart-generated `metrics-tls` private key; do not save or print it.
+
+### 3.3 Ask which CA issued each operator-run endpoint
+
+For each TLS endpoint the operator runs or manages, ask whether its certificate comes from a public CA or a private CA. An external Redis set through `cache.existing` with `ssl: true`, or through the ranker-only override `ranker.cache` with `ssl: true`, comes first; an external OpenSearch, an external MinIO and an off-cluster summary engine `baseUrl` follow the same flow. The database is not part of this flow: its CA goes in `db.existing.rootCerts` (§ 4.1). Do not guess the answer from the hostname.
+
+**Public CA:** nothing to add to the bundle.
+
+**Private CA:** ask the operator for the CA certificate file. It holds the certificate only; never ask for or accept a private key. On the 0.2.8 chart line and later, add the operator's CA to a complete bundle built as in § 3.2 (the public roots plus the private CA), save it as the key `ca.crt` of the Secret named by `fileAccess.caSecretName`, and do that after the render probe in § 3.2 passes. Creating or changing that Secret changes the cluster, so show the command and run it only after the operator approves.
+
+**The install already sets `fileAccess.caSecretName`:** append the CA to the existing bundle; never replace it. `SSL_CERT_FILE` replaces the image's default bundle for every client that reads it, so a bundle that loses the public roots or an earlier private CA breaks the connections it used to cover.
+
+```sh
+kubectl get secret <ca-secret-name> -n <namespace> -o jsonpath='{.data.ca\.crt}' | base64 -d > ca-bundle.pem
+```
+
+Append the operator's CA file to the end of `ca-bundle.pem` on a new line, and confirm the file still holds every certificate it held before. Then write the bundle back through a patch file, because a complete bundle is larger than the 128 KB that Linux allows for one command-line argument. The file holds `{"data":{"ca.crt":"<base64 of ca-bundle.pem on one line>"}}`; for example, `printf '{"data":{"ca.crt":"%s"}}' "$(base64 < ca-bundle.pem | tr -d '\n')" > ca-patch.json` writes it (`printf` is a shell builtin, so the limit does not apply to it). Patch the Secret from that file:
+
+```sh
+kubectl patch secret <ca-secret-name> -n <namespace> --type merge --patch-file ca-patch.json
+```
+
+Then restart every GroundX application pod (§ 6). Updating the Secret and restarting the pods change the cluster: show both commands and run them only after the operator approves.
+
+**No CA file:** say so and stop that step. Ask the operator to get the CA certificate from whoever issued the endpoint's certificate. Never generate a CA or a server certificate for an endpoint the harness does not run, and never offer to turn certificate verification off, skip it for one endpoint, or change an endpoint's `ssl` setting to get past a certificate error. A CA does not fix an expired certificate or one issued for a different hostname; the endpoint owner must replace it (§ 4).
 
 ## 4. Surface 3 — Backing-service TLS
 
 The chart connects to five backing services. Each has its own TLS story.
+
+Any operator-supplied TLS endpoint (an external Redis set through `cache.existing` with `ssl: true` (or `ranker.cache` with `ssl: true`), an external OpenSearch at `search.existing.url`, or a summary engine `baseUrl` that points off-cluster) must present a certificate that the container's system CA bundle trusts, issued for the exact hostname in the configured address: GroundX services that verify these connections reject a self-signed, privately issued, expired, or mismatched certificate, and chart 0.2.7 has no field that adds a CA to that bundle (§ 3.2). On the 0.2.8 chart line and later, `fileAccess.caSecretName` replaces that bundle with a complete bundle you supply, so a private CA you add to it is trusted (§ 3.2).
+
+Bundled in-chart Redis and MinIO connect without TLS inside the cluster, and services with public-CA certificates are already trusted, so neither needs a CA. Customer ingest, crawl and callback URLs are checked the same way by services that verify them. A CA in the bundle does not fix an expired or wrong-hostname certificate; the endpoint owner must replace it. For who must act before upgrading, see `upgrades.md` § 2.1.
 
 ### 4.1 Relational DB (MySQL / RDS / Azure Database)
 
@@ -144,7 +187,7 @@ For bundled in-cluster Percona (Mode 2), the chart's `db.rootCerts` top-level fi
 When OpenSearch is external (Mode 1 / Mode 3) and uses HTTPS:
 
 - The chart connects via `search.existing.url` (HTTPS URL).
-- Chart 0.2.7 has no OpenSearch CA-bundle field or general Secret-file mount. A self-signed or private-CA endpoint therefore needs trust supplied outside the current values surface, such as the workload image, a service mesh or proxy, or a reviewed chart change.
+- Chart 0.2.7 has no OpenSearch CA-bundle field or general Secret-file mount. On chart 0.2.7, a self-signed or private-CA endpoint therefore needs trust supplied outside the current values surface, such as the workload image, a service mesh or proxy, or a reviewed chart change. On the 0.2.8 chart line and later, add its CA to the bundle in `fileAccess.caSecretName` (§ 3.2).
 - For AWS OpenSearch managed, the public AWS root CA is already trusted by the chart's pods; no additional setup needed.
 
 ### 4.3 Cache / Redis
@@ -153,13 +196,23 @@ When Redis is external (Mode 1 / Mode 3) with TLS:
 
 ```yaml
 cache:
+  metrics:
+    enabled: false
   existing:
     addr: <redis-endpoint>.example.com
     port: 6380
     ssl: true
 ```
 
-`cache.existing.ssl: true` triggers the application's TLS dial. For self-signed Redis, mount the CA bundle (same pattern as § 4.2). For AWS ElastiCache or Azure Cache for Redis, the public CA is already trusted.
+`cache.existing.ssl: true` triggers the application's TLS dial. The ranker-only override `ranker.cache` (read when `ranker.cache.addr` is set, for the ranker's broker and result store) has its own `ssl`: set `ranker.cache.ssl: true` for a TLS ranker cache, and the same CA flow applies. Chart 0.2.7 has no CA-bundle mount for Redis (§ 3.2), so a self-signed or private-CA Redis certificate cannot be trusted through values. On the 0.2.8 chart line and later, add the Redis CA to the bundle in `fileAccess.caSecretName` (§ 3.2); ask which kind of CA issued the certificate first (§ 3.3).
+
+From the 0.2.8 chart line, the `ai-server` layout, ranker and summary services, both the APIs and the workers, verify the certificate chain and host name of a `rediss://` Redis, for both the broker and the result store, whether it is set through `cache.existing` or, for the ranker, through `ranker.cache`. Trust comes from the system default locations, so the `SSL_CERT_FILE` that `fileAccess.caSecretName` sets reaches these clients and no other chart field is needed. An untrusted, mismatched or expired certificate fails with `certificate verify failed` and nothing is queued, and no setting turns the verification off. Plain `redis://` connections, including the bundled Redis, are unchanged. Not every GroundX client of this Redis verifies yet: the `extract` client and the workspace runner do not, so do not describe the connection as verified end to end.
+
+With only `cache.existing` set, the metrics server's Redis session still points at the bundled `cache-metrics` host without TLS, and the chart does not deploy that host (`cache.metrics.enabled` defaults to `true`). For one shared external Redis, set `cache.metrics.enabled: false`: the metrics server then inherits the `cache.existing` address, port, cluster mode and TLS setting, and `cache.password` and `cache.username`. To keep a separate metrics entry, set `cache.metrics.existing` with `addr`, `port`, `isCluster` and `ssl`, and set `cache.metrics.password`, plus `cache.metrics.username` for an ACL user, when Redis requires authentication. While `cache.metrics.enabled` is `true`, the metrics session takes credentials only from `cache.metrics.password` and `cache.metrics.username`, not from `cache.password` or `cache.username`.
+
+Chart 0.2.7 renders an existing Redis in cluster mode unless `cache.existing.isCluster: false` is set. In cluster mode, services that verify the connection check each node at the endpoint the cluster announces, not only at `cache.existing.addr`: every node endpoint announced as a hostname must be a hostname the certificate covers, and a cluster that announces bare IP addresses passes certificate verification only if the certificate carries a matching IP subject alternative name (IP SAN) for each announced node.
+
+For AWS ElastiCache or Azure Cache for Redis without cluster mode (`cache.existing.isCluster: false`), the public CA is already trusted once the operator confirms the certificate comes from it (§ 3.3). Verification against ElastiCache was not tested in either mode, and for cluster mode whether the node endpoints it announces pass this check has not been verified, so run a connection test before upgrading and before relying on it.
 
 ### 4.4 Kafka / Stream
 
@@ -180,7 +233,7 @@ For SQS (the alternative queue backend), TLS is implicit (HTTPS endpoint).
 
 S3 (Mode 3) uses HTTPS by default; the public AWS root CA is trusted by the chart's pods. No deployer action needed.
 
-For external MinIO (Mode 1) with self-signed / custom-CA TLS, mount the CA bundle (same pattern as § 4.2).
+For external MinIO (Mode 1) with self-signed / custom-CA TLS, chart 0.2.7 has no CA-bundle mount either (§ 3.2), so the certificate cannot be trusted through values. On the 0.2.8 chart line and later, add its CA to the bundle in `fileAccess.caSecretName` (§ 3.2), then test uploads and reads, because not every Python client is known to honor `SSL_CERT_FILE`.
 
 For bundled in-cluster MinIO (Mode 2), traffic stays inside the cluster — TLS is optional and rarely set.
 
@@ -212,6 +265,7 @@ spec:
 | Cluster-wide TLS | Customer-controlled network layer | Follow the service mesh or gateway rotation procedure. `cluster.tls.existingSecret` does not mount or rotate certificates. |
 | DB rootCerts | AWS / Azure / GCP (per-provider rotation) | When the cloud provider rotates the root CA (rare, on multi-year cadence), update `db.existing.rootCerts` in values.yaml and re-apply: `helm upgrade --install groundx ./src/groundx -f values.<env>.yaml`. Restart application pods. |
 | OpenShift Route cert | OpenShift router | OpenShift manages the router's wildcard cert. Per-Route certs are deployer-managed. |
+| Private CA bundle (`fileAccess.caSecretName`, 0.2.8 chart line and later) | Operator | Update `ca.crt` in the Secret, then restart every GroundX application pod, metrics included. Go loads the bundle once per process, and no chart template watches the Secret, so pods do not restart on their own. |
 | Backing-service CA bundles | Operator or cloud provider | Update the supported per-service trust value or the customer-controlled trust layer, then roll affected application pods when that mechanism loads trust at startup. |
 
 Ingress-controller-managed Secret rotation follows the controller's behavior. Application trust material supplied through values or a customer-controlled mount generally requires rolling the affected pods unless that mechanism documents live reload.

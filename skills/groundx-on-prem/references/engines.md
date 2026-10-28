@@ -194,7 +194,7 @@ If EyeLevel-hosted summary is part of the procurement bundle, the procurement ma
 
 A common assumption: "we're using IRSA on EKS, so we don't need to manage the LLM API key separately."
 
-That assumption is wrong. Workload identity (IRSA / Workload Identity / WIF) binds the cluster's Kubernetes ServiceAccount to a *cloud* IAM role. It covers AWS / Azure / GCP cloud services — S3, RDS, SQS, ElastiCache, etc.
+That assumption is wrong. Workload identity (IRSA / Workload Identity / WIF) binds the cluster's Kubernetes ServiceAccount to a *cloud* IAM role. It covers AWS / Azure / GCP cloud services — S3, RDS, SQS, etc. It does not supply Redis AUTH, including for ElastiCache; that goes in `cache.password` (`credentials.md` § 1).
 
 OpenAI, Azure OpenAI, DeepInfra, EyeLevel are **third-party API services outside the cloud IAM perimeter**. They authenticate via their own API key, not the cluster's IAM role. Even with workload identity configured, the LLM API key (`summary.existing.apiKey`) must be supplied via Pattern 3 (Kubernetes Secret reference) or higher. See `credentials.md` § 9 for the full list of what workload identity does and doesn't cover.
 

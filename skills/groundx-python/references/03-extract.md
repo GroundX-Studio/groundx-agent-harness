@@ -24,6 +24,18 @@ as a router, then inspect `src/groundx/extract/`, `tests/extract/`,
   `[tool.poetry.extras]` in `pyproject.toml` for the live list
 - Stability: see the front-of-file note above on the as-is contract
 
+### Storage settings and customer policies
+
+Before changing `ContainerUploadSettings.public_read`, read the SDK's
+[storage-setting contract](https://github.com/eyelevelai/groundx-python/blob/main/CONTRIBUTING.md#extraction-storage-settings).
+It defaults to `True` and controls anonymous downloads when creating a new
+MinIO/S4 bucket. Existing buckets and S3 permissions are unchanged. It is not a
+customer access policy. Current extraction consumers also use it for image
+validation/delivery. Those checks must accept the current document's original
+PNG/JPG source as well as generated pages/crops. Do not change the flag to bypass
+failures. Preserve authorized source and generated-page reads,
+external/native grants, and existing byte/quality/provider limits in both modes.
+
 ## 3.2 Adding a new optional dep
 
 **Edit `.fern/metadata.json`, not `pyproject.toml`** (see [§2 core-sdk](./02-core-sdk.md) §2.2).

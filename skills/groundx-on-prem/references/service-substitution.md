@@ -68,6 +68,8 @@ Discriminator: `cache.existing.addr`. Helper at `templates/_helpers/services/cac
 
 ```yaml
 cache:
+  metrics:
+    enabled: false            # metrics server shares this Redis (see below)
   existing:
     addr: cache.prod.example.internal
     port: 6379                # default 6379
@@ -79,8 +81,8 @@ cache:
 When `cache.existing.addr` is set:
 
 - `groundx.cache.create` → false. No in-cluster Redis Deployment is rendered.
-- Every reference to the cache in `config-yaml-map` routes to `<addr>:<port>` with the right scheme.
-- `cache.metrics.*` is independent: there's a separate `cache.metrics.existing.addr` for the metrics-aggregation cache. They can be substituted independently.
+- The main cache session in `config-yaml-map` routes to `<addr>:<port>` with the right scheme, and uses `cache.password` / `cache.username` when set.
+- The metrics server's Redis session follows `cache.metrics.enabled`, which defaults to `true`. While it is `true`, the metrics address, port, cluster mode, TLS setting and credentials come from the `cache.metrics.*` settings, such as `cache.metrics.existing` and `cache.metrics.password` / `cache.metrics.username`, not from `cache.existing` or `cache.password`; without `cache.metrics.existing.addr` the address is the `cache-metrics` in-cluster host, which the chart does not deploy when `cache.existing.addr` is set. With `cache.metrics.enabled: false`, the metrics session inherits the `cache.existing` address, port, cluster mode and TLS setting, and `cache.password` / `cache.username`. Set `cache.metrics.enabled: false` for one shared Redis, or set `cache.metrics.existing` plus `cache.metrics.password` for a separate metrics Redis (`tls-and-certs.md` § 4.3).
 
 ### 4.2 Database (`db`)
 
