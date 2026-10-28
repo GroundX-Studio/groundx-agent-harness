@@ -97,6 +97,15 @@ to native storage, not MCP or a buffered Lambda API route. Read
 `groundx-api/references/13-file-access.md` for caller semantics and
 `groundx-on-prem/references/private-file-access.md` for deployment prerequisites.
 
+Worker `ContainerUploadSettings.public_read` is separate from customer file
+policies. It defaults to `True` and controls anonymous downloads when creating a
+new MinIO/S4 bucket, not S3 permissions or existing bucket policies. Current
+extraction code also uses it for image validation/delivery; this is not proof of
+customer authorization. Read `groundx-on-prem/references/file-access.md` for the
+operator setting and original-image read requirements. Internal reads must use
+existing document authorization and service storage credentials. Signed storage
+links use their own authorization; a denied link must not be retried with service credentials.
+
 ### 5.6 Workspace runner ingress invariant
 
 The workspace runner (`workspace-api` + 5 worker pods, per `workspace-architecture.md`) is reachable **only through `groundx` as the Workspace facade**. There is no direct external path. This is an architectural invariant.

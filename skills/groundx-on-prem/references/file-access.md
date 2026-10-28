@@ -11,6 +11,20 @@ for the candidate chart contract. Verify the chosen released chart/image refs be
 copying its settings. That reference owns activation, migration, credentials, transport,
 origin inventory and rollback; do not duplicate an operator runbook in application code.
 
+## Extraction storage setting: `public_read`
+
+This is an operator's Python service setting, not a customer file policy or a
+`values.yaml` field. The SDK default is `True`. The `0.2.8` chart sets it to `False`
+when creating the file-access gateway; file access is disabled by default.
+
+It controls anonymous downloads only when provisioning a new MinIO/S4 bucket.
+Existing buckets and S3 permissions are unchanged. See the
+[SDK definition](https://github.com/eyelevelai/groundx-python/blob/main/CONTRIBUTING.md#extraction-storage-settings).
+Extraction also uses this flag for image validation and delivery. Its checks must
+accept the current document's original PNG/JPG source and generated pages/crops.
+Do not toggle the flag to bypass a failed image check. Verify full public/protected
+image extraction, not only chart rendering or file downloads.
+
 ## Deployment boundaries
 
 - `fileAccess.enabled` defaults false. Enabling adds a streaming file gateway, with

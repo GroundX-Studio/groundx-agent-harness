@@ -148,7 +148,7 @@ On chart 0.2.7, a deployer who manages their own Kubernetes Secrets can skip pac
 
 This is the pre-created-Secret path for operators who do not want the key file in the chart directory.
 
-Google Cloud Vision OCR needs the JSON key file on disk in every case: the layout-ocr application reads it at `/app/credentials.json` and raises at startup if it is absent. There is no keyless (Workload Identity / Application Default Credentials) mode for Google OCR on 0.2.7 — binding a GKE ServiceAccount to a GCP service account does not by itself satisfy the application's key-file requirement. Running OCR without a key file would be an application change, not a values change. `credentials.md` § 9 covers how Workload Identity does replace static credentials for the *cloud* backing services (S3 / RDS / SQS / ElastiCache / OpenSearch).
+Google Cloud Vision OCR needs the JSON key file on disk in every case: the layout-ocr application reads it at `/app/credentials.json` and raises at startup if it is absent. There is no keyless (Workload Identity / Application Default Credentials) mode for Google OCR on 0.2.7 — binding a GKE ServiceAccount to a GCP service account does not by itself satisfy the application's key-file requirement. Running OCR without a key file would be an application change, not a values change. `credentials.md` § 9 covers how Workload Identity does replace static credentials for the *cloud* backing services (S3 / RDS / SQS / OpenSearch). Redis AUTH, including for ElastiCache, is not one of them: it goes in `cache.password`.
 
 ## 8. What this file does not cover
 

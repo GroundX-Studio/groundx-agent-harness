@@ -18,6 +18,14 @@ and membership/ownership checks still apply. Never place either credential in a 
 MCP OAuth authenticates MCP calls; its bearer token is not a file-host credential. For
 standalone MCP steps, use `groundx-mcp/references/07-file-access.md`.
 
+## Service storage settings
+
+`ContainerUploadSettings.public_read` is an operator setting for extraction, not
+an account, bucket or document policy. It does not change S3 permissions or update
+existing MinIO bucket policies. Do not use it to protect or unprotect a customer's
+files. For its default, new-bucket behavior and extraction read requirements,
+read `groundx-on-prem/references/file-access.md`.
+
 ## Python quick start
 
 These examples use GroundX Python SDK 4.1.4. Install or upgrade with

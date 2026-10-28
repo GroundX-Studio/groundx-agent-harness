@@ -12,7 +12,7 @@ Match your deployment to the archetype in `references/values-authoring.md` § 4 
 | --- | --- |
 | AWS-EKS-cloud-managed (S3 / RDS / ElastiCache / SQS / AWS OpenSearch managed) | `values.eks-cloud-managed.example.yaml` |
 | AKS-with-Azure-services (Azure Database for MySQL, Azure Cache for Redis, MinIO bundled or Azure Blob) | `values.aks-azure.example.yaml` |
-| OpenShift-FedRAMP-air-gapped (Chainguard images, Mode 2 backing services, custom CA, no cloud egress) | `values.openshift-regulated.example.yaml` |
+| OpenShift-FedRAMP-air-gapped (Chainguard images, Mode 2 backing services, inert cluster TLS Secret reference, no cloud egress) | `values.openshift-regulated.example.yaml` |
 | Minikube / single-node dev | `values.minikube-dev.example.yaml` |
 | Ingest-only benchmarking | `values.ingest-only.example.yaml` |
 | Smallest working config (every backing service chart-deployed, no opt-in features) | `values.minimum-viable.example.yaml` |

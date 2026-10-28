@@ -2,7 +2,7 @@
 #
 # All backing services chart-deployed dedicated (Mode 2) — no cloud egress.
 # Chainguard images for SBOM / FedRAMP compliance.
-# Custom CA for in-cluster TLS.
+# No chart-managed in-cluster TLS: cluster.tls.existingSecret below is inert in chart 0.2.7.
 # Self-hosted summary stack (no external LLM calls — air-gapped-compatible).
 # OpenShift Route for ingress (not standard Ingress resource).
 # Bigger replica counts per microservice (high-throughput per-customer deployment).
@@ -28,7 +28,7 @@ cluster:
   secrets:
     - eyelevel-secret-credentials
 
-  # Custom CA / in-cluster TLS — references a kubernetes.io/tls Secret.
+  # Inert in chart 0.2.7: the schema accepts cluster.tls.existingSecret, but no template reads it and no workload mounts the Secret (tls-and-certs.md § 3).
   tls:
     existingSecret: <cluster-tls-secret>
 

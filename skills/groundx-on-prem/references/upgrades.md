@@ -97,6 +97,32 @@ Before running `helm upgrade`:
 
 5. **Snapshot the cluster state.** Export current `values.yaml`, current MySQL data (via `kubectl exec` and `mysqldump`), OpenSearch indices (via snapshot API). Air-gapped: ensure new chart + new images are mirrored *before* the upgrade.
 
+### 2.1 Certificate verification and private CAs (0.2.8 chart line)
+
+GroundX Go service images that include the GX-130 change verify the TLS certificate of every HTTPS and Redis TLS endpoint they call. Before upgrading to a chart that runs those images, check each endpoint:
+
+| Endpoint | Action |
+| --- | --- |
+| Bundled in-chart Redis and MinIO | None. The chart connects to them without TLS inside the cluster. |
+| External Redis without TLS (`cache.existing.ssl` false or unset) | None. No TLS options are applied to a plain `redis://` connection. |
+| External Redis with TLS (`cache.existing.ssl: true`) signed by a private or self-signed CA | The `ai-server` layout, ranker and summary services fail to connect with `certificate verify failed` until you supply the CA (steps below). A certificate that does not cover the configured hostname fails the same way, and a CA does not fix it: the endpoint owner must reissue the certificate. No setting skips the check. |
+| Ranker-only Redis with TLS (`ranker.cache.ssl: true`) signed by a private or self-signed CA | The `ai-server` ranker services fail to connect with `certificate verify failed` until you supply the CA (steps below), and a certificate that does not cover the configured hostname fails the same way. No setting skips the check. |
+| External services with public-CA certificates (S3 and public LLM APIs) | None. The image's CA bundle already trusts them. |
+| External Redis on ElastiCache without cluster mode (`cache.existing.isCluster: false`) | Verification against ElastiCache was not tested in either mode. Run a connection test before upgrading (`tls-and-certs.md` § 4.3). |
+| External Redis in cluster mode (any `cache.existing` without `isCluster: false`), including ElastiCache | The cluster must announce node endpoints its certificate covers (`tls-and-certs.md` § 4.3). Test the connection before upgrading. |
+| Bundled OpenSearch | Use only a chart release that also carries the GX-90 OpenSearch certificate fix. Do not run certificate-verifying GroundX Go images on a chart without it. |
+| External Redis, OpenSearch, MinIO, self-hosted LLM or intranet URLs signed by a private or self-signed CA | Connections from the GroundX Go services fail until you supply the CA. Follow the steps below and test each connection before upgrading. |
+| Customer ingest, crawl or callback URLs with an expired, wrong-hostname or self-signed certificate | These requests fail. A CA does not fix an expired or wrong-hostname certificate; the endpoint owner must replace it. |
+
+To supply a private CA:
+
+1. Confirm the target chart has the behavior with the render probe in `tls-and-certs.md` § 3.2.
+2. Create a Secret in the chart namespace whose key `ca.crt` holds a complete PEM bundle: the public root CAs plus the private CA. It must be the complete bundle: the chart also sets `SSL_CERT_FILE` in the GroundX Python services, and some of their clients then trust only that file, so a private-CA-only bundle breaks LLM calls (httpx 0.28.1) and public S3 uploads (minio 7.2.20). That behavior was observed in the extract image, not in a chart deployment (GX-130 ticket comment, 2026-10-26). If the install already sets `fileAccess.caSecretName`, append the new CA to the existing bundle and never replace it (`tls-and-certs.md` § 3.3).
+3. Set `fileAccess.caSecretName` to that Secret's name and upgrade.
+4. Confirm every pod is Ready (§ 11). A missing Secret or `ca.crt` key makes the upgrade fail: the pre-upgrade schema-migration Job mounts the Secret first, so its pod is expected not to start, and the running pods stay on the previous revision.
+
+To roll back, run `helm rollback` to the previous revision (§ 6), which restores the previous chart and images. Clearing `fileAccess.caSecretName` while the certificate-verifying images still run is not a rollback: endpoints signed by the private CA fail again. Never disable certificate verification. Details: `tls-and-certs.md` § 3.2 and § 4.
+
 ## 3. Schema migration patterns
 
 The chart's schema may tighten or rename fields across versions. Common patterns:

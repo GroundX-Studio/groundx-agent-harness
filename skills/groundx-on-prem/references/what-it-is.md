@@ -27,7 +27,7 @@ GroundX needs five backing services. Each can be deployed in one of three modes 
 | --- | --- | --- | --- |
 | **File Storage** | Customer's existing object store (`file.existing.url`) | Operator-deployed MinIO (`file.enabled=true`) | S3 (`file.serviceType=s3` + `file.existing.url`) |
 | **Process Metadata DB** | Existing MySQL (`db.existing.ro` / `rw` / `port`) | Operator-deployed Percona MySQL | AWS RDS (set `db.existing.*` to RDS endpoint) |
-| **Cache** | Existing Redis (`cache.existing.addr`) | Operator-deployed Redis | AWS ElastiCache (set `cache.existing.addr` to ElastiCache endpoint) |
+| **Cache** | Existing Redis (`cache.existing.addr`, plus `cache.metrics.enabled: false`; see `values-authoring.md` § 3.5.3) | Operator-deployed Redis | AWS ElastiCache (set `cache.existing.addr` to ElastiCache endpoint, plus `cache.metrics.enabled: false` as in Mode 1) |
 | **Retrieval DB** | Existing OpenSearch (`search.existing.url`) | Separate `opensearch/opensearch` Helm release (no operator) | AWS OpenSearch managed (set `search.existing.url` to managed endpoint) |
 | **Queue** | Existing Kafka (`stream.existing.domain` / `port`) | Operator-deployed Kafka via Strimzi | AWS SQS (per-topic `stream.topics.<topic-name>.type: sqs`) |
 
