@@ -1,6 +1,6 @@
 # Azure AKS deployment with Azure-managed backing services and Chainguard images.
 #
-# Object store: chart-bundled MinIO (no native S3-equivalent; Azure Blob via S3-compat optional)
+# Object store: in-cluster MinIO AIStor under the customer's license (no native S3-equivalent; Azure Blob via S3-compat optional)
 # Process metadata DB: Azure Database for MySQL (TLS required → rootCerts)
 # Cache: Azure Cache for Redis
 # Retrieval DB: chart-bundled OpenSearch (no managed equivalent on Azure)
@@ -71,10 +71,10 @@ db:
       <DigiCert Global Root G2 PEM here>
       -----END CERTIFICATE-----
 
-# Mode 2 — chart-deployed MinIO.
+# Mode 2 — in-cluster MinIO AIStor; username and password equal its root credentials.
 file:
-  username: <minio-username>
-  password: <minio-password>
+  username: <aistor-root-user>
+  password: <aistor-root-password>
 
 # Mode 2 — chart-deployed OpenSearch.
 search:

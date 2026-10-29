@@ -72,7 +72,7 @@ The default path (extraction disabled or no extraction YAML attached) skips this
 
 ## 6. Security / compliance altitude
 
-Extraction is in-cluster by default. A workflow configured with the external `bedrock` engine sends prompts and AWS S3 page-image references to the configured Bedrock endpoint. Other extraction engines keep their existing transport and trust-boundary behavior. For the full identity / trust model see `identity-and-trust.md`.
+Extraction is in-cluster by default. Two settings select the external Bedrock provider: a workflow engine with `service: bedrock`, and the chart's `extract.agent.serviceType: bedrock` for workflows that name no engine. On `s3` storage with a workflow engine, Bedrock receives prompts and `s3://` page-image references, which it reads from the customer's bucket. On `minio` (community MinIO and MinIO AIStor) or `s4` storage, and on `s3` storage when no workflow engine is set, prompts and page-image bytes leave the cluster inside the request to AWS. Other extraction engines keep their existing transport and trust-boundary behavior. For the full identity / trust model see `identity-and-trust.md`.
 
 ## 7. Operations / SRE altitude
 

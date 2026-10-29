@@ -157,7 +157,7 @@ cluster:
   pvAccessMode: ReadWriteMany
 ```
 
-When a stateful subsystem (Percona PXC, MinIO, OpenSearch) needs RWO storage, override the per-subsystem PVC class. See the operator-specific docs.
+When a stateful subsystem (Percona PXC, MinIO AIStor, OpenSearch) needs RWO storage, override the per-subsystem PVC class. See the operator-specific docs.
 
 ## 7. Route exposure
 

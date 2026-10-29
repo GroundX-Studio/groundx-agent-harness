@@ -125,7 +125,7 @@ Production sizing is workload-driven. Key levers:
 - **HPA on.** Each inference pod scales horizontally; budget for `max-replicas × per-replica-cost` per GPU label.
 - **`summary.api.enabled: false` + `summary.inference.enabled: false`.** Removes the `eyelevel-gpu-summary` node group entirely. Document content then leaves the cluster on each summary call — see `architecture.md` § 3.3.
 - **Extract / workspace.** When `extract.enabled=true` or `workspace.enabled=true`, the corresponding microservices need a CPU-tier node group (default `eyelevel-cpu-only`).
-- **Backing services.** Mode 2 Percona / OpenSearch / Kafka / MinIO consume their own CPU + memory + storage budgets. See `references/services-prereqs.md`. These typically land on `eyelevel-cpu-only` or `eyelevel-cpu-memory` (deployer's choice, configured through each operator's CRDs, or through the values of the OpenSearch Helm release, which has no operator).
+- **Backing services.** Mode 2 Percona / OpenSearch / Kafka / MinIO AIStor consume their own CPU + memory + storage budgets. See `references/services-prereqs.md`. These typically land on `eyelevel-cpu-only` or `eyelevel-cpu-memory` (deployer's choice, configured through each operator's CRDs, or through the values of the OpenSearch Helm release, which has no operator).
 
 For total cluster-wide budget framing, route to `references/cluster-requirements.md` § 6.
 

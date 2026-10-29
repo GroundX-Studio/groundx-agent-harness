@@ -239,7 +239,20 @@ The two-axis decision most deployments face:
 
 ## 8. External Bedrock extraction
 
-Bedrock is a per-workflow extraction provider, separate from the install-time summary engine. Configure the extract runtime and AWS S3 storage once, then select `service: bedrock` only in workflows that should use it:
+Bedrock is an extraction provider, separate from the install-time summary engine. Two settings select it:
+
+- a workflow engine with `service: bedrock`, for the workflows that name that engine;
+- `extract.agent.serviceType: bedrock`, for workflows that name no engine.
+
+On chart 0.2.8 or later with its default image tags, the chart accepts Bedrock with every file storage type. Chart 0.2.7 refuses Bedrock at render unless the extract file storage is `s3`, and older images do not send page images as data URLs on `minio` or `s4`. How page images reach Bedrock depends on the storage type:
+
+- **`s3` with a workflow engine:** page images go as `s3://` references. Internal page-image URLs are converted to references in the effective S3 bucket, and existing valid `s3://` references pass through, including references to another bucket.
+- **`s3` with no workflow engine:** the extract services send page images inline at their stored size. Nothing sizes them to the request limit, so a request over 3,500,000 bytes fails before it is sent.
+- **`minio` (community MinIO and MinIO AIStor) and `s4`, with or without a workflow engine:** page images are read through the configured storage client and sent as resized `data:image/jpeg;base64` URLs within 3,500,000 bytes, so fewer pages fit in one request than on `s3`. The extract services size them with `extract.agent.targetLongEdgePx`, `extract.agent.minLongEdgePx` and `extract.agent.jpegQualities` (defaults 1000, 900 and 20) and reserve room for the prompt and every document-review turn. When all pages do not fit, they narrow to the reviewed source pages, and when those still do not fit, the request fails before it is sent.
+
+GroundX enforces a 3,500,000-byte limit on every Bedrock request. On `minio` and `s4`, and on `s3` without a workflow engine, page-image bytes leave the cluster inside the request to AWS. AWS documents inline base64 data URLs for the `bedrock-mantle` endpoint, and GroundX sends them on `minio` (community MinIO and MinIO AIStor) and `s4`. On validation EKS on 2026-10-20, Bedrock Gemma 4 31B accepted the extract services' data URLs from `minio` (MinIO AIStor) and `s4` storage, with and without a workflow engine; the custom workflow step's image path is covered by tests.
+
+Example values for `s3` storage:
 
 ```yaml
 file:
@@ -261,9 +274,9 @@ extract:
     secretName: <extract-agent-secret>
 ```
 
-The chart validates that Bedrock has an endpoint, model, API-key source, and S3 file storage. At runtime, the extract agent uses S3 references when the effective request service is Bedrock. Non-Bedrock requests keep their configured image transport. Internal page-image URLs are converted to references in the effective S3 bucket. Existing valid `s3://` references pass through, including references to another bucket.
+The chart does not check that Bedrock has an endpoint, model, or API key; the extract services reject an incomplete configuration when a request is made. Non-Bedrock requests keep their configured image transport.
 
-Allow outbound HTTPS to the configured Bedrock endpoint. The AWS identity behind the Bedrock request must be able to read every referenced object. For a Bedrock API key, grant that access to the IAM principal behind the key. A cross-account bucket also needs a bucket policy. A customer-managed KMS key also needs decrypt permission.
+Allow outbound HTTPS to the configured Bedrock endpoint. On `s3` storage with a workflow engine, the AWS identity behind the Bedrock request must be able to read every referenced object. For a Bedrock API key, grant that access to the IAM principal behind the key. A cross-account bucket also needs a bucket policy. A customer-managed KMS key also needs decrypt permission.
 
 This does not change the default. Extraction remains opt-in, and non-Bedrock workflows keep their current provider and image transport.
 

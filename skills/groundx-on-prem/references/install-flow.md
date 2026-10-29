@@ -30,7 +30,7 @@ Before any helm command runs, the following must already be in place. The chart 
 | **Default StorageClass** | A `StorageClass` that dynamic-provisions `ReadWriteOnce` (or `ReadWriteMany` for EFS-style shared) PVs. | When the chart deploys any backing service or workspace PVC. |
 | **NVIDIA GPU Operator** | Cluster-level operator for GPU scheduling. | When GPU microservices are deployed (`layout-inference`, `ranker-inference`, `summary-inference` with `summary.api.enabled: true` + `summary.inference.enabled: true`). |
 | **TLS certificates + Ingress controller + DNS** | TLS secret, ingress controller (e.g., NGINX, AWS Load Balancer Controller, OpenShift Route), DNS A/CNAME record pointing at the ingress endpoint. | Before the deployer wires external API traffic. The chart exposes Services; the ingress is the deployer's responsibility. |
-| **Backing-service infrastructure** | Per backing service, in whichever of the three modes the deployer chose (see `references/services-prereqs.md` § 2). For Mode 1: in-house service reachable from the cluster. For Mode 2: operator already installed (Strimzi, Percona, MinIO), and the `opensearch/opensearch` Helm release for search. For Mode 3: cloud-managed endpoint and credentials. | Before the main `groundx` chart install. |
+| **Backing-service infrastructure** | Per backing service, in whichever of the three modes the deployer chose (see `references/services-prereqs.md` § 2). For Mode 1: in-house service reachable from the cluster. For Mode 2: operator already installed (Strimzi, Percona, MinIO AIStor), and the `opensearch/opensearch` Helm release for search. For Mode 3: cloud-managed endpoint and credentials. | Before the main `groundx` chart install. |
 | **Image registry access** | Image pull secrets configured for `cluster.imagePullSecrets`. | When pulling from a private registry (e.g., Chainguard's). |
 | **License key + admin credentials** | From EyeLevel / GroundX. | Required when the deployment is licensed. Set via `licenseKey` + `admin.*` in the secret companion file. |
 
@@ -455,7 +455,7 @@ Suggested ordering, per backing service:
 | --- | --- | --- |
 | Cache (Redis) | Bitnami Redis chart or operator-equivalent | `groundx` main chart |
 | DB (MySQL) | Percona Operator for MySQL | `groundx` main chart |
-| File (Object store) | MinIO operator | `groundx` main chart |
+| File (Object store) | MinIO AIStor operator + object store (customer's AIStor license; `services-operators.md` § 4) | `groundx` main chart |
 | Search (OpenSearch) | `opensearch/opensearch` Helm release (no operator) | `groundx` main chart |
 | Stream (Kafka) | Strimzi | `groundx` main chart |
 
@@ -553,7 +553,7 @@ helm uninstall nvidia-gpu-operator -n nvidia-gpu-operator
 kubectl delete namespace eyelevel
 ```
 
-For Mode-2 backing services (Strimzi / Percona / MinIO / OpenSearch / Redis), uninstall those after the main chart but before deleting the namespace. Each has its own `helm uninstall`; the operator releases also need CRD-finalizer cleanup, while the OpenSearch release installs no CRDs.
+For Mode-2 backing services (Strimzi / Percona / MinIO AIStor / OpenSearch / Redis), uninstall those after the main chart but before deleting the namespace. Each has its own `helm uninstall`; the operator releases also need CRD-finalizer cleanup, while the OpenSearch release installs no CRDs. The AIStor operator runs in its own namespace, `aistor`, which also holds the license Secret `minio-license`.
 
 **PVC reclamation.** When `StorageClass.reclaimPolicy` is `Retain` (the default for EFS-backed installs in the shipped Terraform), deleting the namespace does *not* delete the underlying PVs. The deployer reclaims storage manually. When `reclaimPolicy` is `Delete` (the EBS default), namespace deletion triggers PV deletion.
 

@@ -1,6 +1,6 @@
-# Services Operators — Strimzi / Percona / MinIO / OpenSearch / NVIDIA
+# Services Operators — Strimzi / Percona / MinIO AIStor / OpenSearch / NVIDIA
 
-This file documents **the operators (and operator-adjacent Helm releases) that must be installed alongside the GroundX chart when stateful subsystems are deployed in-cluster** — Percona for MySQL, MinIO operator + tenant for object store, OpenSearch's own Helm chart, Strimzi for Kafka, and the NVIDIA GPU Operator for GPU scheduling. The GroundX chart does *not* render these resources itself (with the single exception of `KafkaTopic` CRDs, which Strimzi must already be installed to interpret).
+This file documents **the operators (and operator-adjacent Helm releases) that must be installed alongside the GroundX chart when stateful subsystems are deployed in-cluster** — Percona for MySQL, the MinIO AIStor operator and object store for the object store, OpenSearch's own Helm chart, Strimzi for Kafka, and the NVIDIA GPU Operator for GPU scheduling. The GroundX chart does *not* render these resources itself (with the single exception of `KafkaTopic` CRDs, which Strimzi must already be installed to interpret).
 
 For the *decision* between chart-deploying these subsystems vs routing to existing infrastructure, route to `service-substitution.md`. For chart-side image variant choices (including the canonical Chainguard recipe for each operator), route to `image-variants.md` § 3. For ordering the operator installs vs the GroundX chart install, route to `install-flow.md`. For per-cluster GPU sizing and node-group targets, route to `node-groups.md` and `cluster-requirements.md`.
 
@@ -10,7 +10,7 @@ For the *decision* between chart-deploying these subsystems vs routing to existi
 | --- | --- | --- | --- |
 | **NVIDIA GPU** | NVIDIA GPU Operator (`nvidia/gpu-operator`) | A DaemonSet that provides the `nvidia.com/gpu` resource registration, driver lifecycle, and container runtime configuration. | `src/groundx/values/nvidia/values.yaml` (generic), `values.aks.yaml` (Azure variant) |
 | **MySQL** | Percona XtraDB Cluster operator (`percona/pxc-operator`) + Percona XtraDB cluster CR (`percona/pxc-db`) | Two Helm releases: the operator first, then a cluster CR that the operator reconciles into an actual StatefulSet + HAProxy services. | `src/groundx/values/percona/values.operator.yaml`, `values.cluster.yaml` |
-| **Object store** | MinIO Operator (`minio-operator/operator`) + MinIO Tenant (`minio-operator/tenant`) | Two Helm releases: the operator, then a tenant CR specifying the actual MinIO cluster shape. | `src/groundx/values/minio/values.operator.yaml`, `values.tenant.yaml` |
+| **Object store** | MinIO AIStor operator (`minio/aistor-operator`) + AIStor object store (`minio/aistor-objectstore`) | Two Helm releases: the operator in namespace `aistor`, which needs the customer's AIStor license in Secret `minio-license`, then the object store named `minio-tenant`. | `src/groundx/values/aistor/values.operator.yaml`, `values.objectstore.yaml` |
 | **Search** | OpenSearch's own Helm chart (`opensearch/opensearch`) | Single Helm release. No separate operator. | `src/groundx/values/opensearch/values.yaml` |
 | **Stream** | Strimzi Kafka operator (`oci://quay.io/strimzi-helm/strimzi-kafka-operator`) + a `Kafka` cluster CR | Operator via Helm; the cluster CR comes from a separate GroundX-published chart (`groundx/groundx-strimzi-kafka-cluster`). | `src/groundx/values/strimzi/values.yaml` |
 
@@ -114,37 +114,97 @@ The operator handles in-place password rotation across cluster nodes.
 
 **Mode 2 constraint:** if the GroundX chart deploys against this operator (chart-deployed dedicated Percona), the chart's `db.privilegedUsername` / `db.privilegedPassword` must equal the root username/password this release seeds — see § 3.1's seed list above — these are dev-only seed defaults; override both sides for production — see `values-authoring.md` section 3.5.2's `db.privilegedUsername`/`db.privilegedPassword` constraint.
 
-## 4. MinIO Operator + Tenant
+## 4. MinIO AIStor
 
-### 4.1 Two-step install
+GroundX stores files in one S3-compatible bucket (`file.bucketName`, default `eyelevel`). The on-prem guide installs MinIO AIStor, MinIO's maintained product, under the customer's own AIStor license. Community MinIO, which earlier versions of the guide installed, is archived; § 4.4 covers existing community MinIO installs. For S4, a license-free alternative, or for an existing S3-compatible store or AWS S3, see `service-substitution.md` § 4.3.
 
-```sh
-helm repo add minio-operator https://operator.min.io/
+### 4.1 Install
+
+If you'd like to install MinIO AIStor to your cluster, you need an AIStor license. GroundX does not ship one. The AIStor Free license covers a single server and allows commercial use but not redistribution; a store with more than one server needs a paid license ([AIStor Free agreement](https://www.min.io/legal/aistor-free-agreement), read 2026-10-13).
+
+These steps install the AIStor operator in namespace `aistor` and an object store named `minio-tenant` in `eyelevel`. With that name and TLS off, the store serves the hosts GroundX uses by default (`minio` and `minio-tenant-hl`), so GroundX needs no `file` settings other than the store's credentials. The chart versions are pinned to the ones GroundX tested (`aistor-operator` 6.0.0 and `aistor-objectstore` 1.1.0); the AIStor repository published newer charts on 2026-10-14.
+
+Add the AIStor repository, store your license as Secret `minio-license` (key `minio.license`) in the operator's namespace, and install the operator:
+
+```bash
+helm repo add minio https://helm.min.io/
 helm repo update
 
-helm install minio-operator \
-  minio-operator/operator \
-  -n eyelevel \
-  -f helm/values/minio/values.operator.yaml
+kubectl create namespace aistor
+kubectl -n aistor create secret generic minio-license \
+  --from-file=minio.license=<path-to-your-license-file>
 
-helm install minio-cluster \
-  minio-operator/tenant \
-  -n eyelevel \
-  -f helm/values/minio/values.tenant.yaml
+helm install aistor-operator \
+  minio/aistor-operator \
+  --version 6.0.0 \
+  -n aistor \
+  -f helm/values/aistor/values.operator.yaml
 ```
 
-### 4.2 Seed values
+The operator values run the operators on the `eyelevel-cpu-only` nodes and turn off the operator's cluster-wide pod webhook and its automatic certificate approval; installs and upgrades worked without them in GroundX's tests.
 
-- **operator**: `operator.nodeSelector.node: eyelevel-cpu-only`, `operator.replicaCount: 1`.
-- **tenant**: `tenant.name: minio-tenant`, `tenant.certificate.requestAutoCert: false` (no auto-TLS), `tenant.configSecret: accessKey: minio, secretKey: minio123` (defaults — rotate for production), `tenant.pools[0].servers: 1, size: 20Gi, volumesPerServer: 1, nodeSelector.node: eyelevel-cpu-only`.
+Choose the object store's root credentials and put them in Secret `minio-tenant-env-configuration`. The object store values read the credentials from this Secret, which keeps them out of the Helm release; the chart also refuses to create the Secret itself with the well-known pair `minio`/`minio123`.
 
-**Mode 2 constraint:** if the GroundX chart deploys against this tenant (chart-deployed dedicated MinIO), the chart's `file.username` / `file.password` must equal this tenant's `configSecret` — see § 4.2's seed values above — see `values-authoring.md` section 3.5.1's `file.username`/`file.password` constraint.
+```text
+cat > config.env <<'EOF'
+export MINIO_ROOT_USER=<access-key>
+export MINIO_ROOT_PASSWORD=<secret-key>
+EOF
+kubectl -n eyelevel create secret generic minio-tenant-env-configuration \
+  --from-file=config.env
+rm config.env
+```
+
+Set GroundX's `file.username` and `file.password` to the same two values. Then install the object store:
+
+```bash
+helm install minio-tenant \
+  minio/aistor-objectstore \
+  --version 1.1.0 \
+  -n eyelevel \
+  -f helm/values/aistor/values.objectstore.yaml
+```
+
+Confirm that the store started with the license in place:
+
+```bash
+kubectl -n eyelevel get objectstore minio-tenant
+```
+
+The install is complete when `STATE` reads `Initialized` and `HEALTH` reads `green`. Without the `minio-license` Secret, the operator does not create the object store: no store pods or services appear, the state reports that Secret `minio-license` was not found, and GroundX keeps waiting for storage. Creating the Secret in `aistor` is enough; in GroundX's tests the store started about a minute later without a reinstall.
+
+### 4.2 What the AIStor values set
+
+`helm/values/aistor/values.operator.yaml` (mirrored at `src/groundx/values/aistor/values.operator.yaml`):
+
+- `global.operator.nodeSelector.node: eyelevel-cpu-only`
+- `global.operator.optOutAutomaticCertificates: true` — turns off the operator's automatic certificate approval.
+- `operators.object-store.webhook.enabled: false` — turns off the operator's cluster-wide pod webhook.
+
+`helm/values/aistor/values.objectstore.yaml` (mirrored at `src/groundx/values/aistor/values.objectstore.yaml`):
+
+- `secrets.name: minio-tenant-env-configuration` with `secrets.existingSecret: true` — the root credentials come from the Secret created in § 4.1, not from the values file.
+- `objectStore.name: minio-tenant`
+- `objectStore.pools[0]`: name `pool-0`, `servers: 1`, `volumesPerServer: 1`, `size: 20Gi`, `nodeSelector.node: eyelevel-cpu-only`, requests `cpu: 100m` and `memory: 256Mi`.
+- `objectStore.certificates.disableAutoCert: true` (TLS off).
+
+The values ship no credentials. The deployer chooses the object store's root credentials and stores them in Secret `minio-tenant-env-configuration`; the AIStor chart refuses to create that Secret itself with the pair `minio`/`minio123`. One server is what the AIStor Free license covers; a store with more than one server needs a paid license.
+
+**Mode 2 constraint:** if the GroundX chart deploys against this object store (chart-deployed MinIO AIStor), the chart's `file.username` / `file.password` must equal the root credentials in Secret `minio-tenant-env-configuration` — see `values-authoring.md` section 3.5.1's `file.username`/`file.password` constraint.
 
 ### 4.3 What the GroundX chart assumes
 
-The chart's `groundx.file.serviceName` defaults to `minio`, and the chart derives two in-cluster hosts from it. `groundx.file.serviceDependency` (`_helpers/services/file.tpl:131–146`) builds `{file.serviceName}-tenant-hl.{namespace}.svc.cluster.local`, i.e. `minio-tenant-hl.{namespace}.svc.cluster.local` with defaults; the app pods' startup wait (`until nc -z …`) and the celery services' default file domain use it. `groundx.file.bucketDomain` (`file.tpl:30–37`) resolves to `groundx.file.serviceHost` (`file.tpl:24–28`): the plain `file.serviceName` host, i.e. `minio.{namespace}.svc.cluster.local` with defaults, which the chart writes into the rendered config as the bucket URL. The MinIO operator's tenant convention creates a headless service named `{tenant.name}-hl`, so the seed file's `tenant.name: minio-tenant` aligns with `file.serviceName: minio`. Renaming requires changing both sides to keep `{file.serviceName}-tenant-hl` and `{tenant.name}-hl` matching.
+The chart's `groundx.file.serviceName` defaults to `minio`, and without `file.existing` the storage type is `minio`. The chart derives two in-cluster hosts from it. `groundx.file.serviceDependency` (`_helpers/services/file.tpl:131–146`) builds `{file.serviceName}-tenant-hl.{namespace}.svc.cluster.local`, i.e. `minio-tenant-hl.{namespace}.svc.cluster.local` with defaults; the app pods' startup wait (`until nc -z …`) and the celery services' default file domain use it. `groundx.file.bucketDomain` (`file.tpl:30–37`) resolves to `groundx.file.serviceHost` (`file.tpl:24–28`): the plain `file.serviceName` host in the release namespace, i.e. `minio.{namespace}.svc.cluster.local` with defaults, which the chart writes into the rendered config as the bucket URL. The AIStor object store named `minio-tenant` with TLS off serves both hosts, so GroundX needs no `file` settings other than the store's credentials. The on-prem README installs the store only under that name and gives no steps for another name (§ 8).
 
-For the chart's bucket naming (`file.bucketName`), the deployer must ensure the bucket exists. MinIO Operator's tenant CR can be configured with a `buckets:` block to pre-create buckets, or the deployer creates them manually after install via `mc mb` against the tenant.
+With `fileAccess.enabled` false (the chart default), GroundX's file, X-Ray, and page-image links are unsigned and rely on a public-read policy on the bucket (`file.bucketName`, default `eyelevel`). GroundX sets that policy only on a bucket it creates itself. If the bucket already exists in the AIStor store, because it was copied from another store or an operator created it, apply the anonymous `s3:GetObject` policy from step 3 of the on-prem S4 migration guide ([Migrating from MinIO or AIStor](https://github.com/eyelevelai/groundx-on-prem/blob/53cf055e5437b8e619b0f4a2f2e27459a922eee2/docs/storage/s4.md#migrating-from-minio-or-aistor)). That command targets S4: use the AIStor store's own URL, the root credentials from Secret `minio-tenant-env-configuration`, and the store's region in place of the S4 URL, keys, and region. The policy lets anyone who can reach the store read every object in the bucket, not only those links. With `fileAccess.enabled` true, GroundX does not set this policy and the bucket must stay private: do not apply it, and remove any anonymous grant, because GroundX serves files through the file-access gateway instead (`file-access.md`). On S4 0.3.2, `DeleteBucketPolicy` reports success but keeps the policy ([rh-aiservices-bu/s4#34](https://github.com/rh-aiservices-bu/s4/issues/34)): replace the policy instead, with one that grants `s3:GetObject` only to the S4 service user (`arn:aws:iam:::user/s4admin`), then confirm that an anonymous GET of an object in the bucket is refused.
+
+### 4.4 Existing community MinIO installs
+
+Earlier versions of the on-prem guide installed community MinIO as operator release `minio-operator` and tenant release `minio-cluster` in namespace `eyelevel`. The on-prem [MinIO migration guide](https://github.com/eyelevelai/groundx-on-prem/blob/53cf055e5437b8e619b0f4a2f2e27459a922eee2/docs/storage/minio-migration.md) holds the three runbooks for such an install; this skill links them and does not copy their commands. On these three paths the GroundX `file` settings stay as they are, and the storage type stays `minio`. Moving the store's files to S4 instead, a license-free option for small installs, changes the storage type to `s4` (`service-substitution.md` § 4.3.1).
+
+- **Upgrade in place to AIStor** — [Upgrading an Existing MinIO Install to AIStor](https://github.com/eyelevelai/groundx-on-prem/blob/53cf055e5437b8e619b0f4a2f2e27459a922eee2/docs/storage/minio-migration.md#upgrading-an-existing-minio-install-to-aistor). The store keeps its name, hosts, and credentials on the same disk. MinIO states that the upgrade is permanent and cannot be reversed, so the runbook's first step snapshots the tenant's disk. That step first stops uploads and waits until no documents are still processing, because processing keeps writing files to the store and anything written after the snapshot is not in it; uploads stay stopped until the runbook's step 8. GroundX has not tested this wait. The upgrade needs Helm 3.17 or later, above the Helm 3.8 floor the rest of this skill assumes, and an AIStor license; a tenant with more than one server needs a paid license. The snapshot step needs a CSI snapshot controller and a `VolumeSnapshotClass` for the storage driver, and GroundX's bundled EKS Terraform installs neither; without CSI snapshot support, snapshot the disk with the provider's tools instead. Before the community tenant is uninstalled, the runbook checks with `helm template` that the AIStor chart accepts the edited values file, so a values error stops the upgrade before storage goes down. On EKS, MinIO's migration tool runs in a container that cannot use the `aws eks get-token` login, so the runbook has the operator replace that login in the step 4 kubeconfig with a short-lived token (valid 15 minutes) and set a new token in the same file before step 9; step 9 uninstalls the community operator only if `protect-crds` succeeds.
+- **Restore community MinIO from that snapshot** — [Restoring Community MinIO from the Pre-Upgrade Snapshot](https://github.com/eyelevelai/groundx-on-prem/blob/53cf055e5437b8e619b0f4a2f2e27459a922eee2/docs/storage/minio-migration.md#restoring-community-minio-from-the-pre-upgrade-snapshot). Objects written after the snapshot are lost, including everything written while the store ran on AIStor. GroundX's database and search index are not restored, so documents ingested after the snapshot stay listed in GroundX without their files, X-Ray and page images, and must be re-ingested; this follows from where GroundX keeps its data and was not tested. The runbook first confirms that the `VolumeSnapshot` reports `readyToUse` and stops otherwise, because a later step deletes the AIStor-era volume claim; a disk snapshotted with the provider's own tools is restored with the provider's own restore steps instead. Before storage goes down, the runbook stops uploads and waits until no documents are still processing; uploads resume at its step 7. GroundX has not tested this wait. The server image the runbook offers for a customer without their own copy, `ghcr.io/coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9`, is a build of community MinIO `RELEASE.2025-10-15T17-29-55Z` published by coollabsio on GHCR, not by MinIO. It is newer than the default server image of tenant chart 7.1.1, and GroundX's tests did not restore a tenant that had run a different server release onto it.
+- **Stay on community MinIO** — [Staying on Community MinIO](https://github.com/eyelevelai/groundx-on-prem/blob/53cf055e5437b8e619b0f4a2f2e27459a922eee2/docs/storage/minio-migration.md#staying-on-community-minio). The store receives no fixes: MinIO archived the community server and operator repositories. As of 2026-10-14 the default server image of tenant chart 7.1.1 no longer downloads anonymously, so the migration guide asks the customer to keep a copy of the server image the tenant runs in their own registry and point the tenant at it.
 
 ## 5. OpenSearch
 
@@ -258,27 +318,21 @@ The GroundX chart renders `KafkaTopic` CRDs (`templates/services/stream-topics.y
 
 ## 7. Chainguard variants
 
-For deployers running the GroundX chart with `imageType: chainguard`, the chart ships paired Chainguard seed files under `src/groundx/values/chainguard/` for **four** of the five releases this file covers (no OpenSearch Chainguard variant ships in the chart; deployer-supplied overrides are required for OpenSearch on Chainguard):
+For deployers running the GroundX chart with `imageType: chainguard`, the chart ships the Chainguard seed files below under `src/groundx/values/chainguard/`. No MinIO AIStor or OpenSearch Chainguard variant ships in the chart; deployer-supplied overrides are required for OpenSearch on Chainguard. The two MinIO files there are unchanged legacy seeds for the community MinIO operator and tenant, which this guide no longer installs:
 
 | Subsystem | Chainguard seed file | What it does |
 | --- | --- | --- |
-| MinIO operator | `values.minio.operator.yaml` | Pins operator image to `cgr.dev/eyelevel.ai/minio-operator-fips`. References `chainguard-pull-secret`. |
-| MinIO tenant | `values.minio.tenant.yaml` | Pins tenant image to `cgr.dev/eyelevel.ai/minio-fips`. References `chainguard-pull-secret`. |
+| Community MinIO operator (legacy) | `values.minio.operator.yaml` | Unchanged legacy seed for the community MinIO operator. Pins operator image to `cgr.dev/eyelevel.ai/minio-operator-fips`. References `chainguard-pull-secret`. |
+| Community MinIO tenant (legacy) | `values.minio.tenant.yaml` | Unchanged legacy seed for the community MinIO tenant. Pins tenant image to `cgr.dev/eyelevel.ai/minio-fips`. References `chainguard-pull-secret`. |
 | Strimzi operator | `values.strimzi.operator.yaml` | Pins all Strimzi operator + worker images to `cgr.dev/eyelevel.ai/strimzi-kafka-operator` and `cgr.dev/eyelevel.ai/strimzi-kafka`. References `chainguard-pull-secret`. |
 | Strimzi Kafka cluster | `values.strimzi.cluster.yaml` | Sets `node: eyelevel-cpu` and leaves the subchart cluster version (cluster.version) unset so Strimzi selects a supported default (the prior 4.1.0 pin is removed as of chart 0.2.7). Does **not** reference `chainguard-pull-secret` directly; the cluster CR inherits image-pull configuration from the Strimzi operator. |
 | NVIDIA | `values.nvidia.yaml` | Sets `operator.runtimeClass: nvidia-container-runtime`. Does **not** override NVIDIA operator images — those come from the upstream NVIDIA registry. The Chainguard NVIDIA variant overlaps content-wise with the AKS-specific seed. |
 | **OpenSearch** | None shipped | Deployers running OpenSearch on Chainguard must supply their own image overrides for the OpenSearch Helm chart. |
+| **MinIO AIStor** | None shipped | The chart ships no Chainguard seed for the AIStor operator or object store. |
 
-Layer the Chainguard seed onto the standard seed for each operator install. For example, MinIO operator with Chainguard:
+Layer the Chainguard seed onto the standard seed for each operator install: pass the standard values file first and the Chainguard seed second, each with `-f`.
 
-```sh
-helm install minio-operator minio-operator/operator \
-  -n eyelevel \
-  -f helm/values/minio/values.operator.yaml \
-  -f helm/values/chainguard/values.minio.operator.yaml
-```
-
-The MinIO and Strimzi operator Chainguard seeds reference `chainguard-pull-secret` for image-pull authentication; the deployer creates this secret in the install namespace before the install (see `image-variants.md` § 6). The Strimzi *cluster* and NVIDIA Chainguard seeds inherit their pull-secret configuration from the corresponding operator's release.
+The Strimzi operator Chainguard seed and the legacy community MinIO seeds reference `chainguard-pull-secret` for image-pull authentication; the deployer creates this secret in the install namespace before the install (see `image-variants.md` § 6). The Strimzi *cluster* and NVIDIA Chainguard seeds inherit their pull-secret configuration from the corresponding operator's release.
 
 ## 8. Renaming releases — propagating service-name overrides
 
@@ -287,7 +341,7 @@ The GroundX chart and each backing-service Helm release (the operator releases a
 | If you set... | …in the GroundX chart, the operator release must produce... |
 | --- | --- |
 | `db.serviceName: my-db` | Percona services at `my-db-cluster-haproxy.{ns}.svc.cluster.local` and `my-db-cluster-haproxy-replicas.{ns}.svc.cluster.local`. Typically: `helm install my-db-cluster percona/pxc-db` with `nameOverride: my-db-cluster`. |
-| `file.serviceName: my-minio` | MinIO headless service at `my-minio-tenant-hl.{ns}.svc.cluster.local`. The MinIO operator's tenant CR creates `{tenant.name}-hl`, so set `tenant.name: my-minio-tenant`. |
+| `file.serviceName: my-minio` | The chart then connects to `my-minio.{ns}.svc.cluster.local` and waits on `my-minio-tenant-hl.{ns}.svc.cluster.local` (§ 4.3). The on-prem README installs the AIStor object store only as `objectStore.name: minio-tenant`, which serves the default hosts for `file.serviceName: minio`, and gives no steps for another name. Keep both defaults, or connect a differently named store through `file.existing` (`service-substitution.md` § 4.3). |
 | `search.serviceName: my-search` | OpenSearch master service at `my-search-cluster-master.{ns}.svc.cluster.local`. The OpenSearch Helm chart creates `{clusterName}-master`, so set `clusterName: my-search-cluster`. |
 | `stream.serviceName: my-stream` | Strimzi bootstrap service at `my-stream-cluster-kafka-bootstrap.{ns}.svc.cluster.local`. Strimzi creates `{kafka-cr-name}-kafka-bootstrap`, so the `Kafka` CR must be named `my-stream-cluster` (in the `groundx-strimzi-kafka-cluster` release). |
 
@@ -299,7 +353,7 @@ The Helm install ordering matters:
 
 1. **NVIDIA GPU Operator first** if the deployment uses any GPU (most do). The operator's DaemonSet must register `nvidia.com/gpu` on the nodes before GroundX's inference pods can schedule.
 2. **Percona operator + cluster** before the GroundX chart. The chart's pods wait for `db.rw` to be reachable (init containers) and fail to start if the Percona cluster isn't running.
-3. **MinIO operator + tenant** before the GroundX chart. Same wait pattern via the pre-process / extract / layout pods, which read from MinIO.
+3. **MinIO AIStor operator + object store** before the GroundX chart, with the license Secret `minio-license` created before the operator: without it the operator creates no object store (§ 4.1). Same wait pattern via the pre-process / extract / layout pods, which read from the object store.
 4. **OpenSearch** before the GroundX chart, unless `mode: ingest` is set (which disables search entirely). Search-using deployments wait for the OpenSearch service.
 5. **Strimzi operator + Kafka cluster** before the GroundX chart. The GroundX chart renders `KafkaTopic` CRDs that the Strimzi operator must be present to interpret. The Kafka cluster must be running for the pipeline pods to send/receive messages.
 

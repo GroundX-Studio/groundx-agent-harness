@@ -84,11 +84,11 @@ Each backing service runs in-cluster via its own Helm release (see `services-ope
 | Cache (Redis StatefulSet) | ~0.2 vCPU / 0.5 GiB requests per pod, 1 replica default | `eyelevel-cpu-only` |
 | Cache metrics | ~0.2 vCPU / 0.5 GiB per pod, 1 replica | `eyelevel-cpu-only` |
 | MySQL (Percona) | ~0.6 vCPU / 0.5 GiB per pod + HAProxy ~0.6 vCPU / 1 GiB, `pxc.size: 1` default | `eyelevel-cpu-only` |
-| Object store (MinIO) | ~0.1 vCPU / 0.25 GiB per pod, 1 server × 20 GiB default | `eyelevel-cpu-only` |
+| Object store (MinIO AIStor) | ~0.1 vCPU / 0.25 GiB per pod, 1 server × 20 GiB default | `eyelevel-cpu-only` |
 | Search (OpenSearch) | ~0.2 vCPU / 0.5 GiB per pod, 1 replica, single-node default | `eyelevel-cpu-only` |
 | Stream (Kafka via Strimzi) | ~0.5-1 vCPU / 1-2 GiB per broker, 1 replica default | `eyelevel-cpu-only` |
 
-Production scaling pushes each materially higher. `pxc.size: 3` (Percona quorum), `tenant.pools[0].servers: 4` (MinIO redundancy), OpenSearch with 3+ replicas, Strimzi with 3+ brokers — each adds ~3-5x the baseline footprint.
+Production scaling pushes each materially higher. `pxc.size: 3` (Percona quorum), `objectStore.pools[0].servers` above 1 (MinIO AIStor redundancy; more than one server needs a paid AIStor license), OpenSearch with 3+ replicas, Strimzi with 3+ brokers — each adds ~3-5x the baseline footprint.
 
 ### 5.2 Cloud-managed
 
@@ -110,12 +110,12 @@ Most production deployments end at **selective substitution**: stateful subsyste
 
 ## 6. Persistent storage
 
-For chart-deployed backing services, PVCs are provisioned against `cluster.pvClass`. Defaults (from the chart's seed values files under `src/groundx/values/{percona,minio,opensearch}/`):
+For chart-deployed backing services, PVCs are provisioned against `cluster.pvClass`. Defaults (from the chart's seed values files under `src/groundx/values/{percona,aistor,opensearch}/`):
 
 | Service | Default PVC size | Notes |
 | --- | --- | --- |
 | MySQL (Percona) | `pxc.persistence.size: 20Gi` | Single-node default. Production scales to 100s of GiB. |
-| MinIO tenant | `tenant.pools[0].size: 20Gi`, `volumesPerServer: 1` | Production scales to TiBs. |
+| MinIO AIStor object store | `objectStore.pools[0].size: 20Gi`, `volumesPerServer: 1` | Production scales to TiBs. |
 | OpenSearch | `persistence.size: 20Gi` | Production scales with index size (function of ingested document count × dimension × replica factor). |
 | Cache (Redis) | `persistence.capacity: 10Gi` (when `persistence.enabled: true` — default off) | Cache is normally ephemeral; persistence enabled only when the deployment uses Redis-backed durable state. |
 | Workspace cache | `pvc.capacity: 20Gi` (chart-default, always rendered when `workspace.enabled: true`) | The chart always materializes a `{workspace.serviceName}-data` PVC for the secondary file API cache. Override `workspace.pvc.capacity` to size; the chart does not support an `emptyDir` mode. |

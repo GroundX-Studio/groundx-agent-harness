@@ -6,7 +6,7 @@
 #
 # The resulting StorageClass name must match the main chart's cluster.pvClass.
 # EFS supports ReadWriteMany — required for production workspace-runner PVCs and
-# preferred for backing-service operators (Percona, MinIO).
+# preferred for backing-service operators (Percona, MinIO AIStor).
 
 storageClassName: eyelevel-pv
 isDefaultClass: false           # set true to make it the cluster default

@@ -102,8 +102,8 @@ For each of the five backing services, ask: existing in-house, chart-deployed de
 
 | Option | Fields pinned |
 | --- | --- |
-| Existing customer-managed (in-house S3-compatible) | `file.enabled: false`, `file.bucketName`, `file.existing.url`, `file.existing.serviceType: minio` (or `s3` if S3-compatible). Credentials via `file.username` / `file.password` or `cluster.secrets`-referenced Secret. |
-| Chart-deployed dedicated (MinIO operator) | `file.enabled: true`, `file.bucketName`, `file.username` / `file.password`. MinIO operator must be pre-installed. **Mode 2 constraint:** `file.username` / `file.password` must equal the MinIO tenant seed's `accessKey` / `secretKey` (documented in `services-operators.md` § 4) — these are dev-only seed defaults; override both sides for production. |
+| Existing customer-managed (in-house S3-compatible) | `file.enabled: false`, `file.bucketName`, `file.existing.url`, `file.existing.serviceType: minio` (or `s3` if S3-compatible, or `s4` for S4 at `http://<s4-service>.<namespace>.svc.cluster.local:7480` on a new install, with `file.existing.region` left unset; an existing MinIO store moving to S4 keeps its current URL — see `service-substitution.md` § 4.3.1). Credentials via `file.username` / `file.password` or `cluster.secrets`-referenced Secret. |
+| Chart-deployed dedicated (MinIO AIStor) | `file.enabled: true`, `file.bucketName`, `file.username` / `file.password`. The AIStor operator and object store must be installed before GroundX (see `services-operators.md` § 4). **Mode 2 constraint:** `file.username` / `file.password` must equal the object store's root credentials in Secret `minio-tenant-env-configuration` (documented in `services-operators.md` § 4, not restated here). |
 | Cloud-managed (AWS S3 / equivalent) | `file.enabled: false`, `file.bucketName`, `file.existing.url`, `file.existing.region`, `file.existing.serviceType: s3`. Credentials via `file.username` / `file.password`, `cluster.secrets`-referenced Secret, or IRSA on `serviceAccount.name`. |
 
 **Cross-field implications:** S3 on EKS strongly prefers IRSA over inline keys. Mode-1 in-house S3-compatible at non-default port → set `file.existing.port`.
@@ -322,14 +322,14 @@ Five named archetypes. When a deployment matches an archetype exactly, the agent
 
 ### 4.2 AKS-with-Azure-services
 
-**Profile:** Production Azure deployment. Backing services cloud-managed (Azure Database for MySQL with TLS, Azure Cache for Redis, Azure Blob via S3-compat or AKS-bundled MinIO, AKS-bundled Strimzi or Event Hubs). Chainguard images for compliance. Workload Identity for cloud auth. GPUs on `NC` / `ND` series. Self-hosted summary stack on a 48 GB GPU, or on a 24 GB GPU with the single-copy values in `cluster-requirements.md` § 2.3.
+**Profile:** Production Azure deployment. Backing services cloud-managed (Azure Database for MySQL with TLS, Azure Cache for Redis, Azure Blob via S3-compat or an in-cluster MinIO AIStor object store, AKS-bundled Strimzi or Event Hubs). Chainguard images for compliance, except for the object store: Chainguard lists no MinIO AIStor image. Workload Identity for cloud auth. GPUs on `NC` / `ND` series. Self-hosted summary stack on a 48 GB GPU, or on a 24 GB GPU with the single-copy values in `cluster-requirements.md` § 2.3.
 
 **Pre-canned answers:**
 - 3.1 Target platform → Azure AKS.
 - 3.2 Deployment mode → Full platform (or ingest-only per deployment).
 - 3.3 GPU availability → Yes.
 - 3.4 Summary engine → Self-hosted *or* Azure OpenAI (per deployment).
-- 3.5 Backing services → Azure Database for MySQL (Mode 3), Azure Cache for Redis (Mode 3), MinIO or Azure Blob (per deployment), AKS-bundled Strimzi (Mode 2).
+- 3.5 Backing services → Azure Database for MySQL (Mode 3), Azure Cache for Redis (Mode 3), MinIO AIStor (Mode 2) or Azure Blob (per deployment), AKS-bundled Strimzi (Mode 2).
 - 3.6 Capability toggles → per deployment.
 - 3.7 Security → Chainguard (`imageType: chainguard`). Plus `db.existing.rootCerts` for Azure Database TLS.
 - 3.8 Identity → Workload Identity via `serviceAccount.name`.
@@ -341,16 +341,16 @@ Five named archetypes. When a deployment matches an archetype exactly, the agent
 
 ### 4.3 OpenShift-FedRAMP-air-gapped
 
-**Profile:** Highly regulated / air-gapped on-prem OpenShift deployment. Chainguard images. All backing services chart-deployed-dedicated (no cloud egress). NVIDIA GPU Operator in offline mode. No external LLM (forced self-hosted summary). Custom CA. Long-lived per-customer deployment.
+**Profile:** Highly regulated / air-gapped on-prem OpenShift deployment. Chainguard images, except for the object store: Chainguard's image directory lists no MinIO AIStor image ([images.chainguard.dev](https://images.chainguard.dev/directory), read 2026-10-15). All backing services chart-deployed-dedicated (no cloud egress). NVIDIA GPU Operator in offline mode. No external LLM (forced self-hosted summary). Custom CA. Long-lived per-customer deployment.
 
 **Pre-canned answers:**
 - 3.1 Target platform → Red Hat OpenShift; air-gapped.
 - 3.2 Deployment mode → Full platform.
 - 3.3 GPU availability → Yes (procured GPU hardware).
 - 3.4 Summary engine → Self-hosted (only legal option in an air-gapped deployment).
-- 3.5 Backing services: all chart-deployed-dedicated (operators pre-installed via OperatorHub or manually; OpenSearch is a plain Helm release with no operator).
+- 3.5 Backing services: all chart-deployed-dedicated (operators pre-installed via OperatorHub or manually; OpenSearch is a plain Helm release with no operator). For the object store, choose one of: MinIO AIStor without Chainguard images (`services-operators.md` § 4), or an existing store through `file.existing` (`service-substitution.md` § 4.3).
 - 3.6 Capability toggles → Extract: per deployment; workspace: typically off; OCR: Tesseract (GCV would require external egress).
-- 3.7 Security → Chainguard + air-gapped + custom CA on each supported ingress and backing-service TLS surface. The chart has no cluster-wide TLS switch.
+- 3.7 Security → Chainguard + air-gapped + custom CA on each supported ingress and backing-service TLS surface. The chart has no cluster-wide TLS switch. The object store follows the 3.5 choice (see the profile note on AIStor images).
 - 3.8 Identity → Static keys in Kubernetes Secret via `cluster.secrets`.
 - 3.9 HPA + observability → HPA per deployment; adapt and apply a separate ServiceMonitor manifest for OpenShift user-workload monitoring when selected.
 - 3.10 License + admin → Procured key + bootstrap admin (in Secret).

@@ -37,10 +37,10 @@ The three modes are not mutually exclusive *across services*. A deployer can run
 | Aspect | Value |
 | --- | --- |
 | What it holds | Source bytes (uploaded documents), intermediate pipeline artifacts, X-Ray files. (Model weights are **not** held here — they are `wget`'d from the hardcoded `upload.groundx.ai` host into a model-cache PVC created **once per inference service** — `layout-model`, `ranker-model`, `summary-model` — and **mounted by every replica** of that Deployment. The volume outlives any single pod, so a failed download's false `complete.<version>` marker poisons the whole service and is **not** cleared by restarting a pod; see `install-flow.md § 9` and `references/air-gapped.md § 6.5`.) |
-| Mode 1 — existing | `file.bucketName` + `file.existing.url` → in-house S3-compatible endpoint with credentials |
-| Mode 2 — operator-deployed | Chart deploys MinIO (with `file.username` + `file.password`) |
+| Mode 1 — existing | `file.bucketName` + `file.existing.url` → in-house S3-compatible endpoint with credentials. `file.existing.serviceType: minio` for an existing MinIO or AIStor store, `s4` for S4 at `http://<s4-service>.<namespace>.svc.cluster.local:7480` on a new install, with `file.existing.region` left unset (chart 0.2.8 or later; an existing MinIO store moving to S4 keeps its current URL; see `service-substitution.md` § 4.3.1) |
+| Mode 2 — operator-deployed | The deployer installs MinIO AIStor under the customer's license (`services-operators.md` § 4); the chart connects to it with `file.username` + `file.password` |
 | Mode 3 — cloud-managed (AWS S3) | `file.bucketName` + `file.existing.url` (e.g. `https://<bucket>.s3.<region>.amazonaws.com`) + `file.existing.region` + `file.existing.serviceType: s3`. IAM creds via top-level `file.username` / `file.password` (the schema's `file.existing` block carries only `port`, `region`, `serviceType`, `url`; credentials live one level up), or via IRSA on the ServiceAccount. |
-| Default operator | MinIO operator |
+| Default operator | MinIO AIStor operator (customer's AIStor license required) |
 | Architecture depth | `groundx-architecture/references/store.md` |
 
 The same `file.existing.*` shape covers both Mode 1 (an in-house S3-compatible object store) and Mode 3 (AWS S3 / S3-compatible managed). The distinguishing fact is whether the endpoint is in-house or cloud-managed.
@@ -185,7 +185,7 @@ When in Mode 2, the chart depends on several operators that ship separately:
 | --- | --- | --- |
 | **Strimzi** | Kafka | The chart's queue when `stream.enabled=true`. |
 | **Percona Operator for MySQL** | Process metadata DB | The chart's MySQL when `db.enabled=true`. |
-| **MinIO operator** | Object store | The chart's file storage when `file.enabled=true`. |
+| **MinIO AIStor operator** | Object store | The chart's file storage when `file.enabled=true`. Needs the customer's AIStor license (`services-operators.md` § 4). |
 | **NVIDIA GPU Operator** | GPU scheduling | Not a backing service per se — needed for `layout-inference`, `ranker-inference`, `summary-inference` to acquire GPUs. See `references/cluster-requirements.md` § 2.4 + `references/gpu-operator.md`. |
 
 OpenSearch is not in this table: in Mode 2 it is a plain Helm release with no operator (§ 3.4).

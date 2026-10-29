@@ -52,8 +52,8 @@ db:
 file:
   enabled: true
   bucketName: eyelevel
-  username: minio
-  password: minio123           # dev-only default
+  username: <aistor-root-user>
+  password: <aistor-root-password>
 
 search:
   enabled: true

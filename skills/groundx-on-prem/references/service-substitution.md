@@ -2,7 +2,7 @@
 
 This file documents **the chart's primary integration knob: each major dependency subsystem (cache/Redis, db/MySQL, file/MinIO-S3, search/OpenSearch, stream/Kafka, summary/LLM) can be either chart-deployed in-cluster or routed to a deployer-supplied existing instance**. The mechanism is the same shape across all six subsystems: an `existing:` sub-block whose discriminator field, when non-empty, flips the chart's `create` helper to false.
 
-For the related question of *which operators* the chart provisions when chart-deploying (Strimzi, Percona, MinIO operator, NVIDIA), route to `services-operators.md`. For per-subsystem credentials and how secrets are wired in either mode, route to `credentials.md`. For the architectural picture, route to `groundx-architecture/references/data-flow.md`.
+For the related question of *which operators* the chart provisions when chart-deploying (Strimzi, Percona, MinIO AIStor operator, NVIDIA), route to `services-operators.md`. For per-subsystem credentials and how secrets are wired in either mode, route to `credentials.md`. For the architectural picture, route to `groundx-architecture/references/data-flow.md`.
 
 ## 1. The pattern
 
@@ -33,7 +33,7 @@ In plain English (for the five uniform-shape subsystems):
 
 So the *only* values.yaml signal needed to substitute a deployer-managed service for the chart's bundled one is to set the discriminator field of `existing:`. No need to set `enabled: false`. No need to disable the operator. Just provide an address — the chart skips the install.
 
-**A note on what "chart-deployed" really means.** The GroundX chart itself only renders Kubernetes resources for **cache** (`templates/services/cache.yaml`, `cache-metrics.yaml`) and for **summary inference** (`templates/app/inference.yaml`), plus per-pipeline Kafka topic CRDs (`templates/services/stream-topics.yaml`). For db, file, search, and the Kafka cluster, "chart-deployed" means the deployer separately installs an operator (Strimzi for Kafka, Percona for MySQL, MinIO operator for object store) or a standalone Helm chart (OpenSearch) using the values files shipped under `src/groundx/values/{percona, minio, opensearch, strimzi}/`. The GroundX chart only writes the connection strings into `config.yaml` — it does not render the StatefulSets / CRs / tenants itself. See § 9.
+**A note on what "chart-deployed" really means.** The GroundX chart itself only renders Kubernetes resources for **cache** (`templates/services/cache.yaml`, `cache-metrics.yaml`) and for **summary inference** (`templates/app/inference.yaml`), plus per-pipeline Kafka topic CRDs (`templates/services/stream-topics.yaml`). For db, file, search, and the Kafka cluster, "chart-deployed" means the deployer separately installs an operator (Strimzi for Kafka, Percona for MySQL, the MinIO AIStor operator for object store) or a standalone Helm chart (OpenSearch) using the values files shipped under `src/groundx/values/{percona, aistor, opensearch, strimzi}/`. The GroundX chart only writes the connection strings into `config.yaml` — it does not render the StatefulSets / CRs / object stores itself. See § 9.
 
 ## 2. Substitution matrix
 
@@ -41,7 +41,7 @@ So the *only* values.yaml signal needed to substitute a deployer-managed service
 | --- | --- | --- | --- | --- |
 | **Cache** (Redis/Valkey) | `cache` | `cache.existing.addr` | Bundled Redis in `eyelevel-cpu-only` node group | AWS ElastiCache, GCP Memorystore, self-hosted Valkey cluster |
 | **Database** (MySQL) | `db` | `db.existing.ro` AND `db.existing.rw` (both required) | Percona MySQL operator + StatefulSet | AWS RDS MySQL, GCP CloudSQL MySQL, Azure Database for MySQL, on-prem MySQL/MariaDB |
-| **Object store** (S3 / MinIO) | `file` | `file.existing.url` | MinIO operator + tenant | AWS S3, GCP Cloud Storage, Azure Blob, self-hosted MinIO, NetApp / Pure Storage S3 |
+| **Object store** (S3 / MinIO) | `file` | `file.existing.url` | MinIO AIStor operator + object store (customer's license) | AWS S3, GCP Cloud Storage, Azure Blob, self-hosted MinIO or AIStor, S4, NetApp / Pure Storage S3 |
 | **Search** (OpenSearch) | `search` | `search.existing.url` | OpenSearch StatefulSet in `eyelevel-cpu-memory` node group | AWS OpenSearch Service, Aiven OpenSearch, self-hosted OpenSearch cluster |
 | **Stream** (Kafka) | `stream` | `stream.existing.domain` | Strimzi-managed Kafka cluster | AWS MSK, Confluent Cloud, Aiven Kafka, AWS SQS *(per-topic — see § 6)* |
 | **Summary** (LLM) | `summary` | A `summary.existing` engine whose `serviceType` is not `eyelevel` or whose `url` is off-cluster, plus `engines.default.engineId` (chart 0.2.7, § 4.6) | Self-hosted gemma inference pod | OpenAI, Azure OpenAI, AWS Bedrock, any OpenAI-compatible endpoint |
@@ -133,9 +133,43 @@ For non-AWS object stores:
 
 - **GCS**: `existing.url: https://storage.googleapis.com`, `serviceType: gcs` (when supported by the application's SDK; verify with deployer contact).
 - **Azure Blob**: configured via Azure-compatible S3 gateway or direct Azure SDK depending on the application's support matrix.
-- **Self-hosted MinIO**: `existing.url: https://minio.platform.svc.cluster.local`, `serviceType: minio`.
+- **Self-hosted MinIO or MinIO AIStor**: `existing.url: https://minio.platform.svc.cluster.local`, `serviceType: minio`.
+- **S4**: `serviceType: s4` with the S4 Service URL on port 7480 for a new install; when S4 replaces an existing MinIO store, GroundX keeps the URL it uses today — see § 4.3.1.
 
-The chart's `file.bucketName` is the same regardless of substitution — the bucket must exist (the chart doesn't create cloud buckets; it does create in-cluster MinIO buckets when chart-deploying).
+The chart's `file.bucketName` is the same regardless of substitution. The chart doesn't create cloud buckets, so a cloud bucket must exist before install.
+
+With `fileAccess.enabled` false (the chart default), on an in-cluster MinIO, MinIO AIStor, or S4 store, GroundX creates the bucket when it does not exist and then sets a public-read policy on it, which GroundX's unsigned file, X-Ray, and page-image links rely on. If the bucket already exists on such a store, because it was copied from another store or an operator created it, GroundX does not set the policy. Apply the anonymous `s3:GetObject` policy step in the on-prem S4 migration guide ([Migrating from MinIO or AIStor](https://github.com/eyelevelai/groundx-on-prem/blob/53cf055e5437b8e619b0f4a2f2e27459a922eee2/docs/storage/s4.md#migrating-from-minio-or-aistor), step 3), with the store's own URL, credentials, and region in place of the S4 ones. The policy lets anyone who can reach the store read every object in the bucket, not only those links. With `fileAccess.enabled` true, GroundX does not set this policy and the bucket must stay private: do not apply it, and remove any anonymous grant, because GroundX serves files through the file-access gateway instead (`file-access.md`). On S4 0.3.2, `DeleteBucketPolicy` reports success but keeps the policy ([rh-aiservices-bu/s4#34](https://github.com/rh-aiservices-bu/s4/issues/34)): replace the policy instead, with one that grants `s3:GetObject` only to the S4 service user (`arn:aws:iam:::user/s4admin`), then confirm that an anonymous GET of an object in the bucket is refused.
+
+#### 4.3.1 S4
+
+[S4](https://github.com/rh-aiservices-bu/s4) is a license-free, S3-compatible store that runs in one container on Ceph's experimental standalone gateway. GroundX connects to it with storage type `s4`, which needs GroundX chart 0.2.8 or later with its default image tags: older service images do not know `s4` and send files to AWS S3 or fail extraction at start. S4 suits small installs; for production, use MinIO AIStor (`services-operators.md` § 4).
+
+Limits of S4 0.3.2, as the on-prem [S4 guide](https://github.com/eyelevelai/groundx-on-prem/blob/53cf055e5437b8e619b0f4a2f2e27459a922eee2/docs/storage/s4.md#limits) lists them:
+
+- One replica, so no high availability ([chart values](https://github.com/rh-aiservices-bu/s4/blob/797911cbaa1b44fcaecfdfe69145a6a904ef7463/charts/s4/values.yaml#L4)).
+- Thousands to tens of thousands of objects per bucket ([S4 FAQ](https://github.com/rh-aiservices-bu/s4/blob/797911cbaa1b44fcaecfdfe69145a6a904ef7463/docs/operations/faq.md#how-many-objects-can-s4-handle)).
+- The image is built for `linux/amd64` only.
+- Kubernetes health checks cover only the web UI port (5000), not the S3 port (7480) that GroundX uses.
+- In S4 mode, large-file import and review (large-file delivery, off by default) refuse files larger than 5 GiB, the largest single upload S4 accepts, before uploading them. They also spool each upload to a temporary file in the pod's `TMPDIR` on top of the importer's own copy, so they need temporary pod disk of about twice the largest file for each upload in flight.
+- Long object keys fail. S4 limits the whole key, path included, as sent URL-encoded: in GroundX's tests on S4 0.3.2 it stored keys of up to 246 bytes in a single upload and 210 bytes in a multipart upload, and refused longer ones. Each `/` counts as 3 bytes, and each non-ASCII character counts as its URL-encoded length (9 bytes for a 3-byte UTF-8 character, as in Chinese or Japanese), so such file names fail much sooner. A file name fails below those figures by the length of the path GroundX puts in front of it. Extraction trace capture saves on S4 from chart 0.2.8.
+- The access key and secret key are fixed when S4 first starts on its volume. In GroundX's tests, after a restart with new credentials, S4 refused the new keys (`InvalidAccessKeyId`) and kept accepting the first ones.
+- Bucket creation outside region `us-east-1` fails. GroundX services always use `us-east-1` for `s4` and ignore a configured region.
+- Write-once (creating an object only if its key is absent) holds only for writers that do not overlap in time. In GroundX's tests, when eight writers created the same new key at once, two of them both succeeded in 3 of 40 rounds: both were told they had created the object, and only one writer's content was kept.
+
+Connect a new GroundX install to S4 with the S4 access key and secret key as `file.username` and `file.password`. The URL is `http://<s4-service>.<namespace>.svc.cluster.local:7480`; leave `file.existing.region` unset, because S4 always uses `us-east-1`. When S4 replaces an existing MinIO store, use the migration rule below instead: it keeps the store's URL.
+
+```yaml
+file:
+  username: <s4-access-key>
+  password: <s4-secret-key>
+  existing:
+    serviceType: s4
+    url: http://s4.eyelevel.svc.cluster.local:7480
+```
+
+The [S4 install](https://github.com/eyelevelai/groundx-on-prem/blob/53cf055e5437b8e619b0f4a2f2e27459a922eee2/README.md#using-s4) uses S4's git tag with `helm/values/s4/values.yaml`. To copy an existing store, follow [Migrating from MinIO or AIStor](https://github.com/eyelevelai/groundx-on-prem/blob/53cf055e5437b8e619b0f4a2f2e27459a922eee2/docs/storage/s4.md#migrating-from-minio-or-aistor). With `fileAccess.enabled` false, after a copy or on a bucket the deployer created, apply the guide's public-read policy step: GroundX sets the policy only on a bucket it creates itself, and the copy does not carry it. With file access on, skip that step and keep the bucket private (`file-access.md`). GroundX saves each file's full URL, including the store's host and any port, and reads and copies only files whose URL starts with its storage URL. So when S4 replaces an existing MinIO store, GroundX keeps the URL it uses today, with `serviceType: s4`. The guide's migration steps cover a MinIO or AIStor store installed by the on-prem README in namespace `eyelevel`, with `file.existing.url`, `file.customDomain`, `file.serviceName`, and `file.bucketName` unset: they hand Service `minio` to S4 and set `url: http://minio.eyelevel.svc.cluster.local`, without a port. If any of them is set, S4 must answer at exactly the scheme, host, and port GroundX uses today instead; GroundX has not tested that. Uploads stay stopped, with no document still processing, from before the copy until, after the GroundX upgrade, a file link stored before the move loads and a small test document finishes processing. If you cannot confirm that nothing is processing, do not migrate. GroundX has not tested this wait.
+
+A store connected as `serviceType: minio` that keeps a leading `/` in object keys — an S3-compatible store other than MinIO or AIStor — must rename those keys before upgrading GroundX to chart 0.2.8: [Object Keys That Start with a Slash](https://github.com/eyelevelai/groundx-on-prem/blob/53cf055e5437b8e619b0f4a2f2e27459a922eee2/docs/storage/minio-migration.md#object-keys-that-start-with-a-slash).
 
 ### 4.4 Search (`search`)
 
@@ -330,7 +364,7 @@ The chart imposes no preference. Most production deployments end up at "selectiv
 
 | Set this... | …and this is implied or required |
 | --- | --- |
-| `<svc>.existing.<discriminator>` non-empty | The chart skips chart-deploying that subsystem. Subsystem-specific replicas, resources, persistence, and node-selector fields under `<svc>` are ignored. Operator dependencies (Strimzi for stream, Percona for db, MinIO operator for file) are no longer required. |
+| `<svc>.existing.<discriminator>` non-empty | The chart skips chart-deploying that subsystem. Subsystem-specific replicas, resources, persistence, and node-selector fields under `<svc>` are ignored. Operator dependencies (Strimzi for stream, Percona for db, the MinIO AIStor operator for file) are no longer required. |
 | `<svc>.existing.<discriminator>` empty + `enabled: false` | The chart neither deploys the subsystem nor routes to an existing one. The application's runtime config will lack the service. **For most subsystems this breaks the pipeline.** Only valid when the deployment mode actively skips the subsystem (e.g., `mode: ingest` legitimately removes search). |
 | `db.existing.ro` set but `db.existing.rw` empty (or vice versa) | The chart's `groundx.db.existing` helper returns false (both must be set). The chart then ignores both values and points every service at the in-cluster Percona hostnames; with no in-cluster Percona, pods wait at wait-for-database or fail to connect. **Set both or neither.** |
 | `summary.existing.serviceType` to any non-`eyelevel` value (e.g., `openai`, `bedrock`) | On 0.2.7 you must also declare `engines.default.engineId` or the render fails. With engines declared, any non-`eyelevel` service resolves the engine external, so `groundx.summary.create` returns false and no self-hosted inference pod is rendered. There is no fixed allowed-set on 0.2.7; whether the runtime can actually reach the named service is a separate application concern (set `existing.url` for any endpoint without a built-in shape). See `engines.md` § 2. |
@@ -344,7 +378,7 @@ Despite the "chart-deployed" terminology, the GroundX Helm chart only renders Ku
 | --- | --- | --- |
 | **cache** | `cache.yaml` + `cache-metrics.yaml` — Redis StatefulSets, in-cluster. | Nothing. |
 | **db** | Nothing. | Percona XtraDB operator + cluster CR. Values under `src/groundx/values/percona/`. |
-| **file** | Nothing. | MinIO operator + tenant CR. Values under `src/groundx/values/minio/`. |
+| **file** | Nothing. | MinIO AIStor operator + object store. Values under `src/groundx/values/aistor/`. Or S4, values under `src/groundx/values/s4/`, connected through `file.existing` with `file.existing.serviceType: s4` (§ 4.3). |
 | **search** | Nothing. | OpenSearch via its own Helm chart. Values under `src/groundx/values/opensearch/`. |
 | **stream** | `stream-topics.yaml` — `KafkaTopic` CRDs only. The cluster itself is not rendered. | Strimzi Kafka operator + `Kafka` CR. Values under `src/groundx/values/strimzi/`. (Kafka topics rendered by the GroundX chart require Strimzi to be running so the operator picks up the CRDs.) |
 | **summary** | `inference.yaml` — self-hosted gemma inference pod. | NVIDIA GPU operator (cluster-wide). |
@@ -365,7 +399,7 @@ When designing a values.yaml for a new deployment:
 
 ## 11. What this file does not cover
 
-- **Operator installation specifics (Strimzi, Percona, MinIO operator, NVIDIA operator)** → `services-operators.md`.
+- **Operator installation specifics (Strimzi, Percona, MinIO AIStor operator, NVIDIA operator)** → `services-operators.md`.
 - **Per-subsystem credential mechanics** → `credentials.md`.
 - **Field-by-field schema for `<svc>` blocks** → `values-yaml.md`.
 - **Discovery questionnaire for substitution decisions at install time** → `values-authoring.md`.

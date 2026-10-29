@@ -14,7 +14,7 @@ GroundX stores three kinds of state:
 - **Process Metadata DB** holds the operational state customers see — auth records, document and workflow status, queueing state, customer / bucket / group records.
 - **Retrieval DB** holds the **JSONL chunks** and derived keyword + vector indices that hybrid search reads at query time.
 
-Each is deployment-selectable: managed cloud services (S3, RDS, ElastiCache) for cloud deployments; self-hosted equivalents (MinIO, MySQL, Redis) for on-prem deployments; OpenSearch in both cases.
+Each is deployment-selectable: managed cloud services (S3, RDS, ElastiCache) for cloud deployments; self-hosted equivalents (MySQL, Redis, and for files MinIO AIStor under the customer's own license, the store the `groundx-on-prem` guide installs) for on-prem deployments; OpenSearch in both cases. On-prem file storage can instead use S4, an existing S3-compatible store, or AWS S3.
 
 ## 3. Conceptual / algorithmic altitude
 
@@ -32,7 +32,7 @@ The three stores and their backings:
 
 | Store | Default on-prem backing | Default managed backing | Selector |
 | --- | --- | --- | --- |
-| **File Storage** | MinIO | S3 (or equivalent object store) | `values.yaml` |
+| **File Storage** | MinIO AIStor (customer's license); alternatives: S4, an existing S3-compatible store, or AWS S3 | S3 (or equivalent object store) | `values.yaml` |
 | **Process Metadata DB** | MySQL + Redis | RDS + Redis / ElastiCache | `values.yaml` |
 | **Retrieval DB** | OpenSearch | OpenSearch (managed or self-hosted) | `values.yaml` |
 
@@ -46,7 +46,7 @@ For the full system topology see `overview.md` § 4.4. For the inter-pod store a
 
 | Aspect | Detail |
 | --- | --- |
-| Backings | MinIO (on-prem default) / S3 (cloud default); other object stores via `values.yaml` |
+| Backings | MinIO AIStor under the customer's license (the store the `groundx-on-prem` guide installs) / S3 (cloud default); on-prem alternatives S4, an existing S3-compatible store, or AWS S3; other object stores via `values.yaml` |
 | Writers | `upload` (source file, URL-shared path); layout pipeline (per-page images, OCR text, detection results, mapped layouts); `pre-process` (orchestration intermediate artifacts); `summary-client` (summary intermediate artifacts); `process` (terminal X-Ray); `extract-save` (extraction results, when enabled) |
 | Readers | `groundx` (serves X-Ray on `GET /v1/ingest/document/xray/{documentId}`); downstream pods reading intermediate artifacts produced earlier in the pipeline; Extract microservice reads the X-Ray when extraction is enabled |
 | Notable artifacts | Source file (input); per-page rendered images; layout intermediate artifacts; **X-Ray** (terminal customer-facing aggregate JSON); extraction output (when enabled) |

@@ -43,7 +43,7 @@ All inter-pod communication uses **Kubernetes-native DNS** (`<service>.<namespac
 
 - All API + orchestration ↔ pipeline-microservice calls.
 - All pipeline-microservice ↔ pipeline-microservice handoffs (queue-mediated where the architecture requires durability; direct HTTP where it doesn't).
-- All pipeline ↔ backing-service traffic *when* the backing service is operator-deployed-dedicated (Mode 2 — in-cluster MinIO / Percona / Redis / OpenSearch / Strimzi).
+- All pipeline ↔ backing-service traffic *when* the backing service is operator-deployed-dedicated (Mode 2 — in-cluster MinIO AIStor / Percona / Redis / OpenSearch / Strimzi).
 - Inference-pod ↔ orchestration-pod model calls (`layout-inference`, `ranker-inference`, `summary-inference`).
 
 ### 3.2 External by configuration (leaves the cluster only when the deployer opts in)

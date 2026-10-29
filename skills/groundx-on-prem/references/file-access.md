@@ -25,6 +25,39 @@ accept the current document's original PNG/JPG source and generated pages/crops.
 Do not toggle the flag to bypass a failed image check. Verify full public/protected
 image extraction, not only chart rendering or file downloads.
 
+## Storage delivery aliases
+
+Use the single operator setting `fileAccess.trustedOrigins` for historical HTTPS
+delivery origins of the primary file bucket. It also applies when
+`fileAccess.enabled: false`; configuring aliases does not create a gateway or enable
+protection. An alias must identify the same bucket and storage namespace as the
+current delivery root. A separate extraction store keeps its own roots.
+
+The chart derives complete alternate roots from these origins and the native
+bucket root. S3 keeps the configured root; MinIO/S4 adds the bucket only when absent
+and preserves delivery prefixes. The existing rendered configuration carries:
+
+| Consumer | Configuration |
+| --- | --- |
+| API, workers and gateway | Go YAML `fileAccess.trustedOrigins`, including a disabled block when aliases exist |
+| Layout | Python `uploadURL` and `uploadReplaceURL` (string or list) |
+| Extraction | Python `upload` settings: `url` and optional `url_aliases` (list) |
+
+These stay in the chart's existing configuration Secrets. See the
+[file helpers](https://github.com/eyelevelai/groundx-on-prem/blob/0.2.8/src/groundx/templates/_helpers/services/file.tpl)
+and [configuration templates](https://github.com/eyelevelai/groundx-on-prem/tree/0.2.8/src/groundx/templates/resources).
+Alias distribution and extraction `url_aliases` require coordinated compatible chart
+and SDK releases; the linked `0.2.8` source paths do not prove deployed support.
+Hosted services receive the same mapping through their existing saved or
+mounted configuration, after the backing resource and exact sanitized diff are reviewed.
+
+Current and alias roots resolve to the same exact object key. Ownership, task/document
+scope and file-policy checks still apply before service storage reads. `public_read`
+does not establish ownership. SDK image consumers preserve exact native signed links
+and never retry a denied grant with service credentials. Layout retains its existing
+literal saved-filename handling for owned query-bearing references. No Fern schema,
+MCP permission, upload issuance or public API shape changes are required.
+
 ## Deployment boundaries
 
 - `fileAccess.enabled` defaults false. Enabling adds a streaming file gateway, with

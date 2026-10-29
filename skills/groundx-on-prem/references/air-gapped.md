@@ -23,7 +23,7 @@ Every container image the cluster pulls — whether for the GroundX chart pods, 
 | Busybox helper | `public.ecr.aws/c9r4x6y5/eyelevel/busybox:1.0.0` or `cgr.dev/eyelevel.ai/busybox-fips:latest` | `busybox.image: my-mirror.internal/...` |
 | NVIDIA GPU Operator | `nvcr.io/nvidia/*`, `nvcr.io/nvidia/cloud-native/*` | Mirror all NVIDIA images; pin operator install via offline values |
 | Percona PXC operator + cluster | `percona/*` (Docker Hub) | Mirror via Percona's air-gapped install procedure |
-| MinIO operator + tenant | `minio/operator`, `minio/tenant`, `quay.io/minio/*` | Mirror; reference local image in tenant.image |
+| MinIO AIStor operator + object store | The images referenced by the pinned charts `minio/aistor-operator` 6.0.0 and `minio/aistor-objectstore` 1.1.0 from `https://helm.min.io/` | Mirror every image those two charts reference, and mirror the charts |
 | Strimzi Kafka operator | `quay.io/strimzi/*` | Mirror; use offline values for the operator and cluster Helm releases |
 | OpenSearch | `opensearchproject/opensearch`, `opensearchproject/opensearch-dashboards` | Mirror |
 | Redis | `redis:*` from Docker Hub (in-cluster cache mode) | Mirror |
@@ -155,7 +155,7 @@ Before `helm install` in an air-gapped cluster:
    ```
 
    Save the list. When `metrics.enabled: true` (not the chart default), the unfiltered render also contains a chart-generated `metrics-tls` private key — redact before sharing the full output; see `references/credentials.md`.
-2. **Add the backing-service images** (the Percona, MinIO and Strimzi operator charts and the `opensearch/opensearch` chart; each chart has its own image list).
+2. **Add the backing-service images** (the Percona, MinIO AIStor and Strimzi operator charts and the `opensearch/opensearch` chart; each chart has its own image list).
 3. **Add NVIDIA GPU Operator images** (operator itself + driver + device plugin + DCGM exporter, when applicable).
 4. **Add the busybox helper image**.
 5. **Mirror every image to your internal registry.** Verify with `crictl pull` or `docker pull` against the mirror from a node.
@@ -222,7 +222,7 @@ See `upgrades.md` for the general upgrade flow; air-gapped just adds the mirror-
 
 | Set this... | …and this is implied or required |
 | --- | --- |
-| Air-gapped cluster | All operator and backing-service releases (Percona, MinIO, Strimzi, the OpenSearch Helm release, NVIDIA GPU Operator, Prometheus) must also be air-gapped: each release's images mirrored, charts mirrored. |
+| Air-gapped cluster | All operator and backing-service releases (Percona, MinIO AIStor, Strimzi, the OpenSearch Helm release, NVIDIA GPU Operator, Prometheus) must also be air-gapped: each release's images mirrored, charts mirrored. |
 | `summary.existing.url: https://api.openai.com/v1` in an air-gapped cluster | Pod can't reach the URL; summary calls fail. Use self-hosted summary inference. |
 | `layout.ocr.type: google` in an air-gapped cluster | Pod can't reach `vision.googleapis.com`; OCR calls fail. Use Tesseract (the chart default). |
 | `workspace.enabled: true` or `extract.save.enabled: true` in an air-gapped cluster | The configured Git provider API or Google Drive / Sheets is unreachable and the publish fails. Leave each disabled (chart default); `workspace` can instead point at an in-cluster Git remote, but Google Drive / Sheets has no in-cluster equivalent, so `extract.save` must stay disabled. See the authoritative egress table (`cost-estimation.md` § 7.1). |
