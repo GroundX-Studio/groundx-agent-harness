@@ -36,6 +36,23 @@ PNG/JPG source as well as generated pages/crops. Do not change the flag to bypas
 failures. Preserve authorized source and generated-page reads,
 external/native grants, and existing byte/quality/provider limits in both modes.
 
+`ContainerUploadSettings.url_aliases` optionally lists complete alternate roots for
+the same storage bucket as `upload.url`. Use the handwritten `Upload.storage_key`
+resolver for image ownership and key conversion: it removes only the longest
+configured root at a path boundary and returns the exact suffix, or `None` for a
+native signed grant or an external reference. Preserve signed URL bytes and their
+bounded HTTP transport; a denied grant must never fall back to service credentials.
+Resolved ownership still requires the caller's existing task/document and original
+source checks. `public_read` and remote HTTP allowlists do not authorize native reads.
+
+On-prem operators configure `fileAccess.trustedOrigins`; the chart renders
+`upload.url_aliases` alongside layout's existing `uploadReplaceURL` and Go YAML
+settings, even with the gateway disabled. Read
+[`file-access.md`](../../groundx-on-prem/references/file-access.md#storage-delivery-aliases)
+for namespace and bucket-prefix rules. Keep resolver/settings/consumer changes in
+the existing `.fernignore`-protected extract source and tests. This addition needs
+no generated client, Fern schema, MCP permission or public API shape change.
+
 ## 3.2 Adding a new optional dep
 
 **Edit `.fern/metadata.json`, not `pyproject.toml`** (see [§2 core-sdk](./02-core-sdk.md) §2.2).

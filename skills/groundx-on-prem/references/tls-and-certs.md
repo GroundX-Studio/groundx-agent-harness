@@ -235,7 +235,7 @@ S3 (Mode 3) uses HTTPS by default; the public AWS root CA is trusted by the char
 
 For external MinIO (Mode 1) with self-signed / custom-CA TLS, chart 0.2.7 has no CA-bundle mount either (§ 3.2), so the certificate cannot be trusted through values. On the 0.2.8 chart line and later, add its CA to the bundle in `fileAccess.caSecretName` (§ 3.2), then test uploads and reads, because not every Python client is known to honor `SSL_CERT_FILE`.
 
-For bundled in-cluster MinIO (Mode 2), traffic stays inside the cluster — TLS is optional and rarely set.
+For the in-cluster MinIO AIStor store (Mode 2), traffic stays inside the cluster, and the AIStor values turn TLS off (`services-operators.md` § 4.2).
 
 ## 5. Surface 4 — OpenShift Route TLS
 

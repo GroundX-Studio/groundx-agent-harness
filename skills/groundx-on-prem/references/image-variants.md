@@ -28,7 +28,7 @@ Everything else — image paths, pull secrets, dependency images, other runtime 
 2. Add `chainguard-pull-secret` (or your equivalent) to `cluster.imagePullSecrets`.
 3. Optionally override `busybox.image` and dependency-operator images.
 
-The upstream chart ships a complete reference set under `src/groundx/values/chainguard/` — six files that together flip the entire deployment to Chainguard variants. Treat that directory as the canonical recipe.
+The upstream chart ships a reference set under `src/groundx/values/chainguard/` — six files. Treat that directory as the canonical recipe. It has no file for MinIO AIStor, the object store this guide installs; its two MinIO files are unchanged legacy seeds for community MinIO.
 
 ## 3. The reference set — `src/groundx/values/chainguard/`
 
@@ -36,12 +36,14 @@ The upstream chart ships a complete reference set under `src/groundx/values/chai
 | --- | --- |
 | `values.yaml` | Core chart: `imageType: chainguard`, `cluster.imagePullSecrets: [chainguard-pull-secret]`, `busybox.image: cgr.dev/eyelevel.ai/busybox-fips:latest` (the cgr.dev busybox is the *canonical* Chainguard choice; the standard `public.ecr.aws/c9r4x6y5/eyelevel/busybox:latest` also works with `imageType: chainguard` and is what `values.aks.yaml` uses), `cache.image: cgr.dev/eyelevel.ai/redis-fips:v8.2.3`, plus per-pod `image:` overrides for `groundx`, `layout.{api,correct,inference,map,ocr,process,save}`, `layoutWebhook`, `preProcess`, `process`, `queue`, `summaryClient`, `upload`. |
 | `values.nvidia.yaml` | NVIDIA GPU operator: `operator.runtimeClass: nvidia-container-runtime`. |
-| `values.minio.operator.yaml` | MinIO **operator** image substitution. Pull secret `chainguard-pull-secret`. |
-| `values.minio.tenant.yaml` | MinIO **tenant** image substitution. Pull secret. |
+| `values.minio.operator.yaml` | Legacy community MinIO **operator** image substitution, unchanged; this guide no longer installs community MinIO. Pull secret `chainguard-pull-secret`. |
+| `values.minio.tenant.yaml` | Legacy community MinIO **tenant** image substitution, unchanged. Pull secret. |
 | `values.strimzi.operator.yaml` | Strimzi (Kafka) operator image substitution. Pull secret. |
 | `values.strimzi.cluster.yaml` | Strimzi Kafka cluster image substitution. |
 
-The split between operator and tenant/cluster files for MinIO and Strimzi exists because those subsystems are deployed as separate Helm releases — see `services-prereqs.md` and (when shipped) `services-operators.md`.
+The core `values.yaml` also sets `file.username: minio` and `file.password: minio123`. Override both with the MinIO AIStor root credentials from Secret `minio-tenant-env-configuration` (`services-operators.md` § 4.1); the AIStor object store chart refuses to create that Secret with this pair. Chainguard's image directory lists no AIStor image ([images.chainguard.dev](https://images.chainguard.dev/directory), read 2026-10-15); `values-authoring.md` § 4.3 lists the object-store options for a Chainguard deployment.
+
+The split between operator and tenant/cluster files for community MinIO and Strimzi exists because those subsystems are deployed as separate Helm releases — see `services-prereqs.md` and `services-operators.md`. This guide no longer installs community MinIO, so its two seeds are legacy files.
 
 For a full Chainguard install you layer them:
 
@@ -50,12 +52,6 @@ helm install groundx ./chart \
   -f src/groundx/values/chainguard/values.yaml \
   -f src/groundx/values/chainguard/values.nvidia.yaml \
   -f my-overrides.yaml
-
-# MinIO operator/tenant installs separately:
-helm install minio-operator minio/operator \
-  -f src/groundx/values/chainguard/values.minio.operator.yaml
-helm install minio-tenant minio/tenant \
-  -f src/groundx/values/chainguard/values.minio.tenant.yaml
 
 # Strimzi (Kafka) similarly:
 helm install strimzi strimzi/strimzi-kafka-operator \
@@ -143,7 +139,7 @@ Helper at `_helpers/main.tpl:50–56`. Default fallback is `{prefix}/eyelevel/bu
 
 Chainguard's hardened images are typically a load-bearing piece of FedRAMP-track deployments because they ship with verified provenance, near-zero-CVE base layers, and FIPS-validated cryptography. **Switching `imageType` alone is insufficient** — the deployment also needs:
 
-- All pod images on Chainguard variants (not just the chart pods — also MinIO, Strimzi, NVIDIA operator, Redis, MySQL/Percona, OpenSearch).
+- All pod images on Chainguard variants (not just the chart pods — also Strimzi, NVIDIA operator, Redis, MySQL/Percona, OpenSearch). The chart ships no Chainguard seed for MinIO AIStor (§ 3).
 - All pull secrets and registry credentials managed under the deployer's compliance-scope credentials store.
 - Egress to `cgr.dev` either allowed (regulated cluster) or proxied through a private mirror (air-gapped).
 - Audit trail recording every image-digest the cluster pulls.
@@ -173,7 +169,7 @@ If any pod shows UID `1001` or pulls a non-Chainguard tag, the flag-plus-overrid
 
 - **`admin.imageRepository` mechanics** → `license-and-admin.md` § 4.
 - **Pull-secret credential lifecycle** → `credentials.md` § 5.
-- **MinIO / Strimzi / NVIDIA operator deployment specifics** → `services-prereqs.md` and `services-operators.md`.
+- **MinIO AIStor / Strimzi / NVIDIA operator deployment specifics** → `services-prereqs.md` and `services-operators.md`.
 - **Air-gapped image-mirroring procedure** → `air-gapped.md`.
 - **FedRAMP attestation checklists** → out of scope; consult the deployer's compliance org and `groundx-architecture/references/data-residency.md`.
 - **Chainguard product details, pricing, or tag-lifecycle policy** → consult Chainguard's documentation.

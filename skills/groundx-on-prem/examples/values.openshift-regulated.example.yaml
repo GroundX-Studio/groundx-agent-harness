@@ -1,7 +1,9 @@
 # Red Hat OpenShift regulated / FedRAMP-style deployment.
 #
 # All backing services chart-deployed dedicated (Mode 2) — no cloud egress.
-# Chainguard images for SBOM / FedRAMP compliance.
+# Chainguard images for SBOM / FedRAMP compliance, except for the object store:
+# Chainguard's image directory lists no MinIO AIStor image. Choose MinIO AIStor
+# without Chainguard images, or an existing store through file.existing.
 # No chart-managed in-cluster TLS: cluster.tls.existingSecret below is inert in chart 0.2.7.
 # Self-hosted summary stack (no external LLM calls — air-gapped-compatible).
 # OpenShift Route for ingress (not standard Ingress resource).
@@ -66,8 +68,8 @@ db:
     rw: mysql-cluster-pxc-db-haproxy.eyelevel.svc.cluster.local
 
 file:
-  username: <minio-username>
-  password: <minio-password>
+  username: <aistor-root-user>
+  password: <aistor-root-password>
 
 search:
   username: <search-username>

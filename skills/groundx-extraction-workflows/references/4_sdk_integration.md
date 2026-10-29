@@ -113,3 +113,13 @@ Do not change the flag to bypass a failed check. Use existing service credential
 generated pages/crops. Preserve authorization on external and signed links. Test
 full extraction for public/protected images; successful downloads and X-Rays do
 not prove that extraction works.
+
+Source, page and crop references can use different configured delivery roots for the
+same bucket. Use the SDK's `Upload.storage_key` with `upload.url` and optional
+`upload.url_aliases`, then retain the existing task/document and original-source
+authorization before a native read. The result is the exact object-key suffix;
+`None` leaves native signed grants and external URLs on their existing transport.
+Preserve every signed URL byte and never retry a denied grant with service credentials.
+On-prem `fileAccess.trustedOrigins` supplies this mapping even with the gateway off;
+see [`storage delivery aliases`](../../groundx-on-prem/references/file-access.md#storage-delivery-aliases).
+Aliases do not change extraction schemas, prompts, API shape or MCP permissions.

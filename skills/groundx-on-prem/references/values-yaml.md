@@ -293,21 +293,21 @@ For the three-mode (existing customer-managed / operator-deployed-dedicated / cl
 
 ### 4.3 `file:` (Object Store)
 
-- **`file.enabled`** (boolean, default `true`) — Master switch for in-cluster MinIO via the MinIO operator. Set `false` when using `file.existing.*`.
+- **`file.enabled`** (boolean, default `true`) — Master switch for the in-cluster object store, MinIO AIStor, which the deployer installs separately (`services-operators.md` § 4). Set `false` when using `file.existing.*`.
 - **`file.bucketName`** (string, default `eyelevel`) — Object-store bucket / container name. Required in all modes.
-- **`file.username` / `file.password`** (string) — Credentials for the bundled in-cluster MinIO. Treat as credentials.
+- **`file.username` / `file.password`** (string) — Credentials for the object store: the in-cluster MinIO AIStor store's root credentials, or the external endpoint's. Treat as credentials.
 - **`file.serviceType`** (string) — Optional at the top level (some sample files set it here when not using `existing`). For Mode 1 / Mode 3 the canonical placement is `file.existing.serviceType`.
-- **`file.serviceName`** (string, default `minio`) — Kubernetes Service name for the bundled MinIO.
-- **`file.port`** (int, default `9000`) — Port for the bundled MinIO.
-- **`file.customDomain`** (string) — Override the in-cluster DNS name when callers need to reach the bundled MinIO via a custom domain.
-- **`file.existing.serviceType`** (string) — `"s3"` or `"minio"`. Required when pointing at an external object store.
-- **`file.existing.url`** (string) — External S3 / MinIO endpoint URL.
-- **`file.existing.region`** (string) — Required when `serviceType: s3`.
+- **`file.serviceName`** (string, default `minio`) — Kubernetes Service name of the in-cluster store; the AIStor object store named `minio-tenant` serves `minio` (`services-operators.md` § 4.3).
+- **`file.port`** (int, default `9000`) — Port for the in-cluster store.
+- **`file.customDomain`** (string) — Override the in-cluster DNS name when callers need to reach the in-cluster store via a custom domain.
+- **`file.existing.serviceType`** (string) — `"s3"`, `"minio"` (MinIO or AIStor), or `"s4"` (S4; chart 0.2.8 or later — see `service-substitution.md` § 4.3.1). Required when pointing at an external object store.
+- **`file.existing.url`** (string) — External S3 / MinIO endpoint URL. For S4 on a new install: `http://<s4-service>.<namespace>.svc.cluster.local:7480`; when S4 replaces an existing MinIO store, keep the store's current URL (`service-substitution.md` § 4.3.1).
+- **`file.existing.region`** (string) — Required when `serviceType: s3`. Leave unset for `s4`, which always uses `us-east-1`.
 - **`file.existing.port`** (int) — Optional, for non-default ports.
 - **`file.token`** (string) — Token-based auth for the file storage backend (alternative to username/password for backends that support it).
-- **`file.ingress.*`** (full ingress shape — see § 5.10 for the common ingress field list) — Exposes the bundled MinIO via an Ingress resource (rare; typically only useful for direct MinIO console access).
+- **`file.ingress.*`** (full ingress shape — see § 5.10 for the common ingress field list) — Exposes the in-cluster store via an Ingress resource (rare; typically only useful for direct console access).
 
-**Credentials.** `file.username` / `file.password` (top-level under `file:`, *not* under `file.existing.*`) carry credentials for both the bundled in-cluster MinIO and the external endpoint. For S3 these are the AWS access key id and secret access key (e.g., `values.cloud.yaml` sets `username: awsKey`, `password: awsSecret`). The chart can alternatively read AWS creds from environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, or the `GROUNDX_*` variants) injected through `envFrom` by `cluster.secrets`, or from an IAM role bound to `serviceAccount.name` via IRSA.
+**Credentials.** `file.username` / `file.password` (top-level under `file:`, *not* under `file.existing.*`) carry credentials for both the in-cluster MinIO AIStor store and the external endpoint. For S3 these are the AWS access key id and secret access key (e.g., `values.cloud.yaml` sets `username: awsKey`, `password: awsSecret`). The chart can alternatively read AWS creds from environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, or the `GROUNDX_*` variants) injected through `envFrom` by `cluster.secrets`, or from an IAM role bound to `serviceAccount.name` via IRSA.
 
 **Canonical AWS-S3 block (from upstream sample values files):**
 
@@ -359,7 +359,7 @@ file:
 
 ## 5. Application microservices
 
-Application microservices share the configuration pattern below where their schema exposes each field. Backing services such as `cache`, `cache.metrics`, and in-cluster MinIO have separate schemas described in § 4 and do not accept this common block wholesale.
+Application microservices share the configuration pattern below where their schema exposes each field. Backing services such as `cache`, `cache.metrics`, and the in-cluster object store have separate schemas described in § 4 and do not accept this common block wholesale.
 
 - **`enabled`** (boolean) — Master switch for the microservice. Default `true` for always-on microservices; `false` for opt-in microservices (extract, workspace).
 - **`replicas.desired`** (int) — Replica count when HPA is off, or initial replica count when HPA is on.
@@ -517,13 +517,13 @@ Two flavors of summary execution:
 - **`extract.cacheDirectory`** (string) — On-disk cache directory inside the extract pods.
 - **`extract.callbackApiKey`** (string) — API key for callback URLs the extract pipeline POSTs to when extraction completes. Treat as a credential.
 - **`extract.callbackUrl`** (string) — Default callback URL the extract pipeline POSTs results to (e.g., `https://api.groundx.ai/api`). Often overridden per workflow.
-- **`extract.file.{bucketName, username, password, region, serviceType, url}`** — Extract-side override for the upload bucket. Used when the extract pipeline writes to a *different* S3 bucket than the main ingest pipeline. Same shape as `file.existing.*`. Treat `username` / `password` as credentials.
+- **`extract.file.{bucketName, username, password, region, serviceType, url}`** — Extract-side override for the upload bucket. Used when the extract pipeline writes to a *different* S3 bucket than the main ingest pipeline. Same shape as `file.existing.*`; `serviceType` accepts the same values, `s4` included (chart 0.2.8 or later — see `service-substitution.md` § 4.3.1). The override applies to the extract services only; the layout workers follow `file.*`. Treat `username` / `password` as credentials.
 - **`extract.{agent,api,download,save}`** — Four sub-microservices. Each follows the common pattern (`enabled`, `replicas`, `resources`, `node`).
 
 **`extract.agent`** specifics:
 - **`apiKey`** (string) — Outbound LLM API key when `serviceType` is an external engine (`openai`, etc.). Treat as a credential.
 - **`apiBaseUrl`** (string) — Endpoint override for the agent's outbound LLM calls (when the default for the chosen `serviceType` isn't right).
-- **`serviceType`** (string) — Engine type, such as `"openai"` or `"bedrock"`. Bedrock is an external extraction provider and requires effective S3 file storage.
+- **`serviceType`** (string) — Engine type, such as `"openai"` or `"bedrock"`. Bedrock is an external extraction provider, and chart 0.2.8 or later accepts it with every file storage type. On `minio` (community MinIO and MinIO AIStor) and `s4`, GroundX sends page images as inline base64 data URLs, which AWS documents for the `bedrock-mantle` endpoint; on validation EKS on 2026-10-20, Bedrock Gemma 4 31B accepted the extract services' requests from `minio` (MinIO AIStor) and `s4` storage. How page images reach Bedrock depends on the storage type (see `references/engines.md` § 8).
 - **`modelId`** (string) — Override the chart-default `engines.default.engineId`.
 - **`model.reasoningEffort`** (string) — `"low"`, `"medium"`, `"high"`, or `null` to inherit `engines.default`.
 - **`model.kwargs`** (dict) — Engine-specific extra arguments (e.g., `max_tokens: 2000`).
@@ -694,7 +694,7 @@ The table below captures the most load-bearing field interactions a deployer nee
 | `summary.existing.serviceType` is any value other than `eyelevel`, or `summary.existing.url` points off-cluster, with `engines.default.engineId` set | The summary engine resolves external, so the chart's `groundx.summary.create` helper returns `false` and `summary-api` + `summary-inference` are skipped automatically. Without `engines.default.engineId` the 0.2.7 render fails. `eyelevel-gpu-summary` node group not needed. Document content leaves the cluster on each summary call. See `references/engines.md` § 1. |
 | `workspace.enabled: true` | Provide `workspace.token` OR `workspace.existingSecret`. Allow egress to the configured git remote. ReadWriteMany-friendly PVC strongly preferred for `workspace.pvc`. |
 | `extract.enabled: true` | Configure at least one extraction engine via `engines.default` or `extract.agent.{modelId, serviceType, apiKey}`. Typically also set `cluster.preProcessors: [{processorId: 13, type: extract}]`. Extract microservices render only when this is `true`. |
-| `extract.agent.serviceType: bedrock` | Set `extract.agent.apiBaseUrl` and `modelId`, provide `GROUNDX_AGENT_API_KEY` through `extract.agent.apiKey`, `extract.agent.existingSecret`, or `cluster.secrets`, and configure effective extract file storage as `s3`. The chart rejects incomplete Bedrock configuration. At runtime, Bedrock requests use S3 references while non-Bedrock requests keep their configured image transport. |
+| `extract.agent.serviceType: bedrock` | Set `extract.agent.apiBaseUrl` and `modelId`, provide `GROUNDX_AGENT_API_KEY` through `extract.agent.apiKey`, `extract.agent.existingSecret`, or `cluster.secrets`. The chart does not check these; the extract services reject an incomplete configuration when a request is made. Non-Bedrock requests keep their configured image transport. Page-image transport by storage type: `references/engines.md` § 8. |
 | `extract.save.driveId` + `extract.save.templateId` set | Provide `extract.save.gcpCredentials` (inline JSON or via `--set-file`) OR `extract.save.existingSecret: true` + `extract.save.secretName`. Allow egress to Google Drive / Sheets APIs. |
 | `layout.ocr.type: google` | Supply the GCP service-account JSON key file either as a chart-packaged file (e.g. at `files/ocr/credentials.json`) set via `layout.ocr.credentials`, or — on chart 0.2.7 — as a pre-created Secret referenced through the top-level `google.existingSecret` value (leave `layout.ocr.credentials` unset); either way the chart mounts the key at `/app/credentials.json` in the layout-ocr pod. With the packaged-file path, Chart materializes a Secret mounted into the layout-ocr pod. Set `layout.ocr.project` to the GCP project id. Allow egress to `vision.googleapis.com`. Page images leave the cluster on each OCR call. |
 | `imageType: chainguard` | Pods run as UID `65532`. Storage classes / volumes must permit non-root file ownership. Provide a Chainguard image-pull secret in `cluster.imagePullSecrets`. Override `busybox.image` to a Chainguard variant. |
@@ -720,7 +720,7 @@ Fields that follow this pattern:
 - `licenseKey` (top-level).
 - `admin.{apiKey, email, password, username}`.
 - `db.{username, password, privilegedUsername, privilegedPassword, rootCerts}` + `db.existing.{rootCerts}`.
-- `file.{username, password}` for bundled MinIO and external object stores.
+- `file.{username, password}` for the in-cluster MinIO AIStor store and external object stores.
 - `search.{username, password, privilegedUsername, privilegedPassword}`.
 - `stream.{key, secret}` and per-topic `stream.topics.<name>.{key, secret}` overrides.
 - `summary.existing.apiKey`.

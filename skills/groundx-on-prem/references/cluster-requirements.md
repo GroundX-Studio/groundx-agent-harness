@@ -99,7 +99,7 @@ Per-customer namespace partitioning is **not** how multi-tenancy is enforced —
 
 ## 5. Persistent volumes
 
-When backing services are deployed by the chart in operator-managed-dedicated mode (Mode 2: Percona MySQL, Strimzi Kafka, OpenSearch as a plain Helm release, MinIO operator, the in-cluster Redis), they request `PersistentVolumeClaim` resources against the cluster's **default `StorageClass`**.
+When backing services are deployed by the chart in operator-managed-dedicated mode (Mode 2: Percona MySQL, Strimzi Kafka, OpenSearch as a plain Helm release, MinIO AIStor operator, the in-cluster Redis), they request `PersistentVolumeClaim` resources against the cluster's **default `StorageClass`**.
 
 The deployer must ensure the default `StorageClass`:
 
@@ -135,7 +135,7 @@ A precise budget depends on workload (concurrent ingest rate, document size, sum
 | **GPU memory (vision)** | ~2.5 GB × `layout-inference` worker × thread (default `1×6` ≈ 15 GB) | Card with at least that much memory required. |
 | **GPU memory (ranker)** | ~17.5 GB estimated footprint at chart-default `14×1` sizing; provision a 24 GB card class | Not a floor — a T4 (16 GB) runs `ranker-inference` at reduced worker/thread counts. 17.5 GB is the computed footprint; 24 GB is the recommended card class with headroom. |
 | **GPU memory (summary)** | A 48 GB card for the default 2 copies at `summary.inference.deviceUtilize: 0.48` | One 24 GB card only with the single-copy values in § 2.3. `summary.api.enabled: false` + `summary.inference.enabled: false` removes this requirement entirely. |
-| **CPU (backing services, Mode 2)** | ~4–8 vCPU baseline | Sum across Percona, Redis, OpenSearch, MinIO, Strimzi. Production load needs more. |
+| **CPU (backing services, Mode 2)** | ~4–8 vCPU baseline | Sum across Percona, Redis, OpenSearch, MinIO AIStor, Strimzi. Production load needs more. |
 | **Memory (backing services, Mode 2)** | ~16–32 GiB baseline | Same caveat. |
 | **Persistent storage (backing services, Mode 2)** | 100s of GiB to TiBs | Driven by ingested document volume + retention. |
 

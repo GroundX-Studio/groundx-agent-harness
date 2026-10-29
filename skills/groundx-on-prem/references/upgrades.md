@@ -2,7 +2,7 @@
 
 This file documents **the `helm upgrade` workflow for the GroundX chart** — pre-upgrade checks, schema migrations, hash-annotation-driven rollouts, backing-service version coordination, and the rollback path. The chart's general upgrade philosophy is *forward-only* with explicit deployer review at each schema bump.
 
-For chart-deployed operator and release versions (Percona, MinIO, Strimzi, NVIDIA GPU Operator, and the OpenSearch Helm release), route to `services-operators.md`. For the install-time flow that upgrades build on, route to `install-flow.md`. For air-gapped upgrades, route to `air-gapped.md` § 10.
+For chart-deployed operator and release versions (Percona, MinIO AIStor, Strimzi, NVIDIA GPU Operator, and the OpenSearch Helm release), route to `services-operators.md`. For the install-time flow that upgrades build on, route to `install-flow.md`. For air-gapped upgrades, route to `air-gapped.md` § 10.
 
 ## 1. The basic upgrade command
 
@@ -97,6 +97,8 @@ Before running `helm upgrade`:
 
 5. **Snapshot the cluster state.** Export current `values.yaml`, current MySQL data (via `kubectl exec` and `mysqldump`), OpenSearch indices (via snapshot API). Air-gapped: ensure new chart + new images are mirrored *before* the upgrade.
 
+6. **Upgrading to chart 0.2.8: rename object keys that start with `/`.** This applies only to a store connected as `file.existing.serviceType: minio` that is not MinIO or AIStor and keeps a leading `/` in object keys. MinIO and AIStor drop the leading `/` when they store an object, and AWS S3 (`serviceType: s3`) is not affected. In chart 0.2.8, the `groundx`, `upload`, `pre-process`, `process`, `queue`, and `summary-client` services remove the leading `/` from every key and prefix, so they no longer find objects stored with it. Follow the on-prem migration guide section [Object Keys That Start with a Slash](https://github.com/eyelevelai/groundx-on-prem/blob/53cf055e5437b8e619b0f4a2f2e27459a922eee2/docs/storage/minio-migration.md#object-keys-that-start-with-a-slash), which holds the commands, in its order: stop uploads and wait until no documents are still processing, so that 0.2.7 services write no new keys; rename the keys; upgrade GroundX straight after the rename; then, before resuming uploads, list the keys again and rename any new ones the same way. An object over 5 GB stops the guide's rename loop and needs the guide's copy-in-parts step, for the rename and for a rollback. Keep every list of renamed keys for a rollback (§ 6). GroundX ran these commands against S4 on 2026-10-15 and 2026-10-16, including an object over 5 GB copied with `aws s3 cp` and the rollback's reverse rename; every object kept its content.
+
 ### 2.1 Certificate verification and private CAs (0.2.8 chart line)
 
 GroundX Go service images that include the GX-130 change verify the TLS certificate of every HTTPS and Redis TLS endpoint they call. Before upgrading to a chart that runs those images, check each endpoint:
@@ -177,7 +179,7 @@ The GroundX chart doesn't strictly couple to specific backing-service versions, 
 | --- | --- | --- |
 | **Cache** (Redis 7.x / Valkey) | Loose — protocol-compatible | Independently when ready |
 | **MySQL** (Percona PXC 8.x) | Loose — SQL-compatible | Independently when ready; pay attention to major-version jumps (5.7 → 8.x) requiring data migration |
-| **Object store** (MinIO operator + tenant) | Loose — S3-protocol-compatible | Independently |
+| **Object store** (MinIO AIStor operator + object store) | Loose — S3-protocol-compatible | Independently. A community MinIO install from an earlier guide moves to AIStor through a one-way upgrade that starts with a disk snapshot — see `services-operators.md` § 4.4 |
 | **Search** (OpenSearch 2.x) | Tight on the index version when migrating; loose otherwise | Coordinate with GroundX upgrades, especially across major OpenSearch versions |
 | **Stream** (Strimzi-managed Kafka) | Loose for minor Strimzi/Kafka bumps; **tight for the `groundx-strimzi-kafka-cluster` 0.1.x -> 0.2.x jump** (v1beta2 -> v1 CRD conversion) | Minor Strimzi/Kafka: independently, rolling. The 0.1.x -> 0.2.x subchart jump is NOT a plain rolling upgrade; follow the conversion runbook (note below) |
 | **NVIDIA GPU Operator** (driver + device plugin) | Tight on the kernel / runtime combo | Coordinate with K8s upgrades, not GroundX upgrades |
@@ -205,6 +207,7 @@ Helm's rollback replays the previous chart + values + release-state. Caveats:
 - **PVCs are not rolled back.** Data written during the failed upgrade stays. If schema migrations ran on MySQL or OpenSearch, those are not reverted by `helm rollback`.
 - **External backing services are not rolled back.** Cloud-managed services and existing-infra databases follow their own rollback procedures.
 - **Config-resource rollback IS supported** — the previous ConfigMap or Secret content is reinstated, and the corresponding hash annotation triggers a fresh rollout. Rolling `0.2.7` back to `0.2.6` also reverts the § 3.5 kind flip (the seven resources return to `ConfigMap`); external references and RBAC grants scoped by kind must tolerate whichever kind matches the revision now deployed.
+- **Object keys renamed for chart 0.2.8 are not renamed back.** If § 2 step 6 renamed keys that started with `/`, reverse that rename before rolling back to chart 0.2.7, as the same migration guide section describes. Objects written on chart 0.2.8 are stored without the slash and are not in the renamed-key lists, so 0.2.7 services may not find them.
 
 For data-side rollback, restore from snapshots taken pre-upgrade (§ 2 step 5).
 

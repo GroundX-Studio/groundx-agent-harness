@@ -106,6 +106,16 @@ operator setting and original-image read requirements. Internal reads must use
 existing document authorization and service storage credentials. Signed storage
 links use their own authorization; a denied link must not be retried with service credentials.
 
+Configured current and historical delivery roots identify one bucket and storage
+namespace. They do not grant account or task/document access. Operators supply
+`fileAccess.trustedOrigins`, including with the gateway disabled; the chart distributes
+the mapping to Go YAML, layout `uploadReplaceURL` and extraction `upload.url_aliases`.
+Internal readers retain the exact object key and existing scope checks. Native signed
+links retain their own authority and exact URL in SDK image transport. Layout keeps
+its existing literal saved-filename semantics for owned query-bearing keys. Read
+[`storage delivery aliases`](../../groundx-on-prem/references/file-access.md#storage-delivery-aliases)
+for configuration boundaries; public API contracts and MCP permissions are unchanged.
+
 ### 5.6 Workspace runner ingress invariant
 
 The workspace runner (`workspace-api` + 5 worker pods, per `workspace-architecture.md`) is reachable **only through `groundx` as the Workspace facade**. There is no direct external path. This is an architectural invariant.
@@ -123,7 +133,7 @@ The default deployment is **closed** — document content and customer data do n
 | Crossing | Triggered by | What leaves the deployment |
 | --- | --- | --- |
 | 3rd-party LLM call | `summary.serviceType` set to a hosted engine (`openai`, `azure`, `openai-base64`, `deep-infra`, `eyelevel` pointed at a hosted endpoint) | Document content during the agentic pipeline's LLM calls (per `summary-service.md` § 6 + `agentic-pipeline.md` § 6) |
-| External Bedrock extraction call | An extraction workflow selects `service: bedrock` and the deployment enables the matching extract provider | Extraction prompts and AWS S3 page-image references |
+| External Bedrock extraction call | A workflow engine with `service: bedrock`, or the chart's `extract.agent.serviceType: bedrock` for workflows that name no engine, and the deployment enables the matching extract provider | Extraction prompts, plus `s3://` page-image references on `s3` storage with a workflow engine, or page-image bytes inside the request on `minio` (community MinIO and MinIO AIStor) or `s4` storage and on `s3` storage when no workflow engine is set |
 | Google Cloud Vision OCR | `gcv.json` GCP service account file provided | Page images on every OCR call (per `layout-ocr.md` § 6) |
 
 The bundled-self-hosted summary stack and the customer-hosted-LLM mode both keep document content inside the deployment's trust boundary. The hybrid-search path is **entirely in-cluster** regardless of which summary mode is in use during ingest (per `hybrid-search.md` § 6).

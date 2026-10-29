@@ -25,7 +25,7 @@ GroundX needs five backing services. Each can be deployed in one of three modes 
 
 | Backing | Mode 1 — existing customer-managed | Mode 2 — operator-managed dedicated | Mode 3 — cloud-managed |
 | --- | --- | --- | --- |
-| **File Storage** | Customer's existing object store (`file.existing.url`) | Operator-deployed MinIO (`file.enabled=true`) | S3 (`file.serviceType=s3` + `file.existing.url`) |
+| **File Storage** | Customer's existing object store (`file.existing.url`) | Operator-deployed MinIO AIStor under the customer's license (`file.enabled=true`) | S3 (`file.serviceType=s3` + `file.existing.url`) |
 | **Process Metadata DB** | Existing MySQL (`db.existing.ro` / `rw` / `port`) | Operator-deployed Percona MySQL | AWS RDS (set `db.existing.*` to RDS endpoint) |
 | **Cache** | Existing Redis (`cache.existing.addr`, plus `cache.metrics.enabled: false`; see `values-authoring.md` § 3.5.3) | Operator-deployed Redis | AWS ElastiCache (set `cache.existing.addr` to ElastiCache endpoint, plus `cache.metrics.enabled: false` as in Mode 1) |
 | **Retrieval DB** | Existing OpenSearch (`search.existing.url`) | Separate `opensearch/opensearch` Helm release (no operator) | AWS OpenSearch managed (set `search.existing.url` to managed endpoint) |
@@ -89,7 +89,7 @@ What leaves the cluster at runtime — this is the deployer's network-policy / e
 
 | Connection | When | Notes |
 | --- | --- | --- |
-| Object store (S3 / MinIO / equivalent) | Always | Source files, intermediate artifacts, X-Rays. In-cluster (MinIO) or external (S3 / managed object store). |
+| Object store (S3 / MinIO / equivalent) | Always | Source files, intermediate artifacts, X-Rays. In-cluster (MinIO AIStor) or external (S3, S4, or a managed object store). |
 | Relational DB (MySQL / RDS) | Always | Process metadata, auth, queueing state. In-cluster (Percona) or external (RDS). |
 | Cache (Redis / ElastiCache) | Always | Hot process state, frequently-accessed API queries, metrics. In-cluster or external. |
 | Search (OpenSearch) | Always | JSONL chunks + keyword + vector indices. In-cluster (the `opensearch/opensearch` Helm release, no operator) or external (AWS OpenSearch managed). |
@@ -108,7 +108,7 @@ With no overrides, a default deployment lands:
 - The layout pipeline (with GPU-default `layout-inference`).
 - The ranker pair (with GPU `ranker-inference`).
 - The summary stack (with GPU `summary-inference` and Gemma 3) — because `summary.api.enabled: true` + `summary.inference.enabled: true` is the default.
-- All five surrounding services in operator-deployed-dedicated mode (MinIO, Percona MySQL, Redis, OpenSearch, Kafka via Strimzi).
+- All five surrounding services in operator-deployed-dedicated mode (MinIO AIStor, Percona MySQL, Redis, OpenSearch, Kafka via Strimzi).
 - No extraction microservice (until `extract.enabled=true`).
 - No workspace runner (until `workspace.enabled=true`).
 - Tesseract OCR (until `gcv.json` is provided).

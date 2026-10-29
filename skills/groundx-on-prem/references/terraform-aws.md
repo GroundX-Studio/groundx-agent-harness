@@ -144,7 +144,7 @@ The EKS module (`terraform/aws/eks/`) creates these IRSA roles:
 
 The EKS Terraform does **not** create an external-dns / Route53 role or an AWS-Load-Balancer-Controller role. If you run either operator, create its IRSA role yourself — see § 6.1 for the external-dns / Route53 role.
 
-**The bundled `s3-sqs-worker` policy is broad, not least-privilege.** `irsa.tf` grants `s3:*` and `sqs:*` on `Resource: *` — account-wide S3 and SQS administration. IRSA controls *which* identity the pod assumes (its ServiceAccount), not *what* that identity may do. For production, replace the bundled policy with one restricted to the exact buckets and queues the deployment uses (and, where possible, the specific actions), rather than shipping the `*:*`-on-`*` grant.
+**The bundled `s3-sqs-worker` policy is broad, not least-privilege.** `irsa.tf` grants `s3:*` and `sqs:*` on `Resource: *` — account-wide S3 and SQS administration. IRSA controls *which* identity the pod assumes (its ServiceAccount), not *what* that identity may do. For production, replace the bundled policy with one restricted to the exact buckets and queues the deployment uses (and, where possible, the specific actions), rather than shipping the `*:*`-on-`*` grant. When you list specific S3 actions, keep `s3:PutObjectTagging` next to `s3:PutObject`: extraction trace capture writes tagged objects, and S3 denies every trace write without it. On the GroundX validation cluster, ingest, search, extraction and document copy ran on S3 with `s3:ListBucket` and `s3:GetBucketLocation` on the bucket and `s3:GetObject`, `s3:PutObject` and `s3:DeleteObject` on its objects; trace capture also needed `s3:PutObjectTagging`.
 
 Wire the chart pods to use IRSA via:
 
@@ -301,7 +301,7 @@ After install:
 - **Helm upgrades** to the GroundX chart use the EKS cluster as-is. See `upgrades.md`.
 - **Terraform-side updates** (e.g., changing node-group instance types, adding new node groups) require `bin/environment eks` re-run with the updated `env.tfvars`. Terraform plans the diff and applies.
 
-Tear-down order: chart first (`helm uninstall groundx`), then operators (Percona, MinIO, Strimzi, etc.), then `bin/environment eks -c`, then `bin/environment aws-vpc -c`. Reverse order prevents lingering EBS volumes / ELB / IAM resources that block VPC deletion.
+Tear-down order: chart first (`helm uninstall groundx`), then operators (Percona, MinIO AIStor, Strimzi, etc.; the AIStor operator runs in namespace `aistor`), then `bin/environment eks -c`, then `bin/environment aws-vpc -c`. Reverse order prevents lingering EBS volumes / ELB / IAM resources that block VPC deletion.
 
 ## 10. When not to use this tooling
 

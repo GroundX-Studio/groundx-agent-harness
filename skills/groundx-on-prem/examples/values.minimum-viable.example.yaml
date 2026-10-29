@@ -36,7 +36,7 @@ db:
   dbName: eyelevel
 
 file:
-  enabled: true            # chart-managed MinIO via the MinIO operator
+  enabled: true            # MinIO AIStor via the AIStor operator, installed beside the chart
   bucketName: eyelevel
 
 search:
