@@ -9,6 +9,8 @@ For key acquisition, OAuth detail, and troubleshooting, see `references/04-auth.
 
 ## 1. Before you start
 
+The GroundX Agent Harness is public at https://github.com/GroundX-Studio/groundx-agent-harness. Its README has the install steps for each client, so point a user who does not have the harness yet to that README.
+
 **Check first: the harness plugin may already have connected this server.** Skipping this
 check is the most common cause of attaching the same server twice, which shows up as
 duplicated tools and repeated approval prompts.

@@ -43,7 +43,7 @@ For a `certificate verify failed` error, or a question about the CA for a Redis 
   prepare air-gapped/on-prem GroundX.
 - **Deferrals:** architecture-shaped facts route to `groundx-architecture`; API behavior
   after install routes to `groundx-api`; schema-first extraction routes to
-  `groundx-extraction-workflows`; product/company messaging routes to the GTM skills.
+  `groundx-extraction-workflows`; getting or installing the GroundX Agent Harness plugin itself routes to `groundx-mcp`; product/company messaging routes to the GTM skills.
 - **Before producing output:** read `../RESPONSE_STYLE.md`, open `references/README.md`, and the relevant reference.
   For values.yaml authoring, run the discovery questionnaire in
   `references/values-authoring.md` before emitting config.

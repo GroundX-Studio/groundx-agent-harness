@@ -8,7 +8,7 @@ description: >
   Cursor, or Replit, asking which tools are available, or ingesting and searching documents
   through an MCP interface uses this skill** — even when the user does not name "GroundX",
   "EyeLevel", "MCP", or "Studio". Also triggers on explicit MCP setup, per-client
-  configuration, tool names such as `document_ingestremote`, `bucket_create`, or
+  configuration, getting the Agent Harness plugin itself, tool names such as `document_ingestremote`, `bucket_create`, or
   `search_content`, scope or "tool not found" errors, migration from old tool names, and
   questions about discovering advanced operations. For REST endpoint semantics, SDK setup,
   or general API concepts, defer to `groundx-api`. This skill is standalone and does not
@@ -43,7 +43,7 @@ Before file policies, protected creation, private uploads, sharing and expired s
 
 - **Role:** `reference`
 - **First-entry intents:** GroundX MCP client setup (Claude Code CLI, Claude Desktop, Codex
-  CLI, Codex Desktop, Cursor, Replit); the GroundX MCP default tool reference; advanced
+  CLI, Codex Desktop, Cursor, Replit); getting the Agent Harness plugin itself; the GroundX MCP default tool reference; advanced
   operation discovery (`list_operations` / `describe_operation` / `call_operation`); MCP auth
   and scope troubleshooting; migration from the old direct tool names; and agent-operated
   GroundX ingest, polling, search, listing, and operation discovery when MCP tools are

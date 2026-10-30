@@ -22,7 +22,7 @@ For file policies, protected creation, private uploads, sharing and expired sour
 
 | Topic | File | Use when... |
 |---|---|---|
-| Per-client install (Claude Code CLI, Claude Desktop, Codex CLI/Desktop, Cursor, Replit) | `references/01-setup.md` | Setting up or reconfiguring an MCP client |
+| Per-client install (Claude Code CLI, Claude Desktop, Codex CLI/Desktop, Cursor, Replit) | `references/01-setup.md` | Setting up or reconfiguring an MCP client, or getting the Agent Harness plugin itself |
 | Default 12 tools, 4 always-present tools, scope rule, read-only visibility | `references/02-default-tools.md` | Listing tools, explaining scope, checking visibility |
 | Advanced operation discovery (list → describe → call) | `references/03-discovery.md` | Calling an operation not in the default set |
 | Auth (OAuth, X-API-Key), MCP server URL, troubleshooting | `references/04-auth.md` | Obtaining a key, diagnosing 401 / scope / tool-not-found |
