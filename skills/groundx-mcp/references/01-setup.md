@@ -310,3 +310,11 @@ exact hostname.
 
 For auth detail (OAuth metadata discovery, key scopes, 401 troubleshooting), see
 `references/04-auth.md`.
+
+## Applications with OAuth client ID and secret fields
+
+For watsonx Orchestrate or another application that requires registered client
+credentials, use [confidential application setup](04-auth.md#34-applications-that-require-a-client-secret).
+Confirm that the target deployment advertises a supported secret method first.
+Keep generated credentials in the application's credential store and complete
+GroundX authorization there.

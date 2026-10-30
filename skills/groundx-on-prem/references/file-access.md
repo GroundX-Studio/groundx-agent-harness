@@ -108,8 +108,9 @@ Use `groundx-mcp/references/07-file-access.md` for the standalone list/describe/
 or `groundx-api/references/13-file-access.md` for REST semantics.
 
 Create protected buckets and files with initial `fileAccess`; omitted/null inherits,
-creation has no prior revision, and later changes require confirmed revisions. Ancestors
-cannot be weakened. Choose private bucket-owned staging before bytes whenever inheritance
+later changes send the desired settings without a revision. For each field,
+document settings take priority over bucket, then account. A child can explicitly
+allow public access or a longer temporary-link lifetime. Choose private bucket-owned staging before bytes whenever inheritance
 or the requested file override is protected, even for a protected file in a public bucket.
 Keep per-file overrides through split/crawl/bulk preparation. Verify the installed SDK's
 private-upload implementation and initial-policy models; use explicit REST otherwise.
@@ -120,3 +121,21 @@ search-citation refresh, raw X-Ray capture versus `view=links`, owner isolation 
 fail-closed dependency failure. Native grants remain reusable until expiry despite key
 revocation or policy changes. Record actual deployed identities and outcomes; do not
 promote source/local-test results to live acceptance.
+
+## Temporary file links
+
+Set `fileAccess.linkSigningKeySecretName` to an existing Kubernetes Secret with
+`GROUNDX_FILE_LINK_SIGNING_KEY`. Generate at least 32 random bytes once and store
+the base64-encoded value. The chart passes it only to the API and file service.
+All replicas must use the same key. Do not generate it during Helm rendering or
+put its value in committed values files.
+
+`requireAuthentication: true` on `file-link` creates an expiring link requiring
+current owner credentials. False creates an expiring link anyone can use. Leaving
+out the field keeps existing storage-signed sharing. Without the key, older links
+work and the new option returns 404. No new database or service is needed.
+
+Deploy compatible images first. Restart the API and file service after changing
+the Secret because they read it at startup. Rotation cancels outstanding links.
+During rollback, retain verification and the key until those links expire. Test
+the actual storage backend; a rendered chart does not certify MinIO, AIStor or S4.
