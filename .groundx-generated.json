@@ -1,7 +1,7 @@
 {
   "generatedBy": "groundx-studio-harness",
   "sourceRepository": "https://github.com/EyeLevel-ai/groundx-studio-harness",
-  "sourceCommit": "238ee98caf098b9c6605e4e39319d1f682727c81",
+  "sourceCommit": "306bb1ccd4946fec02f3ae1df54c0d3edf713250",
   "sourceDirty": false,
   "generatedBundlePath": "plugins/groundx-agent-harness",
   "generator": "scripts/sync-plugin.mjs",
@@ -10,5 +10,5 @@
   "releaseScriptSha256": "6dffa8076bc9de29ae55aa2b154e0f3cca8c38151a18a762824e7444bb6b6944",
   "harnessPolicy": "harness-policy.json",
   "harnessPolicySha256": "b16fa809046db86da32c33666a63250b691ace8d49a07a176fdd6d9c6a18ccd4",
-  "generatedAt": "2026-10-30T18:36:09.516Z"
+  "generatedAt": "2026-10-30T22:45:41.170Z"
 }
