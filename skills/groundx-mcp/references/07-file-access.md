@@ -1,27 +1,21 @@
-# File policies, private upload and saved-asset sharing over MCP
+# File access through MCP
 
-This workflow is standalone. Confirm the connected server exposes the operations and
-schemas below before using them. Source support and offline tests do not prove hosted
-rollout, released SDK support or a working on-prem storage backend. The `document_uploadlocal`
-flow in `05-workflows.md` uses the same bucket issuer when bucketId is supplied.
+Use MCP to set file permissions, request upload URLs and create temporary links.
+File bytes do not pass through MCP. The host downloads or uploads them over HTTP.
 
-## Discover and authenticate
+## Discover the operations
 
-Configure OAuth or the `X-API-Key` MCP transport header using `04-auth.md`. Never pass
-credentials in `args`. OAuth tokens for MCP are not file-host credentials. Start with:
+Authenticate as described in `04-auth.md`. Call `groundx_account_context`, then
+`list_operations`. Before using an operation, call `describe_operation` with its
+`operationId`. Check the connected server's fields; source code alone does not
+mean a feature is deployed. `document_uploadlocal` in `05-workflows.md` uses the
+same bucket upload service when a bucket ID is supplied.
 
-```json
-groundx_account_context({})
-list_operations({})
-describe_operation({ "operationId": "Customer_get" })
-describe_operation({ "operationId": "Customer_update" })
-```
+Pass the examples below to `call_operation`. Path and body fields go in `args`;
+keep document arrays and asset selectors nested. Do not add a `body` wrapper.
+Never put credentials in `args`. An MCP OAuth token cannot authenticate file reads.
 
-Describe every non-default operation before calling it. Path, query and JSON-body fields
-are flattened into `args`; keep nested document arrays and asset selectors intact.
-Do not wrap a flattened body in a new `body` or `request` field.
-
-| Operation | Scope |
+| Operation | Required scope |
 | --- | --- |
 | `Customer_get`, `Bucket_get` | `groundx:read` |
 | `Customer_update`, `Bucket_create`, `Bucket_update`, `Buckets_fileUpload` | `groundx:write` |
@@ -29,143 +23,138 @@ Do not wrap a flattened body in a new `body` or `request` field.
 | `Search_content`, `Search_documents` | `groundx:write` |
 | `APIKey_list`, `APIKey_update`, `APIKey_delete` | `groundx:admin` |
 
-A read-only session cannot change policy, reserve uploads, share files or search. The
-`/ingest` scope rule includes file-link issuance. Customer API-key creation is excluded from MCP,
-including discovery, regardless of scope; use the dashboard or authorized REST path.
+A read-only session cannot set policies, upload, share or search. API-key creation
+is not available through MCP, including discovery; use the dashboard or REST.
 
-## Delegated customer selection
-
-A compatible Partner/admin session adds top-level `customerUsername` beside
-`operationId` and `args`, not inside `args`. This requires `groundx:partner` plus the
-normal operation scope. The server maps it to `X-Customer-Key`; backend membership and
-ownership checks remain authoritative. Customer sessions reject this selector. For
-example, after describing the operation:
+For a Partner/admin session, add `customerUsername` beside `operationId`, not in
+`args`. This also requires `groundx:partner`. Keep the same customer on all calls:
 
 ```json
-call_operation({ "operationId": "Customer_get", "customerUsername": "CUSTOMER_USERNAME", "args": {} })
+{"operationId":"Customer_get","customerUsername":"CUSTOMER_USERNAME","args":{}}
 ```
 
-Keep that selected customer on policy, reservation, ingest, sharing and refresh calls.
-A server that omits this field does not establish delegated support. This extension is
-source-defined in MCP 0.1.2; verify the connected deployment before use. Separate named
-Partner resource/provisioning tools retain their own account-mode and scope rules.
+Customer sessions cannot select another customer. Use delegation only when the
+connected server describes this field. Existing Partner provisioning tools keep
+their own account and scope rules.
 
-## Protect an account or create a protected bucket
+## Set a policy
 
-Send the desired account policy directly:
+Set an account default:
 
 ```json
-call_operation({ "operationId": "Customer_get", "args": {} })
-call_operation({ "operationId": "Customer_update", "args": { "fileAccess": { "mode": "protected", "urlTtlSeconds": 300 } } })
+{"operationId":"Customer_update","args":{"fileAccess":{"mode":"protected","urlTtlSeconds":300}}}
 ```
 
-No revision lookup is needed. The latest successful update takes effect. Read back after the write. For a new bucket, describe
-`Bucket_create`, then create with initial policy in the same request:
+Create a protected bucket:
 
 ```json
-call_operation({ "operationId": "Bucket_create", "args": { "name": "contracts", "fileAccess": { "mode": "protected" } } })
+{"operationId":"Bucket_create","args":{"name":"contracts","fileAccess":{"mode":"protected"}}}
 ```
 
-Omitted or null initial `fileAccess` inherits.
-For each field, document settings take priority over bucket settings, then account
-settings. Omitted fields use the broader value. Explicit public mode and longer
-sharing lifetimes are allowed. An issued temporary link works without API credentials
-until its storage expiry, regardless of later policy changes. `fileAccess` may contain `mode`,
-`urlTtlSeconds` (1..604800), or both; an empty object or null nested value is invalid.
+For an existing bucket, use `Bucket_update` with its `bucketId` and `fileAccess`.
+For a document, use `Document_update` with
+`documents: [{documentId, fileAccess}]`. Change one document's policy at a time,
+without metadata, rename or callback changes. No revision field is required.
+Read the account, bucket or document afterward to confirm the result.
 
-Document policy changes permit one document and no ordinary metadata/callback changes
-in the same request. Policy writes need only the desired settings. Legacy revision fields are optional and ignored.
-Omitted `fileAccess` leaves the override unchanged; explicit null clears it and inherits:
+`mode` can be `public` or `protected`. `urlTtlSeconds` is the maximum temporary-link
+lifetime, from 1 to 604800 seconds. Supply either field or both; empty objects and
+null fields inside a policy are invalid. Defaults are public access and 300 seconds.
+
+For each setting, use the document value first, then bucket, then account. A public
+document can override a protected bucket. A child can set a longer link lifetime.
+Omitted fields use the next available value. Saved file URLs do not expire.
+
+On creation, omitted/null policy uses parent settings. On update, omission changes
+nothing, null removes that resource's settings, and an object replaces them:
 
 ```json
-call_operation({ "operationId": "Bucket_update", "args": { "bucketId": 1234, "fileAccess": null } })
-call_operation({ "operationId": "Document_update", "args": { "documents": [{ "documentId": "DOCUMENT_ID", "fileAccess": null }] } })
+{"operationId":"Bucket_update","args":{"bucketId":1234,"fileAccess":null}}
 ```
 
-Describe those operations first. A 409 indicates an ownership or source conflict; inspect it before retrying. A policy replacement does not merge previous fields.
+Use `Customer_update` with `fileAccess: null` to clear account settings.
+Use `Document_update` with `documents: [{documentId, fileAccess: null}]` to clear
+one document. Removing settings can make a file public; read back before reporting
+success. Existing-ID ingest/retry does not change a saved policy.
 
-## Upload local files before ingest
+## Upload a file
 
-Use the same bucket upload endpoint for public and protected files, including when
-read protection is disabled. It signs against this deployment's configured storage,
-without a hosted broker fallback. Describe and call:
+Request upload instructions before sending bytes, including when a protected file
+belongs to a public bucket:
 
 ```json
-describe_operation({ "operationId": "Buckets_fileUpload" })
-call_operation({ "operationId": "Buckets_fileUpload", "args": { "bucketId": 1234, "fileName": "contract.pdf", "fileType": "pdf", "fileAccess": { "mode": "protected" } } })
+{"operationId":"Buckets_fileUpload","args":{"bucketId":1234,"fileName":"contract.pdf","fileType":"pdf","fileAccess":{"mode":"protected"}}}
 ```
 
-Include the requested per-file policy in upload issuance and ingest. Omit it or use
-null for inheritance. The API validates it before returning any grant; disabled
-protection rejects non-null policies with 403 before bytes can be sent.
+The **201** reply contains `{uploadId, uploadUrl, hostedUrl, expiresAt, method, headers}`.
+The host PUTs the local file to `uploadUrl` with exactly the returned headers.
+Do not send GroundX credentials to storage. A host limited to MCP calls needs a
+file-capable host or an application upload route; no binary MCP tool exists.
 
-The API returns **201** JSON `{ uploadId, uploadUrl, hostedUrl, expiresAt, method, headers }`.
-The MCP host reads the local file and PUTs its bytes to `uploadUrl` using `method` and
-`headers`. Send no GroundX credential to native storage. The upload grant lasts at most
-900 seconds. Complete PUT before `expiresAt`. For private reservations, also submit
-ingest before expiry; accepted ingest binds the reservation, so later processing is
-not limited to that window. Unreserved public sources remain ingestible after PUT
-expiry. A host limited to MCP tool calls cannot transfer local bytes; it needs a
-file-capable host or an authenticated application upload path. No binary MCP tool exists.
-
-After PUT succeeds, describe `Document_ingestRemote` and submit the existing envelope:
+Then submit the returned `hostedUrl`:
 
 ```json
-call_operation({ "operationId": "Document_ingestRemote", "args": { "documents": [
-  { "bucketId": 1234, "sourceUrl": "PRIVATE_HOSTED_URL_A", "fileAccess": { "mode": "protected", "urlTtlSeconds": 60 } },
-  { "bucketId": 1234, "sourceUrl": "PRIVATE_HOSTED_URL_B", "fileAccess": { "mode": "protected", "urlTtlSeconds": 120 } }
-] } })
+{"operationId":"Document_ingestRemote","args":{"documents":[{"bucketId":1234,"sourceUrl":"RETURNED_HOSTED_URL","fileType":"pdf","fileAccess":{"mode":"protected"}}]}}
 ```
 
-Reserve and upload each file separately. Carry per-file overrides through prepared/split
-files, bulk batches and directory helpers; crawl entries similarly carry an initial
-policy to their generated documents. Omitted/null initial policy inherits. Never upload
-to the public broker then change policy. An expired PUT needs a fresh private reservation.
-Keep the same owner/bucket and poll `document_getprocessingstatusbyid` until complete.
-Existing-ID retries do not replace saved policies; use the update operation.
+Use the same account, bucket and file policy for both calls. Poll
+`document_getprocessingstatusbyid` and check each document's result. Reserve and
+upload each file separately. Preserve its policy through batching, splits and
+crawl expansion; website entries also accept initial `fileAccess`.
 
-## Share a page and refresh citations
+Finish PUT before `expiresAt`, at most 900 seconds after issuance. Protected
+uploads must also be submitted for ingest before expiry; processing can finish
+later. Public uploads remain ingestible after their PUT link expires. If a
+protected upload expires, request another link and upload again. Never retry
+through a public or hosted broker. Both public and protected uploads use this
+deployment's configured API and storage, including on-prem.
+
+## Share a file or page
 
 ```json
-describe_operation({ "operationId": "Documents_fileLink" })
-call_operation({ "operationId": "Documents_fileLink", "args": { "documentId": "DOCUMENT_ID", "asset": { "kind": "page", "pageNumber": 2 }, "expiresInSeconds": 60 } })
+{"operationId":"Documents_fileLink","args":{"documentId":"DOCUMENT_ID","asset":{"kind":"page","pageNumber":2},"expiresInSeconds":60,"requireAuthentication":true}}
 ```
 
-The **200** JSON response is `{ url, expiresAt }`. `asset` can select `source`, `xray`,
-`extract`; `page` with one-based `pageNumber` and optional `corrected`; or `crop` with
-`chunkId`, or `pageNumber` plus zero-based `chunkIndex`. The service resolves saved owned
-assets, not arbitrary URLs. Requested lifetime is bounded by effective policy and
-storage credentials. Anyone holding a native link can reuse/forward it until expiry;
-policy changes or key revocation do not revoke an existing grant. Do not log signed URLs.
+The **200** reply is `{url, expiresAt}`. Set `requireAuthentication` to true when the
+recipient must use current credentials for the owning GroundX account. False
+allows anyone with the link to read it. Omit the field for existing storage-signed
+sharing, which also needs no GroundX key. Both explicit choices enforce expiry:
+a valid key cannot rescue an expired link. Other URLs and the stored file are
+unaffected. The requested lifetime cannot exceed the policy's maximum.
 
-Stable protected file URLs need current API-key header auth on the file gateway.
-Upgrade legacy HTTP links to HTTPS before adding credentials, without an authenticated
-HTTP redirect. Browser image tags, PDF viewers and address bars cannot add those headers; use a
-backend authenticated proxy or the short-lived native link. Do not send MCP OAuth
-tokens to storage or put keys in URLs. Public stable URLs remain anonymous where allowed.
+The caller must own the saved file. Select `source`, `xray` or `extract` by kind.
+Select a `page` with its one-based `pageNumber` and optional `corrected` flag.
+Select a `crop` with either `chunkId` or one-based `pageNumber` plus zero-based
+`chunkIndex`. Do not supply arbitrary URLs or object keys. Raw X-Ray sharing
+covers its JSON only, not the referenced files.
 
-For expired search citations, repeat the authenticated search or issue an exact
-`Documents_fileLink` using saved document/page/chunk identity, then update the view.
-Do not keep retrying an expired URL or change policy. Raw X-Ray/extract bytes remain
-immutable evidence. API-key-authenticated X-Ray GET `?view=links` produces a presentation
-copy with refreshed owned links, requires auth even for public files, rejects Range and
-does not modify stored raw content. Its output is not a raw fixture replacement.
+Keep authenticated downloads on a backend with `X-API-Key` and, for delegation,
+`X-Customer-Key`. Never put keys in URLs, browser code or tool arguments. Use only
+configured HTTPS GroundX hosts, without redirects. A browser address bar or image
+tag cannot add these headers; use a backend or an anonymous temporary link.
 
-## Retry and failures
+Explicit true/false links need compatible API/file-service builds and an operator
+signing key. Rotating that key cancels those links. Existing storage-signed links
+keep working until expiry despite API-key revocation or policy changes. Verify
+server support before using the new field.
 
-```json
-describe_operation({ "operationId": "Document_retryFailedStage" })
-call_operation({ "operationId": "Document_retryFailedStage", "args": { "documentId": "DOCUMENT_ID" } })
-```
+## Refresh and handle errors
 
-**202** `{ documentId, status: "processing" }` accepts a retry of the currently failed HTTP callback using saved output and callback settings;
-reread document status and delivery evidence before reporting completion. A 409 means
-state is not eligible and does not authorize re-ingest.
+When a search citation expires, repeat the search or request a new link using the
+saved document/page/chunk IDs. Fetch `xrayUrl` again to refresh a review view. An
+owner-authenticated X-Ray GET with `?view=links` returns fresh links, rejects ranges
+and leaves stored JSON unchanged. Keep raw X-Ray/extract bytes when exact content
+matters. Do not make files public or retry expired URLs indefinitely.
 
-For 400, fix schema/selector/lifetime. For 401/403, fix auth, scope, selected customer or
-ownership. A disabled deployment rejects policy writes and non-null initial policies
-with 403, and file-link operations with 404. Upload issuance remains available. These are not retryable
-outages. Otherwise, for 404, verify the saved asset exists. For 409, reread confirmed state.
-For 503, honor `Retry-After`; fail-closed protection is not a reason to use public storage.
-Keep all JSON response shapes, including 201/202; no response implies file bytes passed
-through MCP. Historical repair is operator-only.
+For 400, fix the request. For 401/403, check auth, scope, selected customer and
+ownership. For 404, check file existence and feature support. For 409, read the
+reported conflict. For 503, honor `Retry-After`; do not bypass file permissions.
+With protection disabled, policy writes/non-null initial policies return 403 and
+file-link issuance returns 404. Upload issuance still works without a policy.
+
+After an uncertain policy update, read the saved settings before retrying because
+the write may have succeeded. `Document_retryFailedStage` retries a failed HTTP
+callback from saved output/settings. Its **202** `{documentId, status:"processing"}`
+means accepted, not complete; check status and delivery evidence. A 409 means it
+cannot currently be retried. Do not re-ingest automatically. Historical source
+repair is an operator task, not an MCP operation.

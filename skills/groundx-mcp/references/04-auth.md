@@ -87,6 +87,41 @@ These responses tell the client where to redirect the user and which grant types
 MCP tokens are short-lived. If a previously working session returns 401, re-authorize through
 the client UI. The raw API key is not re-entered unless the token has been fully revoked.
 
+### 3.4 Applications that require a client secret
+
+Check live authorization-server metadata before choosing this path. It is available
+only when `token_endpoint_auth_methods_supported` advertises `client_secret_basic`
+or `client_secret_post`; an older deployment advertising only `none` cannot supply
+application credentials. Public clients continue using S256 PKCE.
+
+Register the application's exact callback at the discovered registration endpoint,
+selecting its required `token_endpoint_auth_method`. The no-store registration
+response returns a generated client ID and secret. Store them directly in the
+application's credential store. Never send them through chat, tool arguments,
+logs, or tracked files. Registration alone grants no account access.
+
+For a client such as watsonx Orchestrate, configure the discovered authorization
+and token URLs, generated ID/secret, exact registered callback and required scopes.
+The token request must use the registered method: Basic sends the form-encoded
+ID/secret in the Authorization header; Post sends `client_id` and `client_secret`
+in the form body. Do not combine the two methods. Basic does not need a body
+client ID. Authorization `scope` uses space-separated values from `scopes_supported`;
+check how the client's scope field encodes them.
+
+A confidential client may omit PKCE. Enable S256 when the client supports it;
+once supplied, its challenge remains mandatory at exchange even with a valid
+secret. The user still completes the existing GroundX account authorization.
+Refresh and revocation require the same registered client credentials.
+
+Client registrations and secrets expire after one year. A missing or expired
+registration cannot exchange, refresh, or revoke a known token; existing access
+tokens retain their normal expiry. Create a replacement registration and reconnect
+to renew or rotate credentials. This lifetime also applies to public registrations.
+
+Verify authorization, MCP tool discovery, a read-only tool call and refresh on the
+actual client before claiming compatibility. Metadata and local tests alone do not
+prove that watsonx Orchestrate completes the flow.
+
 ---
 
 ## 4. X-API-Key Transport (Headless / CI / Non-Interactive Agents)
