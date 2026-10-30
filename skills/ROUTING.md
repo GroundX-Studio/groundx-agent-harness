@@ -50,7 +50,7 @@ commands, database checks, queue repairs, or production repair steps from public
 Start with `groundx-mcp` for connecting an AI assistant or MCP client to the GroundX MCP
 server: per-client setup (Claude Code CLI, Claude Desktop, Codex CLI, Codex Desktop,
 Cursor, Replit), the default tool reference, advanced operation discovery, auth and scope
-troubleshooting, and migration from old tool names. It is standalone; use `groundx-api`
+troubleshooting, migration from old tool names, and getting the Agent Harness plugin itself. It is standalone; use `groundx-api`
 for REST endpoint semantics and SDK setup once MCP is connected.
 
 ## GroundX API Work
