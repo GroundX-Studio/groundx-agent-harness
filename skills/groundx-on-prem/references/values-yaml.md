@@ -144,8 +144,10 @@ Chart-level default LLM engine — sets the default model id, reasoning-effort t
   explicitly), `cognito`, and `local`. `cognito` requires all four of `clientId`, `clientSecret`,
   `poolId`, and `region` — missing any one is a startup-fatal error, never a silent fallback.
   `local` and `apiKeyOnly` need only `mode` set (or omitted entirely, for `apiKeyOnly`); neither
-  reads `clientId`, `clientSecret`, `poolId`, or `region`. For the full behavior each mode
-  produces, see `identity-model.md` § 1.
+  reads `clientId`, `clientSecret`, `poolId`, or `region`. The published 0.2.7 chart's schema
+  accepts only `apiKeyOnly` and `cognito`; `local` needs chart 0.2.8, the release that adds it (GX-53,
+  groundx-on-prem#123; not published yet). For the full behavior each mode produces, and the
+  version requirements, see `identity-model.md` § 1.
 - **When to change:** Set `mode: cognito` to enable Cognito-backed password login (requires AWS
   credentials reaching the pod — standard AWS environment variables or an IRSA-bound service
   account — in addition to the four Cognito fields). Set `mode: local` to enable MySQL-backed
