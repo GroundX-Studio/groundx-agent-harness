@@ -36,17 +36,59 @@ is first set when the admin creates the customer through `customer/register` (wi
 resets one through `customer/password/reset` — `admin.password` sets nothing, and a customer that
 existed before the switch to `local` has no password until an admin resets it. The always-on
 API-key path above continues to work unchanged alongside `local` password login, and under `local`
-the MCP authorize page uses browser-based email/password authentication instead of API-key authentication. `local` makes no
-outbound network call to authenticate, so it is air-gapped-safe the way `cognito` is not.
+the MCP authorize page offers browser-based email/password sign-in plus an `Or use a GroundX API key`
+field below the email and password fields, for customers who have no password. `local` makes no
+outbound network call to authenticate, so it is air-gapped-safe the way `cognito` is not: it is the
+password-login option for air-gapped installs, from chart 0.2.8, the release that adds
+`cognito.mode: local` (GX-53, groundx-on-prem#123; not published yet).
 
-**Version requirement — this behavior is not on every published build.** The three-mode selection
-ships in the on-prem chart from **0.2.7** (the release that added the `cognito.*` values block)
-paired with a server image built from **GX-20** or later. An older published chart (0.2.6) rejects
-`cognito.*` at render, and a pre-GX-20 server image still issues a `test-token` and does not return
-the `apiKeyOnly` 501s — so on those builds this document's mode behavior does not yet apply. `local`
-additionally requires a server image built from **GX-53** or later; on an image without it,
-`cognito.mode: local` is rejected. Confirm the deployed chart and image versions before relying on a
-mode's behavior.
+The `local` behavior below applies only to a server image that includes **GX-83**; an older image
+does not have it.
+
+**`local` login lock.**
+Three failed password attempts within 15 minutes lock that account for 15 minutes, counted from the third failure.
+Every spelling of the account's email that the database treats as equal, and the account's username, share one count.
+A locked account and a wrong password get the same generic error. The response does not reveal whether an email exists.
+A successful login or an admin password reset clears the failure count.
+A Redis restart or failover can reset the count; this only gives an attacker a fresh set of attempts and is not a security boundary change.
+
+**Sustained lockout.** Anyone who knows a customer's email can keep that account locked by repeatedly
+failing logins. A per-source-IP rate limit at the ingress slows brute-force guessing and bcrypt load:
+set the limit annotations for your ingress controller under `groundx.ingress.annotations`, which
+apply to every route of the API Ingress. The chart has no defence against a targeted lockout of a
+known email; this is an accepted residual.
+Recovery for a locked customer is an admin password reset, which clears the lock.
+
+**MCP sign-in prerequisite.** MCP sign-in on chart installs needs GX-112, which exposes the MCP token
+secret and the sign-up URL in the chart; the chart does not expose them yet, so the sign-up link is
+hidden on chart installs.
+
+**Reset scope.** An admin password reset ends that customer's MCP sessions only. Their API keys and
+app sessions are not touched. After a suspected compromise, disable the account and reset its password; the reset
+ends its MCP sessions at once. Disabling can take up to an hour to reach cached credentials, because
+the server caches API-key lookups for up to 60 minutes. Deleting API keys alone does not help, because
+the username itself still works as a credential (GX-113).
+
+**Redis.** MCP session revocation relies on Redis. A Redis failover right after a reset can revive
+the MCP sessions that reset ended. Set the Redis `maxmemory-policy` to `noeviction` or a `volatile-*`
+policy; under an `allkeys-*` policy the reset marker can be evicted, which revives earlier-ended MCP
+sessions (future resets still work). The chart has no setting for the eviction policy. Check it on
+the running Redis with `redis-cli CONFIG GET maxmemory-policy`; this also applies to
+customer-managed Redis.
+
+**Version requirement — this behavior is not on every published build.** The `apiKeyOnly` and
+`cognito` modes ship in the on-prem chart from **0.2.7** (the release that added the `cognito.*`
+values block) paired with a server image built from **GX-20** or later. An older published chart
+(0.2.6) rejects `cognito.*` at render, and a pre-GX-20 server image still issues a `test-token` and
+does not return the `apiKeyOnly` 501s — so on those builds this document's mode behavior does not
+yet apply. `local` is not in the published 0.2.7 chart: its schema accepts only `apiKeyOnly` and
+`cognito`, so `cognito.mode: local` fails at render. `local` needs chart 0.2.8, the release that adds it
+(GX-53, groundx-on-prem#123; not published yet), and a server image built from **GX-53** or
+later; on an image without it, `cognito.mode: local` is rejected. The `local` login lock and MCP
+behavior above need an image built from **GX-83** or later; after upgrading to one, existing
+local-mode MCP sessions must re-authorize once (sessions issued before GX-83 have no owning customer
+and are rejected). Confirm the deployed chart and image versions before relying on a mode's
+behavior.
 
 A valid key is authenticated as whoever owns it; what that identity can then do is governed by the
 partner-boundary check in § 2, not by anything stored on the key itself.

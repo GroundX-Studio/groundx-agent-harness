@@ -95,6 +95,11 @@ matches only.
 Both operations support cursor-based pagination. When `search.nextToken` is present in
 the response, include it in the next call's `nextToken` field to retrieve the next page.
 
+GroundX usually keeps results for 30 seconds. More pages from those results are
+free, even if you've reached your search limit. Once the results expire, GroundX
+runs the search again and counts it as a new search. Sending a query without
+`nextToken` also counts as a new search.
+
 ### 1.6 Pre-filtering
 
 Both operations accept a `filter` object. If provided, only documents whose `filter`
