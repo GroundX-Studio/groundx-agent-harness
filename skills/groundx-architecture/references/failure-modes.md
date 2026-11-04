@@ -8,7 +8,7 @@ Failure modes stay out of marketing content.
 
 ## 2. Product altitude
 
-Most transient failures recover automatically: pod crashes restart, stuck documents get re-routed by the cloud stuck-document monitor after a cutoff, 3rd-party LLM errors trigger retries with backoff, OpenSearch read errors retry up to 3 times. Some failures cause the document to fail outright — file storage write failures during the terminal `process` step, MySQL/RDS unavailability at the API ingress, or Redis-cache-miss conditions that cascade through Celery. Customers experience failures as either delayed ingest (recoverable, transparent) or failed document ingests (visible in `GET /v1/ingest/{processId}` status).
+Most transient failures recover automatically: pod crashes restart, stuck documents get re-routed by the cloud stuck-document monitor after a cutoff, 3rd-party LLM errors trigger retries (on the summary path, three tries in total with a 10-second pause by default), OpenSearch read errors retry up to 3 times. Some failures cause the document to fail outright: file storage write failures during the terminal `process` step, MySQL/RDS unavailability at the API ingress, or Redis-cache-miss conditions that cascade through Celery. Customers experience failures as either delayed ingest (recoverable, transparent) or failed document ingests (visible in `GET /v1/ingest/{processId}` status).
 
 ## 3. Conceptual / algorithmic altitude
 
@@ -25,10 +25,15 @@ Three architectural ideas drive failure handling:
 ```
 External dependencies (retried):
   3rd-party LLM enrichment call from summary-client
-    → 3 retries with progressive backoff
-    → no usable content after retries: document completes if still saveable/indexable;
-      failed enrichment is recorded in statusMessage
-    → hard provider or structural failures still fail the document
+    → three tries in total, with a pause between tries of 10 seconds by default
+    → media limit rejection: the next try sends fewer images, then text-only; the request
+      stops when nothing smaller remains or no try is left (images are dropped only: no
+      resizing, no batch-and-merge); a request that succeeds after dropping images, or with
+      text only, completes normally and adds no partialFailures entry
+    → no usable content after the tries, or a stopped request: the document completes if still
+      saveable/indexable; the failed request is recorded in statusMessage.partialFailures, which
+      stays visible after completion; missing summaries are not regenerated automatically
+    → only a permanent error or the caller's context ending fails the document
   OpenSearch read from groundx (search path)
     → 3 retries with sleep between (non-progressive)
     → after 3 retries, error returned to caller
@@ -77,8 +82,8 @@ Queue overflow (Kafka / SQS over-capacity):
 
 | Subsystem | Failure scenario | Recovery behavior | Customer impact |
 | --- | --- | --- | --- |
-| **`summary-client` → 3rd-party LLM enrichment** | No usable enrichment content after retries | **Progressive-backoff retry, up to 3 attempts.** After retry exhaustion, the document still completes if it can be saved and indexed; the failed enrichment request is recorded in `statusMessage`. | Document completes ingest on the content that succeeded; customers can inspect `statusMessage` for partial enrichment failures. |
-| **`summary-client` → 3rd-party LLM hard failure** | Hard provider rejection / timeout / structural error | **Progressive-backoff retry, up to 3 attempts.** After retries, the document fails through the normal failure path. | Document does not complete ingest; customer sees failure via `/v1/ingest/{processId}` status (and via callback, if attached, per `integration-architecture.md` § 5.2). |
+| **`summary-client` → 3rd-party LLM enrichment** | No usable enrichment content after the tries, or a request stopped by a media limit rejection | **Three tries in total, with a pause between tries of 10 seconds by default.** When the provider rejects a request for exceeding its media limit, the next try sends fewer images, then text-only, and the request stops when nothing smaller remains or no try is left. Images are dropped only: no resizing, no batch-and-merge. A request that succeeds after dropping images, or with text only, completes normally and adds no `partialFailures` entry, so a reduced summary is not flagged. The rejection is recognised by the Bedrock wording, by any error that names an image or media limit (including Anthropic's "Too much media" wording), and by a generic payload-too-large error when the request carried images. When the error states how many images the provider accepts, as DeepInfra, Azure OpenAI, vLLM and Anthropic do, the next try sends that many. For Bedrock's total-size error, which states a total and a limit in MiB, the next try keeps the share of images that fits the stated limit. Otherwise it sends half. Rate limit, quota, and invalid, unsupported or corrupt image errors are not treated as media limits. A per-image size or dimension error (for example "image exceeds 5 MB maximum") is treated as one and drops images, even when the oversized image is not among those dropped. The recognised wordings are Bedrock's, DeepInfra's as reported in one public source, Azure OpenAI's, vLLM's and Anthropic's; an unusual message from another provider may not be recognised. A stopped or exhausted request is recorded as a `partialFailures` entry in `statusMessage`; the document still completes if it can be saved and indexed. | Document completes ingest on the content that succeeded. `statusMessage.partialFailures` stays visible after completion and names each failed request. Missing summaries are not regenerated automatically. |
+| **`summary-client` → 3rd-party LLM hard failure** | Permanent provider error, or the caller's context ending | **Not retried further.** The document fails through the normal failure path. Other errors use the three tries described in the row above. | Document does not complete ingest; customer sees failure via `/v1/ingest/{processId}` status (and via callback, if attached, per `integration-architecture.md` § 5.2). |
 | **`groundx` → OpenSearch read** (search path) | OpenSearch read error / timeout | **3 retries with a sleep between** (non-progressive). After 3 retries, error returned to the caller. | Search request returns an error to the caller; no degraded fallback to keyword-only |
 | **`groundx` → `ranker-api` → `ranker-inference`** (search path) | Ranker error / GPU OOM / timeout | **Cloud-service deployments fall back to calling OpenAI** for the score. **On-prem deployments fail** (no fallback). | Cloud: degraded result (still ranked, via different scoring); on-prem: search request fails |
 | **`process` → file storage write** (terminal step) | S3/MinIO write fails | **Document fails.** No inline retry; the terminal write is treated as a hard fail. | Document ingest marked failed |
@@ -94,7 +99,7 @@ Queue overflow (Kafka / SQS over-capacity):
 | **Regional outage** (cloud service us-west-2) | Whole region offline | No automatic recovery (no cross-region replica per `data-residency.md`); manual restore from snapshots into another region required | Complete service outage until manual recovery |
 | **Stuck document at layout or extract** | Document's `updated` timestamp goes stale | A cloud-service monitor detects past the cutoff (60 min layout, 30 min extract), resets processor state to Queued, and routes the document through the normal processing pipeline. 10 docs per invocation. | Document eventually re-processes; user-visible delay equals cutoff + queue depth |
 
-*Sources: per-subsystem retry behavior (LLM 3 progressive, OpenSearch 3 with sleep, terminal-write failures, ranker fallback) — scoped internal-review finding, 2026-05-17. Cloud stuck-document monitor cutoffs and re-route mechanics — scoped internal-review finding, 2026-05-17. Queue-overflow behavior is genuinely unobserved in production; framing is explicit as such.*
+*Sources: per-subsystem retry behavior (LLM summary path three tries with a 10-second pause by default, OpenSearch 3 with sleep, terminal-write failures, ranker fallback), scoped internal-review finding, 2026-05-17. Cloud stuck-document monitor cutoffs and re-route mechanics, scoped internal-review finding, 2026-05-17. Queue-overflow behavior is genuinely unobserved in production; framing is explicit as such.*
 
 ### 5.2 Fails-open vs fails-closed by boundary
 
@@ -103,8 +108,8 @@ Queue overflow (Kafka / SQS over-capacity):
 | `groundx` auth check (RDS down) | Fails closed |
 | `groundx` auth check (Redis down) | Falls through to RDS — fails open at the cache layer (degraded latency) |
 | Celery broker (Redis down) | Fails closed for queued work |
-| 3rd-party LLM no-content enrichment exhaustion (summary path) | Fails open to completed ingest with `statusMessage` partial-failure detail |
-| 3rd-party LLM hard failure (summary path) | Fails closed after retries |
+| 3rd-party LLM no-content enrichment exhaustion or media limit stop (summary path) | Fails open to completed ingest with `statusMessage.partialFailures` detail that stays visible after completion; the missing summary is not regenerated |
+| 3rd-party LLM permanent error or the caller's context ending (summary path) | Fails closed, the document fails |
 | 3rd-party LLM (ranker fallback, cloud only) | Fails open — used as fallback when self-hosted ranker fails |
 | OpenSearch read (search path) | Fails closed after 3 retries |
 | OpenSearch write (`process` terminal step) | Fails closed — document fails |
@@ -121,8 +126,9 @@ When a document fails, the customer sees:
 - If a `callbackUrl` was attached, the callback POST fires once with the failure outcome (per `integration-architecture.md` § 5.2). **No retries** on the callback — if the customer's endpoint is down, the customer must poll.
 
 When a document completes with partial summary enrichment failure, the customer sees completed
-ingest plus `statusMessage` detail identifying the failed enrichment request. The document remains
-searchable on the content that was successfully saved and indexed.
+ingest plus `statusMessage.partialFailures` detail identifying each failed enrichment request, and
+the detail stays visible after completion. The missing summaries are not regenerated automatically.
+The document remains searchable on the content that was successfully saved and indexed.
 
 When the search path fails (OpenSearch read or ranker), the customer sees an error response from `groundx`. There is no degraded-mode fallback for search beyond the ranker → OpenAI fallback in the cloud service.
 
@@ -165,7 +171,7 @@ Failures that touch state:
 
 ## 9. Cost / FinOps altitude
 
-Retry storms (e.g., a sustained 3rd-party LLM outage producing thousands of retried calls) can drive transient cost spikes on the LLM provider's billing surface. The 3-retry cap on the summary path bounds this. OpenSearch read retries (3 with sleep) don't materially affect cost — OpenSearch capacity is provisioned per-node, not per-call. For broader cost-shape framing see `data-flow.md` § 9; deployment-level cost is owned by `groundx-on-prem`.
+Retry storms (e.g., a sustained 3rd-party LLM outage producing thousands of retried calls) can drive transient cost spikes on the LLM provider's billing surface. The three-try cap on the summary path bounds this. OpenSearch read retries (3 with sleep) don't materially affect cost, because OpenSearch capacity is provisioned per-node, not per-call. For broader cost-shape framing see `data-flow.md` § 9; deployment-level cost is owned by `groundx-on-prem`.
 
 ## 10. What this topic does not cover
 
