@@ -6,6 +6,10 @@ GroundX on Kubernetes.
 
 Protected files, private staging, local MCP, image/SDK prerequisites and independent vendor acceptance: [`file-access.md`](./file-access.md).
 
+## Customer documentation
+
+For the human quick start, open the [GroundX On-Prem repository](https://github.com/eyelevelai/groundx-on-prem) at the selected release. Follow its README links to the detailed guides. Use these same sources when helping a human operator; the skill adds discovery questions, decisions and safety checks.
+
 ## Fast Path
 
 1. Start in `../SKILL.md` for the public routing contract.
