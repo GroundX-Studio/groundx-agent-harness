@@ -76,16 +76,20 @@ These responses tell the client where to redirect the user and which grant types
 ### 3.2 Authorization-Code Flow
 
 1. The client redirects the user to the GroundX-hosted authorization page.
-2. The user enters a GroundX API key directly on the page, which validates it inside the
-   deployment — the MCP client and agent never see the raw key.
+2. When the deployment supports account-password login, the user signs in with their
+   GroundX email and password on that page. Hosted Cognito supports this path. The
+   MCP client and agent do not receive those credentials. Deployments without that
+   identity capability show the API-key fallback instead; validate the target page.
 3. On success the server issues short-lived MCP tokens and returns them to the client via the
    redirect URI.
-4. The raw API key is not transmitted after this step — the client holds only the MCP tokens.
+4. The client holds only the MCP tokens. Background tools do not collect an account
+   password or ask the user to paste a key into chat.
 
 ### 3.3 Token Expiry
 
-MCP tokens are short-lived. If a previously working session returns 401, re-authorize through
-the client UI. The raw API key is not re-entered unless the token has been fully revoked.
+MCP tokens are short-lived. Native clients refresh them through the existing OAuth
+flow. If reauthorization is required, use the client's MCP sign-in controls and the
+target deployment's account or fallback flow.
 
 ### 3.4 Applications that require a client secret
 
