@@ -7,8 +7,10 @@
 # The resulting StorageClass name must match the main chart's cluster.pvClass.
 # EFS supports ReadWriteMany — required for production workspace-runner PVCs and
 # preferred for backing-service operators (Percona, MinIO AIStor).
+#
+# New installs use eyelevel-efs and set cluster.pvClass to match; existing EFS releases keep their current storageClassName.
 
-storageClassName: eyelevel-pv
+storageClassName: eyelevel-efs
 isDefaultClass: false           # set true to make it the cluster default
 
 provisioner: efs.csi.aws.com

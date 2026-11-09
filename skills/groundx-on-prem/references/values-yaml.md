@@ -788,7 +788,7 @@ The `groundx-storageclass` / `groundx-secret` / `groundx-service-account` **prer
 The `groundx-storageclass` prereq chart accepts its own values shape (separate from the main chart's values.yaml). Example for EFS-backed EKS (from `values.extract.eks.sc.yaml`):
 
 ```yaml
-storageClassName: eyelevel-pv
+storageClassName: eyelevel-efs
 isDefaultClass: false
 provisioner: efs.csi.aws.com
 reclaimPolicy: Retain
