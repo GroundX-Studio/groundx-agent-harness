@@ -84,9 +84,8 @@ or operations owner before external use."
 
 | Claim | Status | Scope | Freshness / approval |
 | --- | --- | --- | --- |
-| SOC2 Type 1 | Held | GroundX cloud-service production. Source: `data-residency.md`. | Architecture-source backed; no external-use owner/date is recorded in this harness. Confirm with Security / Compliance / Legal before vendor-risk use. |
+| SOC2 Type 2 | Held | GroundX and FraudX system, Security criteria only. Source: restricted GroundX and FraudX SOC 2 Type 2 report. | Report by Prescient Assurance LLC dated May 29, 2026; audit period December 1, 2025 to March 2, 2026. To request a copy, email [support@valantor.com](mailto:support@valantor.com). Confirm with Security / Compliance / Legal before vendor-risk use, and confirm the report is still current. |
 | HIPAA | Held | GroundX cloud-service production. Source: `data-residency.md`. | Architecture-source backed; no external-use owner/date is recorded in this harness. Confirm with Security / Compliance / Legal before vendor-risk use. |
-| SOC2 Type 2 | In progress | GroundX cloud-service production. Source: `data-residency.md`. | Architecture-source backed; no external-use owner/date is recorded in this harness. Confirm with Security / Compliance / Legal before vendor-risk use. |
 | FedRAMP / IL6 | Not held by hosted cloud | On-prem / air-gapped deployments can be deployer-attested. Source: `data-residency.md`. | Architecture-source backed; no external-use owner/date is recorded in this harness. Confirm with Security / Compliance / Legal before vendor-risk use. |
 | GDPR attestation | Not held by hosted cloud | Delete-on-request supports the deletion-rights piece; formal attestation is not held. Source: `data-residency.md`. | Architecture-source backed; no external-use owner/date is recorded in this harness. Confirm with Security / Compliance / Legal before vendor-risk use. |
 | RPO / RTO | Customer-contract-specific | Do not quote public numbers. Source: `disaster-recovery.md`. | Contract owner must confirm any customer-specific numbers or commitments. |

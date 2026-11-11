@@ -161,7 +161,7 @@ DR cost in the cloud service is built into the managed-service line items: RDS m
 
 ## 10. What this topic does not cover
 
-- **The compliance posture (SOC2 Type 1 + HIPAA + SOC2 Type 2 in progress)** that constrains DR retention: `data-residency.md` § 5.3.
+- **The compliance posture (SOC2 Type 2 + HIPAA)** that constrains DR retention: `data-residency.md` § 5.3.
 - **The audit log retention (1 year cloud) and the right-to-be-forgotten interaction**: `data-residency.md` § 6.2.
 - **What the metrics pod + hosted-cloud alerting look like in practice**: `observability.md`.
 - **The specific failure scenarios DR helps recover from + behavior per pod**: `failure-modes.md`.
