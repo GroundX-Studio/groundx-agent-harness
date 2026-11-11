@@ -1,6 +1,6 @@
 # Data Residency
 
-GroundX has two residency postures: the **hosted cloud service** (today: single-region in **us-west-2** for production, multi-AZ; dev in us-east-1; no cross-region replication; no customer-selectable region) and **on-prem deployments** (whatever region the deployer points `values.yaml` at). Customer-data deletion is supported through three endpoints (per document, per bucket, per customer); deletes run **asynchronously** (typically complete within seconds) and cascade across every store **except audit logs and Redis cache entries**. Compliance posture today: **SOC2 Type 1 + HIPAA**; SOC2 Type 2 in progress. Audit logs are retained **1 year** in the cloud service per SOC2 requirements; on-prem deployments choose their own retention. Customers needing region choice, cross-region replication, or compliance attestations beyond these select on-prem.
+GroundX has two residency postures: the **hosted cloud service** (today: single-region in **us-west-2** for production, multi-AZ; dev in us-east-1; no cross-region replication; no customer-selectable region) and **on-prem deployments** (whatever region the deployer points `values.yaml` at). Customer-data deletion is supported through three endpoints (per document, per bucket, per customer); deletes run **asynchronously** (typically complete within seconds) and cascade across every store **except audit logs and Redis cache entries**. Compliance posture today: **SOC2 Type 2 (Security criteria) + HIPAA**. Audit logs are retained **1 year** in the cloud service per SOC2 requirements; on-prem deployments choose their own retention. Customers needing region choice, cross-region replication, or compliance attestations beyond these select on-prem.
 
 ## 1. Marketing altitude
 
@@ -13,7 +13,7 @@ GroundX customers have two paths for data residency:
 - **Cloud service** — all customer data lives in the GroundX-hosted cluster in **us-west-2** (production), spread across multiple Availability Zones for durability. No customer-selectable region. No cross-region replication today.
 - **On-prem deployment** — the customer (or their deployer) chooses the region by configuring the Helm chart's backing-service endpoints. Any region with the customer's chosen object store / managed DB / managed OpenSearch is supported.
 
-For compliance, the cloud service is **SOC2 Type 1 + HIPAA** today; **SOC2 Type 2 is in progress**. Customers needing FedRAMP, IL6, GDPR-attested deployments, or any other certification not on this list deploy on-prem and attest at the deployment level.
+For compliance, the cloud service is **SOC2 Type 2 (Security criteria) + HIPAA** today. Customers needing FedRAMP, IL6, GDPR-attested deployments, or any other certification not on this list deploy on-prem and attest at the deployment level.
 
 Customer data deletion is supported through the API at three granularities — per document, per bucket, per customer. Deletes run as asynchronous background tasks (similar shape to an ingest request, but typically complete in seconds rather than minutes) and propagate across the production stores.
 
@@ -23,7 +23,7 @@ Three architectural ideas shape residency:
 
 **Region is a deployment-level property, not a per-customer property.** A single GroundX deployment runs in exactly one region; all customers provisioned into that deployment have their data in that region. There is no per-customer region selection inside a deployment, no automatic data routing by customer geography, and no cross-region replication today. Customer residency = deployment residency.
 
-**Compliance is per-deployment.** The cloud service's SOC2 Type 1 + HIPAA posture applies to the GroundX-hosted us-west-2 production deployment. On-prem deployments inherit whatever compliance posture their deployer can attest — GroundX provides the architecture; the deployer provides the compliance certification.
+**Compliance is per-deployment.** The cloud service's SOC2 Type 2 + HIPAA posture applies to the GroundX-hosted production deployment. On-prem deployments inherit whatever compliance posture their deployer can attest — GroundX provides the architecture; the deployer provides the compliance certification.
 
 **Customer-data deletion is asynchronous (seconds-scale) and cascades across most stores.** The API deletion endpoints accept the request and dispatch the underlying store deletes as a background task — similar in shape to an ingest request, but typically completing in seconds rather than minutes. Source files, intermediate artifacts, X-Rays, OpenSearch chunks, and MySQL/RDS rows are all removed. Audit logs and Redis cache entries are not removed by these deletes (Redis entries expire naturally). After deletion completes, the only retained record of the customer's existence is the `groundx` audit log — retained per the cloud-service SOC2 contract (1 year today), or per the on-prem operator's chosen policy.
 
@@ -83,14 +83,13 @@ The deployer points each at the desired region; the cluster runs wherever the Ku
 
 | Certification | Status | Scope |
 | --- | --- | --- |
-| **SOC2 Type 1** | Held | GroundX cloud-service production |
+| **SOC2 Type 2** | Held | GroundX and FraudX system, Security criteria only. Report by Prescient Assurance LLC dated May 29, 2026; audit period December 1, 2025 to March 2, 2026. To request a copy, email [support@valantor.com](mailto:support@valantor.com) |
 | **HIPAA** | Held | GroundX cloud-service production |
-| **SOC2 Type 2** | In progress | GroundX cloud-service production |
 | FedRAMP | Not held | — |
 | GDPR attestation | Not held; cloud service delete-on-request supports the deletion-rights piece of GDPR | — |
 | Other certifications (IL6, etc.) | Deployer-attested for on-prem; not held by the cloud service | On-prem only |
 
-*Source: scoped internal-review finding, 2026-05-17. Verify with the cloud-service compliance owner before external use.*
+*The SOC 2 row cites the restricted GroundX and FraudX SOC 2 Type 2 report, verified November 11, 2026. The other rows cite the May 17, 2026 internal review. Confirm status with Security, Compliance, or Legal before external use.*
 
 Customers needing certifications not on this list select on-prem and attest at the deployment level. Air-gapped / FedRAMP-aligned on-prem deployments are supported architecturally (per `overview.md` § 4.4) but the certification is the deployer's, not GroundX's.
 
@@ -121,7 +120,7 @@ The audit-log retention is the only intentional residual; everything else is rem
 
 ### 6.1 Compliance-cert alignment
 
-The cloud service's SOC2 Type 1 + HIPAA posture is what authorizes regulated-vertical use (per `master-brand-gtm/references/verticals.md` — Healthcare on HIPAA, regulated environments on SOC2). The architecture supports more (FedRAMP / IL6 / GDPR-explicit) via on-prem; certifications at that altitude are deployer-attested.
+The cloud service's SOC2 Type 2 + HIPAA posture is what authorizes regulated-vertical use (per `master-brand-gtm/references/verticals.md` — Healthcare on HIPAA, regulated environments on SOC2). The architecture supports more (FedRAMP / IL6 / GDPR-explicit) via on-prem; certifications at that altitude are deployer-attested.
 
 ### 6.2 Deletion-rights mechanics
 
