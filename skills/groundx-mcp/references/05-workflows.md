@@ -117,7 +117,12 @@ Returns `{ url, method, header, hostedUrl }`. PUT the file bytes to `url`, then 
 above. `header` entries: `Host` is normally set automatically by the HTTP client from
 `url`; `GX-HOSTED-URL` (if present) is the same value as `hostedUrl` and is data for
 the `document_ingestremote` call, not a header to send to S3; send any other entries as
-request headers on the PUT. See `references/02-default-tools.md` §2b for the full tool
+request headers on the PUT. Each `header` value is a list of strings. For
+clients that expect one string per header, unwrap a one-element list, for
+example `"Content-Type": ["application/pdf"]` becomes
+`"Content-Type": "application/pdf"`. If a header has multiple values, use the
+client's support for repeated headers so every returned value is sent. See
+`references/02-default-tools.md` §2b for the full tool
 reference.
 
 For a requested per-file policy, also pass `fileAccess` in this call and in ingest.
