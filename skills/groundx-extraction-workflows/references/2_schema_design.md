@@ -166,6 +166,12 @@ For workflows where every workflow group uses the `statement` role, plan one
 `reconcile_statement -> qa_statement` branch per pseudo group, then let the
 hosted runtime save the final output after all branches complete.
 
+For independent record collections only, use one parallel stage with each
+branch ending in `save_meters`. Verify that the target worker can join those
+branches and publish the final JSON. Older workers can validate and register
+this shape but fail at save because they require a statement result. Keep the
+record design and verify it on a compatible worker before rollout.
+
 The public syntax walkthrough is
 [Structured Extraction Workflow](https://docs.groundx.ai/documentation/structured-extraction-workflow).
 
@@ -176,9 +182,15 @@ real final groups, not inside `_defs`.
 
 Use `include` only on `_defs` fragments or real final groups. A `_defs` fragment
 contains `fields:` and optional `include:`. A final group may include one
-fragment or a list of fragments, then add its own `fields:`. Duplicate final
-field names, unknown includes, cyclic includes, field-level `include`, and
-pseudo-group `include` are invalid.
+fragment or a list of fragments, then add its own `fields:`. Duplicate keys
+within one final object, unknown includes, cyclic includes, field-level
+`include`, and pseudo-group `include` are invalid.
+
+Different final objects may use the same field name. For example, route
+`accountant_printed` to `/accountant/printed` and `payroll_printed` to
+`/payroll_contact/printed`. Use distinct output keys within an extraction
+step and preserve the intended final names. Verify that both paths retain
+their own values in saved output on the target worker.
 
 Use `_pseudo_groups` only when a final group is too large for one extraction
 agent but the final JSON shape must stay stable. Pseudo groups are
