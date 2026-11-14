@@ -76,10 +76,15 @@ Before validation, check the authored YAML contract:
   routed leaf field declares `workflow_output_key`.
 - Every pseudo field uses its field key as the workflow output key and declares
   `path` to its final field.
+- Check complete final paths and output keys within each step. Keep the same
+  final field name in separate objects when the schema calls for it.
 - Supported record identity and relationship intent is explicit on final groups
   when the customer requires it. Use `unique_attrs`, `match_attrs`,
   `conflict_attrs`, and `passthrough`; do not infer these rules from group names.
 - `workflow.agent_chain` names every executable group and uses the declared role.
+- For a record-only chain, check that the target worker supports saving a
+  single parallel stage of independent `save_meters` branches. Use a saved
+  output check on that worker to confirm all collections are present.
 
 ## 4. Validate And Register
 

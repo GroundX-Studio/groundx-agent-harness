@@ -120,6 +120,12 @@ The server workflow readback saved as `workflow.json` is a diagnostic artifact
 for this run. Diff it across iterations, but do not submit it as authoring input
 or treat it as proof of the rendered LLM request.
 
+Server validation checks compilation and registration. To verify workflow
+behavior on a candidate worker, use a full run and compare saved JSON with
+reviewed expected answers. For reused field names, check distinct expected
+values at both complete paths. For independent record collections, check
+that every collection is saved with the expected rows after the branch join.
+
 ### 3.3 Deploy or run the workflow
 
 Use the smallest path that matches the task.
