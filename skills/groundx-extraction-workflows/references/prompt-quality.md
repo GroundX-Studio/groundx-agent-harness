@@ -208,3 +208,9 @@ document with the same field.
 
 Use source evidence to improve the general rule. If the rule only works because you know
 the answer for one sample, do not put it in the prompt.
+
+Keep the shared rule and documented exceptions separate. Write the scope into
+the exception itself, including the issuer, document variant, and trigger when
+specified. Apply the shared rule everywhere else. Check an independent layout
+for the shared rule and check one document inside and one outside the exception
+scope. Identify any check for which no source is available.
