@@ -613,7 +613,8 @@ X-API-Key: YOUR_API_KEY
 
 **Response:** `{ "document": { ... } }` — full document object including `documentId`,
 `fileName`, `fileType`, `fileSize`, `bucketId`, `processId`, `processLevel`, `status`,
-`statusMessage`, `searchData`, `filter`, `sourceUrl`, `textUrl`, `xrayUrl`.
+`statusMessage`, `searchData`, `filter`, `sourceUrl`, `textUrl`, `xrayUrl`, and `llmUsage`
+(LLM token usage for the latest processing run, see §10.2).
 
 ### 10.1 Two `processId`s — what each one tracks
 
@@ -632,6 +633,58 @@ the same underlying ingest batch + document. Asserts of the form
 
 In prose elsewhere in the harness, the document/chunk one is sometimes called the
 *lineage process ID* to disambiguate.
+
+### 10.2 `llmUsage`: per-document LLM token usage
+
+`document_get` returns an `llmUsage` object with the LLM tokens the document's latest
+processing run used. To answer a per-document LLM cost question, read `llmUsage` here. The
+document's own `fileTokens`, when present, is the file's billing token count, not LLM
+tokens, so do not use it for LLM cost. It is also distinct from the account-level
+`subscription.meters.fileTokens` (see `07-customer-and-keys.md`).
+
+```json
+{
+  "llmUsage": {
+    "stages": {
+      "translation": { "status": "unavailable" },
+      "summary": { "status": "unavailable" },
+      "extraction": { "status": "measured" }
+    },
+    "models": [
+      {
+        "model": "example-model",
+        "keySource": "platform",
+        "calls": 3,
+        "inputTokens": 1200,
+        "outputTokens": 300,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0
+      }
+    ]
+  }
+}
+```
+
+- **Latest run only.** `llmUsage` covers the document's latest processing task. Earlier
+  runs are not included.
+- **Totals can be lower than real spend, never higher.** `models` sums only the stages
+  that are `measured`. A stage that is `unavailable` adds nothing, so treat the totals as
+  a lower bound, not a complete spend.
+- **`keySource`** says whose key paid for the calls. `platform` is the deployment's own
+  key: GroundX on SaaS, the operator on-prem. `workflow` is a key the customer supplied in
+  their workflow. Each `(model, keySource)` pair is one entry in `models`.
+- **`inputTokens` includes the cache subsets.** `cacheReadTokens` and `cacheWriteTokens`
+  are part of `inputTokens`, so do not add them again.
+- **A cache count of 0 can mean "not reported".** Cache counts read 0 when the model does
+  not report them, which includes self-hosted models. Do not tell a customer there was no
+  caching from a 0 cache count alone.
+- **Per-stage `status`.** `measured` means the stage was counted. If it made no calls,
+  that is a real zero. `unavailable` means the usage could not be measured, for any
+  reason. `unavailable` is not zero: do not report it as no usage.
+- **A stage stays `unavailable` until its writer reports.** Translation and summary can
+  read `unavailable`, and extraction is measured only when the Extract service reported.
+  Copies and cache hits also read `unavailable`.
+- **Single document only.** The list endpoints (`document_list`, `document_lookup`) do not return `llmUsage`. Call `document_get` per document.
 
 **Errors:** 400 — invalid document ID; 401 — unauthorized to access that document.
 
