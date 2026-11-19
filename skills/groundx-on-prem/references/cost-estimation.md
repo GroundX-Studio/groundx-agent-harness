@@ -194,6 +194,8 @@ When estimating cost for a new deployment:
 
 Don't skip step 1. Substitution choices propagate through every other estimate.
 
+To measure LLM cost per document once a deployment is running, read `llmUsage` from `GET /v1/ingest/document/{documentId}` (`document_get`). It reports tokens per model for the latest processing run, with `keySource` `platform` for the operator's own key. Totals can be lower than real spend because a stage that is `unavailable` was not measured, and that is not zero. List endpoints do not return it. A deployment that does not return `llmUsage` is running an older release, so a missing `llmUsage` means not available on that deployment, not zero usage. See the groundx-api `02-documents.md` reference, section 10.2.
+
 ## 9. What this file does not cover
 
 - **Per-microservice resource defaults** → `node-groups.md`.

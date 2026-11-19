@@ -499,7 +499,7 @@ Two flavors of summary execution:
 - **`workspace.mysqlConnectTimeoutSeconds`** (int) — DB-connection timeout for the workspace runner.
 - **`workspace.workspaceRoot`** (string, e.g., `"/mnt/workspaces"`) — Path inside the workspace runner pods where workspace data is mounted.
 - **`workspace.workspaceMinFreeBytes`** / **`workspace.workspaceMinFreePercent`** (int) — Disk-space minimums for the workspace volume.
-- **`workspace.celeryBrokerUrl`** / **`workspace.celeryResultBackend`** (string) — Celery broker / result-backend URLs (override the chart-default cache target). Used when the workspace runner shares Celery infrastructure with an external Redis.
+- **`workspace.celeryBrokerUrl`** / **`workspace.celeryResultBackend`** (string) — Celery broker / result-backend URLs (override the chart-default cache target). Used when the workspace runner shares Celery infrastructure with an external Redis. A `rediss://` URL must not carry an `ssl_*` option in its query: a runner image with Redis certificate verification stops at startup when it does.
 - **`workspace.celeryGlobalKeyprefix`** (string) — Celery key prefix.
 - **`workspace.celerySoftTimeLimitSeconds`** (int) — Celery soft time limit.
 - **`workspace.celeryTaskAlwaysEager`** (boolean) — When `true`, Celery tasks execute synchronously (testing / single-tenant deployments).
