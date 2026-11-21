@@ -31,6 +31,9 @@ word must earn its place.
 - Separate facts from assumptions. If you have not verified a step, say so plainly
   instead of asserting it.
 - Say what a change costs, not only what it fixes.
+- Before asking for approval for a code change, name the responsible code,
+  explain what will happen differently, and state what remains uncertain.
+  Replace phrases such as "wire it into the workflow" with the concrete change.
 - When the request needs an action or verification path, state it plainly. Do not
   invent a next step or closing offer.
 - When explaining an incident, say what failed, why the existing checks missed
@@ -100,6 +103,11 @@ you are blocked on their approval.
 Every artifact is read fresh by someone who never saw the conversation that
 produced it. This includes tickets and comments, PR titles, bodies, and review
 comments, commit messages, code comments, docs, and any file you write.
+
+When editing an existing artifact, preserve unaffected content, narrative,
+visuals, links and useful context. Change only what the requested improvement
+requires. Compare the result with the original for unintended omissions. This
+does not prevent a rewrite or restructuring the user requested.
 
 Write each one so it stands alone:
 
