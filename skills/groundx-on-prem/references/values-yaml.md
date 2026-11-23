@@ -398,6 +398,7 @@ The main API entry point. Standard CPU microservice; stateless; replicas scale h
 - **`groundx.ingress.enabled`** (boolean) — When `true`, the chart creates an `Ingress` resource for the GroundX API.
 - **`groundx.ingress.ingressClassName`** (string) — e.g., `alb` for AWS Load Balancer Controller, `nginx`, etc.
 - **`groundx.ingress.annotations`** (dict) — Ingress-controller-specific annotations (AWS ALB annotations, NGINX rewrite rules, etc.).
+- **`groundx.migration.activeDeadlineSeconds`**, **`groundx.migration.backoffLimit`** and **`groundx.migration.gitOps`**: the database migration Job's time limit, retry count and GitOps rendering, from the first chart release after 0.2.9. Published charts 0.2.7 to 0.2.9 reject them. See `upgrades.md` § 2.2 and § 2.3.
 
 ### 5.2 `layout:` (Vision pipeline)
 
@@ -629,7 +630,7 @@ The pod `app` label is the rendered Deployment name of the 0.2.7 chart, taken fr
 
 **Version caveat.** Both keys exist on the groundx-on-prem 0.2.7 line only, and the version number alone does not tell you whether your chart has them: a chart built from the 0.2.7 branch can still report version 0.2.6 while carrying both keys. The published 0.2.6 chart in the registry has neither key in its schema and no PodDisruptionBudget template, so setting them there fails schema validation. The published 0.2.7 chart in the registry carries both keys, so it needs no probe. Searching the chart's values for `disruptionBudget` is not a reliable check, because some 0.2.7 builds that lack this change already carry that key on the API services, and `topologySpreadConstraints` never appears in the values file. Before relying on the keys, run the schema probe `helm template probe <chart> --set layout.map.disruptionBudget.enabled=true --set-json 'layout.map.topologySpreadConstraints=[]' >/dev/null`; a non-zero exit (a schema error naming `layout/map`) means the chart does not have them. The chart renders `unhealthyPodEvictionPolicy` only on Kubernetes 1.26 or later; it takes effect from 1.27, and on 1.26 the API server ignores it unless the `PDBUnhealthyPodEvictionPolicy` feature gate is on.
 
-**Not covered.** `cache`, `cache.metrics` and the schema-migration Job do not accept either key. The bundled Redis runs a single replica, so a budget there would only block drains, and the schema-migration Job is not long running.
+**Not covered.** `cache`, `cache.metrics` and the schema-migration Job do not accept either key. The bundled Redis runs a single replica, so a budget there would only block drains.
 
 The chart injects no `labelSelector` into a constraint, so the selector is yours to write. This example runs 2 layout-api replicas (`replicas.min: 2` matters only when autoscaling is on and is harmless otherwise), keeps 1 available during a drain, and keeps its replicas on different schedulable nodes:
 
