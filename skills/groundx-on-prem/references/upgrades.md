@@ -99,6 +99,8 @@ Before running `helm upgrade`:
 
 6. **Upgrading to chart 0.2.8: rename object keys that start with `/`.** This applies only to a store connected as `file.existing.serviceType: minio` that is not MinIO or AIStor and keeps a leading `/` in object keys. MinIO and AIStor drop the leading `/` when they store an object, and AWS S3 (`serviceType: s3`) is not affected. In chart 0.2.8, the `groundx`, `upload`, `pre-process`, `process`, `queue`, and `summary-client` services remove the leading `/` from every key and prefix, so they no longer find objects stored with it. Follow the on-prem migration guide section [Object Keys That Start with a Slash](https://github.com/eyelevelai/groundx-on-prem/blob/53cf055e5437b8e619b0f4a2f2e27459a922eee2/docs/storage/minio-migration.md#object-keys-that-start-with-a-slash), which holds the commands, in its order: stop uploads and wait until no documents are still processing, so that 0.2.7 services write no new keys; rename the keys; upgrade GroundX straight after the rename; then, before resuming uploads, list the keys again and rename any new ones the same way. An object over 5 GB stops the guide's rename loop and needs the guide's copy-in-parts step, for the rename and for a rollback. Keep every list of renamed keys for a rollback (§ 6). GroundX ran these commands against S4 on 2026-10-15 and 2026-10-16, including an object over 5 GB copied with `aws s3 cp` and the rollback's reverse rename; every object kept its content.
 
+7. **Plan the database migration Job.** On published charts 0.2.7 to 0.2.9 every upgrade runs a migration Job with a fixed deadline, and Argo CD never runs it. Follow § 2.2 before the upgrade window, and § 2.3 on a later chart.
+
 ### 2.1 Certificate verification and private CAs (0.2.8 chart line)
 
 GroundX Go service images that include the GX-130 change verify the TLS certificate of every HTTPS and Redis TLS endpoint they call. Before upgrading to a chart that runs those images, check each endpoint:
@@ -126,6 +128,91 @@ To supply a private CA:
 5. Check the layout, ranker and summary logs, and the `workspace-*` pod logs when the selected workspace runner image verifies Redis certificates, for `certificate verify failed`: the `ai-server` API and Celery worker pods stay Ready even when they cannot connect to Redis.
 
 To roll back, run `helm rollback` to the previous revision (§ 6), which restores the previous chart and images. Clearing `fileAccess.caSecretName` while the certificate-verifying images still run is not a rollback: endpoints signed by the private CA fail again. Never disable certificate verification. Details: `tls-and-certs.md` § 3.2 and § 4.
+
+### 2.2 Database migration Job (published charts 0.2.7 to 0.2.9)
+
+On published charts 0.2.7, 0.2.8 and 0.2.9, `helm upgrade` first runs a Job named `<release>-schema-migration`, which runs `groundx -migrate-only`. Helm changes no Deployment until the Job finishes. On these charts the Job has a fixed 900-second deadline and no retry, and no value changes either: the chart schema rejects `groundx.migration.*` keys. `helm install` does not run the Job.
+
+The first upgrade to a 0.2.8 or later GroundX image builds a new file-access history table from every past ingest task, even when file access is off. On a large database this can take longer than 900 seconds. A build that stops keeps the rows it copied, but on 0.2.8 and 0.2.9 images the next attempt reads every task again from the first one. Once a build finishes, later upgrades skip it.
+
+Three related behaviors matter during the upgrade:
+
+- The `groundx` API pod runs the migration each time it starts, before it reports healthy. Its liveness probe restarts the pod after about 90 seconds, so on a large database the pod never finishes the build and starts it again after each restart.
+- Only one migration runs at a time. A migration that cannot get the database lock within 30 seconds fails with `GroundX migration lock is busy; retry after the active migration finishes`.
+- Until the build finishes, the new version's Go workers exit with `missing index file_access_source_history.file_access_history_path_idx; run GroundX -migrate-only before starting this version`. Pods of the previous version keep serving.
+
+**Measure first.** Time the migration on a restored copy of the database before the upgrade window. The row count is context only; plan from the measured time. Use the values files your release or Argo CD Application uses. `<namespace>` below is the chart's `namespace` value (default `eyelevel`).
+
+1. Restore a recent snapshot of the GroundX database to a separate MySQL server. A dump of one database does not include MySQL accounts, so create the GroundX database user from your values on that server, with the same password.
+2. Render the target chart's migration Job pointed at that copy, with a long deadline for the test (4 hours here). For a local chart path, use the path instead of `groundx/groundx --version <target-version>`.
+
+    ```sh
+    helm template groundx-timing groundx/groundx --version <target-version> \
+      -f my-values.yaml -f my-secrets.yaml \
+      --set db.existing.rw=<restored-host> --set db.existing.ro=<restored-host> \
+      --is-upgrade --show-only templates/app/schema-migration.yaml \
+      | sed 's/activeDeadlineSeconds: 900/activeDeadlineSeconds: 14400/' > migration-timing.yaml
+    ```
+
+    `migration-timing.yaml` is secret-bearing: its Secret holds the database password and the other credentials from your values. That is true whether or not `metrics.enabled` is set; this render does not include the `metrics-tls` key. Write the file outside any repository or gitignore it, treat the file as secret, and delete it after the Job is removed. Never paste it into chat, logs or a PR.
+
+3. Apply it and wait for it:
+
+    ```sh
+    kubectl apply -f migration-timing.yaml
+    kubectl wait -n <namespace> --for=condition=complete job/groundx-timing-schema-migration --timeout=4h
+    ```
+
+    `kubectl wait` does not return when the Job fails; it keeps waiting until its timeout. To check for a failure, run `kubectl get job <name> -n <namespace> -o jsonpath='{.status.conditions[?(@.type=="Failed")].reason}'`. `BackoffLimitExceeded` means the migration exited with an error: read `kubectl logs job/<name> -n <namespace>` before you delete anything. `DeadlineExceeded` means the Job ran out of time and its pod was stopped, so there may be no logs: raise the deadline. Fix the cause and run the Job again. Do not upgrade or sync until a run has completed.
+
+    When the Job has completed, read its start and finish times, then remove it:
+
+    ```sh
+    kubectl get job groundx-timing-schema-migration -n <namespace> -o jsonpath='{.status.startTime} {.status.completionTime}{"\n"}'
+    kubectl delete -f migration-timing.yaml
+    rm -f migration-timing.yaml
+    ```
+
+**Run the migration first when it does not fit.** Under Helm, do this when the measured time is close to or above 900 seconds. Under Argo CD, do it before a sync to a new chart version whenever the measured time is above about 60 seconds, because the API pod is then the only thing that runs the migration (see Argo CD below). Render the Job as in step 2, but with the release name `groundx-premigrate`, without the two `db.existing` settings, with `activeDeadlineSeconds` well above the measured time (for example twice it), and into `migration-premigrate.yaml`, which is secret-bearing in the same way. Apply it, wait for `job/groundx-premigrate-schema-migration` with the `kubectl wait` command from step 3 and a `--timeout` above the new deadline, then delete the Job, its Secret and `migration-premigrate.yaml` as in step 3. Do not restart GroundX pods while it runs: a restarting API pod waits for the same lock and fails after 30 seconds. The chart's own Job then finds the build done and finishes quickly.
+
+These commands create and delete a Secret and a Job in the cluster. Show them to the operator and wait for approval before running them, and confirm each delete separately.
+
+**Helm.** Set `--timeout` above the Job deadline, for example `--timeout 20m`. Helm applies `--timeout` to each operation it waits for, including the migration Job; it is not a limit on the whole upgrade, and its default is 5 minutes. If `helm upgrade` stops with a timeout, the Job can still be running. Check it before you run the upgrade again:
+
+```sh
+kubectl get job <release>-schema-migration -n <namespace> -o jsonpath='{.status.active} {.status.conditions[?(@.status=="True")].type} {.status.conditions[?(@.type=="Failed")].reason}{"\n"}'
+```
+
+`Complete` means it finished after Helm stopped waiting. `Failed` and a reason mean it failed: handle it as in step 3 above. Only a number, such as `1`, means it is still running: wait for it. `NotFound` means Helm saw it finish and removed it. Running the upgrade again deletes the previous migration Job, even one that is still running, and starts a new one. Wait until the Job has finished first.
+
+**Argo CD.** Argo CD renders the chart with `helm template`, which never sets the upgrade flag, so on these charts Argo CD never creates the migration Job. The new `groundx` API pod is then the only thing that runs the migration. Run the separate Job above with `kubectl`, outside the Application, before you sync to the new chart version. Argo CD neither tracks nor prunes a Job and Secret applied this way, because they carry neither its tracking annotation nor the `app.kubernetes.io/instance` label.
+
+If you already synced, and the new API pods keep restarting while the new workers exit:
+
+1. Turn off automated sync for the Application. Argo CD refuses a rollback while automated sync is on.
+2. Roll the Application back to the previous chart version, for example with `argocd app rollback <app-name>`, so that no API pod of the new version runs and holds the lock. Confirm with `kubectl rollout status deployment/groundx -n <namespace>`, then wait until `kubectl get pods -n <namespace>` shows no `groundx` pod of the new version, including one that is still terminating. A terminating pod can still hold the lock, and the separate Job then fails after 30 seconds.
+3. Run the separate Job above, wait for it to complete, and delete it, its Secret and the file. If it fails, do not sync: read its logs, fix the cause and run it again.
+4. Sync to the new chart version again, and turn automated sync back on if you use it.
+
+Raising `--timeout` or rerunning `helm upgrade` does not help here: under Argo CD there is no Helm release and no chart Job to wait for.
+
+### 2.3 Migration Job values (first chart release after 0.2.9)
+
+The first chart release after 0.2.9 adds three values for the migration Job. Published charts 0.2.7 to 0.2.9 reject them. Before you set them, check that the target chart accepts them:
+
+```sh
+helm template probe groundx/groundx --version <target-version> --set groundx.migration.activeDeadlineSeconds=3600 >/dev/null
+```
+
+A schema error that names `migration` means the chart does not have the values. The probe discards its output; without `>/dev/null` the render would include the `metrics-tls` private key when `metrics.enabled` is true, so never paste it.
+
+- `groundx.migration.activeDeadlineSeconds` (integer, at least 1, default `3600`): the time limit for the whole Job, in seconds.
+- `groundx.migration.backoffLimit` (integer, at least 0, default `2`): how many times Kubernetes starts a new pod after a failed one. Retries share the deadline: when it passes, Kubernetes stops the Job even if retries remain. Each attempt still waits only 30 seconds for the migration lock.
+- `groundx.migration.gitOps` (boolean, default `false`): when `true`, the chart renders the migration Secret and Job in every render that enables at least one Go workload, so Argo CD runs them as PreSync hooks before it updates any Deployment, on every full sync including the first. Argo CD does not run hooks when you sync only selected resources, so the Job does not run and the new pods start before the database is migrated: upgrade with a full sync. The database, its credentials, the service account and the image pull Secrets must exist before PreSync, so do not use it for a first sync with the bundled MySQL. It does not change `helm install` or `helm upgrade`. With it on and a deadline above the measured time, the separate Job in § 2.2 is not needed.
+
+On that release the Job renders `activeDeadlineSeconds: 3600`, so the `sed` in § 2.2 no longer matches: raise the deadline of the timing and run-first Jobs with `--set groundx.migration.activeDeadlineSeconds=<seconds>` instead.
+
+Upgrading to that release with unchanged values gives the Job a 3600-second deadline and 2 retries instead of 900 seconds and none. Set `--timeout` above the Job deadline, for example `--timeout 70m`. When Helm stops waiting, it deletes the migration Secret, so the Job cannot start a retry: a retry pod that stays in `ContainerCreating` with a `secret ... not found` event will never start, and the upgrade must be run again with a longer `--timeout`. With that release's default GroundX image, a retried history build starts after the last task it recorded instead of the first one, though some tasks can still be read again.
 
 ## 3. Schema migration patterns
 
@@ -343,7 +430,7 @@ options), read `references/tls-and-certs.md` §4.
 - **Air-gapped image staging** → `air-gapped.md` § 10.
 - **Backing-service operator upgrades** → respective operator docs; see `services-operators.md` for install pointers.
 - **Chart CHANGELOG / breaking-change log** → consult the chart's own `CHANGELOG.md` (when present).
-- **Data-side schema migrations within MySQL or OpenSearch** → handled by the application's init job; not chart-side.
+- **GroundX MySQL schema migrations** → not a separate step: the chart's pre-upgrade migration Job and the `groundx` API pod run them; see § 2.2.
 - **Major-version Kubernetes upgrades** → upstream Kubernetes docs; the chart works across recent K8s versions but coordinate carefully.
 - **Cross-region DR-driven upgrades (active-passive failover patterns)** → `dr-cross-region-runbook.md`.
 - **Specific chart-version migration steps** → consult the chart's release notes.
