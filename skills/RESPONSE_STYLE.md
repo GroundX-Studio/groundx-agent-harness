@@ -31,6 +31,12 @@ word must earn its place.
 - Separate facts from assumptions. If you have not verified a step, say so plainly
   instead of asserting it.
 - Say what a change costs, not only what it fixes.
+- Preserve evidence limits when summarizing technical results. Distinguish a
+  failed acceptance check, a worse observed result and a demonstrated regression.
+  Identify historical versus fresh baseline comparisons. Do not imply a cause
+  or increased failure frequency that the evidence does not establish. A failed
+  explicit acceptance check can justify holding release while its cause remains
+  unknown; keep both facts in the recommendation.
 - Before asking for approval for a code change, name the responsible code,
   explain what will happen differently, and state what remains uncertain.
   Replace phrases such as "wire it into the workflow" with the concrete change.
